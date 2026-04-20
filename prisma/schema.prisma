@@ -1,0 +1,345 @@
+// GuardWell v2 — Prisma schema
+//
+// Foundational tables only. Domain modules (training, incidents, etc.) get
+// added as they're built per the weeks-1–2 implementation plan.
+//
+// Architecture references:
+//   docs/adr/0001-event-sourcing.md       — EventLog is the source of truth
+//   docs/adr/0002-regulations-operations-matrix.md — schema models the matrix
+//   docs/adr/0003-llm-ops.md              — LlmCall observability
+//   docs/adr/0004-modules-as-data.md      — Regulatory* tables are data, not code
+//   docs/adr/0005-design-system.md        — color/score thresholds live here
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Identity
+// ────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  firebaseUid   String   @unique
+  email         String   @unique
+  firstName     String?
+  lastName      String?
+  emailVerified Boolean  @default(false)
+  mfaEnabled    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  practiceUsers     PracticeUser[]
+  emittedEvents     EventLog[]      @relation("EventActor")
+  legalAcceptances  LegalAcceptance[]
+
+  @@index([firebaseUid])
+  @@index([email])
+}
+
+model LegalAcceptance {
+  id           String   @id @default(cuid())
+  userId       String
+  documentType String   // TOS, PRIVACY, PLATFORM_DISCLAIMER, BAA, DPA
+  version      String
+  acceptedAt   DateTime @default(now())
+  ipAddress    String?
+  userAgent    String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, documentType])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Tenancy — Practice + PracticeUser (per ADR-0001 multi-tenant by practiceId)
+// ────────────────────────────────────────────────────────────────────────────
+
+model Practice {
+  id           String   @id @default(cuid())
+  name         String
+  primaryState String   // ISO state code, e.g. "AZ"
+  operatingStates String[] @default([]) // additional states for multi-state practices
+  specialty    String?
+  npiNumber    String?
+  ehrSystem    String?
+  phone        String?
+  addressStreet String?
+  addressSuite  String?
+  addressCity   String?
+  addressZip    String?
+  entityType   String   @default("COVERED_ENTITY") // COVERED_ENTITY | BUSINESS_ASSOCIATE
+  providerCount String   @default("SOLO")          // SOLO | SMALL_2_5 | MEDIUM_6_15 | LARGE_16_PLUS
+  staffHeadcount Int?
+  setupCompletedAt DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+
+  // Stripe (single tier)
+  stripeCustomerId       String?  @unique
+  stripeSubscriptionId   String?  @unique
+  subscriptionStatus     String   @default("TRIALING") // TRIALING | ACTIVE | PAST_DUE | CANCELED
+  trialEndsAt            DateTime?
+  currentPeriodEnd       DateTime?
+
+  practiceUsers     PracticeUser[]
+  events            EventLog[]
+  complianceItems   ComplianceItem[]
+  enabledFrameworks PracticeFramework[]
+  llmCalls          LlmCall[]
+  scoreSnapshots    ComplianceScoreSnapshot[]
+
+  @@index([primaryState])
+  @@index([subscriptionStatus])
+  @@index([deletedAt])
+}
+
+enum PracticeRole {
+  OWNER
+  ADMIN
+  STAFF
+  VIEWER
+}
+
+model PracticeUser {
+  id          String       @id @default(cuid())
+  userId      String
+  practiceId  String
+  role        PracticeRole @default(STAFF)
+  // Officer designations (multi-select stored as denormalized booleans)
+  isPrivacyOfficer    Boolean @default(false)
+  isSecurityOfficer   Boolean @default(false)
+  isComplianceOfficer Boolean @default(false)
+  isSafetyOfficer     Boolean @default(false)
+  joinedAt    DateTime     @default(now())
+  removedAt   DateTime?
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, practiceId])
+  @@index([practiceId, role])
+  @@index([practiceId, removedAt])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Event sourcing core (ADR-0001)
+// ────────────────────────────────────────────────────────────────────────────
+
+// EventLog is the source of truth for all compliance-relevant state changes.
+// Append-only — no UPDATE, no DELETE in application code. Enforced by lint
+// rule (`no-direct-projection-mutation`) + code review. Postgres-side enforcement
+// will be added in a follow-up migration after the pattern stabilizes.
+model EventLog {
+  id            String   @id @default(cuid())
+  practiceId    String
+  actorUserId   String?  // null for system-generated events (cron, webhook)
+  type          String   // EventType enum (TS-side); kept as String here for forward-compat
+  schemaVersion Int      @default(1)
+  payload       Json     // typed by Zod schema per (type, schemaVersion)
+  idempotencyKey String? @unique // dedup for retried webhooks/cron
+  createdAt     DateTime @default(now())
+
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  actor    User?    @relation("EventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([practiceId, createdAt])
+  @@index([practiceId, type, createdAt])
+  @@index([type, createdAt])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Regulations × Operations matrix (ADR-0002 + ADR-0004)
+// ────────────────────────────────────────────────────────────────────────────
+
+// A regulatory framework — HIPAA, OSHA, OIG, etc. Adding a new one is an INSERT.
+model RegulatoryFramework {
+  id              String   @id @default(cuid())
+  code            String   @unique // "HIPAA", "OSHA", "OIG", "OSHA_WPV", ...
+  name            String
+  shortName       String?
+  description     String   @db.Text
+  citation        String?  // "45 CFR Parts 160, 162, 164"
+  jurisdiction    String   @default("federal") // "federal" | "state-XX"
+  effectiveAt     DateTime?
+  supersededAt    DateTime?
+  weightDefault   Float    @default(0) // share of overall compliance score
+  scoringStrategy String   @default("STANDARD_CHECKLIST") // pluggable per ADR-0004
+  iconKey         String?  // lucide icon name
+  colorKey        String?  // design-system color token
+  sortOrder       Int      @default(0)
+  metadata        Json?    // framework-specific extras
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  requirements         RegulatoryRequirement[]
+  practiceFrameworks   PracticeFramework[]
+
+  @@index([jurisdiction])
+  @@index([sortOrder])
+}
+
+// Per-practice activation of a framework + computed status. Created lazily
+// when a practice's compliance profile activates the framework.
+model PracticeFramework {
+  id          String   @id @default(cuid())
+  practiceId  String
+  frameworkId String
+  enabled     Boolean  @default(true)
+  enabledAt   DateTime @default(now())
+  disabledAt  DateTime?
+  // Cached score (regenerated by event handlers; not source of truth)
+  scoreCache  Float?
+  scoreLabel  String?  // "Compliant" | "Good" | "Needs Work" | "At Risk"
+  lastScoredAt DateTime?
+
+  practice  Practice            @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  framework RegulatoryFramework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+
+  @@unique([practiceId, frameworkId])
+  @@index([practiceId, enabled])
+}
+
+// One requirement = one row that needs evidence to satisfy.
+model RegulatoryRequirement {
+  id              String   @id @default(cuid())
+  frameworkId     String
+  code            String   // "HIPAA_PRIVACY_NPP", "OSHA_BBP_EXPOSURE_CONTROL"
+  title           String
+  description     String   @db.Text
+  citation        String?
+  severity        String   @default("STANDARD") // STANDARD | CRITICAL | OPTIONAL
+  isOptional      Boolean  @default(false)
+  // Which states this requirement applies to. Empty array = all jurisdictions.
+  jurisdictionFilter String[] @default([])
+  // Which evidence types satisfy this requirement.
+  acceptedEvidenceTypes String[] @default([]) // EvidenceType.code values
+  weight          Float    @default(1) // relative weight within framework
+  sortOrder       Int      @default(0)
+  metadata        Json?    // framework-specific extras (e.g. DEA Schedule, OSHA recordable)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  framework      RegulatoryFramework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  complianceItems ComplianceItem[]
+
+  @@unique([frameworkId, code])
+  @@index([frameworkId, sortOrder])
+}
+
+// The kinds of evidence a practice can produce. Maps each to the "My Programs"
+// page that handles producing it.
+model EvidenceType {
+  id           String   @id @default(cuid())
+  code         String   @unique // "POLICY", "TRAINING", "INCIDENT_LOG", "ATTESTATION", "CREDENTIAL", "BAA", "SRA_ANSWER", "DESTRUCTION_LOG", "DRILL_LOG", "INSPECTION"
+  name         String
+  description  String?  @db.Text
+  programRoute String   // Next.js route, e.g. "/programs/policies"
+  iconKey      String?
+  sortOrder    Int      @default(0)
+
+  @@index([sortOrder])
+}
+
+// Per-practice, per-requirement compliance state. Derived from events, but
+// projected here for fast reads. Replaces v1's PracticePolicy-with-prefixed-titles
+// and per-module checklist tables.
+model ComplianceItem {
+  id            String   @id @default(cuid())
+  practiceId    String
+  requirementId String
+  status        String   @default("NOT_STARTED") // NOT_STARTED | IN_PROGRESS | COMPLIANT | GAP | NOT_APPLICABLE
+  // Optional per-item override of the framework-computed status (admin manual override)
+  overrideStatus       String?
+  overrideReason       String?  @db.Text
+  overrideAt           DateTime?
+  overrideByUserId     String?
+  // Evidence pointers — denormalized for read speed; primary truth is EventLog
+  evidenceCount        Int      @default(0)
+  lastEvidenceAt       DateTime?
+  // Cached scoring contribution
+  contributionCache    Float?
+  lastUpdatedAt        DateTime @updatedAt
+  createdAt            DateTime @default(now())
+
+  practice    Practice              @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  requirement RegulatoryRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  @@unique([practiceId, requirementId])
+  @@index([practiceId, status])
+  @@index([practiceId, lastUpdatedAt])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Compliance score snapshots (replayable from events; cached for trends)
+// ────────────────────────────────────────────────────────────────────────────
+
+// Per-practice score history. Each row = one point on the trend graph.
+model ComplianceScoreSnapshot {
+  id           String   @id @default(cuid())
+  practiceId   String
+  snapshotAt   DateTime @default(now())
+  overallScore Float
+  overallLabel String   // "Compliant" | "Good" | "Needs Work" | "At Risk"
+  // Per-framework breakdown stored as JSON for flexibility
+  frameworkBreakdown Json
+  // Why this snapshot was created (event-driven, daily cron, manual recompute)
+  trigger      String   @default("EVENT")
+
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  @@index([practiceId, snapshotAt])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// LLM observability (ADR-0003)
+// ────────────────────────────────────────────────────────────────────────────
+
+model LlmCall {
+  id            String   @id @default(cuid())
+  practiceId    String?  // nullable for system-level calls (e.g. regulatory analyzer)
+  actorUserId   String?
+  promptId      String   // key into the prompt registry
+  promptVersion Int
+  model         String
+  inputHash     String   // sha256 of the redacted input
+  inputTokens   Int?
+  outputTokens  Int?
+  latencyMs     Int
+  costUsd       Decimal? @db.Decimal(10, 6)
+  success       Boolean
+  errorCode     String?
+  containsPHI   Boolean  @default(false) // true only when allowPHI=true was passed
+  createdAt     DateTime @default(now())
+
+  practice Practice? @relation(fields: [practiceId], references: [id], onDelete: SetNull)
+
+  @@index([practiceId, createdAt])
+  @@index([promptId, promptVersion, createdAt])
+  @@index([createdAt])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Waitlist (carried over from v1 marketing — keeps signups during build)
+// ────────────────────────────────────────────────────────────────────────────
+
+model Waitlist {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  source       String   @default("marketing") // "marketing", "marketing:AZ", etc.
+  practiceName String?
+  state        String?
+  notes        String?  @db.Text
+  invited      Boolean  @default(false)
+  invitedAt    DateTime?
+  createdAt    DateTime @default(now())
+
+  @@index([invited, createdAt])
+}
