@@ -25,10 +25,19 @@ function isValidRedirect(url: string): boolean {
 
 function buildCspHeader(nonce: string): string {
   const isDev = process.env.NODE_ENV !== "production";
+  // Next.js 16 + Turbopack don't currently auto-inject nonce into
+  // framework-emitted <script> tags (verified: all RSC payloads render
+  // `"nonce":"$undefined"`). Until that's fixed upstream, we keep the
+  // nonce in the header for any inline script we add ourselves, but
+  // also allow 'unsafe-inline' so Next.js's own scripts execute. The
+  // 'self' + host allowlist still constrains external scripts.
+  //
+  // Do NOT include 'strict-dynamic' — it overrides 'self' + allowlists,
+  // and without working nonce injection it blocks every script.
   const scriptSrc = [
     "'self'",
+    "'unsafe-inline'",
     `'nonce-${nonce}'`,
-    "'strict-dynamic'",
     isDev ? "'unsafe-eval'" : "",
     "https://js.stripe.com",
     "https://apis.google.com",
