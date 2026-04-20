@@ -23,21 +23,22 @@ function isValidRedirect(url: string): boolean {
   return url.startsWith("/") && !url.startsWith("//");
 }
 
-function buildCspHeader(nonce: string): string {
+function buildCspHeader(): string {
   const isDev = process.env.NODE_ENV !== "production";
   // Next.js 16 + Turbopack don't currently auto-inject nonce into
-  // framework-emitted <script> tags (verified: all RSC payloads render
-  // `"nonce":"$undefined"`). Until that's fixed upstream, we keep the
-  // nonce in the header for any inline script we add ourselves, but
-  // also allow 'unsafe-inline' so Next.js's own scripts execute. The
-  // 'self' + host allowlist still constrains external scripts.
+  // framework-emitted <script> tags (verified: deployed HTML has
+  // `"nonce":"$undefined"` throughout RSC payload). Per CSP3 spec,
+  // if a nonce is PRESENT in script-src then 'unsafe-inline' is
+  // IGNORED — so having both doesn't help; it blocks Next.js's own
+  // inline scripts.
   //
-  // Do NOT include 'strict-dynamic' — it overrides 'self' + allowlists,
-  // and without working nonce injection it blocks every script.
+  // Pragmatic fallback: drop the nonce from script-src entirely and
+  // rely on 'self' + 'unsafe-inline' + host allowlist. When Turbopack
+  // adds automatic nonce injection (track upstream) we can re-tighten
+  // by putting 'strict-dynamic' + nonce back.
   const scriptSrc = [
     "'self'",
     "'unsafe-inline'",
-    `'nonce-${nonce}'`,
     isDev ? "'unsafe-eval'" : "",
     "https://js.stripe.com",
     "https://apis.google.com",
@@ -70,8 +71,7 @@ export function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const nonce = btoa(crypto.randomUUID());
-  const csp = buildCspHeader(nonce);
+  const csp = buildCspHeader();
 
   const isPublic = PUBLIC_ROUTES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
@@ -95,11 +95,7 @@ export function proxy(req: NextRequest) {
     return res;
   }
 
-  const requestHeaders = new Headers(req.headers);
-  requestHeaders.set("x-nonce", nonce);
-  requestHeaders.set("Content-Security-Policy", csp);
-
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  const response = NextResponse.next();
   response.headers.set("Content-Security-Policy", csp);
   return response;
 }
