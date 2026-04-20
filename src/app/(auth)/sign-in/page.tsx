@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { firebaseAuth } from "@/lib/firebase";
@@ -27,7 +28,7 @@ export default function SignInPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Sign-in sync failed");
-      router.push(redirect);
+      router.push(redirect as Route);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign-in failed");
       setLoading(false);
