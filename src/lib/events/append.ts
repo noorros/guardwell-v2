@@ -1,58 +1,61 @@
-// Event append + projection helper. Per ADR-0001, this is the ONLY way
-// projection tables (ComplianceItem, PracticeFramework, etc.) are mutated.
-//
-// Usage:
-//   await appendEventAndApply({
-//     practiceId,
-//     actorUserId: user.id,
-//     type: "POLICY_ACKNOWLEDGED",
-//     payload: { requirementId, evidenceId },
-//   }, async (tx) => {
-//     await tx.complianceItem.upsert({ ... });
-//   });
-//
-// The helper:
-//   1. Validates payload against the registered Zod schema for (type, version)
-//   2. Opens a Prisma transaction
-//   3. Appends the event to EventLog
-//   4. Runs the projection callback inside the same transaction
-//   5. Returns the appended event row
-//
-// Implementation will land alongside the first real event type in the
-// weeks-1–2 sprint. This stub establishes the import path so projection
-// code can be written against it from day one.
+// THE ONLY WAY projection tables get mutated (per ADR-0001). Server actions
+// MUST go through this helper. The lint rule `no-direct-projection-mutation`
+// (Task F1) blocks any other code path under src/app/(dashboard)/.
 
 import { db } from "@/lib/db";
-import type { Prisma } from "@prisma/client";
+import {
+  getEventSchema,
+  EVENT_SCHEMAS,
+  type EventType,
+  type PayloadFor,
+} from "./registry";
+import type { EventLog, Prisma } from "@prisma/client";
 
-export type EventInput<TPayload> = {
+export type EventInput<T extends EventType, V extends number = 1> = {
   practiceId: string;
   actorUserId?: string | null;
-  type: string;
-  schemaVersion?: number;
-  payload: TPayload;
+  type: T;
+  schemaVersion?: V;
+  payload: PayloadFor<T, V & keyof (typeof EVENT_SCHEMAS)[T]>;
+  /** Pass to dedupe retried writes — identical idempotencyKey returns the
+   *  existing row instead of inserting a duplicate. */
   idempotencyKey?: string;
 };
 
-export type ProjectionFn = (tx: Prisma.TransactionClient) => Promise<void>;
+export type ProjectionFn = (
+  tx: Prisma.TransactionClient,
+  event: EventLog,
+) => Promise<void>;
 
-/** Stub — full implementation lands in week 1 of v2 build. */
-export async function appendEventAndApply<TPayload>(
-  event: EventInput<TPayload>,
+/** Append a typed event AND apply its projection inside one transaction.
+ *  Validates payload via the registered Zod schema. */
+export async function appendEventAndApply<T extends EventType>(
+  input: EventInput<T>,
   projection: ProjectionFn,
-) {
+): Promise<EventLog> {
+  const version = input.schemaVersion ?? 1;
+  const schema = getEventSchema(input.type, version);
+  const validated = schema.parse(input.payload);
+
+  if (input.idempotencyKey) {
+    const existing = await db.eventLog.findUnique({
+      where: { idempotencyKey: input.idempotencyKey },
+    });
+    if (existing) return existing;
+  }
+
   return db.$transaction(async (tx) => {
-    const row = await tx.eventLog.create({
+    const event = await tx.eventLog.create({
       data: {
-        practiceId: event.practiceId,
-        actorUserId: event.actorUserId ?? null,
-        type: event.type,
-        schemaVersion: event.schemaVersion ?? 1,
-        payload: event.payload as Prisma.InputJsonValue,
-        idempotencyKey: event.idempotencyKey,
+        practiceId: input.practiceId,
+        actorUserId: input.actorUserId ?? null,
+        type: input.type,
+        schemaVersion: version,
+        payload: validated as Prisma.InputJsonValue,
+        idempotencyKey: input.idempotencyKey ?? null,
       },
     });
-    await projection(tx);
-    return row;
+    await projection(tx, event);
+    return event;
   });
 }
