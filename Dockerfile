@@ -36,6 +36,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+# Next.js standalone only traces ONE Prisma engine binary. Copy the full
+# .prisma/client so both binaryTargets (native build-host + openssl-3
+# for Alpine runtime) are available. Prisma picks the right one at runtime.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
