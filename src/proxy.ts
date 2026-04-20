@@ -17,7 +17,7 @@ function isValidRedirect(url: string): boolean {
   return url.startsWith("/") && !url.startsWith("//");
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
   if (
