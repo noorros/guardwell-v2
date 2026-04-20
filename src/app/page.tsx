@@ -18,6 +18,11 @@ export default function Home() {
           </a>{" "}
           to join the waitlist for early access.
         </p>
+        <p className="text-sm">
+          <a href="/sign-in" className="text-primary underline underline-offset-4">
+            Sign in
+          </a>
+        </p>
         <p className="text-xs text-muted-foreground/70">
           Architecture commitments live in{" "}
           <code className="rounded bg-muted px-1.5 py-0.5">docs/adr/</code>.
