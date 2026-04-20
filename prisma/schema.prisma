@@ -12,9 +12,8 @@
 
 generator client {
   provider      = "prisma-client-js"
-  // native for local dev; linux-musl-openssl-3.0.x for node:20-alpine in Cloud Run.
-  // node:20-alpine ships openssl 3.x (libssl.so.3), not libssl.so.1.1.
-  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+  // native for local dev; debian-openssl-3.0.x for node:20-slim in Cloud Run.
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
