@@ -7,6 +7,41 @@ import type { Prisma } from "@prisma/client";
 import type { DerivationRule, DerivedStatus } from "./hipaa";
 
 /**
+ * Generic: is there at least one active, non-expired Credential of the
+ * given CredentialType.code on file for this practice? "active" =
+ * retiredAt is null. "non-expired" = expiryDate is null (perpetual) OR
+ * expiryDate is in the future.
+ *
+ * Used by DEA_REGISTRATION, CMS_PECOS_ENROLLMENT, CMS_NPI_REGISTRATION,
+ * CMS_MEDICARE_PROVIDER_ENROLLMENT, and anything else satisfied by "one
+ * active credential of type X".
+ */
+export function credentialTypePresentRule(
+  credentialTypeCode: string,
+): DerivationRule {
+  return async (
+    tx: Prisma.TransactionClient,
+    practiceId: string,
+  ): Promise<DerivedStatus | null> => {
+    const credType = await tx.credentialType.findUnique({
+      where: { code: credentialTypeCode },
+      select: { id: true },
+    });
+    if (!credType) return null; // type not seeded → rule doesn't apply
+
+    const count = await tx.credential.count({
+      where: {
+        practiceId,
+        credentialTypeId: credType.id,
+        retiredAt: null,
+        OR: [{ expiryDate: null }, { expiryDate: { gt: new Date() } }],
+      },
+    });
+    return count >= 1 ? "COMPLIANT" : "GAP";
+  };
+}
+
+/**
  * Generic "≥ threshold of active workforce has a passed, non-expired
  * completion of a specific course" rule. Used by both HIPAA
  * (HIPAA_WORKFORCE_TRAINING) and OSHA (OSHA_BBP_TRAINING, etc.).
