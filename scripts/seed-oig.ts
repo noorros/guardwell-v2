@@ -17,6 +17,7 @@
 
 import { PrismaClient } from "@prisma/client";
 import { config } from "dotenv";
+import { backfillFrameworkDerivations } from "./lib/backfill-derivations";
 
 config({ path: ".env" });
 
@@ -208,6 +209,8 @@ async function main() {
   console.log(
     `Seed OIG: framework id=${framework.id}, ${upsertedReqs} requirements upserted, ${activations} practice activations.`,
   );
+
+  await backfillFrameworkDerivations(db, "OIG");
 }
 
 main()

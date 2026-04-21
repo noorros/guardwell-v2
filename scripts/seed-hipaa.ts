@@ -12,6 +12,7 @@
 
 import { PrismaClient } from "@prisma/client";
 import { config } from "dotenv";
+import { backfillFrameworkDerivations } from "./lib/backfill-derivations";
 
 config({ path: ".env" });
 
@@ -197,6 +198,8 @@ async function main() {
   console.log(
     `Seed HIPAA: framework id=${framework.id}, ${upserted} requirements upserted.`,
   );
+
+  await backfillFrameworkDerivations(db, "HIPAA");
 }
 
 main()
