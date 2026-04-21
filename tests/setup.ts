@@ -9,6 +9,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
+  await db.llmCall.deleteMany();
   await db.eventLog.deleteMany();
   await db.practiceUser.deleteMany();
   await db.complianceItem.deleteMany();
