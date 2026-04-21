@@ -103,6 +103,59 @@ All five queries run in parallel where data-dependencies allow (2–5 can be `Pr
 
 ---
 
+## Core principle — Evidence-driven compliance
+
+**Compliance status is a derivation, not a data entry form.** Whenever a user completes a task in My Programs (designates an officer, adopts a policy, completes training, files an incident record, logs a BAA), the event that records that task MUST also re-evaluate every `RegulatoryRequirement` whose `acceptedEvidenceTypes` matches — and if the evidence is sufficient, project a `ComplianceItem.status = "COMPLIANT"` in the same transaction as the original event. The user should almost never need to visit `/modules/[code]` and click "Compliant" manually; the status is already there because they did the underlying work elsewhere.
+
+This is the opposite of v1, where the module pages were where compliance got *entered* (and then frequently diverged from whatever operational state the rest of the app actually had). In v2, module pages are where compliance gets *displayed* and *overridden*. The manual radios on Section C are the escape hatch (for auditor overrides, one-off exceptions, "I did this offline"), not the primary path.
+
+### How it works mechanically
+
+1. **Each requirement lists the evidence types that satisfy it.** `RegulatoryRequirement.acceptedEvidenceTypes: String[]` is a field of `EvidenceType.code` values. Example: `HIPAA_PRIVACY_OFFICER` requirement has `acceptedEvidenceTypes = ["OFFICER_DESIGNATION"]`. `HIPAA_POLICIES_AND_PROCEDURES` has `["POLICY:HIPAA_PRIVACY_POLICY", "POLICY:HIPAA_SECURITY_POLICY", "POLICY:HIPAA_BREACH_RESPONSE_POLICY"]` (all three needed).
+
+2. **Every evidence-producing action emits an event.** When the user completes onboarding and checks "I am the Privacy Officer," the server action emits `OFFICER_DESIGNATED` with payload `{ userId, role: "PRIVACY_OFFICER", practiceId }`. When they adopt a policy in `/programs/policies`, the action emits `POLICY_ADOPTED` with `{ policyId, policyCode, practiceId, acknowledgedByUserIds }`. Et cetera.
+
+3. **The projection for each evidence event walks the requirement registry.** Inside `appendEventAndApply`'s projection callback, after the primary write (creating the PracticeUser officer row, the Policy row, etc.), a helper `rederiveRequirementStatus(tx, practiceId, evidenceTypeCode)` runs:
+   - `SELECT * FROM RegulatoryRequirement WHERE acceptedEvidenceTypes CONTAINS evidenceTypeCode`
+   - For each hit, check if the practice has enough evidence to satisfy (count of adopted policies of the required codes ≥ required; existence of at least one active officer of the right role; etc. — logic specific to the evidence type)
+   - If yes, upsert `ComplianceItem.status = "COMPLIANT"` with `source = "DERIVED"` and a reason like `"Auto-satisfied by adopted policy: HIPAA Privacy Policy"`
+   - If the current status is `COMPLIANT` with `source = "USER"`, do NOT downgrade (same guard as AI): user overrides win.
+
+4. **The module page's Section C surfaces where the evidence came from.** A `ComplianceItem` with `source = "DERIVED"` renders an `<EvidenceBadge>` in the row (weeks 9-10 wiring) showing "Satisfied by HIPAA Privacy Policy" with a link to `/programs/policies/hipaa-privacy-policy`. Clicking the evidence takes the user to the operational page that produced it. The loop closes.
+
+5. **Removal of evidence re-derives too.** If a policy is retired (`POLICY_RETIRED` event), the projection re-runs the derivation and may downgrade `ComplianceItem.status` from `COMPLIANT` back to `GAP` (unless the user has manually asserted `source = "USER"` COMPLIANT — same "user override wins" rule).
+
+### What each of the 10 current HIPAA requirements will derive from (once the My Programs pages exist)
+
+| Requirement code | Derived from | My Programs surface |
+|---|---|---|
+| `HIPAA_PRIVACY_OFFICER` | Existence of active `PracticeUser.isPrivacyOfficer=true` | Onboarding / `/programs/staff` |
+| `HIPAA_SECURITY_OFFICER` | Existence of active `PracticeUser.isSecurityOfficer=true` | Onboarding / `/programs/staff` |
+| `HIPAA_SRA` | At least one completed `SRA_ANSWER_RECORDED` chain resulting in an SRA report in the last 12 months | `/programs/risk` (SRA questionnaire) |
+| `HIPAA_POLICIES_AND_PROCEDURES` | All required HIPAA policies adopted (P&P set defined by the framework) | `/programs/policies` |
+| `HIPAA_WORKFORCE_TRAINING` | ≥ 95% of active `PracticeUser` have current `TRAINING_COMPLETED` for the HIPAA-Basics track | `/programs/training` |
+| `HIPAA_BAA` | ≥ 1 active `BAA_EXECUTED` per vendor that processes PHI | `/programs/vendors` |
+| `HIPAA_MINIMUM_NECESSARY` | Existence of an adopted minimum-necessary policy + no open related incidents | `/programs/policies` + `/programs/incidents` |
+| `HIPAA_NPP` | Adopted NPP policy + attestation it's posted/distributed | `/programs/policies` |
+| `HIPAA_BREACH_RESPONSE` | Adopted breach-response policy + no unresolved breach incidents | `/programs/policies` + `/programs/incidents` |
+| `HIPAA_WORKSTATION_USE` | Adopted workstation policy + acknowledgment from ≥ 95% of workforce | `/programs/policies` |
+
+Every row above is a derivation rule that will live in `src/lib/compliance/derivation/hipaa.ts` (or similar). Each rule is pure: given current Prisma state for a practice, returns `COMPLIANT | GAP | IN_PROGRESS | NOT_STARTED`. The projections call into these.
+
+### Consequences
+
+- **Section C on the module page becomes read-dominant** for users who are doing the work in My Programs. Fewer clicks, less manual data entry, fewer drift bugs.
+- **Operational pages (My Programs) must emit well-formed events** for every state change. This is enforced by the same `appendEventAndApply` + `no-direct-projection-mutation` pair we already have. A policy that's written but not committed through the event path doesn't satisfy anything.
+- **A new regulation's seed script declares its derivation rules** by listing `acceptedEvidenceTypes` per requirement. The page doesn't need to know. OSHA gets added as a row; when an OSHA policy is adopted, that policy's event fires, derivation runs, and the OSHA page lights up.
+- **"Source" on `ComplianceItem` becomes the audit signal**: `DERIVED | USER | AI_ASSESSMENT | IMPORT`. UI shows a small chip so auditors see at a glance which rows came from evidence vs were manually asserted.
+
+### What this doesn't fix
+
+- Requirements with no clean evidence mapping (e.g., "Conduct an annual review of policies") still need either a questionnaire-driven event (from the SRA-like surface) or a user attestation. Those stay manual-by-design, with a `LAST_REVIEWED` attestation event as the satisfying evidence.
+- State-specific rules layered on a federal framework (e.g., CA HIPAA variants) still need the `jurisdictionFilter` resolution at query time — derivation happens per requirement as surfaced, not per abstract rule.
+
+---
+
 ## The shell — common across all 14 frameworks
 
 Every `/modules/[code]` page renders, in order:
