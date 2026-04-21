@@ -4,6 +4,7 @@ import { ShieldCheck } from "lucide-react";
 import { getPracticeUser } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { ModuleHeader } from "@/components/gw/ModuleHeader";
+import { ModuleSummaryBand } from "@/components/gw/ModuleSummaryBand";
 import { AiAssistTrigger } from "@/components/gw/AiAssistDrawer/AiAssistTrigger";
 import { ChecklistItemServer } from "./ChecklistItemServer";
 import { AiAssessmentButton } from "./AiAssessmentButton";
@@ -26,10 +27,13 @@ type StatusEventPayload = {
 
 export default async function ModulePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ code: string }>;
+  searchParams?: Promise<{ status?: string }>;
 }) {
   const { code } = await params;
+  const sp = (await searchParams) ?? {};
   const pu = await getPracticeUser();
   if (!pu) return null;
 
@@ -48,6 +52,29 @@ export default async function ModulePage({
     },
   });
   const byReq = new Map(items.map((i) => [i.requirementId, i]));
+
+  // Section B counts, computed pre-filter so the band always shows the true shape.
+  const compliantCount = items.filter((i) => i.status === "COMPLIANT").length;
+  const totalRequirements = framework.requirements.length;
+  const gapCount = items.filter((i) => i.status === "GAP").length;
+  const deadlineCount = 0; // Placeholder — no deadline source until operational pages.
+
+  // Apply Section-C status filter from Section-B click: ?status=compliant|gap|not-started.
+  // Unknown values fall through to "show all".
+  const statusFilter = sp.status?.toLowerCase();
+  const filteredRequirements = framework.requirements.filter((r) => {
+    if (statusFilter === "compliant") {
+      return byReq.get(r.id)?.status === "COMPLIANT";
+    }
+    if (statusFilter === "gap") {
+      return byReq.get(r.id)?.status === "GAP";
+    }
+    if (statusFilter === "not-started") {
+      const s = byReq.get(r.id)?.status;
+      return s === undefined || s === "NOT_STARTED";
+    }
+    return true;
+  });
 
   // Pull the most recent REQUIREMENT_STATUS_UPDATED events for this practice,
   // then keep only the latest one per requirement. 10 requirements per module
@@ -94,6 +121,12 @@ export default async function ModulePage({
         score={score}
         jurisdictions={[framework.jurisdiction]}
       />
+      <ModuleSummaryBand
+        compliantCount={compliantCount}
+        totalRequirements={totalRequirements}
+        gapCount={gapCount}
+        deadlineCount={deadlineCount}
+      />
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-foreground">Requirements</h2>
@@ -108,7 +141,7 @@ export default async function ModulePage({
           </div>
         </div>
         <div className="space-y-2">
-          {framework.requirements.map((r) => {
+          {filteredRequirements.map((r) => {
             const ci = byReq.get(r.id);
             const lastEvt = latestEventByReq.get(r.id);
             return (
