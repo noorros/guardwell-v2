@@ -14,6 +14,9 @@ export const EVENT_TYPES = [
   "POLICY_ADOPTED",
   "POLICY_RETIRED",
   "TRAINING_COMPLETED",
+  "VENDOR_UPSERTED",
+  "VENDOR_BAA_EXECUTED",
+  "VENDOR_REMOVED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -91,6 +94,34 @@ export const EVENT_SCHEMAS = {
       score: z.number().int().min(0).max(100),
       passed: z.boolean(),
       expiresAt: z.string().datetime(),
+    }),
+  },
+  VENDOR_UPSERTED: {
+    1: z.object({
+      vendorId: z.string().min(1),
+      name: z.string().min(1).max(200),
+      type: z.string().max(50).nullable().optional(),
+      service: z.string().max(500).nullable().optional(),
+      contact: z.string().max(200).nullable().optional(),
+      email: z.string().email().nullable().optional().or(z.literal("")),
+      notes: z.string().max(2000).nullable().optional(),
+      processesPhi: z.boolean(),
+    }),
+  },
+  VENDOR_BAA_EXECUTED: {
+    1: z.object({
+      vendorId: z.string().min(1),
+      executedAt: z.string().datetime(),
+      expiresAt: z.string().datetime().nullable().optional(),
+      baaDirection: z
+        .enum(["PRACTICE_PROVIDED", "VENDOR_PROVIDED", "PLATFORM_ACKNOWLEDGMENT"])
+        .nullable()
+        .optional(),
+    }),
+  },
+  VENDOR_REMOVED: {
+    1: z.object({
+      vendorId: z.string().min(1),
     }),
   },
 } as const;

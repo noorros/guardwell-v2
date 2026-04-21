@@ -94,6 +94,7 @@ model Practice {
   practiceUsers       PracticeUser[]
   practicePolicies    PracticePolicy[]
   trainingCompletions TrainingCompletion[]
+  vendors             Vendor[]
   events              EventLog[]
   complianceItems     ComplianceItem[]
   enabledFrameworks   PracticeFramework[]
@@ -151,6 +152,37 @@ model PracticePolicy {
 
   @@unique([practiceId, policyCode])
   @@index([practiceId, retiredAt])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Vendors — BAA tracking for HIPAA §164.308(b)(1) / HIPAA_BAA
+// ────────────────────────────────────────────────────────────────────────────
+
+// Evidence for BAA_EXECUTED. Append-only at the application layer —
+// mutations go through appendEventAndApply() per ADR-0001. Removing a
+// vendor sets retiredAt. Editing name/service/processesPhi goes through
+// VENDOR_UPSERTED (same event as create); BAA signing is its own event.
+model Vendor {
+  id             String   @id @default(cuid())
+  practiceId     String
+  name           String
+  type           String?              // "EHR" | "Billing" | "IT" | "Cloud" | "Other" — free-text for flexibility
+  service        String?  @db.Text    // what the vendor provides ("billing clearinghouse")
+  contact        String?              // primary contact person
+  email          String?
+  notes          String?  @db.Text
+  processesPhi   Boolean  @default(false)
+  baaDirection   String?              // PRACTICE_PROVIDED | VENDOR_PROVIDED | PLATFORM_ACKNOWLEDGMENT
+  baaExecutedAt  DateTime?            // null = no BAA on file
+  baaExpiresAt   DateTime?            // null = perpetual / no expiry
+  retiredAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  @@index([practiceId, retiredAt])
+  @@index([practiceId, processesPhi, baaExpiresAt])
 }
 
 // ────────────────────────────────────────────────────────────────────────────

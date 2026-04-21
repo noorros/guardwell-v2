@@ -120,6 +120,31 @@ export async function hipaaWorkforceTrainingRule(
   return compliantCount / activeUsers.length >= 0.95 ? "COMPLIANT" : "GAP";
 }
 
+/**
+ * HIPAA §164.308(b)(1). Satisfied when EVERY active, PHI-processing
+ * Vendor has a non-expired BAA on file. Practices with zero PHI
+ * vendors stay GAP ("list your vendors or mark N/A"); the explicit
+ * NOT_APPLICABLE override via the module page is the escape hatch
+ * for the rare practice that genuinely has none.
+ */
+export async function hipaaBaaRule(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<DerivedStatus | null> {
+  const phiVendors = await tx.vendor.findMany({
+    where: { practiceId, retiredAt: null, processesPhi: true },
+    select: { baaExecutedAt: true, baaExpiresAt: true },
+  });
+  if (phiVendors.length === 0) return "GAP";
+  const now = new Date();
+  const allCovered = phiVendors.every(
+    (v) =>
+      v.baaExecutedAt !== null &&
+      (v.baaExpiresAt === null || v.baaExpiresAt > now),
+  );
+  return allCovered ? "COMPLIANT" : "GAP";
+}
+
 export const HIPAA_DERIVATION_RULES: Record<string, DerivationRule> = {
   HIPAA_PRIVACY_OFFICER: hipaaPrivacyOfficerRule,
   HIPAA_SECURITY_OFFICER: hipaaSecurityOfficerRule,
@@ -129,4 +154,5 @@ export const HIPAA_DERIVATION_RULES: Record<string, DerivationRule> = {
   HIPAA_BREACH_RESPONSE: singlePolicyRule("HIPAA_BREACH_RESPONSE_POLICY"),
   HIPAA_WORKSTATION_USE: singlePolicyRule("HIPAA_WORKSTATION_POLICY"),
   HIPAA_WORKFORCE_TRAINING: hipaaWorkforceTrainingRule,
+  HIPAA_BAAS: hipaaBaaRule,
 };
