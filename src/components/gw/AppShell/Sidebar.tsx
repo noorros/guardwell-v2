@@ -64,7 +64,7 @@ const PROGRAMS: ProgramItem[] = [
   // know about it yet.
   { label: "Staff", icon: Users, href: "/programs/staff" as Route },
   { label: "Policies", icon: FileText, href: "/programs/policies" as Route },
-  { label: "Training", icon: GraduationCap },
+  { label: "Training", icon: GraduationCap, href: "/programs/training" as Route },
   { label: "Incidents", icon: AlertTriangle },
   { label: "Credentials", icon: IdCard },
   { label: "Vendors", icon: Building2 },
