@@ -156,18 +156,22 @@ interface V1CourseWithCode extends LegacyV1Course {
   code: string;
 }
 
-function loadAdditional(filePath: string): CourseFixture[] {
+function loadFramework(
+  filePath: string,
+  type: string,
+  baseSortOrder: number,
+): CourseFixture[] {
   const raw: V1CourseWithCode[] = JSON.parse(readFileSync(filePath, "utf8"));
   return raw.map((r, idx) => ({
     code: r.code,
     title: r.title,
     description: r.description,
-    type: "HIPAA",
+    type,
     durationMinutes: r.duration,
     passingScore: r.passingScore,
     isRequired: r.isRequired,
     roles: r.roles,
-    sortOrder: 20 + idx * 10,
+    sortOrder: baseSortOrder + idx * 10,
     version: 1,
     lessonContent: r.lessonContent,
     quizQuestions: r.quizQuestions,
@@ -176,14 +180,16 @@ function loadAdditional(filePath: string): CourseFixture[] {
 
 async function main() {
   const basicsPath = path.resolve(__dirname, "_v1-hipaa-101-export.json");
-  const additionalPath = path.resolve(
+  const hipaaAdditionalPath = path.resolve(
     __dirname,
     "_v1-hipaa-additional-courses-export.json",
   );
+  const oshaPath = path.resolve(__dirname, "_v1-osha-training-export.json");
 
   const fixtures: CourseFixture[] = [
     loadHipaaBasics(basicsPath),
-    ...loadAdditional(additionalPath),
+    ...loadFramework(hipaaAdditionalPath, "HIPAA", 20),
+    ...loadFramework(oshaPath, "OSHA", 100),
   ];
 
   let totalQuestions = 0;

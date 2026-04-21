@@ -11,6 +11,7 @@
 
 import type { Prisma } from "@prisma/client";
 import { HIPAA_PP_POLICY_SET, type HipaaPolicyCode } from "@/lib/compliance/policies";
+import { courseCompletionThresholdRule } from "./shared";
 
 export type DerivedStatus = "COMPLIANT" | "GAP" | "NOT_STARTED";
 export type DerivationRule = (
@@ -85,40 +86,8 @@ export async function hipaaPoliciesProceduresRule(
  * passed, non-expired TrainingCompletion for the HIPAA_BASICS course.
  * Single-owner practices hit 100% after one completion.
  */
-export async function hipaaWorkforceTrainingRule(
-  tx: Prisma.TransactionClient,
-  practiceId: string,
-): Promise<DerivedStatus | null> {
-  const course = await tx.trainingCourse.findUnique({
-    where: { code: "HIPAA_BASICS" },
-    select: { id: true },
-  });
-  if (!course) return null;
-
-  const activeUsers = await tx.practiceUser.findMany({
-    where: { practiceId, removedAt: null },
-    select: { userId: true },
-  });
-  if (activeUsers.length === 0) return "GAP";
-
-  const completed = await tx.trainingCompletion.findMany({
-    where: {
-      practiceId,
-      courseId: course.id,
-      passed: true,
-      expiresAt: { gt: new Date() },
-    },
-    distinct: ["userId"],
-    select: { userId: true },
-  });
-
-  const completedIds = new Set(completed.map((c) => c.userId));
-  const compliantCount = activeUsers.filter((u) =>
-    completedIds.has(u.userId),
-  ).length;
-
-  return compliantCount / activeUsers.length >= 0.95 ? "COMPLIANT" : "GAP";
-}
+export const hipaaWorkforceTrainingRule: DerivationRule =
+  courseCompletionThresholdRule("HIPAA_BASICS", 0.95);
 
 /**
  * HIPAA §164.308(b)(1). Satisfied when EVERY active, PHI-processing

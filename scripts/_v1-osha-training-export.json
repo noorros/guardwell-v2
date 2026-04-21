@@ -1,0 +1,212 @@
+[
+  {
+    "code": "BLOODBORNE_PATHOGEN_TRAINING",
+    "title": "Bloodborne Pathogens Training",
+    "description": "Required annual training covering exposure risks, universal precautions, PPE use, and post-exposure procedures.",
+    "type": "OSHA",
+    "duration": 30,
+    "passingScore": 80,
+    "isRequired": true,
+    "roles": [
+      "clinical"
+    ],
+    "lessonContent": "<div class=\"lesson-content\">\n\n  <div class=\"lesson-intro\">\n    <h2>Before we start — the stakes are personal</h2>\n    <p>About <strong>385,000 needlestick and sharps injuries</strong> occur in U.S. healthcare settings every year, according to the CDC. Each one carries the potential for transmission of HIV, Hepatitis B, Hepatitis C, and dozens of other bloodborne pathogens. The majority are preventable. OSHA's Bloodborne Pathogens Standard exists because the healthcare workplace has specific, serious biological hazards — and workers deserve to know exactly how to protect themselves.</p>\n  </div>\n\n  <h2>What are bloodborne pathogens</h2>\n  <p>Bloodborne pathogens are microorganisms — bacteria, viruses — present in human blood and certain other body fluids that can cause disease. The three you hear about most often:</p>\n  <ul>\n    <li><strong>HIV</strong> (Human Immunodeficiency Virus) — attacks the immune system. No cure, but effectively managed with treatment.</li>\n    <li><strong>HBV</strong> (Hepatitis B Virus) — attacks the liver. Significantly more transmissible than HIV. A vaccine exists — and your employer is required to offer it to you at no cost.</li>\n    <li><strong>HCV</strong> (Hepatitis C Virus) — also attacks the liver. No vaccine, but now curable with antiviral medications.</li>\n  </ul>\n  <p>Other potentially infectious materials (OPIM) beyond blood include semen, vaginal secretions, cerebrospinal fluid, synovial fluid, pleural fluid, peritoneal fluid, pericardial fluid, and amniotic fluid. Saliva in dental settings is also covered. Sweat, tears, urine, and feces are NOT covered unless visibly contaminated with blood.</p>\n\n  <h2>Universal Precautions — the foundational principle</h2>\n  <p>Universal Precautions means treating ALL blood and OPIM as potentially infectious, regardless of what you know or think you know about the patient. You cannot tell by looking at someone whether they carry a bloodborne pathogen. You cannot rely on a patient's self-reported history. You treat everyone the same.</p>\n  <p>This isn't cynicism about patients — it's science. Many people who carry bloodborne pathogens don't know they have them. Universal Precautions protects you and it protects patients from cross-contamination.</p>\n\n  <h2>The hierarchy of controls — how protection actually works</h2>\n  <p>OSHA's BBP Standard uses a hierarchy of controls, from most effective to least effective. The goal is to eliminate the hazard, not just protect against it after the fact.</p>\n  <ul>\n    <li><strong>Elimination:</strong> Remove the hazard entirely. Example: switching to needleless IV systems where clinically appropriate.</li>\n    <li><strong>Engineering controls:</strong> Technology that isolates the hazard. Safety-engineered sharps (retractable needles, scalpels with blade guards), puncture-resistant sharps containers at the point of use, biosafety cabinets.</li>\n    <li><strong>Work practice controls:</strong> How you do the work. Never recap needles with two hands. Never remove needles from syringes by hand. Immediately discard used sharps into containers at the point of use.</li>\n    <li><strong>PPE:</strong> Gloves, gowns, masks, eye protection. The last line of defense — not the first.</li>\n  </ul>\n\n  <div class=\"callout callout-example\">\n    <strong>Engineering controls are not optional:</strong> OSHA requires that employers evaluate and implement available safety-engineered devices. If a safer needle exists, you need to evaluate it — and front-line workers must be involved in that evaluation. \"We've always done it this way\" is not a compliant answer.\n  </div>\n\n  <h2>Sharps — the highest-risk scenario</h2>\n  <p>Needlestick injuries are the most common route of occupational bloodborne pathogen exposure. The rules for sharps are non-negotiable:</p>\n  <ul>\n    <li>Never recap a used needle using two hands. If recapping is absolutely necessary, use the one-handed scoop method or a mechanical recapping device.</li>\n    <li>Never remove a needle from a syringe by hand.</li>\n    <li>Dispose of used sharps immediately into a puncture-resistant, leak-proof, labeled sharps container at the point of use — where you used it, not across the room.</li>\n    <li>Replace sharps containers when they reach the fill line (typically ¾ full). Overfilling is a significant injury risk.</li>\n    <li>Never reach into a sharps container.</li>\n  </ul>\n\n  <h2>If an exposure occurs — what to do right now</h2>\n  <p>Speed matters. Here's the immediate sequence:</p>\n  <ul>\n    <li><strong>Wash the wound</strong> immediately and thoroughly with soap and water. For eye, nose, or mouth splashes, flush with water. Don't scrub — clean.</li>\n    <li><strong>Report to your supervisor immediately.</strong> Not at the end of the shift. Now.</li>\n    <li><strong>Seek medical evaluation promptly.</strong> Post-exposure prophylaxis for HIV is most effective when started within 2 hours of exposure. After 72 hours it's generally not recommended. This is time-sensitive.</li>\n    <li><strong>Complete an exposure report.</strong> Your employer is required to maintain a sharps injury log. This isn't paperwork for paperwork's sake — it helps identify patterns and prevent future injuries.</li>\n  </ul>\n\n  <div class=\"callout callout-warning\">\n    <strong>Don't wait to see if symptoms develop.</strong> Bloodborne pathogen exposures require immediate evaluation regardless of whether you think the risk is low. Source patient testing, prophylaxis decisions, and baseline testing for you all need to happen quickly.\n  </div>\n\n  <h2>Your rights under the BBP Standard</h2>\n  <ul>\n    <li>The Hepatitis B vaccine must be offered to you within 10 working days of your initial assignment to tasks with exposure risk — at no cost to you.</li>\n    <li>If you're exposed, post-exposure evaluation and follow-up must be provided at no cost to you.</li>\n    <li>You must receive this training annually — not just on hire.</li>\n    <li>Your exposure records must be kept confidential and retained for the duration of your employment plus 30 years.</li>\n  </ul>\n\n  <h2>Common mistakes that lead to exposures</h2>\n  <ul>\n    <li><strong>Two-handed recapping.</strong> Still happens. Always will be the leading cause of needlestick injuries until safety devices fully replace traditional sharps.</li>\n    <li><strong>Overfilled sharps containers.</strong> When you push a sharp into an overfull container, you risk sticking a finger on something already inside it.</li>\n    <li><strong>Delaying exposure reports.</strong> \"It probably wasn't a big deal.\" The window for effective HIV PEP is closing while you wait.</li>\n  </ul>\n\n  <h2>Key takeaways</h2>\n  <ul>\n    <li>Treat all blood and OPIM as potentially infectious — Universal Precautions, every patient, every time.</li>\n    <li>Engineering controls (safety devices, sharps containers) come before PPE in the hierarchy. PPE is the last line of defense.</li>\n    <li>Never recap needles with two hands. Discard sharps immediately at the point of use.</li>\n    <li>An exposure requires immediate wound washing, immediate supervisor notification, and prompt medical evaluation. HIV PEP is most effective within 2 hours.</li>\n    <li>The Hepatitis B vaccine is offered to you at no cost. Take it.</li>\n    <li>Annual training is required — this isn't a one-time box to check.</li>\n  </ul>\n\n  <div class=\"lesson-quiz-intro\">\n    <p>Ready for the quiz. Eight questions. You need 80% to pass.</p>\n  </div>\n\n</div>",
+    "quizQuestions": [
+      {
+        "question": "OSHA's Bloodborne Pathogens Standard (29 CFR 1910.1030) requires annual training for employees who have:",
+        "options": [
+          "Been employed for more than 5 years",
+          "Occupational exposure to blood or other potentially infectious materials (OPIM)",
+          "Any patient-facing role regardless of exposure risk",
+          "Requested the training voluntarily"
+        ],
+        "correctIndex": 1,
+        "explanation": "The BBP Standard requires training for all employees who have reasonably anticipated occupational exposure to blood or other potentially infectious materials (OPIM) as part of their job duties.",
+        "order": 1
+      },
+      {
+        "question": "Under Universal Precautions, blood and OPIM from ALL patients should be treated as:",
+        "options": [
+          "Infectious only if the patient has a known bloodborne disease",
+          "Safe unless the patient tests positive for HIV or Hepatitis",
+          "Potentially infectious regardless of the patient's known or perceived status",
+          "Non-infectious in routine clinical settings"
+        ],
+        "correctIndex": 2,
+        "explanation": "Universal Precautions requires treating all blood and OPIM as if known to be infectious, regardless of the perceived health status of the individual.",
+        "order": 2
+      },
+      {
+        "question": "After a needlestick injury, the FIRST action you should take is:",
+        "options": [
+          "Complete an incident report and file it with HR",
+          "Immediately notify the patient",
+          "Wash the wound thoroughly with soap and water",
+          "Call OSHA to report the incident"
+        ],
+        "correctIndex": 2,
+        "explanation": "The immediate response to a needlestick or sharp injury is to wash the wound thoroughly with soap and water. For mucous membrane exposures, flush with water. Then report to your supervisor.",
+        "order": 3
+      },
+      {
+        "question": "The Hepatitis B vaccination must be offered to employees with occupational exposure:",
+        "options": [
+          "After their first needlestick injury",
+          "Within 10 working days of initial assignment to tasks with exposure risk, at no cost",
+          "Only if requested by the employee",
+          "During annual performance reviews"
+        ],
+        "correctIndex": 1,
+        "explanation": "OSHA requires that the Hepatitis B vaccination series be offered to all employees with occupational exposure within 10 working days of their initial assignment, at no cost to the employee.",
+        "order": 4
+      },
+      {
+        "question": "Needles should be recapped using:",
+        "options": [
+          "Both hands using careful technique",
+          "A mechanical device or one-handed scoop method only",
+          "Regular household scissors to cut the needle first",
+          "No recapping is necessary — always discard uncapped"
+        ],
+        "correctIndex": 1,
+        "explanation": "Two-handed recapping of needles is prohibited. If recapping is necessary, use a mechanical device or the one-handed scoop method. The safest practice is to discard directly into a sharps container without recapping.",
+        "order": 5
+      },
+      {
+        "question": "Contaminated sharps must be discarded in:",
+        "options": [
+          "A regular trash can lined with a red bag",
+          "Any sealed container to prevent accidental puncture",
+          "A puncture-resistant, leak-proof, labeled sharps container at the point of use",
+          "The biohazard bag with other contaminated waste"
+        ],
+        "correctIndex": 2,
+        "explanation": "Contaminated sharps must be placed in a puncture-resistant, leak-proof, appropriately labeled or color-coded container at the point of use (where the sharp was used).",
+        "order": 6
+      },
+      {
+        "question": "Which of the following is an example of an Engineering Control under the BBP Standard?",
+        "options": [
+          "Training employees to handle sharps carefully",
+          "Wearing gloves when drawing blood",
+          "A needleless IV system or a retractable needle device",
+          "Washing hands before and after patient care"
+        ],
+        "correctIndex": 2,
+        "explanation": "Engineering controls isolate or remove the bloodborne pathogen hazard from the workplace — examples include needleless systems, retractable sharps, and puncture-resistant sharps containers.",
+        "order": 7
+      },
+      {
+        "question": "Your Exposure Control Plan must be reviewed and updated:",
+        "options": [
+          "Every 5 years",
+          "Only after a workplace exposure incident",
+          "At least annually and whenever new tasks or procedures are added",
+          "When a new employee joins the clinical team"
+        ],
+        "correctIndex": 2,
+        "explanation": "The Exposure Control Plan must be reviewed and updated at least annually and whenever tasks or procedures affecting occupational exposure are added or changed.",
+        "order": 8
+      }
+    ]
+  },
+  {
+    "code": "HAZCOM_TRAINING",
+    "title": "Hazard Communication (HazCom / Right-to-Know)",
+    "description": "Covers OSHA's HazCom standard, GHS labeling, Safety Data Sheets, and your right to know about chemical hazards.",
+    "type": "OSHA",
+    "duration": 20,
+    "passingScore": 80,
+    "isRequired": true,
+    "roles": [
+      "all"
+    ],
+    "lessonContent": "<div class=\"lesson-content\">\n\n  <div class=\"lesson-intro\">\n    <h2>Before we start — you work with hazardous chemicals</h2>\n    <p>Medical offices use more hazardous chemicals than most people realize — glutaraldehyde for sterilization, mercury in older thermometers and blood pressure equipment, formaldehyde in specimen fixatives, and dozens of cleaning and disinfection products with real exposure risks. OSHA's Hazard Communication Standard — HazCom, or \"Right-to-Know\" — exists to make sure you know what you're working with, what the risks are, and what to do when something goes wrong. It's not complicated, but it matters every time you reach for a cleaning product.</p>\n  </div>\n\n  <h2>The three pillars of HazCom</h2>\n  <p>HazCom compliance is built on three things working together:</p>\n  <ul>\n    <li><strong>Labels</strong> on chemical containers that tell you the hazard at a glance</li>\n    <li><strong>Safety Data Sheets (SDSs)</strong> that give you the full picture for each chemical</li>\n    <li><strong>Training</strong> — which is what you're doing right now</li>\n  </ul>\n  <p>All three are required. A workplace that has SDSs but hasn't trained workers on how to read them isn't compliant. A workplace that trains workers but doesn't keep SDSs accessible isn't compliant either.</p>\n\n  <h2>Reading a GHS label — what the symbols mean</h2>\n  <p>The U.S. adopted the Globally Harmonized System (GHS) of chemical classification and labeling, which standardizes how chemicals are labeled across industries and countries. Every chemical container must have a label with six elements:</p>\n  <ul>\n    <li><strong>Product identifier</strong> — the chemical name</li>\n    <li><strong>Signal word</strong> — either DANGER (more severe) or WARNING (less severe)</li>\n    <li><strong>Hazard statements</strong> — what the specific hazard is (\"causes skin irritation,\" \"may cause respiratory irritation\")</li>\n    <li><strong>Precautionary statements</strong> — what to do to prevent harm and what to do if something goes wrong</li>\n    <li><strong>Pictograms</strong> — the symbols that tell you the hazard type at a glance</li>\n    <li><strong>Supplier information</strong> — manufacturer name and contact</li>\n  </ul>\n\n  <div class=\"callout callout-example\">\n    <strong>Key pictograms to recognize:</strong> The skull and crossbones means acutely toxic — fatal or toxic in small amounts. The exclamation mark means a less severe health hazard like skin or eye irritation. The flame means flammable. The corrosion symbol (a liquid eating through a surface and a hand) means it damages skin or metal. You'll see these on everything from disinfectants to specimen fixatives.\n  </div>\n\n  <h2>Safety Data Sheets — your chemical reference guide</h2>\n  <p>An SDS contains everything you'd need to know about a chemical in an emergency — and a lot more. The GHS format standardizes 16 sections:</p>\n  <ul>\n    <li>Sections 1-3: Identification, hazards, and what's in it</li>\n    <li>Sections 4-6: First aid, firefighting, accidental release measures</li>\n    <li>Sections 7-8: Handling, storage, exposure controls, and PPE</li>\n    <li>Sections 9-10: Physical properties and reactivity</li>\n    <li>Sections 11-16: Toxicology, environmental impact, regulatory information</li>\n  </ul>\n  <p>You don't need to memorize all 16 sections. You need to know that SDSs exist, where to find them, and how to look up what you need in an emergency. The two most practically important sections are Section 4 (first aid) and Section 8 (exposure controls and PPE).</p>\n\n  <div class=\"callout callout-warning\">\n    <strong>SDSs must be accessible during every work shift.</strong> Not locked in the manager's office. Not on a computer that requires a login no one can find. Immediately accessible to every worker who might need them. This is an OSHA requirement, and it's one of the most commonly cited HazCom violations.\n  </div>\n\n  <h2>Secondary containers — a common compliance gap</h2>\n  <p>When you transfer a chemical from its original container to a smaller spray bottle or cup for use, that secondary container needs a label too. The label needs the product name and the hazard information.</p>\n  <p>There's one exception: if you fill a container and use it entirely yourself within the same work shift, no label is required. But if it's going to sit on a shelf, get handed off to a colleague, or be used the next day — it needs a label.</p>\n\n  <h2>Your practice's chemical inventory</h2>\n  <p>Your employer is required to maintain a written list of every hazardous chemical in the workplace — sometimes called a chemical inventory or hazard communication plan. This list links to the SDSs for each chemical. If you're ever unsure whether a product is covered, check the inventory. If it's not on the list and it's a chemical product, report it to your supervisor — it should be evaluated and added.</p>\n\n  <h2>Common mistakes that create compliance gaps</h2>\n  <ul>\n    <li><strong>Unlabeled secondary containers.</strong> The spray bottle of disinfectant that everyone has been refilling for six months with no label. If there's a spill or exposure, no one knows what's in it without hunting for the original container.</li>\n    <li><strong>Inaccessible SDSs.</strong> \"We have them — they're in a binder in the supply closet\" is fine. \"They're on the computer but no one knows the login\" is not.</li>\n    <li><strong>Not updating when products change.</strong> You switch cleaning products. The old SDS is still in the binder. The new product has different hazards and requires different PPE. This is a compliance gap and a safety risk.</li>\n  </ul>\n\n  <h2>Key takeaways</h2>\n  <ul>\n    <li>HazCom gives you the right to know about chemical hazards in your workplace. Labels, SDSs, and training are all required — not optional.</li>\n    <li>GHS labels have six required elements. The signal word (DANGER vs. WARNING) and pictograms tell you severity and hazard type at a glance.</li>\n    <li>SDSs have 16 standardized sections. Know where to find them and how to look up first aid (Section 4) and PPE requirements (Section 8).</li>\n    <li>Secondary containers need labels unless you're using the entire contents yourself in the same shift.</li>\n    <li>SDSs must be immediately accessible to every worker during every shift.</li>\n  </ul>\n\n  <div class=\"lesson-quiz-intro\">\n    <p>Ready for the quiz. Seven questions. You need 80% to pass.</p>\n  </div>\n\n</div>",
+    "quizQuestions": [
+      {
+        "question": "OSHA's Hazard Communication Standard (HCS) is often called the 'Right-to-Know' law because it:",
+        "options": [
+          "Gives patients the right to know about their diagnoses",
+          "Requires employers to inform workers about chemical hazards in their workplace",
+          "Mandates that chemical suppliers share proprietary formulas",
+          "Allows workers to access all HR records"
+        ],
+        "correctIndex": 1,
+        "explanation": "The HazCom Standard (29 CFR 1910.1200) ensures workers have the right to know about hazardous chemicals in their workplace through labels, Safety Data Sheets, and training.",
+        "order": 1
+      },
+      {
+        "question": "Under the GHS labeling format, the signal word 'DANGER' indicates:",
+        "options": [
+          "A less severe hazard category",
+          "A more severe hazard category",
+          "The chemical is radioactive",
+          "The chemical requires no PPE"
+        ],
+        "correctIndex": 1,
+        "explanation": "In GHS labeling, 'DANGER' is used for more severe hazard categories, while 'WARNING' is used for less severe hazards.",
+        "order": 2
+      },
+      {
+        "question": "A Safety Data Sheet (SDS) contains how many standardized sections under GHS?",
+        "options": [
+          "8 sections",
+          "12 sections",
+          "16 sections",
+          "20 sections"
+        ],
+        "correctIndex": 2,
+        "explanation": "The GHS-format SDS contains 16 standardized sections covering identification, hazards, composition, first aid, fire fighting, handling/storage, exposure controls, physical properties, and more.",
+        "order": 3
+      },
+      {
+        "question": "If you are transferring a chemical into a secondary container for immediate same-shift use, you:",
+        "options": [
+          "Must label the secondary container with all GHS label elements",
+          "May leave it unlabeled only if you immediately use and empty it in the same shift",
+          "Must return the chemical to its original container before your shift ends",
+          "Are not allowed to use secondary containers for hazardous chemicals"
+        ],
+        "correctIndex": 1,
+        "explanation": "OSHA HazCom allows an exemption for secondary containers that are used immediately within the same shift by the employee who transferred the chemical.",
+        "order": 4
+      },
+      {
+        "question": "Where must Safety Data Sheets be kept?",
+        "options": [
+          "In the supervisor's locked office",
+          "Only in the HR filing system",
+          "Readily accessible to employees in their work area during all work shifts",
+          "At the building's main entrance only"
+        ],
+        "correctIndex": 2,
+        "explanation": "SDSs must be readily accessible to employees in their work area during every shift so employees can quickly access chemical hazard information in an emergency.",
+        "order": 5
+      },
+      {
+        "question": "Before introducing a new hazardous chemical to your practice, your employer must:",
+        "options": [
+          "Notify OSHA of the new chemical",
+          "Obtain the SDS and update the chemical inventory before employee exposure",
+          "Wait until an employee has a reaction before seeking an SDS",
+          "Post a notice in the break room"
+        ],
+        "correctIndex": 1,
+        "explanation": "Before a new hazardous chemical is introduced, the employer must obtain the SDS, update the chemical inventory, and ensure employees are trained on any new hazards.",
+        "order": 6
+      },
+      {
+        "question": "The skull and crossbones GHS pictogram indicates:",
+        "options": [
+          "A corrosive material",
+          "An acutely toxic substance (fatal or toxic in small doses)",
+          "An explosive material",
+          "An environmental hazard"
+        ],
+        "correctIndex": 1,
+        "explanation": "The skull and crossbones GHS pictogram indicates acute toxicity — substances that are fatal or toxic in relatively small amounts through ingestion, skin contact, or inhalation.",
+        "order": 7
+      }
+    ]
+  }
+]

@@ -10,6 +10,7 @@
 import type { Prisma } from "@prisma/client";
 import type { DerivationRule, DerivedStatus } from "./hipaa";
 import type { OshaPolicyCode } from "@/lib/compliance/policies";
+import { courseCompletionThresholdRule } from "./shared";
 
 /**
  * Generic: is the given OSHA policy code currently adopted (not retired)?
@@ -29,6 +30,12 @@ function oshaPolicyRule(required: OshaPolicyCode): DerivationRule {
 export const OSHA_DERIVATION_RULES: Record<string, DerivationRule> = {
   // §1910.1030(c) — Exposure Control Plan is the core written document.
   OSHA_BBP_EXPOSURE_CONTROL: oshaPolicyRule("OSHA_BBP_EXPOSURE_CONTROL_PLAN"),
+  // §1910.1030(g)(2) — annual BBP training for workforce with exposure.
+  // Same ≥95% threshold pattern as HIPAA_WORKFORCE_TRAINING.
+  OSHA_BBP_TRAINING: courseCompletionThresholdRule(
+    "BLOODBORNE_PATHOGEN_TRAINING",
+    0.95,
+  ),
   // §1910.1200 — HazCom Program covers SDS + chemical inventory + training.
   OSHA_HAZCOM: oshaPolicyRule("OSHA_HAZCOM_PROGRAM"),
   // §1910.38 — Written Emergency Action Plan.
