@@ -17,6 +17,14 @@ export function AiAssessmentButton({ frameworkCode }: { frameworkCode: string })
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
+  // Hidden for now. The current prompt produces generic boilerplate rather
+  // than practice-specific reasoning — not worth the per-call cost. Keeping
+  // the component + action wired; we'll re-enable (likely with a different
+  // purpose: policy drafting / evidence analysis / breach triage) once the
+  // Module Page Contract decides where AI actually earns its cost.
+  // Re-enable by removing this early return.
+  return null;
+
   if (frameworkCode.toUpperCase() !== "HIPAA") {
     return null;
   }
