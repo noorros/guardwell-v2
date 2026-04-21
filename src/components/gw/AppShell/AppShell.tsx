@@ -26,7 +26,7 @@ export function AppShell({
   myComplianceItems,
 }: AppShellProps) {
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex h-screen flex-col bg-background">
       <TopBar
         practiceName={practice.name}
         userEmail={user.email}
@@ -34,13 +34,13 @@ export function AppShell({
           <MobileSidebarTrigger myComplianceItems={myComplianceItems} />
         }
       />
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1">
         <aside className="hidden w-60 shrink-0 overflow-y-auto md:block">
           <Sidebar myComplianceItems={myComplianceItems} />
         </aside>
         <main
           id="main"
-          className="flex-1 overflow-y-auto bg-background"
+          className="min-w-0 flex-1 overflow-y-auto bg-background"
         >
           {children}
         </main>

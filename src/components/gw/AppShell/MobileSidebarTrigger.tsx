@@ -10,6 +10,7 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetTrigger,
 } from "@/components/ui/sheet";
 import { Sidebar, type MyComplianceItem } from "./Sidebar";
 
@@ -29,16 +30,17 @@ export function MobileSidebarTrigger({
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Open navigation"
-        className="md:hidden"
-        onClick={() => setOpen(true)}
-      >
-        <Menu className="h-5 w-5" aria-hidden="true" />
-      </Button>
+      <SheetTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Open navigation"
+          className="md:hidden"
+        >
+          <Menu className="h-5 w-5" aria-hidden="true" />
+        </Button>
+      </SheetTrigger>
       <SheetContent side="left" className="w-72 p-0">
         <SheetHeader className="sr-only">
           <SheetTitle>Navigation</SheetTitle>
