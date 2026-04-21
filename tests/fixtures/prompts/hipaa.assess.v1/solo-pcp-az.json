@@ -1,0 +1,30 @@
+{
+  "name": "solo-pcp-az",
+  "input": {
+    "practiceName": "Desert Sky Primary Care",
+    "primaryState": "AZ",
+    "specialty": "Primary Care",
+    "staffHeadcount": 3,
+    "requirementCodes": [
+      "HIPAA_PRIVACY_OFFICER",
+      "HIPAA_SECURITY_OFFICER",
+      "HIPAA_SRA",
+      "HIPAA_POLICIES_PROCEDURES",
+      "HIPAA_WORKFORCE_TRAINING",
+      "HIPAA_BAAS",
+      "HIPAA_MINIMUM_NECESSARY",
+      "HIPAA_NPP",
+      "HIPAA_BREACH_RESPONSE",
+      "HIPAA_WORKSTATION_USE"
+    ]
+  },
+  "assertions": {
+    "minSuggestions": 10,
+    "maxSuggestions": 10,
+    "allCodesMustBeInInput": true,
+    "noDuplicateCodes": true,
+    "reasonMinChars": 10,
+    "maxCompliantRatio": 0.5,
+    "everyStatusAllowed": ["COMPLIANT", "GAP", "NOT_STARTED"]
+  }
+}
