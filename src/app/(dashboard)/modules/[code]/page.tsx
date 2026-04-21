@@ -1,10 +1,11 @@
 // src/app/(dashboard)/modules/[code]/page.tsx
 import { notFound } from "next/navigation";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, FileText } from "lucide-react";
 import { getPracticeUser } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { ModuleHeader } from "@/components/gw/ModuleHeader";
 import { ModuleSummaryBand } from "@/components/gw/ModuleSummaryBand";
+import { EmptyState } from "@/components/gw/EmptyState";
 import { AiAssistTrigger } from "@/components/gw/AiAssistDrawer/AiAssistTrigger";
 import { ChecklistItemServer } from "./ChecklistItemServer";
 import { AiAssessmentButton } from "./AiAssessmentButton";
@@ -159,6 +160,15 @@ export default async function ModulePage({
             );
           })}
         </div>
+      </section>
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-foreground">Evidence</h2>
+        <EmptyState
+          icon={FileText}
+          title="No linked evidence yet"
+          description="Evidence from policies, training, BAAs, and other operational surfaces will appear here once those pages ship. Requirements can still be marked compliant manually above."
+          action={{ label: "Go to My Programs (coming soon)", href: "#" }}
+        />
       </section>
     </main>
   );
