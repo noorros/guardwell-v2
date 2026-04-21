@@ -80,7 +80,7 @@ describe("<AiAssistDrawer>", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it("renders the 'Coming in week 5' stub in the footer with a disabled textarea", () => {
+  it("enables the textarea and send button when open", () => {
     render(
       <AiAssistDrawer
         open
@@ -88,9 +88,50 @@ describe("<AiAssistDrawer>", () => {
         pageContext={{ route: "/dashboard" }}
       />,
     );
-    const textarea = screen.getByRole("textbox");
-    expect(textarea).toBeDisabled();
+    expect(screen.getByRole("textbox")).toBeEnabled();
     expect(screen.getByRole("button", { name: /send/i })).toBeDisabled();
+    // Send is disabled ONLY because the textarea is empty — not permanently.
+  });
+
+  it("submits the question through __actionForTests and shows the answer", async () => {
+    const user = userEvent.setup();
+    const fake = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      answer: "Designate one workforce member in writing.",
+    });
+    render(
+      <AiAssistDrawer
+        open
+        onOpenChange={() => {}}
+        pageContext={{ route: "/modules/hipaa", summary: "HIPAA module" }}
+        __actionForTests={fake}
+      />,
+    );
+    await user.type(screen.getByRole("textbox"), "Who should be the Privacy Officer?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+    expect(fake).toHaveBeenCalledWith({
+      route: "/modules/hipaa",
+      summary: "HIPAA module",
+      question: "Who should be the Privacy Officer?",
+    });
+    // The answer appears after the transition resolves.
+    expect(await screen.findByText(/Designate one workforce member/)).toBeInTheDocument();
+  });
+
+  it("shows an error message when the action returns ok=false", async () => {
+    const user = userEvent.setup();
+    const fake = vi.fn().mockResolvedValueOnce({ ok: false, error: "RATE_LIMITED: retry in 24h" });
+    render(
+      <AiAssistDrawer
+        open
+        onOpenChange={() => {}}
+        pageContext={{ route: "/dashboard" }}
+        __actionForTests={fake}
+      />,
+    );
+    await user.type(screen.getByRole("textbox"), "Hello?");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+    expect(await screen.findByText(/RATE_LIMITED/)).toBeInTheDocument();
   });
 
   it("traps focus within the drawer when open (first focusable is inside dialog)", async () => {

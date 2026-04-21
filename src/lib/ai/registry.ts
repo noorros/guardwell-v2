@@ -16,6 +16,11 @@ import {
   hipaaAssessInputSchema,
   hipaaAssessOutputSchema,
 } from "./prompts/hipaa-assess";
+import {
+  PAGE_HELP_SYSTEM,
+  pageHelpInputSchema,
+  pageHelpOutputSchema,
+} from "./prompts/assistant-page-help";
 
 export interface PromptDef<
   TIn extends z.ZodTypeAny = z.ZodTypeAny,
@@ -50,6 +55,18 @@ export const PROMPTS = {
     toolDescription:
       "Return a best-guess status (COMPLIANT | GAP | NOT_STARTED) and reason for each requested HIPAA requirement code.",
     maxTokens: 2048,
+  },
+  "assistant.page-help.v1": {
+    id: "assistant.page-help.v1",
+    version: 1,
+    model: "claude-sonnet-4-6",
+    system: PAGE_HELP_SYSTEM,
+    inputSchema: pageHelpInputSchema,
+    outputSchema: pageHelpOutputSchema,
+    toolName: "assistant_page_help_v1",
+    toolDescription:
+      "Return a concise markdown-safe answer and optional in-product next-action link.",
+    maxTokens: 1024,
   },
 } as const satisfies Record<string, PromptDef>;
 
