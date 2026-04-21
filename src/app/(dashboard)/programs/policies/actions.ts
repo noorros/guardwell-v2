@@ -11,11 +11,11 @@ import {
   projectPolicyAdopted,
   projectPolicyRetired,
 } from "@/lib/events/projections/policyAdopted";
-import { HIPAA_POLICY_CODES } from "@/lib/compliance/policies";
+import { ALL_POLICY_CODES } from "@/lib/compliance/policies";
 import { db } from "@/lib/db";
 
 const AdoptInput = z.object({
-  policyCode: z.enum(HIPAA_POLICY_CODES),
+  policyCode: z.enum(ALL_POLICY_CODES),
 });
 
 const RetireInput = z.object({
