@@ -7,6 +7,7 @@ import { ModuleHeader } from "@/components/gw/ModuleHeader";
 import { AiAssistTrigger } from "@/components/gw/AiAssistDrawer/AiAssistTrigger";
 import { ChecklistItemServer } from "./ChecklistItemServer";
 import { AiAssessmentButton } from "./AiAssessmentButton";
+import type { AiReasonSource } from "@/components/gw/ChecklistItem/AiReasonIndicator";
 
 export async function generateMetadata({
   params,
@@ -16,6 +17,12 @@ export async function generateMetadata({
   const { code } = await params;
   return { title: `${code.toUpperCase()} · My Compliance` };
 }
+
+type StatusEventPayload = {
+  requirementId?: string;
+  source?: AiReasonSource;
+  reason?: string;
+};
 
 export default async function ModulePage({
   params,
@@ -41,6 +48,32 @@ export default async function ModulePage({
     },
   });
   const byReq = new Map(items.map((i) => [i.requirementId, i]));
+
+  // Pull the most recent REQUIREMENT_STATUS_UPDATED events for this practice,
+  // then keep only the latest one per requirement. 10 requirements per module
+  // so a small window (last 200) reliably covers every requirement's latest.
+  const recentEvents = await db.eventLog.findMany({
+    where: {
+      practiceId: pu.practiceId,
+      type: "REQUIREMENT_STATUS_UPDATED",
+    },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
+  const latestEventByReq = new Map<
+    string,
+    { source: AiReasonSource; reason: string | null }
+  >();
+  for (const evt of recentEvents) {
+    const payload = evt.payload as StatusEventPayload | null;
+    const reqId = payload?.requirementId;
+    if (!reqId) continue;
+    if (latestEventByReq.has(reqId)) continue; // already have the newest (desc order)
+    latestEventByReq.set(reqId, {
+      source: payload?.source ?? null,
+      reason: payload?.reason ?? null,
+    });
+  }
 
   const pf = await db.practiceFramework.findUnique({
     where: {
@@ -77,6 +110,7 @@ export default async function ModulePage({
         <div className="space-y-2">
           {framework.requirements.map((r) => {
             const ci = byReq.get(r.id);
+            const lastEvt = latestEventByReq.get(r.id);
             return (
               <ChecklistItemServer
                 key={r.id}
@@ -86,6 +120,8 @@ export default async function ModulePage({
                 title={r.title}
                 description={r.citation ?? undefined}
                 initialStatus={ciStatusToChecklist(ci?.status)}
+                lastEventSource={lastEvt?.source ?? null}
+                lastEventReason={lastEvt?.reason ?? null}
               />
             );
           })}
