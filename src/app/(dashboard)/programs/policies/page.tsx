@@ -11,10 +11,9 @@ import {
   type HipaaPolicyCode,
 } from "@/lib/compliance/policies";
 import { PolicyActions } from "./PolicyActions";
+import { AdoptedBadge, RetiredBadge } from "./AdoptedBadge";
 
 export const metadata = { title: "Policies · My Programs" };
-
-const DATE_FMT = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" });
 
 export default async function PoliciesPage() {
   const pu = await getPracticeUser();
@@ -69,20 +68,9 @@ export default async function PoliciesPage() {
                         {meta.title}
                       </p>
                       {isActive ? (
-                        <Badge
-                          variant="secondary"
-                          className="text-[10px]"
-                          style={{
-                            color: "var(--gw-color-compliant)",
-                            borderColor: "var(--gw-color-compliant)",
-                          }}
-                        >
-                          Adopted {DATE_FMT.format(row.adoptedAt)}
-                        </Badge>
+                        <AdoptedBadge adoptedAt={row.adoptedAt.toISOString()} />
                       ) : row?.retiredAt ? (
-                        <Badge variant="outline" className="text-[10px]">
-                          Retired {DATE_FMT.format(row.retiredAt)}
-                        </Badge>
+                        <RetiredBadge retiredAt={row.retiredAt.toISOString()} />
                       ) : (
                         <Badge variant="outline" className="text-[10px]">
                           Not adopted
