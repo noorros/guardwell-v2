@@ -20,6 +20,10 @@ const MUTATING_METHODS = new Set([
 
 const ALLOWED_PATHS = [
   "src/lib/events/",
+  // Derivation engine (ADR-0001 evidence-driven compliance) runs inside
+  // projection callbacks — it IS a projection helper, just colocated with
+  // the derivation rule registry for discoverability.
+  "src/lib/compliance/derivation/",
   "tests/",
 ];
 
