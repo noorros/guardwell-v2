@@ -1,8 +1,13 @@
+"use client";
+
 // src/app/internal/design-system/page.tsx
 //
 // Internal design-system gallery. Not linked from the nav; reachable by
-// typing the URL. Every gw/ component's stories file is rendered here so
-// we can scan visually + programmatically (jest-axe in gallery.test.tsx).
+// typing the URL. Client component because several story fragments
+// carry interactive props (onClick, onStatusChange) that can't flow
+// through a server component boundary. Every gw/ component's stories
+// file is rendered here so we can scan visually + programmatically
+// (jest-axe in gallery.test.tsx).
 
 import { stories as EmptyStateStories } from "@/components/gw/EmptyState/EmptyState.stories";
 import { stories as RegulationCitationStories } from "@/components/gw/RegulationCitation/RegulationCitation.stories";
@@ -16,9 +21,9 @@ import { stories as DeadlineWarningStories } from "@/components/gw/DeadlineWarni
 import { stories as MajorBreachBannerStories } from "@/components/gw/MajorBreachBanner/MajorBreachBanner.stories";
 import { stories as AiAssistDrawerStories } from "@/components/gw/AiAssistDrawer/AiAssistDrawer.stories";
 
-export const metadata = {
-  title: "Design System · GuardWell",
-};
+// NB: metadata export isn't allowed on a "use client" page. The gallery
+// is internal-only (behind auth) so skipping a custom <title> is fine —
+// the root layout's title template kicks in.
 
 type StoryBlock = {
   name: string;

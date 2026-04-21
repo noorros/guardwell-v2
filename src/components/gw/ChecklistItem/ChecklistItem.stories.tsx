@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { ChecklistItem, type ChecklistStatus } from ".";
 
