@@ -63,7 +63,7 @@ const PROGRAMS: ProgramItem[] = [
   // be picked up on the first `next build`, but tsc standalone doesn't
   // know about it yet.
   { label: "Staff", icon: Users, href: "/programs/staff" as Route },
-  { label: "Policies", icon: FileText },
+  { label: "Policies", icon: FileText, href: "/programs/policies" as Route },
   { label: "Training", icon: GraduationCap },
   { label: "Incidents", icon: AlertTriangle },
   { label: "Credentials", icon: IdCard },
