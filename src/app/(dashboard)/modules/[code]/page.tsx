@@ -6,6 +6,11 @@ import { db } from "@/lib/db";
 import { ModuleHeader } from "@/components/gw/ModuleHeader";
 import { ModuleSummaryBand } from "@/components/gw/ModuleSummaryBand";
 import { EmptyState } from "@/components/gw/EmptyState";
+import {
+  ModuleActivityFeed,
+  type ModuleActivityEvent,
+  type ActivityStatus,
+} from "@/components/gw/ModuleActivityFeed";
 import { AiAssistTrigger } from "@/components/gw/AiAssistDrawer/AiAssistTrigger";
 import { ChecklistItemServer } from "./ChecklistItemServer";
 import { AiAssessmentButton } from "./AiAssessmentButton";
@@ -22,8 +27,10 @@ export async function generateMetadata({
 
 type StatusEventPayload = {
   requirementId?: string;
+  frameworkCode?: string;
   source?: AiReasonSource;
   reason?: string;
+  nextStatus?: ActivityStatus;
 };
 
 export default async function ModulePage({
@@ -113,6 +120,35 @@ export default async function ModulePage({
   });
   const score = pf?.scoreCache ?? 0;
 
+  // Section E — last 10 status-change events for this framework.
+  const activityEvents = await db.eventLog.findMany({
+    where: {
+      practiceId: pu.practiceId,
+      type: "REQUIREMENT_STATUS_UPDATED",
+      // Filter on JSON payload: frameworkCode === framework.code
+      // Postgres JSON path filter:
+      AND: [{ payload: { path: ["frameworkCode"], equals: framework.code } }],
+    },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+    include: { actor: { select: { email: true } } },
+  });
+
+  const requirementById = new Map(framework.requirements.map((r) => [r.id, r]));
+  const feedEvents: ModuleActivityEvent[] = activityEvents.map((evt) => {
+    const payload = evt.payload as StatusEventPayload | null;
+    const reqId = payload?.requirementId ?? "";
+    const req = requirementById.get(reqId);
+    return {
+      id: evt.id,
+      createdAt: evt.createdAt,
+      requirementTitle: req?.title ?? "Requirement",
+      nextStatus: payload?.nextStatus ?? "NOT_STARTED",
+      actorEmail: evt.actor?.email ?? null,
+      reason: payload?.reason ?? null,
+    };
+  });
+
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-6">
       <ModuleHeader
@@ -169,6 +205,10 @@ export default async function ModulePage({
           description="Evidence from policies, training, BAAs, and other operational surfaces will appear here once those pages ship. Requirements can still be marked compliant manually above."
           action={{ label: "Go to My Programs (coming soon)", href: "#" }}
         />
+      </section>
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-foreground">Recent activity</h2>
+        <ModuleActivityFeed events={feedEvents} />
       </section>
     </main>
   );
