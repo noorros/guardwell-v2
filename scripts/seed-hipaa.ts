@@ -106,7 +106,7 @@ async function main() {
       weight: 1,
       description:
         "Train all members of the workforce on policies and procedures with respect to PHI, as necessary and appropriate for them to carry out their function.",
-      acceptedEvidenceTypes: [],
+      acceptedEvidenceTypes: ["TRAINING:HIPAA_BASICS"],
       sortOrder: 50,
     },
     {

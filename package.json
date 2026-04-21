@@ -14,8 +14,9 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "db:seed": "npm run db:seed:hipaa",
+    "db:seed": "npm run db:seed:hipaa && npm run db:seed:training",
     "db:seed:hipaa": "tsx scripts/seed-hipaa.ts",
+    "db:seed:training": "tsx scripts/seed-training.ts",
     "eval:prompts": "tsx scripts/eval-prompts.ts"
   },
   "dependencies": {
