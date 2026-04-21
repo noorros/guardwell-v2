@@ -96,6 +96,7 @@ model Practice {
   trainingCompletions TrainingCompletion[]
   vendors             Vendor[]
   credentials         Credential[]
+  sraAssessments      PracticeSraAssessment[]
   events              EventLog[]
   complianceItems     ComplianceItem[]
   enabledFrameworks   PracticeFramework[]
@@ -154,6 +155,74 @@ model PracticePolicy {
 
   @@unique([practiceId, policyCode])
   @@index([practiceId, retiredAt])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// SRA — HIPAA Security Risk Assessment (45 CFR §164.308(a)(1)(ii)(A))
+// ────────────────────────────────────────────────────────────────────────────
+
+enum SraCategory {
+  ADMINISTRATIVE
+  PHYSICAL
+  TECHNICAL
+}
+
+enum SraAnswer {
+  YES
+  NO
+  PARTIAL
+  NA
+}
+
+// Reference data. Seeded via scripts/seed-sra.ts from the v1 question bank.
+// ~20 canonical safeguards at launch; expand post-launch.
+model SraQuestion {
+  id          String      @id @default(cuid())
+  code        String      @unique    // "ADMIN_RISK_ANALYSIS"
+  category    SraCategory
+  subcategory String                  // "Security Management Process"
+  title       String
+  description String      @db.Text
+  guidance    String?     @db.Text    // what OCR looks for
+  lookFor     String[]                // practical checklist items
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  answers PracticeSraAnswer[]
+
+  @@index([category, sortOrder])
+}
+
+// Evidence for HIPAA_SRA. One row per completion event.
+// Answers live in PracticeSraAnswer (foreign-key, many-per-assessment).
+model PracticeSraAssessment {
+  id                String    @id @default(cuid())
+  practiceId        String
+  completedByUserId String
+  completedAt       DateTime  @default(now())
+  overallScore      Int       // % of questions addressed (YES or NA), 0-100
+  addressedCount    Int       // count of YES + NA
+  totalCount        Int       // total questions answered
+  createdAt         DateTime  @default(now())
+
+  practice Practice            @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  answers  PracticeSraAnswer[]
+
+  @@index([practiceId, completedAt])
+}
+
+model PracticeSraAnswer {
+  id           String    @id @default(cuid())
+  assessmentId String
+  questionId   String
+  answer       SraAnswer
+  notes        String?   @db.Text
+
+  assessment PracticeSraAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  question   SraQuestion           @relation(fields: [questionId], references: [id])
+
+  @@unique([assessmentId, questionId])
 }
 
 // ────────────────────────────────────────────────────────────────────────────

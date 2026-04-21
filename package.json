@@ -14,7 +14,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "db:seed": "npm run db:seed:hipaa && npm run db:seed:osha && npm run db:seed:oig && npm run db:seed:dea && npm run db:seed:cms && npm run db:seed:training && npm run db:seed:credentials",
+    "db:seed": "npm run db:seed:hipaa && npm run db:seed:osha && npm run db:seed:oig && npm run db:seed:dea && npm run db:seed:cms && npm run db:seed:training && npm run db:seed:credentials && npm run db:seed:sra",
     "db:seed:hipaa": "tsx scripts/seed-hipaa.ts",
     "db:seed:osha": "tsx scripts/seed-osha.ts",
     "db:seed:oig": "tsx scripts/seed-oig.ts",
@@ -22,6 +22,7 @@
     "db:seed:cms": "tsx scripts/seed-cms.ts",
     "db:seed:training": "tsx scripts/seed-training.ts",
     "db:seed:credentials": "tsx scripts/seed-credentials.ts",
+    "db:seed:sra": "tsx scripts/seed-sra.ts",
     "eval:prompts": "tsx scripts/eval-prompts.ts"
   },
   "dependencies": {

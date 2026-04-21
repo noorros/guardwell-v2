@@ -81,7 +81,7 @@ async function main() {
       weight: 2,
       description:
         "Perform an accurate and thorough assessment of risks and vulnerabilities to the confidentiality, integrity, and availability of ePHI.",
-      acceptedEvidenceTypes: [],
+      acceptedEvidenceTypes: ["SRA_COMPLETED"],
       sortOrder: 30,
     },
     {
