@@ -132,6 +132,119 @@ describe("REQUIREMENT_STATUS_UPDATED", () => {
     expect(events).toHaveLength(2);
   });
 
+  it("recomputes PracticeFramework.scoreCache after a COMPLIANT status (1/10 = 10%)", async () => {
+    const { user, practice } = await seedPracticeAndHipaaReq();
+    // Ensure HIPAA framework is fully seeded (10 requirements).
+    const framework = await db.regulatoryFramework.findUniqueOrThrow({
+      where: { code: "HIPAA" },
+      include: { requirements: true },
+    });
+    if (framework.requirements.length < 10) {
+      throw new Error(
+        `HIPAA framework has only ${framework.requirements.length} requirements; run \`npm run db:seed:hipaa\` first.`,
+      );
+    }
+    const req = framework.requirements[0]!;
+
+    await appendEventAndApply(
+      {
+        practiceId: practice.id,
+        actorUserId: user.id,
+        type: "REQUIREMENT_STATUS_UPDATED",
+        payload: {
+          requirementId: req.id,
+          frameworkCode: "HIPAA",
+          requirementCode: req.code,
+          previousStatus: "NOT_STARTED",
+          nextStatus: "COMPLIANT",
+          source: "USER",
+        },
+      },
+      async (tx) =>
+        projectRequirementStatusUpdated(tx, {
+          practiceId: practice.id,
+          payload: {
+            requirementId: req.id,
+            frameworkCode: "HIPAA",
+            requirementCode: req.code,
+            previousStatus: "NOT_STARTED",
+            nextStatus: "COMPLIANT",
+            source: "USER",
+          },
+        }),
+    );
+
+    const pf = await db.practiceFramework.findUnique({
+      where: {
+        practiceId_frameworkId: {
+          practiceId: practice.id,
+          frameworkId: framework.id,
+        },
+      },
+    });
+    expect(pf).not.toBeNull();
+    expect(pf!.scoreCache).toBe(10);
+    expect(pf!.scoreLabel).toBe("At Risk");
+    expect(pf!.enabled).toBe(true);
+    expect(pf!.lastScoredAt).toBeInstanceOf(Date);
+  });
+
+  it("scoreCache reaches 50 after 5 COMPLIANT requirements (label: Needs Work)", async () => {
+    const { user, practice } = await seedPracticeAndHipaaReq();
+    const framework = await db.regulatoryFramework.findUniqueOrThrow({
+      where: { code: "HIPAA" },
+      include: { requirements: { orderBy: { sortOrder: "asc" } } },
+    });
+    if (framework.requirements.length < 10) {
+      throw new Error(
+        `HIPAA framework has only ${framework.requirements.length} requirements; run \`npm run db:seed:hipaa\` first.`,
+      );
+    }
+
+    for (let i = 0; i < 5; i++) {
+      const req = framework.requirements[i]!;
+      await appendEventAndApply(
+        {
+          practiceId: practice.id,
+          actorUserId: user.id,
+          type: "REQUIREMENT_STATUS_UPDATED",
+          payload: {
+            requirementId: req.id,
+            frameworkCode: "HIPAA",
+            requirementCode: req.code,
+            previousStatus: "NOT_STARTED",
+            nextStatus: "COMPLIANT",
+            source: "USER",
+          },
+        },
+        async (tx) =>
+          projectRequirementStatusUpdated(tx, {
+            practiceId: practice.id,
+            payload: {
+              requirementId: req.id,
+              frameworkCode: "HIPAA",
+              requirementCode: req.code,
+              previousStatus: "NOT_STARTED",
+              nextStatus: "COMPLIANT",
+              source: "USER",
+            },
+          }),
+      );
+    }
+
+    const pf = await db.practiceFramework.findUnique({
+      where: {
+        practiceId_frameworkId: {
+          practiceId: practice.id,
+          frameworkId: framework.id,
+        },
+      },
+    });
+    expect(pf).not.toBeNull();
+    expect(pf!.scoreCache).toBe(50);
+    expect(pf!.scoreLabel).toBe("Needs Work");
+  });
+
   it("rejects an unknown status value via Zod", async () => {
     const { user, practice, requirement } = await seedPracticeAndHipaaReq();
     await expect(
