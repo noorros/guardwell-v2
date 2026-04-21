@@ -47,7 +47,7 @@ const OSHA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "Written plan identifying job classifications with exposure risk, methods of compliance, HBV vaccination program, post-exposure evaluation, and annual review. Required for any practice with occupational exposure to blood or OPIM.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["POLICY:OSHA_BBP_EXPOSURE_CONTROL_PLAN"],
     sortOrder: 10,
   },
   {
@@ -69,7 +69,7 @@ const OSHA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "Written HazCom program, current Safety Data Sheets for every hazardous chemical on-site, maintained chemical inventory, and HazCom training for exposed workforce.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["POLICY:OSHA_HAZCOM_PROGRAM"],
     sortOrder: 30,
   },
   {
@@ -80,7 +80,7 @@ const OSHA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1,
     description:
       "Written EAP covering evacuation procedures, exit routes, fire prevention, reporting emergencies, and employee training on emergency responsibilities.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["POLICY:OSHA_EMERGENCY_ACTION_PLAN"],
     sortOrder: 40,
   },
   {

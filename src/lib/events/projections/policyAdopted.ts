@@ -9,7 +9,7 @@ import type { Prisma } from "@prisma/client";
 import type { PayloadFor } from "../registry";
 import { rederiveRequirementStatus } from "@/lib/compliance/derivation/rederive";
 import { evidenceCodeForPolicy } from "@/lib/compliance/policies";
-import type { HipaaPolicyCode } from "@/lib/compliance/policies";
+import type { PolicyCode } from "@/lib/compliance/policies";
 
 type AdoptedPayload = PayloadFor<"POLICY_ADOPTED", 1>;
 type RetiredPayload = PayloadFor<"POLICY_RETIRED", 1>;
@@ -37,7 +37,7 @@ export async function projectPolicyAdopted(
   await rederiveRequirementStatus(
     tx,
     practiceId,
-    evidenceCodeForPolicy(payload.policyCode as HipaaPolicyCode),
+    evidenceCodeForPolicy(payload.policyCode as PolicyCode),
   );
 }
 
@@ -53,6 +53,6 @@ export async function projectPolicyRetired(
   await rederiveRequirementStatus(
     tx,
     practiceId,
-    evidenceCodeForPolicy(payload.policyCode as HipaaPolicyCode),
+    evidenceCodeForPolicy(payload.policyCode as PolicyCode),
   );
 }

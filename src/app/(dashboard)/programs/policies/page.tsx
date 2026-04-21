@@ -6,9 +6,8 @@ import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  HIPAA_POLICY_CODES,
-  HIPAA_POLICY_METADATA,
-  type HipaaPolicyCode,
+  ALL_POLICY_CODES,
+  POLICY_METADATA,
 } from "@/lib/compliance/policies";
 import { PolicyActions } from "./PolicyActions";
 import { AdoptedBadge, RetiredBadge } from "./AdoptedBadge";
@@ -30,6 +29,15 @@ export default async function PoliciesPage() {
   });
   const byCode = new Map(rows.map((r) => [r.policyCode, r]));
 
+  // Group policies by framework so users see HIPAA and OSHA sections
+  // distinctly. Ordered by ALL_POLICY_CODES (HIPAA first, then OSHA).
+  const byFramework = new Map<string, typeof ALL_POLICY_CODES>();
+  for (const code of ALL_POLICY_CODES) {
+    const fw = POLICY_METADATA[code].framework;
+    if (!byFramework.has(fw)) byFramework.set(fw, []);
+    (byFramework.get(fw) as unknown as string[]).push(code);
+  }
+
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-6">
       <Breadcrumb items={[{ label: "My Programs" }, { label: "Policies" }]} />
@@ -40,56 +48,67 @@ export default async function PoliciesPage() {
         <div className="flex-1">
           <h1 className="text-2xl font-semibold tracking-tight">Policies</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Adopt the required HIPAA policies. Each adoption auto-updates the
-            matching HIPAA requirements on your module page.
+            Adopt the required policies for each framework your practice is
+            enabled for. Each adoption auto-updates the matching requirements
+            on your module page.
           </p>
         </div>
       </header>
 
-      <Card>
-        <CardContent className="p-0">
-          <ul className="divide-y">
-            {HIPAA_POLICY_CODES.map((code) => {
-              const meta = HIPAA_POLICY_METADATA[code as HipaaPolicyCode];
-              const row = byCode.get(code);
-              const isActive = row && !row.retiredAt;
-              const adopted = isActive
-                ? { practicePolicyId: row.id, adoptedAt: row.adoptedAt }
-                : null;
+      {Array.from(byFramework.entries()).map(([framework, codes]) => (
+        <Card key={framework}>
+          <CardContent className="p-0">
+            <div className="flex items-center justify-between border-b px-4 py-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {framework}
+              </h3>
+              <span className="text-[10px] text-muted-foreground">
+                {codes.length} polic{codes.length === 1 ? "y" : "ies"}
+              </span>
+            </div>
+            <ul className="divide-y">
+              {codes.map((code) => {
+                const meta = POLICY_METADATA[code];
+                const row = byCode.get(code);
+                const isActive = row && !row.retiredAt;
+                const adopted = isActive
+                  ? { practicePolicyId: row.id, adoptedAt: row.adoptedAt }
+                  : null;
 
-              return (
-                <li
-                  key={code}
-                  className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium text-foreground">
-                        {meta.title}
+                return (
+                  <li
+                    key={code}
+                    className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium text-foreground">
+                          {meta.title}
+                        </p>
+                        {isActive ? (
+                          <AdoptedBadge adoptedAt={row.adoptedAt.toISOString()} />
+                        ) : row?.retiredAt ? (
+                          <RetiredBadge retiredAt={row.retiredAt.toISOString()} />
+                        ) : (
+                          <Badge variant="outline" className="text-[10px]">
+                            Not adopted
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {meta.description}
                       </p>
-                      {isActive ? (
-                        <AdoptedBadge adoptedAt={row.adoptedAt.toISOString()} />
-                      ) : row?.retiredAt ? (
-                        <RetiredBadge retiredAt={row.retiredAt.toISOString()} />
-                      ) : (
-                        <Badge variant="outline" className="text-[10px]">
-                          Not adopted
-                        </Badge>
-                      )}
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {meta.description}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <PolicyActions policyCode={code} adopted={adopted} />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </CardContent>
-      </Card>
+                    <div className="flex items-center gap-2">
+                      <PolicyActions policyCode={code} adopted={adopted} />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </CardContent>
+        </Card>
+      ))}
     </main>
   );
 }

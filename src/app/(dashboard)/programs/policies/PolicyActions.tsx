@@ -3,7 +3,7 @@
 
 import { useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import type { HipaaPolicyCode } from "@/lib/compliance/policies";
+import type { PolicyCode } from "@/lib/compliance/policies";
 import { adoptPolicyAction, retirePolicyAction } from "./actions";
 
 interface AdoptedState {
@@ -12,7 +12,7 @@ interface AdoptedState {
 }
 
 export interface PolicyActionsProps {
-  policyCode: HipaaPolicyCode;
+  policyCode: PolicyCode;
   adopted: AdoptedState | null;
 }
 
