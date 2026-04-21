@@ -120,8 +120,13 @@ export default async function ModulePage({
   });
   const score = pf?.scoreCache ?? 0;
 
-  // Section E — last 10 status-change events for this framework.
-  const activityEvents = await db.eventLog.findMany({
+  // Section E — status-change events for this framework. Fetch a larger
+  // window (40) so we can dedupe consecutive toggles by the same actor on
+  // the same requirement within a 5-minute window, then trim to 10 rows for
+  // display. This keeps the feed tight when a user flips a requirement
+  // back-and-forth while investigating.
+  const DEDUP_WINDOW_MS = 5 * 60 * 1000;
+  const rawActivityEvents = await db.eventLog.findMany({
     where: {
       practiceId: pu.practiceId,
       type: "REQUIREMENT_STATUS_UPDATED",
@@ -130,12 +135,40 @@ export default async function ModulePage({
       AND: [{ payload: { path: ["frameworkCode"], equals: framework.code } }],
     },
     orderBy: { createdAt: "desc" },
-    take: 10,
+    take: 40,
     include: { actor: { select: { email: true } } },
   });
 
+  // Dedup pass: newest-first. Drop an event when the event that immediately
+  // precedes it in the kept list (i.e. a newer entry by the same actor on
+  // the same requirement) is within DEDUP_WINDOW_MS. We keep the newest —
+  // the loop visits newest first and decides to keep or skip.
+  const dedupedActivity: typeof rawActivityEvents = [];
+  for (const evt of rawActivityEvents) {
+    const payload = evt.payload as StatusEventPayload | null;
+    const reqId = payload?.requirementId ?? null;
+    const lastKept = dedupedActivity[dedupedActivity.length - 1];
+    if (lastKept) {
+      const lastPayload = lastKept.payload as StatusEventPayload | null;
+      const lastReqId = lastPayload?.requirementId ?? null;
+      const sameActor = lastKept.actorUserId === evt.actorUserId;
+      const sameReq = lastReqId !== null && lastReqId === reqId;
+      const gap = lastKept.createdAt.getTime() - evt.createdAt.getTime();
+      if (sameActor && sameReq && gap < DEDUP_WINDOW_MS) {
+        // Skip this older duplicate; the newer one is already kept.
+        continue;
+      }
+    }
+    dedupedActivity.push(evt);
+    if (dedupedActivity.length >= 10) break;
+  }
+
+  const distinctActorCount = new Set(
+    dedupedActivity.map((e) => e.actorUserId),
+  ).size;
+
   const requirementById = new Map(framework.requirements.map((r) => [r.id, r]));
-  const feedEvents: ModuleActivityEvent[] = activityEvents.map((evt) => {
+  const feedEvents: ModuleActivityEvent[] = dedupedActivity.map((evt) => {
     const payload = evt.payload as StatusEventPayload | null;
     const reqId = payload?.requirementId ?? "";
     const req = requirementById.get(reqId);
@@ -144,7 +177,9 @@ export default async function ModulePage({
       createdAt: evt.createdAt,
       requirementTitle: req?.title ?? "Requirement",
       nextStatus: payload?.nextStatus ?? "NOT_STARTED",
+      actorUserId: evt.actorUserId,
       actorEmail: evt.actor?.email ?? null,
+      source: payload?.source ?? null,
       reason: payload?.reason ?? null,
     };
   });
@@ -208,7 +243,11 @@ export default async function ModulePage({
       </section>
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-foreground">Recent activity</h2>
-        <ModuleActivityFeed events={feedEvents} />
+        <ModuleActivityFeed
+          events={feedEvents}
+          currentUserId={pu.dbUser.id}
+          distinctActorCount={distinctActorCount}
+        />
       </section>
     </main>
   );
