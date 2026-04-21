@@ -67,7 +67,7 @@ const PROGRAMS: ProgramItem[] = [
   { label: "Training", icon: GraduationCap, href: "/programs/training" as Route },
   { label: "Incidents", icon: AlertTriangle },
   { label: "Credentials", icon: IdCard },
-  { label: "Vendors", icon: Building2 },
+  { label: "Vendors", icon: Building2, href: "/programs/vendors" as Route },
   { label: "Risk", icon: ShieldAlert },
 ];
 
