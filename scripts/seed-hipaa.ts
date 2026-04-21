@@ -58,7 +58,7 @@ async function main() {
       weight: 1.5,
       description:
         "A covered entity must designate a Privacy Officer responsible for the development and implementation of the policies and procedures.",
-      acceptedEvidenceTypes: ["ATTESTATION"],
+      acceptedEvidenceTypes: ["OFFICER_DESIGNATION:PRIVACY"],
       sortOrder: 10,
     },
     {
@@ -69,7 +69,7 @@ async function main() {
       weight: 1.5,
       description:
         "Identify the security official responsible for developing and implementing the required policies and procedures.",
-      acceptedEvidenceTypes: ["ATTESTATION"],
+      acceptedEvidenceTypes: ["OFFICER_DESIGNATION:SECURITY"],
       sortOrder: 20,
     },
     {
@@ -80,7 +80,7 @@ async function main() {
       weight: 2,
       description:
         "Perform an accurate and thorough assessment of risks and vulnerabilities to the confidentiality, integrity, and availability of ePHI.",
-      acceptedEvidenceTypes: ["SRA_ANSWER", "ATTESTATION"],
+      acceptedEvidenceTypes: [],
       sortOrder: 30,
     },
     {
@@ -91,7 +91,7 @@ async function main() {
       weight: 1.5,
       description:
         "Implement policies and procedures with respect to protected health information to comply with the Privacy and Security Rules.",
-      acceptedEvidenceTypes: ["POLICY"],
+      acceptedEvidenceTypes: [],
       sortOrder: 40,
     },
     {
@@ -102,7 +102,7 @@ async function main() {
       weight: 1,
       description:
         "Train all members of the workforce on policies and procedures with respect to PHI, as necessary and appropriate for them to carry out their function.",
-      acceptedEvidenceTypes: ["TRAINING"],
+      acceptedEvidenceTypes: [],
       sortOrder: 50,
     },
     {
@@ -113,7 +113,7 @@ async function main() {
       weight: 1.5,
       description:
         "Obtain satisfactory assurances from business associates that they will appropriately safeguard PHI.",
-      acceptedEvidenceTypes: ["BAA"],
+      acceptedEvidenceTypes: [],
       sortOrder: 60,
     },
     {
@@ -124,7 +124,7 @@ async function main() {
       weight: 1,
       description:
         "Limit uses, disclosures, and requests of PHI to the minimum necessary to accomplish the intended purpose.",
-      acceptedEvidenceTypes: ["POLICY"],
+      acceptedEvidenceTypes: [],
       sortOrder: 70,
     },
     {
@@ -135,7 +135,7 @@ async function main() {
       weight: 1,
       description:
         "Provide a notice of privacy practices describing how PHI may be used and disclosed, and the individual's rights.",
-      acceptedEvidenceTypes: ["POLICY", "ATTESTATION"],
+      acceptedEvidenceTypes: [],
       sortOrder: 80,
     },
     {
@@ -146,7 +146,7 @@ async function main() {
       weight: 1.5,
       description:
         "Maintain a documented procedure for investigating, assessing, and notifying affected individuals of breaches of unsecured PHI.",
-      acceptedEvidenceTypes: ["POLICY", "INCIDENT_LOG"],
+      acceptedEvidenceTypes: [],
       sortOrder: 90,
     },
     {
@@ -157,7 +157,7 @@ async function main() {
       weight: 1,
       description:
         "Implement policies and procedures that specify the proper functions to be performed and the physical safeguards for workstations that access ePHI.",
-      acceptedEvidenceTypes: ["POLICY"],
+      acceptedEvidenceTypes: [],
       sortOrder: 100,
     },
   ];
