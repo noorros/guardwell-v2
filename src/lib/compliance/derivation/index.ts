@@ -12,6 +12,7 @@ import { OSHA_DERIVATION_RULES } from "./osha";
 import { OIG_DERIVATION_RULES } from "./oig";
 import { DEA_DERIVATION_RULES } from "./dea";
 import { CMS_DERIVATION_RULES } from "./cms";
+import { CLIA_DERIVATION_RULES } from "./clia";
 import type { DerivationRule } from "./hipaa";
 
 export type { DerivationRule, DerivedStatus } from "./hipaa";
@@ -22,4 +23,5 @@ export const DERIVATION_RULES: Record<string, DerivationRule> = {
   ...OIG_DERIVATION_RULES,
   ...DEA_DERIVATION_RULES,
   ...CMS_DERIVATION_RULES,
+  ...CLIA_DERIVATION_RULES,
 };
