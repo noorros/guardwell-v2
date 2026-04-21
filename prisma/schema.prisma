@@ -92,6 +92,7 @@ model Practice {
   currentPeriodEnd       DateTime?
 
   practiceUsers     PracticeUser[]
+  practicePolicies  PracticePolicy[]
   events            EventLog[]
   complianceItems   ComplianceItem[]
   enabledFrameworks PracticeFramework[]
@@ -129,6 +130,26 @@ model PracticeUser {
   @@unique([userId, practiceId])
   @@index([practiceId, role])
   @@index([practiceId, removedAt])
+}
+
+// Evidence for POLICY:* requirements. Append-only at the application
+// layer — mutations go through appendEventAndApply() per ADR-0001.
+// Retiring a policy sets retiredAt instead of deleting.
+model PracticePolicy {
+  id         String   @id @default(cuid())
+  practiceId String
+  policyCode String   // e.g. "HIPAA_PRIVACY_POLICY" — see src/lib/compliance/policies.ts
+  content    String?  @db.Text
+  version    Int      @default(1)
+  adoptedAt  DateTime @default(now())
+  retiredAt  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  @@unique([practiceId, policyCode])
+  @@index([practiceId, retiredAt])
 }
 
 // ────────────────────────────────────────────────────────────────────────────

@@ -11,6 +11,8 @@ export const EVENT_TYPES = [
   "USER_INVITED",
   "REQUIREMENT_STATUS_UPDATED",
   "OFFICER_DESIGNATED",
+  "POLICY_ADOPTED",
+  "POLICY_RETIRED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -62,6 +64,20 @@ export const EVENT_SCHEMAS = {
       userId: z.string().min(1),
       officerRole: z.enum(OFFICER_ROLES),
       designated: z.boolean(),
+    }),
+  },
+  POLICY_ADOPTED: {
+    1: z.object({
+      practicePolicyId: z.string().min(1),
+      policyCode: z.string().min(1),
+      version: z.number().int().positive(),
+      acknowledgedByUserIds: z.array(z.string()).optional(),
+    }),
+  },
+  POLICY_RETIRED: {
+    1: z.object({
+      practicePolicyId: z.string().min(1),
+      policyCode: z.string().min(1),
     }),
   },
 } as const;

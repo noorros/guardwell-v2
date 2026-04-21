@@ -10,6 +10,7 @@
 // wraps the result into an event + projection.
 
 import type { Prisma } from "@prisma/client";
+import { HIPAA_PP_POLICY_SET, type HipaaPolicyCode } from "@/lib/compliance/policies";
 
 export type DerivedStatus = "COMPLIANT" | "GAP" | "NOT_STARTED";
 export type DerivationRule = (
@@ -44,7 +45,47 @@ export async function hipaaSecurityOfficerRule(
   return count >= 1 ? "COMPLIANT" : "GAP";
 }
 
+/**
+ * Generic single-policy rule factory: requires one adopted-and-not-retired
+ * PracticePolicy with the given policyCode.
+ */
+function singlePolicyRule(required: HipaaPolicyCode): DerivationRule {
+  return async (tx, practiceId) => {
+    const count = await tx.practicePolicy.count({
+      where: { practiceId, policyCode: required, retiredAt: null },
+    });
+    return count >= 1 ? "COMPLIANT" : "GAP";
+  };
+}
+
+/**
+ * HIPAA §164.530(i)(1). Satisfied only when ALL three core P&P policies —
+ * Privacy, Security, and Breach Response — are adopted and not retired.
+ */
+export async function hipaaPoliciesProceduresRule(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<DerivedStatus | null> {
+  const adopted = await tx.practicePolicy.findMany({
+    where: {
+      practiceId,
+      retiredAt: null,
+      policyCode: { in: [...HIPAA_PP_POLICY_SET] },
+    },
+    select: { policyCode: true },
+  });
+  const hasAll = HIPAA_PP_POLICY_SET.every((c) =>
+    adopted.some((a) => a.policyCode === c),
+  );
+  return hasAll ? "COMPLIANT" : "GAP";
+}
+
 export const HIPAA_DERIVATION_RULES: Record<string, DerivationRule> = {
   HIPAA_PRIVACY_OFFICER: hipaaPrivacyOfficerRule,
   HIPAA_SECURITY_OFFICER: hipaaSecurityOfficerRule,
+  HIPAA_POLICIES_PROCEDURES: hipaaPoliciesProceduresRule,
+  HIPAA_MINIMUM_NECESSARY: singlePolicyRule("HIPAA_MINIMUM_NECESSARY_POLICY"),
+  HIPAA_NPP: singlePolicyRule("HIPAA_NPP_POLICY"),
+  HIPAA_BREACH_RESPONSE: singlePolicyRule("HIPAA_BREACH_RESPONSE_POLICY"),
+  HIPAA_WORKSTATION_USE: singlePolicyRule("HIPAA_WORKSTATION_POLICY"),
 };

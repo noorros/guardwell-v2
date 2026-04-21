@@ -91,7 +91,11 @@ async function main() {
       weight: 1.5,
       description:
         "Implement policies and procedures with respect to protected health information to comply with the Privacy and Security Rules.",
-      acceptedEvidenceTypes: [],
+      acceptedEvidenceTypes: [
+        "POLICY:HIPAA_PRIVACY_POLICY",
+        "POLICY:HIPAA_SECURITY_POLICY",
+        "POLICY:HIPAA_BREACH_RESPONSE_POLICY",
+      ],
       sortOrder: 40,
     },
     {
@@ -124,7 +128,7 @@ async function main() {
       weight: 1,
       description:
         "Limit uses, disclosures, and requests of PHI to the minimum necessary to accomplish the intended purpose.",
-      acceptedEvidenceTypes: [],
+      acceptedEvidenceTypes: ["POLICY:HIPAA_MINIMUM_NECESSARY_POLICY"],
       sortOrder: 70,
     },
     {
@@ -135,7 +139,7 @@ async function main() {
       weight: 1,
       description:
         "Provide a notice of privacy practices describing how PHI may be used and disclosed, and the individual's rights.",
-      acceptedEvidenceTypes: [],
+      acceptedEvidenceTypes: ["POLICY:HIPAA_NPP_POLICY"],
       sortOrder: 80,
     },
     {
@@ -146,7 +150,7 @@ async function main() {
       weight: 1.5,
       description:
         "Maintain a documented procedure for investigating, assessing, and notifying affected individuals of breaches of unsecured PHI.",
-      acceptedEvidenceTypes: [],
+      acceptedEvidenceTypes: ["POLICY:HIPAA_BREACH_RESPONSE_POLICY"],
       sortOrder: 90,
     },
     {
@@ -157,7 +161,7 @@ async function main() {
       weight: 1,
       description:
         "Implement policies and procedures that specify the proper functions to be performed and the physical safeguards for workstations that access ePHI.",
-      acceptedEvidenceTypes: [],
+      acceptedEvidenceTypes: ["POLICY:HIPAA_WORKSTATION_POLICY"],
       sortOrder: 100,
     },
   ];
