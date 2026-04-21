@@ -33,8 +33,8 @@ steps:
       - --allow-unauthenticated
       - --add-cloudsql-instances=$PROJECT_ID:us-central1:guardwell-v2-db
       - --service-account=guardwell-v2-runtime@$PROJECT_ID.iam.gserviceaccount.com
-      - --set-env-vars=FIREBASE_PROJECT_ID=guardwell-prod,FIREBASE_CLIENT_EMAIL=firebase-adminsdk-fbsvc@guardwell-prod.iam.gserviceaccount.com,NEXT_PUBLIC_APP_URL=https://v2.app.gwcomp.com
-      - --set-secrets=DATABASE_URL=V2_DATABASE_URL:latest,FIREBASE_PRIVATE_KEY=FIREBASE_PRIVATE_KEY:latest
+      - --set-env-vars=FIREBASE_PROJECT_ID=guardwell-prod,FIREBASE_CLIENT_EMAIL=firebase-adminsdk-fbsvc@guardwell-prod.iam.gserviceaccount.com,NEXT_PUBLIC_APP_URL=https://v2.app.gwcomp.com,LLM_MONTHLY_BUDGET_USD=200
+      - --set-secrets=DATABASE_URL=V2_DATABASE_URL:latest,FIREBASE_PRIVATE_KEY=FIREBASE_PRIVATE_KEY:latest,ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,UPSTASH_REDIS_REST_URL=UPSTASH_REDIS_REST_URL:latest,UPSTASH_REDIS_REST_TOKEN=UPSTASH_REDIS_REST_TOKEN_SECRET:latest
 options:
   machineType: E2_HIGHCPU_8
   logging: CLOUD_LOGGING_ONLY
