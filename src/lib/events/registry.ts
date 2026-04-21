@@ -19,6 +19,7 @@ export const EVENT_TYPES = [
   "VENDOR_REMOVED",
   "CREDENTIAL_UPSERTED",
   "CREDENTIAL_REMOVED",
+  "SRA_COMPLETED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -142,6 +143,22 @@ export const EVENT_SCHEMAS = {
   CREDENTIAL_REMOVED: {
     1: z.object({
       credentialId: z.string().min(1),
+    }),
+  },
+  SRA_COMPLETED: {
+    1: z.object({
+      assessmentId: z.string().min(1),
+      completedByUserId: z.string().min(1),
+      overallScore: z.number().int().min(0).max(100),
+      addressedCount: z.number().int().min(0),
+      totalCount: z.number().int().min(1),
+      answers: z.array(
+        z.object({
+          questionCode: z.string().min(1),
+          answer: z.enum(["YES", "NO", "PARTIAL", "NA"]),
+          notes: z.string().max(2000).nullable().optional(),
+        }),
+      ),
     }),
   },
 } as const;

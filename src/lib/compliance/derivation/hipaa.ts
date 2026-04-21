@@ -114,6 +114,8 @@ export async function hipaaBaaRule(
   return allCovered ? "COMPLIANT" : "GAP";
 }
 
+import { hipaaSraRule } from "./hipaaSra";
+
 export const HIPAA_DERIVATION_RULES: Record<string, DerivationRule> = {
   HIPAA_PRIVACY_OFFICER: hipaaPrivacyOfficerRule,
   HIPAA_SECURITY_OFFICER: hipaaSecurityOfficerRule,
@@ -124,4 +126,5 @@ export const HIPAA_DERIVATION_RULES: Record<string, DerivationRule> = {
   HIPAA_WORKSTATION_USE: singlePolicyRule("HIPAA_WORKSTATION_POLICY"),
   HIPAA_WORKFORCE_TRAINING: hipaaWorkforceTrainingRule,
   HIPAA_BAAS: hipaaBaaRule,
+  HIPAA_SRA: hipaaSraRule,
 };

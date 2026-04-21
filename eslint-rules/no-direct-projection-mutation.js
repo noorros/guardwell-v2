@@ -10,6 +10,8 @@ const PROJECTION_TABLES = new Set([
   "trainingCompletion",
   "vendor",
   "credential",
+  "practiceSraAssessment",
+  "practiceSraAnswer",
 ]);
 
 const MUTATING_METHODS = new Set([
