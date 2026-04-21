@@ -4,9 +4,9 @@
 // stable `code` (e.g. "HIPAA_BASICS") that is the natural upsert key and
 // also the evidence-type suffix (TRAINING:<code>) used by derivation.
 //
-// Content is loaded from JSON fixtures under scripts/training-content/ so
-// it's easy to diff and review. Quiz questions are synced by (courseId, order) —
-// running the seeder after editing a question's text updates it in place.
+// Content is loaded from JSON fixtures under scripts/ so it's easy to
+// diff and review. Quiz questions are synced by (courseId, order) —
+// running the seeder after editing a question's text updates in place.
 //
 // Usage:
 //   npm run db:seed:training
@@ -104,33 +104,37 @@ async function upsertCourse(fixture: CourseFixture) {
       });
     }
   }
-  const staleOrders = existing
+  const staleIds = existing
     .filter((e) => !fixture.quizQuestions.some((q) => q.order === e.order))
     .map((e) => e.id);
-  if (staleOrders.length > 0) {
-    await db.quizQuestion.deleteMany({ where: { id: { in: staleOrders } } });
+  if (staleIds.length > 0) {
+    await db.quizQuestion.deleteMany({ where: { id: { in: staleIds } } });
   }
   return course;
 }
 
-function loadV1Export(filePath: string): CourseFixture {
-  const raw = JSON.parse(readFileSync(filePath, "utf8")) as {
-    title: string;
-    description: string | null;
-    type: string;
-    duration: number | null;
-    passingScore: number;
-    isRequired: boolean;
-    roles: string[];
-    lessonContent: string;
-    quizQuestions: Array<{
-      question: string;
-      options: string[];
-      correctIndex: number;
-      explanation: string | null;
-      order: number;
-    }>;
-  };
+// v1 HIPAA 101 export — one course per file, code forced to HIPAA_BASICS
+// because derivation is hard-coded to that canonical identifier.
+interface LegacyV1Course {
+  title: string;
+  description: string | null;
+  type: string;
+  duration: number | null;
+  passingScore: number;
+  isRequired: boolean;
+  roles: string[];
+  lessonContent: string;
+  quizQuestions: Array<{
+    question: string;
+    options: string[];
+    correctIndex: number;
+    explanation: string | null;
+    order: number;
+  }>;
+}
+
+function loadHipaaBasics(filePath: string): CourseFixture {
+  const raw: LegacyV1Course = JSON.parse(readFileSync(filePath, "utf8"));
   return {
     code: "HIPAA_BASICS",
     title: raw.title,
@@ -147,16 +151,52 @@ function loadV1Export(filePath: string): CourseFixture {
   };
 }
 
-async function main() {
-  const fixturePath = path.resolve(
-    __dirname,
-    "_v1-hipaa-101-export.json",
-  );
-  const hipaaBasics = loadV1Export(fixturePath);
+// v1 additional-courses export — array of multiple courses, codes embedded.
+interface V1CourseWithCode extends LegacyV1Course {
+  code: string;
+}
 
-  const course = await upsertCourse(hipaaBasics);
+function loadAdditional(filePath: string): CourseFixture[] {
+  const raw: V1CourseWithCode[] = JSON.parse(readFileSync(filePath, "utf8"));
+  return raw.map((r, idx) => ({
+    code: r.code,
+    title: r.title,
+    description: r.description,
+    type: "HIPAA",
+    durationMinutes: r.duration,
+    passingScore: r.passingScore,
+    isRequired: r.isRequired,
+    roles: r.roles,
+    sortOrder: 20 + idx * 10,
+    version: 1,
+    lessonContent: r.lessonContent,
+    quizQuestions: r.quizQuestions,
+  }));
+}
+
+async function main() {
+  const basicsPath = path.resolve(__dirname, "_v1-hipaa-101-export.json");
+  const additionalPath = path.resolve(
+    __dirname,
+    "_v1-hipaa-additional-courses-export.json",
+  );
+
+  const fixtures: CourseFixture[] = [
+    loadHipaaBasics(basicsPath),
+    ...loadAdditional(additionalPath),
+  ];
+
+  let totalQuestions = 0;
+  for (const f of fixtures) {
+    const course = await upsertCourse(f);
+    totalQuestions += f.quizQuestions.length;
+    console.log(
+      `  ✓ ${course.code} — ${f.quizQuestions.length} qs, ${f.lessonContent.length} chars`,
+    );
+  }
+
   console.log(
-    `Seed training: course code=${course.code} id=${course.id} version=${course.version}, ${hipaaBasics.quizQuestions.length} quiz questions.`,
+    `Seed training: ${fixtures.length} courses upserted, ${totalQuestions} total quiz questions.`,
   );
 }
 
