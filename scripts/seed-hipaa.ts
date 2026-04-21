@@ -117,7 +117,7 @@ async function main() {
       weight: 1.5,
       description:
         "Obtain satisfactory assurances from business associates that they will appropriately safeguard PHI.",
-      acceptedEvidenceTypes: [],
+      acceptedEvidenceTypes: ["BAA_EXECUTED"],
       sortOrder: 60,
     },
     {
