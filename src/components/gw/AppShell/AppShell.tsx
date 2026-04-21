@@ -1,0 +1,50 @@
+// src/components/gw/AppShell/AppShell.tsx
+import type { ReactNode } from "react";
+import { Sidebar, type MyComplianceItem } from "./Sidebar";
+import { TopBar } from "./TopBar";
+import { MobileSidebarTrigger } from "./MobileSidebarTrigger";
+
+export interface AppShellProps {
+  children: ReactNode;
+  practice: { name: string };
+  user: { email: string };
+  myComplianceItems: MyComplianceItem[];
+}
+
+/**
+ * The signed-in app frame: fixed top bar + left sidebar on desktop, collapsed
+ * sidebar behind a hamburger on mobile. Children render in the scrollable
+ * main area.
+ *
+ * Keeps a <main id="main"> landmark so the root layout's skip-to-main link
+ * (see src/app/layout.tsx) continues to focus page content, not chrome.
+ */
+export function AppShell({
+  children,
+  practice,
+  user,
+  myComplianceItems,
+}: AppShellProps) {
+  return (
+    <div className="flex min-h-screen flex-col bg-background">
+      <TopBar
+        practiceName={practice.name}
+        userEmail={user.email}
+        mobileTrigger={
+          <MobileSidebarTrigger myComplianceItems={myComplianceItems} />
+        }
+      />
+      <div className="flex flex-1 overflow-hidden">
+        <aside className="hidden w-60 shrink-0 overflow-y-auto md:block">
+          <Sidebar myComplianceItems={myComplianceItems} />
+        </aside>
+        <main
+          id="main"
+          className="flex-1 overflow-y-auto bg-background"
+        >
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}
