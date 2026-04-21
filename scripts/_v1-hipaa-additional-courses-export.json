@@ -1,0 +1,572 @@
+[
+  {
+    "code": "ANNUAL_HIPAA_REFRESHER",
+    "title": "Annual HIPAA Refresher",
+    "description": "Stay current with HIPAA enforcement trends, recent regulatory updates, common violation patterns, and best practices for protecting PHI.",
+    "type": "HIPAA",
+    "duration": 20,
+    "passingScore": 80,
+    "isRequired": true,
+    "roles": [
+      "all"
+    ],
+    "lessonContent": "<div class=\"lesson-content\">\n\n  <div class=\"lesson-intro\">\n    <h2>Before we start — HIPAA enforcement is accelerating</h2>\n    <p>OCR collected over <strong>$20 million in HIPAA settlements in 2023</strong> alone — and that's settlements, not the full scope of enforcement activity. The Right of Access Initiative, launched in 2019, has generated over 50 enforcement actions specifically targeting practices that failed to provide patients timely access to their records. OCR is also increasingly focused on how practices use tracking technologies on patient-facing websites and portals. The threat landscape evolves every year. Annual training isn't a ritual — it's how you stay current.</p>\n  </div>\n\n  <h2>What's changed and what OCR is focused on right now</h2>\n  <p>Three areas have been at the center of OCR enforcement activity in recent years:</p>\n  <ul>\n    <li><strong>Right of Access:</strong> Patients requesting their records and practices not responding within 30 days — or charging excessive fees — continues to generate the most individual enforcement actions. It's the highest-volume area of complaint-driven enforcement.</li>\n    <li><strong>Hacking and IT incidents:</strong> Ransomware attacks on healthcare organizations continue at record rates. Most begin with phishing emails or compromised credentials. The technical controls matter, but so does every individual's vigilance with their login and their email.</li>\n    <li><strong>Tracking technologies:</strong> OCR issued guidance in 2023 clarifying that tracking pixels (like Meta Pixel and Google Analytics) on patient-facing website pages — particularly appointment request pages, symptom checkers, and patient portals — may transmit PHI to third-party advertisers without authorization, constituting a HIPAA violation. If your practice uses any web analytics tools, this is worth reviewing with your Privacy Officer.</li>\n  </ul>\n\n  <h2>The 4-factor risk assessment — revisited</h2>\n  <p>Every impermissible disclosure starts as a potential breach. The 4-factor risk assessment determines whether it becomes a reportable one. A quick refresher on the factors:</p>\n  <ul>\n    <li><strong>Factor 1:</strong> Nature and extent of the PHI — what types, how sensitive, how many individuals</li>\n    <li><strong>Factor 2:</strong> Who accessed or received the PHI — another covered entity, an unknown third party, someone with accountability</li>\n    <li><strong>Factor 3:</strong> Whether the PHI was actually acquired or viewed — evidence of access vs. opportunity for access</li>\n    <li><strong>Factor 4:</strong> Extent to which risk has been mitigated — retrieval, destruction confirmation, confidentiality assurances</li>\n  </ul>\n  <p>The practice must document its risk assessment. An undocumented determination that something wasn't a reportable breach is not a defense in an OCR investigation.</p>\n\n  <h2>Incidental disclosures — the legitimate exception</h2>\n  <p>HIPAA acknowledges that some disclosures are unavoidable byproducts of otherwise permitted activities — a patient in a nearby exam room overhears a brief hallway conversation, for example. These incidental disclosures are not violations if reasonable safeguards were in place and the disclosure wasn't gratuitous or preventable with reasonable effort.</p>\n  <p>The key word is reasonable. \"The waiting room is small\" is a reasonable explanation for limited ambient privacy. \"We routinely discuss patient diagnoses loudly at the front desk because it's more efficient\" is not a reasonable safeguard — it's an absence of one.</p>\n\n  <h2>The texting and email question — where most day-to-day violations live</h2>\n  <p>Standard SMS text messages are not encrypted. Standard personal email is not encrypted. Sending PHI via either without patient consent is a HIPAA Security Rule violation.</p>\n  <p>Compliant alternatives:</p>\n  <ul>\n    <li>Secure messaging platforms with a signed BAA — your EHR's messaging system, a healthcare-specific secure text platform</li>\n    <li>The patient portal — specifically designed for this purpose</li>\n    <li>Patient consent to accept the risk — a patient can sign a consent acknowledging they understand that email/text is not encrypted and still choose to receive information that way. That consent is documented and on file.</li>\n  </ul>\n  <p>The \"the patient gave me their cell phone number\" approach doesn't create HIPAA authorization. Providing a number and authorizing PHI transmission via that number are different things.</p>\n\n  <h2>Common patterns in recent OCR investigations</h2>\n  <ul>\n    <li>Failure to conduct or document an annual security risk analysis</li>\n    <li>Failure to respond to patient records requests within 30 days</li>\n    <li>Workforce members accessing PHI beyond their minimum necessary role</li>\n    <li>Failure to terminate access when employees leave the practice</li>\n    <li>Using unsecured communication tools (personal email, standard text) for PHI</li>\n  </ul>\n  <p>These aren't sophisticated attacks. They're process failures that compound over time and come to light during complaints or audits.</p>\n\n  <h2>Key takeaways</h2>\n  <ul>\n    <li>Right of Access, hacking/ransomware, and tracking technologies are OCR's current enforcement priorities.</li>\n    <li>The 4-factor risk assessment determines whether an impermissible disclosure is a reportable breach. Document every determination.</li>\n    <li>Incidental disclosures are permitted when reasonable safeguards are in place. \"Reasonable\" is not \"convenient.\"</li>\n    <li>Standard text and email are not HIPAA-compliant for PHI without documented patient consent to accept the risk.</li>\n    <li>The most common violations are process failures: no annual risk analysis, records requests ignored, access not terminated when employees leave.</li>\n  </ul>\n\n  <div class=\"lesson-quiz-intro\">\n    <p>Ready for the quiz. Six questions. You need 80% to pass.</p>\n  </div>\n\n</div>",
+    "quizQuestions": [
+      {
+        "question": "The OCR's 2023 HIPAA Right of Access final rule requires covered entities to fulfill patient records requests within:",
+        "options": [
+          "7 days",
+          "15 days",
+          "30 days (with a single 30-day extension if needed)",
+          "60 days"
+        ],
+        "correctIndex": 2,
+        "explanation": "The HIPAA Right of Access standard requires covered entities to act on a patient's records request no later than 30 days after receipt, with a single 30-day extension allowed with written notice to the patient explaining the delay.",
+        "order": 1
+      },
+      {
+        "question": "The most common cause of HIPAA breaches reported to OCR in recent years has been:",
+        "options": [
+          "Employees verbally sharing PHI with friends",
+          "Hacking and IT incidents (including ransomware attacks)",
+          "Paper records left in public areas",
+          "Patients posting their own information online"
+        ],
+        "correctIndex": 1,
+        "explanation": "Hacking and IT incidents — particularly ransomware and phishing attacks — have been the largest source of HIPAA breaches by number of individuals affected in recent years, accounting for the majority of large-breach notifications on the OCR 'Wall of Shame.'",
+        "order": 2
+      },
+      {
+        "question": "Under the HIPAA Right of Access rule, a covered entity may charge a patient:",
+        "options": [
+          "Any fee the practice determines is appropriate for records requests",
+          "Only a reasonable, cost-based fee covering labor, supplies, and postage",
+          "No fee under any circumstances",
+          "A flat fee of $25 per records request"
+        ],
+        "correctIndex": 1,
+        "explanation": "The OCR's Right of Access guidance permits covered entities to charge only a reasonable, cost-based fee covering: labor for copying, supplies for electronic media, and postage. Fees based on page count alone or fees that act as access barriers are not permissible.",
+        "order": 3
+      },
+      {
+        "question": "If a workforce member accidentally emails PHI to the wrong patient, the covered entity must:",
+        "options": [
+          "Report the incident to OCR immediately and notify the affected patients within 24 hours",
+          "Conduct a 4-factor risk assessment to determine whether it constitutes a reportable breach",
+          "Treat it as an incidental disclosure and take no further action",
+          "Wait to see if either patient complains before taking action"
+        ],
+        "correctIndex": 1,
+        "explanation": "Every impermissible use or disclosure of PHI must be assessed using the 4-factor risk assessment. Only after completing the assessment can you determine whether the incident is a reportable breach or falls under an exception.",
+        "order": 4
+      },
+      {
+        "question": "'Incidental disclosures' under HIPAA (such as another patient overhearing a hallway conversation):",
+        "options": [
+          "Are always HIPAA violations and must be reported to OCR",
+          "Are permissible if reasonable safeguards are in place and are not gratuitous",
+          "Are never permissible in a healthcare setting",
+          "Must be documented in the patient's medical record"
+        ],
+        "correctIndex": 1,
+        "explanation": "HIPAA permits incidental disclosures that cannot reasonably be prevented, are limited in nature, and occur as a byproduct of an otherwise permitted use or disclosure. The key is that reasonable safeguards (e.g., lowering voices, using privacy screens) were in place.",
+        "order": 5
+      },
+      {
+        "question": "Texting PHI using a standard, unencrypted text message application is:",
+        "options": [
+          "Permissible as a quick, informal communication method among clinical staff",
+          "Permissible only for non-clinical information like appointment reminders",
+          "A HIPAA Security Rule violation unless the patient has explicitly agreed to receive PHI via unsecured text",
+          "Permissible as long as the text is deleted within 24 hours"
+        ],
+        "correctIndex": 2,
+        "explanation": "Standard SMS text messages are not encrypted in transit and do not meet HIPAA's Security Rule requirements for ePHI in transit. Using secure messaging platforms (with BAAs) or obtaining informed patient consent to accept the risk of unencrypted texts are the compliant approaches.",
+        "order": 6
+      }
+    ]
+  },
+  {
+    "code": "HIPAA_SECURITY_AWARENESS",
+    "title": "HIPAA Security Awareness",
+    "description": "Covers the Security Rule's administrative, physical, and technical safeguards for protecting electronic PHI (ePHI).",
+    "type": "HIPAA",
+    "duration": 20,
+    "passingScore": 80,
+    "isRequired": true,
+    "roles": [
+      "all"
+    ],
+    "lessonContent": "<div class=\"lesson-content\">\n\n  <div class=\"lesson-intro\">\n    <h2>Before we start — the threat is real and growing</h2>\n    <p>Healthcare is the most targeted industry for cyberattacks. In 2023, <strong>over 133 million patient records were exposed</strong> in HIPAA breaches — a record. The average cost of a healthcare data breach hit $10.9 million that year, according to IBM's annual report. And the majority of those breaches started with something completely preventable: a phishing email, a weak password, an unencrypted laptop.</p>\n    <p>The HIPAA Security Rule exists because electronic patient data needs specific protections. This course is about understanding those protections and your role in maintaining them.</p>\n  </div>\n\n  <h2>The Security Rule in plain English</h2>\n  <p>The HIPAA Security Rule applies to electronic Protected Health Information — ePHI. That's any PHI that is created, stored, transmitted, or received in electronic form. Your EHR. Email with patient information. A spreadsheet of appointment data. A photo taken during a patient visit. Billing records in your practice management software.</p>\n  <p>The Security Rule requires covered entities to implement three categories of safeguards: administrative, physical, and technical. All three matter. A practice with excellent technical security but no workforce training is still non-compliant.</p>\n\n  <h2>Administrative safeguards — the policies and people layer</h2>\n  <p>Administrative safeguards are the organizational measures that govern how ePHI is managed. These are the least visible but arguably the most important because they drive everything else.</p>\n  <ul>\n    <li><strong>Security Officer:</strong> Every covered entity must designate a Security Officer responsible for HIPAA security. This person doesn't need to be a technical expert — they need to own the program.</li>\n    <li><strong>Risk Analysis:</strong> At least annually, the practice must conduct a formal assessment of risks to ePHI. This isn't optional — it's the most frequently cited HIPAA violation in OCR investigations.</li>\n    <li><strong>Workforce Training:</strong> All workforce members must receive security awareness training. The course you're completing right now is part of that requirement.</li>\n    <li><strong>Access Management:</strong> The practice must have formal procedures for granting, modifying, and revoking access to ePHI systems when staff join, change roles, or leave.</li>\n  </ul>\n\n  <div class=\"callout callout-example\">\n    <strong>Why access management matters:</strong> A 2022 OCR settlement involved a hospital system that failed to terminate a former employee's EHR access. The ex-employee accessed records for over a year after leaving. The settlement was $240,000. The fix — revoking access on their last day — cost nothing.\n  </div>\n\n  <h2>Physical safeguards — the building and device layer</h2>\n  <p>Physical safeguards control access to the physical spaces and devices where ePHI is stored or accessed. This is more than just locking the server room.</p>\n  <ul>\n    <li><strong>Workstation controls:</strong> Screens should be positioned so passersby can't see patient data. Workstations must be locked or logged off when unattended — even for a two-minute bathroom break.</li>\n    <li><strong>Device and media controls:</strong> Laptops, tablets, phones, and USB drives that contain ePHI must be encrypted. When devices are retired, data must be properly wiped or destroyed — deleting files isn't enough.</li>\n    <li><strong>Facility access:</strong> Who has keys, access codes, or key cards to areas with ePHI? That list should be current and reviewed regularly.</li>\n  </ul>\n\n  <div class=\"callout callout-warning\">\n    <strong>The laptop scenario:</strong> A practice manager takes a laptop home to catch up on work. It's stolen from their car. If the laptop was encrypted, the incident likely doesn't constitute a reportable breach — the data is unreadable. If it wasn't encrypted, you're looking at a breach notification to every patient whose data was on that device. Encryption is the single highest-ROI security control you can implement.\n  </div>\n\n  <h2>Technical safeguards — the system layer</h2>\n  <p>Technical safeguards are the technology-based controls that protect ePHI within your systems.</p>\n  <ul>\n    <li><strong>Access controls:</strong> Each user should have a unique login. Shared accounts make it impossible to audit who accessed what. Role-based permissions ensure staff can only access what their job requires.</li>\n    <li><strong>Audit controls:</strong> Your EHR and other systems containing ePHI should log who accesses what, when. These logs are your evidence of compliance — and your early warning system when something goes wrong.</li>\n    <li><strong>Automatic logoff:</strong> Workstations should automatically lock after a period of inactivity. Five to fifteen minutes is standard.</li>\n    <li><strong>Encryption in transit:</strong> ePHI sent over a network — including email — must be encrypted. This is why your EHR's patient portal exists. Unencrypted email with PHI is a Security Rule violation.</li>\n  </ul>\n\n  <h2>Your day-to-day security responsibilities</h2>\n  <p>Most security breaches don't involve sophisticated hackers. They involve ordinary people making ordinary mistakes.</p>\n  <ul>\n    <li><strong>Password hygiene:</strong> Use a strong, unique password for each system. Don't write it on a sticky note. Don't share it with a colleague \"just for today.\" If your practice offers a password manager, use it.</li>\n    <li><strong>Phishing awareness:</strong> Before clicking a link or opening an attachment in an email, pause. Does the sender look slightly off? Is the request urgent in a way that feels designed to bypass your judgment? Did you expect this email? When in doubt, call the sender directly using a known phone number — not the one in the suspicious email.</li>\n    <li><strong>Reporting incidents:</strong> If you think something went wrong — you clicked a suspicious link, you can't find a device, you saw someone access records they shouldn't — report it immediately. Early reporting is not an admission of wrongdoing. It's what allows the practice to respond before a manageable incident becomes a major breach.</li>\n  </ul>\n\n  <h2>Common mistakes that lead to real violations</h2>\n  <ul>\n    <li><strong>Using personal email for work.</strong> Sending a patient's lab results to yourself on Gmail so you can review them at home. Gmail does not have a BAA with your practice. That's a violation.</li>\n    <li><strong>Leaving workstations unlocked.</strong> It takes three seconds to press Windows+L or Command+Control+Q. Not doing it is a physical and technical safeguard failure every single time.</li>\n    <li><strong>Ignoring software updates.</strong> The \"remind me tomorrow\" button on system updates is often a button that keeps known vulnerabilities open. Updates exist because vulnerabilities were found.</li>\n  </ul>\n\n  <h2>Key takeaways</h2>\n  <ul>\n    <li>The Security Rule applies to ePHI — any patient information in electronic form.</li>\n    <li>Safeguards come in three categories: administrative (policies and people), physical (spaces and devices), and technical (systems and software). All three are required.</li>\n    <li>Encryption is the most important single control — an encrypted lost device is usually not a reportable breach.</li>\n    <li>Every user needs a unique login. Shared accounts are a HIPAA violation.</li>\n    <li>Most breaches start with a phishing email or an unencrypted device. Both are preventable.</li>\n    <li>Report suspected incidents immediately. The clock starts when the practice discovers the incident, not when it's confirmed.</li>\n  </ul>\n\n  <div class=\"lesson-quiz-intro\">\n    <p>Ready for the quiz. Eight questions. You need 80% to pass.</p>\n  </div>\n\n</div>",
+    "quizQuestions": [
+      {
+        "question": "The HIPAA Security Rule applies to which type of health information?",
+        "options": [
+          "All Protected Health Information (PHI) in any form",
+          "Only Electronic Protected Health Information (ePHI)",
+          "Only paper-based health records",
+          "Only health information stored on mobile devices"
+        ],
+        "correctIndex": 1,
+        "explanation": "The HIPAA Security Rule specifically covers electronic Protected Health Information (ePHI) — PHI that is created, received, maintained, or transmitted in electronic form.",
+        "order": 1
+      },
+      {
+        "question": "You leave your workstation unlocked while stepping away to see a patient. This is a violation of:",
+        "options": [
+          "The OSHA Bloodborne Pathogens Standard",
+          "HIPAA Physical and Technical Safeguards",
+          "The HIPAA Breach Notification Rule only",
+          "No rule — it is acceptable practice"
+        ],
+        "correctIndex": 1,
+        "explanation": "Leaving a workstation unlocked and unattended violates HIPAA physical and technical safeguard requirements. Workstations must be locked when unattended to prevent unauthorized access to ePHI.",
+        "order": 2
+      },
+      {
+        "question": "Which of the following is the BEST password practice?",
+        "options": [
+          "Use the same password for all systems for convenience",
+          "Share your password with your supervisor in case they need access",
+          "Use a unique, complex password for each system and never share it",
+          "Write your password on a sticky note on your monitor"
+        ],
+        "correctIndex": 2,
+        "explanation": "Each workforce member should use a unique, complex password for each system and never share it. Shared passwords make audit trails unreliable and increase security risk.",
+        "order": 3
+      },
+      {
+        "question": "You receive an unexpected email asking you to click a link to verify your EHR login. You should:",
+        "options": [
+          "Click the link and enter your credentials to keep your account active",
+          "Forward it to all colleagues so they can verify too",
+          "Treat it as a potential phishing attempt and report it to your IT/Security Officer",
+          "Reply to the email with your username and password"
+        ],
+        "correctIndex": 2,
+        "explanation": "Unexpected emails asking for credentials or directing you to click a link are classic phishing tactics. Always verify by contacting IT/your Security Officer directly — never click unsolicited links.",
+        "order": 4
+      },
+      {
+        "question": "Encrypting a laptop containing ePHI means that if the laptop is stolen:",
+        "options": [
+          "The theft is automatically reported to OCR",
+          "The data may be considered secured and the incident may not constitute a reportable breach",
+          "The organization is still fully liable for a breach regardless",
+          "No further action is needed and no investigation is required"
+        ],
+        "correctIndex": 1,
+        "explanation": "Under HIPAA, ePHI that is encrypted to NIST standards is considered 'secured.' A theft or loss of an encrypted device may not constitute a reportable breach because the data cannot be accessed.",
+        "order": 5
+      },
+      {
+        "question": "The HIPAA Security Risk Analysis must be conducted:",
+        "options": [
+          "Only when you first open the practice",
+          "Every five years",
+          "At least annually and whenever significant changes occur",
+          "Only after a breach has occurred"
+        ],
+        "correctIndex": 2,
+        "explanation": "HIPAA requires covered entities to conduct a thorough assessment of potential risks and vulnerabilities to ePHI at least annually and whenever significant changes occur to the operational environment.",
+        "order": 6
+      },
+      {
+        "question": "Which of the following is a TECHNICAL safeguard under the HIPAA Security Rule?",
+        "options": [
+          "Locking the server room door",
+          "Training staff on password security",
+          "Automatic workstation logoff after inactivity",
+          "Shredding paper records"
+        ],
+        "correctIndex": 2,
+        "explanation": "Automatic workstation logoff is a technical safeguard — technology-based controls that protect ePHI. Locking doors is a physical safeguard; training is an administrative safeguard; shredding applies to paper PHI.",
+        "order": 7
+      },
+      {
+        "question": "What should you do before disposing of a computer or hard drive that may contain ePHI?",
+        "options": [
+          "Simply delete the files and recycle the device",
+          "Donate it to a local school after formatting",
+          "Use NIST-approved data destruction methods or obtain a certificate of destruction",
+          "Place it in the regular trash since old equipment poses no risk"
+        ],
+        "correctIndex": 2,
+        "explanation": "Before disposing of devices containing ePHI, organizations must use NIST-approved data destruction methods (e.g., DoD wiping standard or physical destruction) and should obtain a certificate of destruction.",
+        "order": 8
+      }
+    ]
+  },
+  {
+    "code": "HIPAA_SOCIAL_MEDIA",
+    "title": "HIPAA & Social Media",
+    "description": "Learn the risks of social media in healthcare — what you can and cannot post, how to respond to patient comments, and HIPAA enforcement cases.",
+    "type": "HIPAA",
+    "duration": 15,
+    "passingScore": 80,
+    "isRequired": true,
+    "roles": [
+      "all"
+    ],
+    "lessonContent": "<div class=\"lesson-content\">\n\n  <div class=\"lesson-intro\">\n    <h2>Before we start — social media violations are the ones that go viral</h2>\n    <p>In 2022, a New York dental practice was fined <strong>$23,000 by OCR</strong> after responding to a patient's negative Yelp review by disclosing the patient's treatment details in the public response. The practice thought they were defending themselves. They were actually committing a HIPAA violation in front of anyone who searched their name. Social media HIPAA violations are uniquely dangerous because they're public, permanent, and searchable.</p>\n  </div>\n\n  <h2>Why social media is a high-risk area</h2>\n  <p>Social media creates HIPAA risk in ways that don't feel like HIPAA violations in the moment. You're not handing someone a medical record. You're writing a post, responding to a comment, or sharing a photo. The informal nature of the medium makes it easy to forget that HIPAA applies to every medium where PHI can exist — including Instagram, TikTok, Facebook, X, Yelp, Google Reviews, LinkedIn, and every other platform.</p>\n  <p>The other challenge: \"private\" doesn't mean protected. A private Facebook group of healthcare workers is not HIPAA-compliant. Screenshots travel. Groups get larger. Information shared in confidence spreads.</p>\n\n  <h2>The Yelp/Google Reviews problem</h2>\n  <p>This is the most common social media HIPAA trap. A patient leaves a negative review. It's unfair. You know exactly what happened in that visit. Your instinct is to respond and set the record straight.</p>\n  <p>You cannot. Even confirming that the reviewer is a patient discloses PHI — the treatment relationship itself is PHI. Providing context about what happened at the visit, adding clinical details, or even explaining practice policies in a way that implicitly confirms the patient's account are all violations.</p>\n  <p>What you CAN do in a public response: Thank the reviewer for their feedback. State your general policy on patient care and concern for patient experience. Invite them to contact the practice directly to discuss their concerns. That's it. No patient-specific information. No confirming or denying anything.</p>\n\n  <div class=\"callout callout-warning\">\n    <strong>The rule:</strong> Treat every public review response as if it will be reviewed by your state health department tomorrow. Because it might be.\n  </div>\n\n  <h2>Photography and video — the most avoidable violations</h2>\n  <p>Before-and-after photos, clinical procedure videos, office tour content featuring patients — all of these require explicit written HIPAA authorization before posting anywhere online. \"The patient said it was fine\" is not sufficient. Verbal consent is not sufficient. A signed general consent for treatment is not sufficient.</p>\n  <p>You need a specific, separate HIPAA authorization that describes exactly what content will be created, where it will be posted, for what purpose, and that the patient has the right to revoke. This is a real document with real requirements — your Privacy Officer should have a template.</p>\n  <p>What counts as identifying: faces, obviously. But also distinctive tattoos, birthmarks, jewelry, recognizable clothing, or clinical context that narrows identification even without showing a face. \"No face shown\" is not a HIPAA compliance strategy.</p>\n\n  <h2>Personal social media — the \"off the clock\" illusion</h2>\n  <p>HIPAA applies to you 24 hours a day. A post you make on your personal account at home at midnight about an interesting case you saw today is a HIPAA violation if anyone could identify the patient. The fact that you're not at work doesn't change the analysis.</p>\n  <p>The test is simple: could anyone who knows the patient — a neighbor, a family member, a coworker — read your post and identify who you're talking about? If yes, it's PHI and you cannot post it.</p>\n  <p>Venting about a difficult shift is understandable. Venting in a way that mentions the specialty clinic you work in, the time of day, the age or gender of the patient, and the general nature of their complaint — that combination can identify someone. Strip everything that could be used to identify before you say anything publicly.</p>\n\n  <h2>What you CAN post</h2>\n  <ul>\n    <li>General health education content that contains no patient information</li>\n    <li>Practice news (new equipment, new staff, new hours) with no patient references</li>\n    <li>Links to publicly available health resources, research, or articles</li>\n    <li>Office photos that don't include patients or patient information</li>\n    <li>Patient testimonials and photos — only with a signed, specific HIPAA authorization on file</li>\n  </ul>\n\n  <h2>Common mistakes</h2>\n  <ul>\n    <li><strong>Responding defensively to negative reviews.</strong> The instinct to defend the practice is understandable. Act on it through proper channels — not in a public forum where every word you type is a potential violation.</li>\n    <li><strong>Posting \"de-identified\" case stories that aren't actually de-identified.</strong> A combination of specialty, approximate age, date of service, and condition can identify a patient even without a name.</li>\n    <li><strong>Using the same photo consent forms for HIPAA and social media.</strong> General photography consent for the patient record is not HIPAA authorization for social media posting.</li>\n  </ul>\n\n  <h2>Key takeaways</h2>\n  <ul>\n    <li>HIPAA applies to every platform and every medium — including your personal accounts.</li>\n    <li>Confirming or denying that a reviewer is a patient IS a HIPAA violation. Never do it in a public forum.</li>\n    <li>Photos and videos of patients require specific, separate HIPAA authorization before posting anywhere online. Verbal consent doesn't count.</li>\n    <li>\"Private\" social media groups are not HIPAA-compliant safeguards.</li>\n    <li>Could someone who knows the patient identify them from your post? If yes — don't post it.</li>\n  </ul>\n\n  <div class=\"lesson-quiz-intro\">\n    <p>Ready for the quiz. Six questions. You need 80% to pass.</p>\n  </div>\n\n</div>",
+    "quizQuestions": [
+      {
+        "question": "Posting a patient's before-and-after treatment photos on the practice's social media WITHOUT written patient authorization is:",
+        "options": [
+          "Permissible if the patient's face is not shown",
+          "Permissible if the post is marked as 'educational'",
+          "A HIPAA violation regardless of how the photos are described",
+          "Permissible if the patient verbally consented during the appointment"
+        ],
+        "correctIndex": 2,
+        "explanation": "Images that could identify a patient — including distinctive physical features, tattoos, or clinical context — are PHI. Posting them without valid written authorization is a HIPAA violation even if the face is obscured.",
+        "order": 1
+      },
+      {
+        "question": "A colleague posts in a private Facebook group: 'Had the most difficult patient today — 'John from the East Side' with uncontrolled diabetes.' This is:",
+        "options": [
+          "Acceptable because the patient's last name was not used",
+          "Acceptable because the group is private and limited to healthcare workers",
+          "A potential HIPAA violation because the information could identify the patient",
+          "Not a HIPAA issue since no medical record numbers were shared"
+        ],
+        "correctIndex": 2,
+        "explanation": "Even seemingly partial identifiers (nickname, neighborhood, condition) can constitute PHI if the information could reasonably be used to identify the individual. 'Private' social media groups are not HIPAA-compliant safeguards.",
+        "order": 2
+      },
+      {
+        "question": "Which of the following social media activities is NOT acceptable for healthcare workers?",
+        "options": [
+          "Sharing general health education articles that contain no patient information",
+          "Responding to a public patient review by confirming or denying that the reviewer is a patient",
+          "Posting a photo of the office team at a staff meeting (no patients present)",
+          "Sharing a link to the practice's published blog post on flu prevention"
+        ],
+        "correctIndex": 1,
+        "explanation": "Confirming or denying that a reviewer is a patient — even in a defensive response — discloses PHI (the treatment relationship). This is a HIPAA violation, regardless of what the patient originally posted publicly.",
+        "order": 3
+      },
+      {
+        "question": "A patient posts on your practice's public Facebook page sharing details about their own diagnosis and treatment. Your response should:",
+        "options": [
+          "Publicly thank them and add clinical details to confirm accuracy",
+          "Reply publicly with their account balance to address concerns",
+          "Avoid confirming or disclosing any PHI in the public reply; invite them to contact the practice privately",
+          "Delete the post since it constitutes unauthorized disclosure"
+        ],
+        "correctIndex": 2,
+        "explanation": "A patient may disclose their own PHI publicly, but your response must not confirm, add to, or expand on any PHI in a public forum. Invite the patient to contact the practice privately to protect their privacy.",
+        "order": 4
+      },
+      {
+        "question": "When discussing patient cases with colleagues in an online professional forum:",
+        "options": [
+          "You may use first names only since last names are the key identifier",
+          "Any patient information — including indirect identifiers — should never be shared without proper de-identification",
+          "You may share full case details if the forum is password-protected",
+          "Medical case discussions are exempt from HIPAA if they are for educational purposes"
+        ],
+        "correctIndex": 1,
+        "explanation": "Patient case information shared in online forums must be fully de-identified per HIPAA's Safe Harbor or Expert Determination standards. Password-protected forums are not HIPAA-compliant safeguards.",
+        "order": 5
+      },
+      {
+        "question": "Sharing a 'de-identified' patient story on social media is permissible when:",
+        "options": [
+          "The story has been reviewed and approved by the practice administrator",
+          "All 18 HIPAA identifiers have been removed and there is no reasonable basis to believe the individual could be re-identified",
+          "The patient is deceased",
+          "The story was originally published in a journal"
+        ],
+        "correctIndex": 1,
+        "explanation": "Sharing de-identified information is permissible only when all 18 HIPAA identifiers are removed AND there is no reasonable basis to believe the information could be used to re-identify the individual (Safe Harbor standard).",
+        "order": 6
+      }
+    ]
+  },
+  {
+    "code": "NEW_HIRE_HIPAA_OSHA_ORIENTATION",
+    "title": "New Hire HIPAA & OSHA Orientation",
+    "description": "A comprehensive orientation for new employees covering HIPAA and OSHA fundamentals, your rights and responsibilities, and how to report concerns.",
+    "type": "HIPAA",
+    "duration": 45,
+    "passingScore": 80,
+    "isRequired": true,
+    "roles": [
+      "all"
+    ],
+    "lessonContent": "<div class=\"lesson-content\">\n\n  <div class=\"lesson-intro\">\n    <h2>Welcome — and here's why this matters on day one</h2>\n    <p>HIPAA and OSHA training must happen before you have access to PHI or are exposed to workplace hazards. That's not a formality — it's a legal requirement. More importantly, the information in this orientation protects patients, protects you, and protects this practice. Healthcare has specific legal obligations that don't exist in most other workplaces. Starting your role with a clear understanding of those obligations is part of starting it correctly.</p>\n  </div>\n\n  <h2>The two federal frameworks you need to know</h2>\n  <p><strong>HIPAA</strong> (Health Insurance Portability and Accountability Act) governs how patient health information is used, disclosed, and protected. It applies to everyone in the practice — not just clinical staff, not just people who \"handle records.\" If you work here, you will encounter PHI. HIPAA applies to you.</p>\n  <p><strong>OSHA</strong> (Occupational Safety and Health Administration) governs workplace safety. It sets legally enforceable standards for specific hazards — bloodborne pathogens, chemical safety, fire safety — and establishes your rights as a worker to a safe workplace.</p>\n  <p>These aren't competing frameworks — they cover different aspects of your work environment. HIPAA protects patients. OSHA protects you.</p>\n\n  <h2>Your HIPAA Privacy and Security Officers</h2>\n  <p>HIPAA requires covered entities to designate a Privacy Officer and a Security Officer — they may be the same person in a smaller practice. You should know who they are and how to reach them. Their roles:</p>\n  <ul>\n    <li>The <strong>Privacy Officer</strong> develops and oversees the practice's privacy policies, handles patient rights requests, and is your point of contact for any potential privacy incident or question.</li>\n    <li>The <strong>Security Officer</strong> oversees the protection of electronic PHI — systems, devices, software, and the security practices that protect them.</li>\n  </ul>\n  <p>When in doubt about whether something is a HIPAA violation, your Privacy Officer is who you call. Before acting on any unclear situation involving PHI, call first.</p>\n\n  <h2>What you can and can't do with PHI — the short version</h2>\n  <ul>\n    <li>You can use and share PHI for Treatment, Payment, and Healthcare Operations. This covers most of your workday.</li>\n    <li>You should only access the PHI you need to do your specific job. Not more because you're curious. Not more because it seems related. The minimum necessary for your task.</li>\n    <li>PHI doesn't leave the practice through you — not on personal devices, not in personal emails, not in social media posts, not in conversations outside the practice.</li>\n    <li>If you see something that looks like a potential violation — a colleague accessing records they have no reason to access, PHI visible to patients in a waiting area, information sent to the wrong person — report it to your Privacy Officer. That's the right response, not the uncomfortable one.</li>\n  </ul>\n\n  <h2>Your OSHA rights — know them</h2>\n  <ul>\n    <li>You have the right to a workplace free from recognized hazards.</li>\n    <li>You have the right to see your employer's OSHA injury and illness log (Form 300).</li>\n    <li>You have the right to request an OSHA inspection if you believe a hazard exists.</li>\n    <li>You cannot be retaliated against for reporting a safety concern or for exercising your OSHA rights. Retaliation is a federal violation.</li>\n    <li>You have the right to refuse work that poses an imminent danger to your life or health — when the danger is real and immediate and there's no time for normal reporting channels. This right exists but is not unlimited.</li>\n  </ul>\n\n  <h2>The reporting obligations you need to internalize now</h2>\n  <p>Two types of incidents require immediate reporting and are worth building into your mental habits from day one:</p>\n  <ul>\n    <li><strong>Potential HIPAA incidents:</strong> Any situation where PHI may have been disclosed impermissibly — wrong recipient, unauthorized access, lost device, suspected phishing. Report to your Privacy Officer immediately. You are not expected to investigate or determine whether it's \"really\" a violation. You're expected to report it and let the right people assess it.</li>\n    <li><strong>Workplace injuries and near-misses:</strong> Any work-related injury, no matter how minor, reported to your supervisor on the day it occurs. Near-misses (close calls that could have caused injury) should also be reported — they're free lessons in where the next injury is coming from.</li>\n  </ul>\n\n  <h2>The Emergency Action Plan</h2>\n  <p>Your practice has an Emergency Action Plan. Before you do anything else this week, locate it and review:</p>\n  <ul>\n    <li>The evacuation routes from each area you'll work in</li>\n    <li>The location of the assembly point outside the building</li>\n    <li>Your role in the plan (most staff are responsible for evacuating the immediate area and accounting for any patients in their care)</li>\n    <li>The location of fire extinguishers and first aid kits in your area</li>\n  </ul>\n\n  <h2>Key takeaways</h2>\n  <ul>\n    <li>HIPAA protects patient information. OSHA protects you. Both apply from your first day.</li>\n    <li>Know your Privacy Officer and how to reach them. Call first when in doubt about PHI.</li>\n    <li>Access only the PHI you need for your specific job. Report potential incidents immediately — investigation is not your job, reporting is.</li>\n    <li>You cannot be retaliated against for reporting safety concerns or potential HIPAA violations.</li>\n    <li>Locate the Emergency Action Plan and your evacuation routes this week — before you need them.</li>\n    <li>Report workplace injuries on the day they occur, no matter how minor.</li>\n  </ul>\n\n  <div class=\"lesson-quiz-intro\">\n    <p>Ready for the quiz. Eight questions. You need 80% to pass.</p>\n  </div>\n\n</div>",
+    "quizQuestions": [
+      {
+        "question": "As a new employee, HIPAA training is required:",
+        "options": [
+          "Only after completing your 90-day probation period",
+          "Within a reasonable period after joining the workforce — before you have access to PHI",
+          "Annually, but not necessarily before starting work",
+          "Only if you will directly handle patient medical records"
+        ],
+        "correctIndex": 1,
+        "explanation": "HIPAA requires that workforce members receive training on the organization's privacy and security policies within a reasonable period of time after joining — this should occur before they have access to any PHI.",
+        "order": 1
+      },
+      {
+        "question": "The federal agency that enforces workplace safety standards under the OSH Act is:",
+        "options": [
+          "The Environmental Protection Agency (EPA)",
+          "The Occupational Safety and Health Administration (OSHA)",
+          "The Centers for Disease Control and Prevention (CDC)",
+          "The Department of Labor's Wage and Hour Division"
+        ],
+        "correctIndex": 1,
+        "explanation": "OSHA — the Occupational Safety and Health Administration — is the federal agency within the Department of Labor responsible for setting and enforcing workplace safety and health standards.",
+        "order": 2
+      },
+      {
+        "question": "Your practice's HIPAA Privacy Officer is responsible for:",
+        "options": [
+          "Performing annual security penetration testing",
+          "Developing, implementing, and overseeing the practice's privacy policies and responding to complaints",
+          "Approving all new software purchases that involve patient data",
+          "Filing all patient insurance claims"
+        ],
+        "correctIndex": 1,
+        "explanation": "The HIPAA Privacy Officer (required for all covered entities) is responsible for developing and implementing privacy policies, training the workforce, and serving as the primary contact for HIPAA complaints and investigations.",
+        "order": 3
+      },
+      {
+        "question": "Under OSHA, you must receive training on specific workplace hazards:",
+        "options": [
+          "Only during your initial orientation, not again after that",
+          "Before being exposed to hazards, and whenever new hazards are introduced",
+          "At least once every five years",
+          "Only after sustaining a workplace injury"
+        ],
+        "correctIndex": 1,
+        "explanation": "OSHA requires training on specific hazards before exposure (e.g., bloodborne pathogens, hazardous chemicals), and again whenever new hazards are introduced or significant changes occur to existing procedures.",
+        "order": 4
+      },
+      {
+        "question": "You notice a coworker accessing patient records that are unrelated to any assigned patients. You should:",
+        "options": [
+          "Ignore it — what colleagues do on the computer is their own business",
+          "Confront the coworker directly and tell them to stop",
+          "Report the concern to your Privacy Officer or supervisor per the practice's reporting policy",
+          "Document the activity yourself in a personal log before reporting"
+        ],
+        "correctIndex": 2,
+        "explanation": "Unauthorized access to PHI (even by a coworker) must be reported to the Privacy Officer. Most practices have a clear reporting pathway. Early reporting allows the organization to investigate and, if needed, report a breach within required timelines.",
+        "order": 5
+      },
+      {
+        "question": "Your employer's Emergency Action Plan (EAP) should be reviewed with you:",
+        "options": [
+          "During your first performance review",
+          "Before or immediately after you begin working and any time the plan changes",
+          "Only if you are assigned emergency warden duties",
+          "Once a year during the annual fire drill"
+        ],
+        "correctIndex": 1,
+        "explanation": "Per OSHA 29 CFR 1910.38, employees must be trained on the Emergency Action Plan when the plan is developed, when they are initially assigned to a job, and whenever the plan changes.",
+        "order": 6
+      },
+      {
+        "question": "A PHI breach discovered on your first week of employment must be reported to your supervisor:",
+        "options": [
+          "Within 60 days — the same timeframe as the HIPAA notification deadline",
+          "Immediately — potential breaches should be reported as soon as possible",
+          "Only if the breach involves more than 10 patients",
+          "After you have investigated it yourself to determine if it is really a breach"
+        ],
+        "correctIndex": 1,
+        "explanation": "Potential breaches must be reported to the Privacy/Security Officer immediately — regardless of severity or certainty. Early reporting is critical because the 60-day notification clock starts from the date the organization discovers the breach, not when it is fully investigated.",
+        "order": 7
+      },
+      {
+        "question": "OSHA's Hazard Communication (HazCom) Right-to-Know standard requires that you have access to Safety Data Sheets (SDSs) because:",
+        "options": [
+          "SDSs contain proprietary chemical formulas that must be protected",
+          "SDSs provide critical information about chemical hazards, safe handling, and emergency response",
+          "SDSs are required to be reviewed by employees before their annual performance review",
+          "SDSs are used to track which chemicals each employee has been exposed to"
+        ],
+        "correctIndex": 1,
+        "explanation": "SDSs give workers the information needed to understand the hazards of chemicals they work with: physical and health hazards, exposure limits, safe handling procedures, first aid measures, and emergency response. Access to SDSs is a core worker right under HazCom.",
+        "order": 8
+      }
+    ]
+  },
+  {
+    "code": "PATIENT_RIGHTS_UNDER_HIPAA",
+    "title": "Patient Rights Under HIPAA",
+    "description": "Understand the six core patient rights under HIPAA — access, amendment, accounting, restrictions, confidential communications, and notice.",
+    "type": "HIPAA",
+    "duration": 20,
+    "passingScore": 80,
+    "isRequired": true,
+    "roles": [
+      "all"
+    ],
+    "lessonContent": "<div class=\"lesson-content\">\n\n  <div class=\"lesson-intro\">\n    <h2>Before we start — patients are asserting these rights more than ever</h2>\n    <p>OCR's Right of Access Initiative, launched in 2019, has resulted in over <strong>50 enforcement actions and millions in settlements</strong> specifically for practices that failed to provide patients with timely access to their records. Patients know their rights. They're filing complaints. And OCR is actively pursuing them. Understanding the six patient rights under HIPAA isn't just a training checkbox — it's protection against one of OCR's most active enforcement areas.</p>\n  </div>\n\n  <h2>Right 1 — Right of Access</h2>\n  <p>Patients have the right to inspect and obtain a copy of their PHI in a designated record set — which includes the medical record, billing records, and any other records used to make decisions about the patient's care.</p>\n  <p>The rules you need to know:</p>\n  <ul>\n    <li>You have <strong>30 days</strong> to respond to an access request. A single 30-day extension is allowed if you notify the patient in writing with a reason for the delay.</li>\n    <li>You can charge a reasonable, cost-based fee for labor, supplies, and postage. You cannot charge fees that act as barriers to access. You cannot charge by the page.</li>\n    <li>If the patient requests electronic records and you maintain them electronically, you must provide them in electronic format.</li>\n    <li>You generally cannot deny access because the patient owes money. An outstanding balance is not a valid reason to withhold records.</li>\n  </ul>\n\n  <div class=\"callout callout-warning\">\n    <strong>Most common Right of Access violation:</strong> Simply not responding within 30 days. OCR has issued settlements for practices that just didn't get around to it. The 30-day clock is real.\n  </div>\n\n  <h2>Right 2 — Right to Request Amendment</h2>\n  <p>Patients can request that you amend inaccurate or incomplete information in their PHI. You are not required to make the amendment — but you must respond within 60 days and document your decision.</p>\n  <p>Valid reasons to deny an amendment request:</p>\n  <ul>\n    <li>The information was not created by your practice (it originated from another provider)</li>\n    <li>The information is accurate and complete as it stands</li>\n    <li>The information is not part of the designated record set</li>\n    <li>The patient would not have the right to access the record</li>\n  </ul>\n  <p>If you deny the request, the patient has the right to submit a written statement of disagreement, which must be included in the record going forward.</p>\n\n  <h2>Right 3 — Right to an Accounting of Disclosures</h2>\n  <p>Patients can request a list of disclosures of their PHI that you've made outside of Treatment, Payment, and Healthcare Operations — disclosures to public health authorities, law enforcement, oversight agencies, and similar. This accounting covers the past six years.</p>\n  <p>Disclosures for TPO purposes are specifically excluded from the accounting — you don't need to log every time you send a claim to an insurer. But disclosures to law enforcement or public health agencies do need to be tracked.</p>\n\n  <h2>Right 4 — Right to Request Restrictions</h2>\n  <p>Patients can request that you limit how you use or disclose their PHI. You generally don't have to agree to restrictions — with one important exception: if a patient pays entirely out-of-pocket for a service and requests that you not share that information with their health plan, you must honor that restriction.</p>\n  <p>This right matters in practice — a patient who is paying cash for a sensitive service (mental health, reproductive health, substance abuse) and wants it kept from an employer-sponsored insurance plan has the right to that privacy.</p>\n\n  <h2>Right 5 — Right to Confidential Communications</h2>\n  <p>Patients can request that you communicate with them in a specific way or at a specific location. A patient who says \"only send mail to my P.O. box, never to my home address\" is invoking this right. A patient who says \"only call my cell phone, never my home number\" is invoking this right.</p>\n  <p>You must accommodate reasonable requests. You don't need to ask why. You cannot require the patient to explain their reasons. Update the record and honor the request.</p>\n\n  <h2>Right 6 — Right to a Notice of Privacy Practices</h2>\n  <p>Patients must receive your Notice of Privacy Practices (NPP) — the document that explains how you use and disclose PHI — no later than the first date of service. You must make a good-faith effort to obtain written acknowledgment of receipt.</p>\n  <p>When the NPP is materially revised, existing patients must be notified of the change.</p>\n\n  <h2>When a patient invokes a right</h2>\n  <p>Your job when a patient says \"I want a copy of my records\" or \"I don't want you to send anything to my home address\" is simple: acknowledge the request, note it in the system, and immediately involve your Privacy Officer or practice administrator. Don't try to handle it yourself, don't explain why it might be difficult, don't ask the patient to justify the request. Just document and escalate.</p>\n\n  <h2>Key takeaways</h2>\n  <ul>\n    <li>Six patient rights: Access, Amendment, Accounting of Disclosures, Restrictions, Confidential Communications, Notice of Privacy Practices.</li>\n    <li>Access requests must be fulfilled within 30 days. This is one of OCR's most actively enforced areas.</li>\n    <li>Out-of-pocket payment + restriction request = mandatory compliance with that restriction.</li>\n    <li>Confidential communication requests must be accommodated. Don't ask the patient why.</li>\n    <li>When a patient invokes any right: acknowledge, document, and involve your Privacy Officer immediately.</li>\n  </ul>\n\n  <div class=\"lesson-quiz-intro\">\n    <p>Ready for the quiz. Six questions. You need 80% to pass.</p>\n  </div>\n\n</div>",
+    "quizQuestions": [
+      {
+        "question": "Under HIPAA's Right of Access, a covered entity CANNOT charge a patient for:",
+        "options": [
+          "A reasonable, cost-based fee for labor and supplies",
+          "Postage when mailing a copy of records at the patient's request",
+          "Mailing a summary instead of a full copy to reduce cost",
+          "A fee that effectively acts as a barrier to access"
+        ],
+        "correctIndex": 3,
+        "explanation": "HIPAA permits reasonable, cost-based fees for producing copies of records. However, any fee that acts as a barrier to the individual's right to access their own PHI is impermissible.",
+        "order": 1
+      },
+      {
+        "question": "A patient requests an amendment to an inaccurate entry in their medical record. Under HIPAA, you MAY deny the request if:",
+        "options": [
+          "The amendment would be longer than two paragraphs",
+          "The record was not created by your practice",
+          "The patient has not paid their outstanding balance",
+          "The patient is not a current patient of the practice"
+        ],
+        "correctIndex": 1,
+        "explanation": "A covered entity may deny an amendment request if the record was not created by the practice (i.e., originated from another provider). Other valid denial reasons include when the information is accurate and complete.",
+        "order": 2
+      },
+      {
+        "question": "A patient requests an accounting of disclosures. Your practice must track and report disclosures made for:",
+        "options": [
+          "Treatment, payment, and healthcare operations (TPO)",
+          "Purposes other than TPO, such as public health or law enforcement",
+          "Any disclosure, including those made directly to the patient",
+          "Only disclosures that were unauthorized or accidental"
+        ],
+        "correctIndex": 1,
+        "explanation": "An accounting of disclosures covers all disclosures NOT made for TPO purposes — for example, those made to public health authorities, law enforcement, or oversight agencies. Disclosures for TPO are specifically excluded.",
+        "order": 3
+      },
+      {
+        "question": "A patient requests a restriction on how you use their PHI for payment purposes. Under HIPAA:",
+        "options": [
+          "You must always comply with any patient restriction request",
+          "You may refuse the restriction if it is unreasonable",
+          "You must comply if the patient pays out-of-pocket in full for the service",
+          "Restrictions on payment-related PHI are never permitted"
+        ],
+        "correctIndex": 2,
+        "explanation": "Under the HIPAA Omnibus Rule, if a patient pays for a service entirely out-of-pocket and requests that the information not be shared with their health plan, the covered entity must honor that restriction.",
+        "order": 4
+      },
+      {
+        "question": "A patient asks for all communications to be sent to a P.O. Box instead of their home address. Under HIPAA:",
+        "options": [
+          "You may refuse because verifying a P.O. Box is impractical",
+          "You must accommodate reasonable requests for confidential communications",
+          "This request must be approved by the Privacy Officer before complying",
+          "The right to confidential communications only applies to verbal communications"
+        ],
+        "correctIndex": 1,
+        "explanation": "HIPAA grants patients the right to receive communications of PHI by alternative means or at alternative locations if they request it. Covered entities must accommodate reasonable requests without requiring explanation.",
+        "order": 5
+      },
+      {
+        "question": "A 19-year-old patient's parent calls to request a copy of the patient's medical records. You should:",
+        "options": [
+          "Provide the records immediately since the patient is under 21",
+          "Provide the records because a parent is always a personal representative",
+          "Deny the request unless the patient has authorized the parent as a personal representative",
+          "Release only non-sensitive information without patient consent"
+        ],
+        "correctIndex": 2,
+        "explanation": "An adult patient (age 18 or older) controls their own PHI. A parent is only a personal representative for an adult if the patient has legally designated them as such (e.g., through a healthcare proxy or power of attorney).",
+        "order": 6
+      }
+    ]
+  },
+  {
+    "code": "TELEHEALTH_HIPAA_COMPLIANCE",
+    "title": "Telehealth & HIPAA Compliance",
+    "description": "Understand HIPAA requirements for telehealth platforms, informed consent, privacy protections, and secure remote patient interactions.",
+    "type": "HIPAA",
+    "duration": 20,
+    "passingScore": 80,
+    "isRequired": true,
+    "roles": [
+      "clinical"
+    ],
+    "lessonContent": "<div class=\"lesson-content\">\n\n  <div class=\"lesson-intro\">\n    <h2>Before we start — telehealth didn't change HIPAA</h2>\n    <p>During the COVID-19 public health emergency, OCR exercised enforcement discretion around certain telehealth platforms — allowing the use of some consumer-grade video tools that normally wouldn't be HIPAA-compliant. That enforcement discretion ended in May 2023. HIPAA applies fully to telehealth. The tools you use, the environments you're in, and the information you transmit are all subject to the same rules as an in-person visit.</p>\n  </div>\n\n  <h2>The platform question — BAA required</h2>\n  <p>Any video platform you use to conduct telehealth visits where PHI is involved must be HIPAA-compliant, and you must have a signed Business Associate Agreement (BAA) with the vendor. That BAA is the vendor's written commitment to protect ePHI in accordance with HIPAA requirements.</p>\n  <p>Major telehealth platforms — Zoom Healthcare, Doxy.me, Teladoc's platform, Microsoft Teams Healthcare — offer BAAs. Consumer versions of these same tools (the free Zoom you use to call family) do not. The fact that the apps look identical doesn't mean they're treated the same under HIPAA.</p>\n  <p>Apple FaceTime, Google Meet (standard version), Facebook Messenger, and similar consumer tools do not have BAAs and are not appropriate for telehealth visits where PHI is discussed — even in emergencies. The HIPAA-compliant alternative for a technical failure is a regular phone call, not FaceTime.</p>\n\n  <h2>Your environment matters</h2>\n  <p>HIPAA's requirement to implement reasonable safeguards against unauthorized disclosures applies to your physical environment during a telehealth visit, not just the technology.</p>\n  <ul>\n    <li>Conduct telehealth visits in a private space where you cannot be overheard by other patients, visitors, or colleagues who have no need to know.</li>\n    <li>If you're in a shared clinical space, use headphones so the patient's voice isn't audible to others in the room.</li>\n    <li>Close your door if you have one. If you don't have a door, find a private room or use a privacy screen.</li>\n    <li>Be aware of what's visible on your screen. If a patient chart is open behind the video window and someone walks behind you, that's a potential disclosure.</li>\n  </ul>\n\n  <div class=\"callout callout-example\">\n    <strong>The patient's environment:</strong> You can't control where the patient calls from. But you have a professional obligation to inform them of the privacy risk if they appear to be in a public place, and to document that they were informed and chose to proceed. \"The patient was calling from a coffee shop and acknowledged the privacy risk associated with their location\" is appropriate documentation.\n  </div>\n\n  <h2>Informed consent for telehealth</h2>\n  <p>Before a telehealth visit, patients should be informed about:</p>\n  <ul>\n    <li>The technology being used and its limitations</li>\n    <li>The privacy safeguards you have in place</li>\n    <li>The fact that telehealth has inherent limitations compared to in-person care</li>\n    <li>Your policy on recording — most practices do not record telehealth visits. If you do, the recording is ePHI and must be stored accordingly.</li>\n    <li>What happens if there's a technical failure during the visit</li>\n  </ul>\n  <p>Many states also have their own telehealth consent requirements that go beyond HIPAA. Know your state's rules.</p>\n\n  <h2>Recordings — the complication that sneaks up on you</h2>\n  <p>If a telehealth visit is recorded, that recording is ePHI. It must be stored in a HIPAA-compliant system with all the same security requirements as any other ePHI — access controls, encryption, audit trails. It cannot live on a personal device, a consumer cloud storage account, or anywhere that doesn't meet Security Rule requirements.</p>\n  <p>Also: some platforms automatically generate transcripts of calls. If that transcript contains PHI, it's ePHI. Make sure auto-transcription is either disabled or stored appropriately.</p>\n\n  <h2>Common mistakes</h2>\n  <ul>\n    <li><strong>Using the wrong Zoom.</strong> The free personal Zoom account and the HIPAA-compliant Zoom Healthcare plan look identical in the app. Confirm which plan your practice has and that a BAA is in place before using it for patient visits.</li>\n    <li><strong>Conducting visits in shared spaces.</strong> Walking into the break room during a lunch break and joining a telehealth call because it's the next scheduled appointment. If your colleagues are there, that's not a private space.</li>\n    <li><strong>Assuming technical failures allow for workarounds.</strong> The HIPAA-compliant platform is down. You can call the patient by phone. You cannot use FaceTime, WhatsApp, or any consumer video tool as a workaround.</li>\n  </ul>\n\n  <h2>Key takeaways</h2>\n  <ul>\n    <li>Telehealth platforms must be HIPAA-compliant with a signed BAA. Consumer video tools are not compliant even if they look the same.</li>\n    <li>Your environment must protect patient privacy — use a private space, use headphones in shared areas.</li>\n    <li>Inform patients of their environment's privacy risks. Document their acknowledgment.</li>\n    <li>Recordings are ePHI and must be stored with full Security Rule protections.</li>\n    <li>Technical failures default to phone calls — not consumer video apps.</li>\n  </ul>\n\n  <div class=\"lesson-quiz-intro\">\n    <p>Ready for the quiz. Six questions. You need 80% to pass.</p>\n  </div>\n\n</div>",
+    "quizQuestions": [
+      {
+        "question": "When providing telehealth services, the video platform you use must:",
+        "options": [
+          "Be free so patients can access it without financial barrier",
+          "Be a HIPAA-compliant platform with a signed BAA in place",
+          "Be the same platform used by the largest health system in your state",
+          "Only be used on devices with a 5G connection for security"
+        ],
+        "correctIndex": 1,
+        "explanation": "Telehealth platforms that transmit ePHI must be HIPAA-compliant and the vendor must sign a Business Associate Agreement (BAA). Using platforms without a BAA (e.g., personal Zoom without the healthcare plan) is a HIPAA violation.",
+        "order": 1
+      },
+      {
+        "question": "You are about to conduct a video telehealth appointment, but you are in an open shared office. You should:",
+        "options": [
+          "Proceed since all colleagues are fellow healthcare workers",
+          "Move to a private room or use headphones and speak quietly to minimize inadvertent disclosure",
+          "Ask the patient to conduct the appointment via phone instead",
+          "Cancel the appointment and reschedule for a time when the office is empty"
+        ],
+        "correctIndex": 1,
+        "explanation": "Incidental disclosures during telehealth in shared spaces must be minimized. Using a private room, headphones, or lowering your voice reduces risk. You should take reasonable precautions to protect patient privacy.",
+        "order": 2
+      },
+      {
+        "question": "Before a telehealth session, patients should be informed about:",
+        "options": [
+          "The provider's home address in case of technical issues",
+          "The limitations of telehealth, the platform being used, and any recording policies",
+          "The practice's social media policy",
+          "The provider's personal cell phone number for backup communication"
+        ],
+        "correctIndex": 1,
+        "explanation": "Informed consent for telehealth should include: the technology being used, privacy limitations, no-recording policies, security measures in place, and how to handle technical failures.",
+        "order": 3
+      },
+      {
+        "question": "If a telehealth session is recorded, the recording containing PHI must be:",
+        "options": [
+          "Stored on the provider's personal computer for convenience",
+          "Stored in a HIPAA-compliant system with the same safeguards as other ePHI",
+          "Shared with the practice's social media team for educational content",
+          "Automatically deleted after 30 days without review"
+        ],
+        "correctIndex": 1,
+        "explanation": "Recordings of telehealth sessions containing PHI are ePHI and must be stored with the same security safeguards as other electronic health records, including access controls, encryption, and audit trails.",
+        "order": 4
+      },
+      {
+        "question": "A patient calls you from a crowded coffee shop for a telehealth appointment. Your responsibility is to:",
+        "options": [
+          "Refuse to see the patient since their environment is insecure",
+          "Proceed without comment since the patient chose their environment",
+          "Inform the patient of the privacy risk on their end and document their acknowledgment",
+          "Lower the volume on your end and proceed without informing the patient"
+        ],
+        "correctIndex": 2,
+        "explanation": "While you cannot control the patient's environment, best practice requires informing the patient of the privacy risk on their side (people nearby may overhear) and documenting that the patient was informed and acknowledged the risk.",
+        "order": 5
+      },
+      {
+        "question": "A provider uses their personal FaceTime app to conduct a telehealth visit because the HIPAA-compliant platform is temporarily down. This is:",
+        "options": [
+          "Acceptable as a one-time emergency if no sensitive information is discussed",
+          "Always a HIPAA violation because FaceTime is not HIPAA-compliant",
+          "Acceptable if the patient verbally consents during the call",
+          "Acceptable if the session lasts less than 10 minutes"
+        ],
+        "correctIndex": 1,
+        "explanation": "Consumer applications like FaceTime (without a BAA from Apple) are not HIPAA-compliant. Even in emergencies, using non-compliant platforms is a HIPAA violation. A telephone call (audio only) is generally acceptable as an alternative.",
+        "order": 6
+      }
+    ]
+  }
+]
