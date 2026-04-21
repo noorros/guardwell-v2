@@ -8,6 +8,12 @@ export interface EmptyStateAction {
   label: string;
   onClick?: () => void;
   href?: string;
+  /**
+   * When true, renders the action as a disabled, outline-styled button that
+   * does NOT navigate or fire onClick. Useful for "coming soon" placeholders
+   * so the CTA stops reading as fully actionable.
+   */
+  disabled?: boolean;
 }
 
 export interface EmptyStateProps {
@@ -38,8 +44,17 @@ export function EmptyState({
       {description && (
         <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
       )}
-      {action && (
-        action.href ? (
+      {action &&
+        (action.disabled ? (
+          <Button
+            type="button"
+            variant="outline"
+            disabled
+            className="mt-2 text-muted-foreground"
+          >
+            {action.label}
+          </Button>
+        ) : action.href ? (
           <a
             href={action.href}
             className="mt-2 inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
@@ -50,8 +65,7 @@ export function EmptyState({
           <Button type="button" onClick={action.onClick} className="mt-2">
             {action.label}
           </Button>
-        )
-      )}
+        ))}
     </div>
   );
 }

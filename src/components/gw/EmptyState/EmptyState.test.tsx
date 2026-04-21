@@ -52,4 +52,18 @@ describe("<EmptyState>", () => {
     render(<EmptyState title="Nothing here" />);
     expect(screen.getByRole("status")).toBeInTheDocument();
   });
+
+  it("renders a disabled ghost-styled button when action.disabled is true", () => {
+    render(
+      <EmptyState
+        title="Empty"
+        action={{ label: "Coming soon", href: "#", disabled: true }}
+      />,
+    );
+    // Disabled → we render a <button disabled> rather than an <a>, so there's
+    // no link in the DOM.
+    expect(screen.queryByRole("link", { name: "Coming soon" })).toBeNull();
+    const btn = screen.getByRole("button", { name: "Coming soon" });
+    expect(btn).toBeDisabled();
+  });
 });

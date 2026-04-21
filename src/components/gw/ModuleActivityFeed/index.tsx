@@ -6,6 +6,7 @@ import { formatDistanceToNow } from "date-fns";
 import type { LucideIcon } from "lucide-react";
 import { EmptyState } from "@/components/gw/EmptyState";
 import { cn } from "@/lib/utils";
+import type { AiReasonSource } from "@/components/gw/ChecklistItem/AiReasonIndicator";
 
 export type ActivityStatus =
   | "COMPLIANT"
@@ -19,12 +20,16 @@ export interface ModuleActivityEvent {
   createdAt: Date;
   requirementTitle: string;
   nextStatus: ActivityStatus;
+  actorUserId: string | null;
   actorEmail: string | null;
+  source: AiReasonSource;
   reason: string | null;
 }
 
 export interface ModuleActivityFeedProps {
   events: ModuleActivityEvent[];
+  currentUserId: string;
+  distinctActorCount: number;
   className?: string;
 }
 
@@ -59,8 +64,24 @@ const STATUS_META: Record<
   },
 };
 
+function resolveActorLabel(
+  evt: ModuleActivityEvent,
+  currentUserId: string,
+): string | null {
+  if (evt.actorUserId) {
+    return evt.actorUserId === currentUserId
+      ? "You"
+      : (evt.actorEmail ?? "Unknown user");
+  }
+  // No human actor — distinguish AI from other system events.
+  if (evt.source === "AI_ASSESSMENT") return "AI";
+  return "System";
+}
+
 export function ModuleActivityFeed({
   events,
+  currentUserId,
+  distinctActorCount,
   className,
 }: ModuleActivityFeedProps) {
   if (events.length === 0) {
@@ -73,12 +94,19 @@ export function ModuleActivityFeed({
     );
   }
 
+  // When the feed has only one distinct actor (or none), showing "Changed by
+  // <name>" on every row is noise — hide the actor entirely and just show the
+  // relative time.
+  const hideActor = distinctActorCount <= 1;
+
   return (
     <ul className={cn("space-y-3", className)}>
       {events.map((evt) => {
         const meta = STATUS_META[evt.nextStatus];
         const Icon = meta.Icon;
-        const actor = evt.actorEmail ?? "AI";
+        const actorLabel = hideActor
+          ? null
+          : resolveActorLabel(evt, currentUserId);
         const relative = formatDistanceToNow(evt.createdAt, { addSuffix: true });
         return (
           <li
@@ -100,8 +128,12 @@ export function ModuleActivityFeed({
               </span>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Changed by {actor}
-              {" • "}
+              {actorLabel ? (
+                <>
+                  Changed by {actorLabel}
+                  {" • "}
+                </>
+              ) : null}
               <time dateTime={evt.createdAt.toISOString()}>{relative}</time>
             </p>
             {evt.reason && (
