@@ -68,7 +68,7 @@ const PROGRAMS: ProgramItem[] = [
   { label: "Incidents", icon: AlertTriangle },
   { label: "Credentials", icon: IdCard, href: "/programs/credentials" as Route },
   { label: "Vendors", icon: Building2, href: "/programs/vendors" as Route },
-  { label: "Risk", icon: ShieldAlert },
+  { label: "Risk", icon: ShieldAlert, href: "/programs/risk" as Route },
 ];
 
 const AUDIT_ITEMS: ProgramItem[] = [
