@@ -95,6 +95,7 @@ model Practice {
   practicePolicies    PracticePolicy[]
   trainingCompletions TrainingCompletion[]
   vendors             Vendor[]
+  credentials         Credential[]
   events              EventLog[]
   complianceItems     ComplianceItem[]
   enabledFrameworks   PracticeFramework[]
@@ -126,8 +127,9 @@ model PracticeUser {
   joinedAt    DateTime     @default(now())
   removedAt   DateTime?
 
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  practice    Practice     @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  credentials Credential[]
 
   @@unique([userId, practiceId])
   @@index([practiceId, role])
@@ -152,6 +154,72 @@ model PracticePolicy {
 
   @@unique([practiceId, policyCode])
   @@index([practiceId, retiredAt])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Credentials — per-provider license/certification tracking (ported from v1)
+// ────────────────────────────────────────────────────────────────────────────
+
+enum CredCategory {
+  CLINICAL_LICENSE
+  DEA_REGISTRATION
+  BOARD_CERTIFICATION
+  CPR_BLS_ACLS
+  VACCINATION
+  MALPRACTICE_INSURANCE
+  FACILITY_LICENSE
+  MEDICARE_MEDICAID
+  OSHA_TRAINING
+  HIPAA_TRAINING
+  BACKGROUND_CHECK
+  CUSTOM
+}
+
+// Reference data. Seeded from scripts/seed-credentials.ts; read-only.
+// Launch ships system-wide types only — per-practice custom types are a
+// post-launch feature (tracked in v2-deferred-roadmap.md).
+model CredentialType {
+  id                String       @id @default(cuid())
+  code              String       @unique   // "MD_STATE_LICENSE", "DEA_REGISTRATION", etc.
+  name              String
+  category          CredCategory
+  description       String?      @db.Text
+  renewalPeriodDays Int?         // typical renewal cycle, used for UI hints
+  sortOrder         Int          @default(0)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  credentials Credential[]
+
+  @@index([category, sortOrder])
+}
+
+// Evidence for CREDENTIAL:* requirements. Append-only at the application
+// layer — mutations go through appendEventAndApply() per ADR-0001.
+// Status (ACTIVE / EXPIRING_SOON / EXPIRED / ARCHIVED) is derived at
+// render time from (retiredAt, expiryDate); not stored.
+model Credential {
+  id               String    @id @default(cuid())
+  practiceId       String
+  holderId         String?             // PracticeUser.id — null = practice-level credential
+  credentialTypeId String
+  title            String              // free text ("Jane Smith · AZ MD License")
+  licenseNumber    String?
+  issuingBody      String?
+  issueDate        DateTime?
+  expiryDate       DateTime?
+  notes            String?   @db.Text
+  retiredAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  practice       Practice        @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  holder         PracticeUser?   @relation(fields: [holderId], references: [id], onDelete: SetNull)
+  credentialType CredentialType  @relation(fields: [credentialTypeId], references: [id])
+
+  @@index([practiceId, retiredAt])
+  @@index([practiceId, expiryDate])
+  @@index([practiceId, holderId])
 }
 
 // ────────────────────────────────────────────────────────────────────────────
