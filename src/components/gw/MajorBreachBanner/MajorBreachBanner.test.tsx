@@ -40,7 +40,7 @@ describe("<MajorBreachBanner>", () => {
   });
 
   it("uses the risk color token for the banner background (redundant with icon + copy)", () => {
-    const { container } = render(
+    render(
       <MajorBreachBanner affectedCount={500} reportingDeadline={DEADLINE} now={NOW} />,
     );
     const el = screen.getByRole("alert");
