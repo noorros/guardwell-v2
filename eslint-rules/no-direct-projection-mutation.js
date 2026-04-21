@@ -29,6 +29,11 @@ const ALLOWED_PATHS = [
   // the derivation rule registry for discoverability.
   "src/lib/compliance/derivation/",
   "tests/",
+  // Seed scripts populate reference data + initial projection state
+  // (e.g. activating a new framework for existing practices). They run
+  // once during DB setup, not during app runtime — bypassing the event
+  // system is by design.
+  "scripts/",
 ];
 
 module.exports = {
