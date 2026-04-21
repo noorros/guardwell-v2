@@ -192,6 +192,7 @@ export default async function ModulePage({
         citation={framework.citation ?? undefined}
         score={score}
         jurisdictions={[framework.jurisdiction]}
+        assessedAt={pf?.lastScoredAt ?? null}
       />
       <ModuleSummaryBand
         compliantCount={compliantCount}

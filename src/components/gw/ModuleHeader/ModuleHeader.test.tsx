@@ -59,4 +59,41 @@ describe("<ModuleHeader>", () => {
     expect(screen.getByText("AZ")).toBeInTheDocument();
     expect(screen.getByText("CA")).toBeInTheDocument();
   });
+
+  it("renders 'Not assessed yet' when assessedAt is null or undefined", () => {
+    const { rerender } = render(
+      <ModuleHeader icon={ShieldCheck} name="HIPAA Privacy" assessedAt={null} />,
+    );
+    expect(screen.getByText(/not assessed yet/i)).toBeInTheDocument();
+    rerender(<ModuleHeader icon={ShieldCheck} name="HIPAA Privacy" />);
+    expect(screen.getByText(/not assessed yet/i)).toBeInTheDocument();
+  });
+
+  it("renders 'Last assessed <distance>' when assessedAt is recent (<= 90 days)", () => {
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    render(
+      <ModuleHeader
+        icon={ShieldCheck}
+        name="HIPAA Privacy"
+        assessedAt={twoDaysAgo}
+      />,
+    );
+    expect(screen.getByText(/last assessed/i)).toBeInTheDocument();
+    expect(screen.getByText(/ago/i)).toBeInTheDocument();
+    // No stale chip for recent.
+    expect(screen.queryByText(/\bstale\b/i)).not.toBeInTheDocument();
+  });
+
+  it("adds a 'Stale' chip when assessedAt is older than 90 days", () => {
+    const hundredDaysAgo = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000);
+    render(
+      <ModuleHeader
+        icon={ShieldCheck}
+        name="HIPAA Privacy"
+        assessedAt={hundredDaysAgo}
+      />,
+    );
+    expect(screen.getByText(/last assessed/i)).toBeInTheDocument();
+    expect(screen.getByText(/\bstale\b/i)).toBeInTheDocument();
+  });
 });
