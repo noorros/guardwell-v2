@@ -67,13 +67,13 @@ describe("<Sidebar>", () => {
     expect(oshaLink).not.toHaveAttribute("aria-current");
   });
 
-  it("renders My Programs items with a Soon badge", () => {
+  it("renders My Programs items with a Soon badge (except Staff, which is live)", () => {
     pathnameMock.mockReturnValue("/dashboard");
     render(<Sidebar myComplianceItems={makeItems()} />);
-    // Each of the operational programs has a "Soon" pill next to it.
+    // Staff is now a live link (no Soon badge); 6 remaining programs
+    // + 3 audit-and-insights items = 9 "Soon" badges total.
     const soonBadges = screen.getAllByText(/soon/i);
-    // 7 programs + 3 audit-and-insights items = 10 "Soon" badges total.
-    expect(soonBadges.length).toBeGreaterThanOrEqual(10);
+    expect(soonBadges.length).toBeGreaterThanOrEqual(9);
     // Specific program names should be visible as static labels.
     expect(screen.getByText(/staff/i)).toBeInTheDocument();
     expect(screen.getByText(/policies/i)).toBeInTheDocument();
@@ -82,6 +82,20 @@ describe("<Sidebar>", () => {
     expect(screen.getByText(/credentials/i)).toBeInTheDocument();
     expect(screen.getByText(/vendors/i)).toBeInTheDocument();
     expect(screen.getByText(/risk/i)).toBeInTheDocument();
+  });
+
+  it("renders Staff as a live link to /programs/staff (no Soon badge)", () => {
+    pathnameMock.mockReturnValue("/dashboard");
+    render(<Sidebar myComplianceItems={makeItems()} />);
+    const staffLink = screen.getByRole("link", { name: /staff/i });
+    expect(staffLink).toHaveAttribute("href", "/programs/staff");
+  });
+
+  it("marks the Staff link with aria-current when on /programs/staff", () => {
+    pathnameMock.mockReturnValue("/programs/staff");
+    render(<Sidebar myComplianceItems={makeItems()} />);
+    const staffLink = screen.getByRole("link", { name: /staff/i });
+    expect(staffLink).toHaveAttribute("aria-current", "page");
   });
 
   it("renders Audit & Insights items with a Soon badge", () => {

@@ -10,6 +10,7 @@ export const EVENT_TYPES = [
   "PRACTICE_CREATED",
   "USER_INVITED",
   "REQUIREMENT_STATUS_UPDATED",
+  "OFFICER_DESIGNATED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -21,6 +22,14 @@ export const REQUIREMENT_STATUS_VALUES = [
   "GAP",
   "NOT_APPLICABLE",
 ] as const;
+
+export const OFFICER_ROLES = [
+  "PRIVACY",
+  "SECURITY",
+  "COMPLIANCE",
+  "SAFETY",
+] as const;
+export type OfficerRole = (typeof OFFICER_ROLES)[number];
 
 export const EVENT_SCHEMAS = {
   PRACTICE_CREATED: {
@@ -43,8 +52,16 @@ export const EVENT_SCHEMAS = {
       requirementCode: z.string().min(1),
       previousStatus: z.enum(REQUIREMENT_STATUS_VALUES).nullable(),
       nextStatus: z.enum(REQUIREMENT_STATUS_VALUES),
-      source: z.enum(["USER", "AI_ASSESSMENT", "IMPORT"]),
+      source: z.enum(["USER", "AI_ASSESSMENT", "IMPORT", "DERIVED"]),
       reason: z.string().max(500).optional(),
+    }),
+  },
+  OFFICER_DESIGNATED: {
+    1: z.object({
+      practiceUserId: z.string().min(1),
+      userId: z.string().min(1),
+      officerRole: z.enum(OFFICER_ROLES),
+      designated: z.boolean(),
     }),
   },
 } as const;

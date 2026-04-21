@@ -73,8 +73,9 @@ function resolveActorLabel(
       ? "You"
       : (evt.actorEmail ?? "Unknown user");
   }
-  // No human actor — distinguish AI from other system events.
+  // No human actor — distinguish AI / derivation from other system events.
   if (evt.source === "AI_ASSESSMENT") return "AI";
+  if (evt.source === "DERIVED") return "Auto-derived";
   return "System";
 }
 

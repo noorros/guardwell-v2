@@ -7,7 +7,12 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 
-export type AiReasonSource = "USER" | "AI_ASSESSMENT" | "IMPORT" | null;
+export type AiReasonSource =
+  | "USER"
+  | "AI_ASSESSMENT"
+  | "IMPORT"
+  | "DERIVED"
+  | null;
 
 export interface AiReasonIndicatorProps {
   source: AiReasonSource | undefined;
