@@ -238,7 +238,11 @@ export default async function ModulePage({
           icon={FileText}
           title="No linked evidence yet"
           description="Evidence from policies, training, BAAs, and other operational surfaces will appear here once those pages ship. Requirements can still be marked compliant manually above."
-          action={{ label: "Go to My Programs (coming soon)", href: "#" }}
+          action={{
+            label: "Go to My Programs (coming soon)",
+            href: "#",
+            disabled: true,
+          }}
         />
       </section>
       <section className="space-y-3">
