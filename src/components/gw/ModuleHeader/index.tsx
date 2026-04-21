@@ -22,6 +22,12 @@ export interface ModuleHeaderProps {
    * Per contract Section A, assessments go stale at 90 days.
    */
   assessedAt?: Date | null;
+  /**
+   * Override "now" for stale-window comparison. Kept injectable so the
+   * component stays pure-in-render (matches DeadlineWarning's pattern) and
+   * tests can pin time.
+   */
+  now?: Date;
   className?: string;
 }
 
@@ -35,10 +41,11 @@ export function ModuleHeader({
   score,
   jurisdictions,
   assessedAt,
+  now = new Date(),
   className,
 }: ModuleHeaderProps) {
   const isStale =
-    assessedAt != null && Date.now() - assessedAt.getTime() > STALE_MS;
+    assessedAt != null && now.getTime() - assessedAt.getTime() > STALE_MS;
 
   return (
     <header className={cn("flex items-start gap-5 rounded-xl border bg-card p-6", className)}>

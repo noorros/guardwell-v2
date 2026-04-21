@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ShieldCheck, FileText } from "lucide-react";
 import { getPracticeUser } from "@/lib/rbac";
 import { db } from "@/lib/db";
+import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { ModuleHeader } from "@/components/gw/ModuleHeader";
 import { ModuleSummaryBand } from "@/components/gw/ModuleSummaryBand";
 import { EmptyState } from "@/components/gw/EmptyState";
@@ -186,6 +187,12 @@ export default async function ModulePage({
 
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-6">
+      <Breadcrumb
+        items={[
+          { label: "My Compliance", href: "/modules" },
+          { label: framework.name },
+        ]}
+      />
       <ModuleHeader
         icon={ShieldCheck}
         name={framework.name}
