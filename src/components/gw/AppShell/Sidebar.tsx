@@ -49,10 +49,20 @@ export interface SidebarProps {
 interface ProgramItem {
   label: string;
   icon: LucideIcon;
+  /**
+   * When set, the item becomes a live link. When omitted, it renders as a
+   * disabled "Soon" row. Kept optional so the seven programs can light up
+   * one at a time as each gets its own page.
+   */
+  href?: Route;
 }
 
 const PROGRAMS: ProgramItem[] = [
-  { label: "Staff", icon: Users },
+  // Cast to Route — Next.js's typed-routes manifest only lists a path
+  // after a build. The /programs/staff route is new in this PR and will
+  // be picked up on the first `next build`, but tsc standalone doesn't
+  // know about it yet.
+  { label: "Staff", icon: Users, href: "/programs/staff" as Route },
   { label: "Policies", icon: FileText },
   { label: "Training", icon: GraduationCap },
   { label: "Incidents", icon: AlertTriangle },
@@ -107,6 +117,37 @@ function ComingSoonItem({ icon: Icon, label }: ProgramItem) {
       <span className="truncate">{label}</span>
       <SoonBadge />
     </div>
+  );
+}
+
+function ProgramLink({
+  icon: Icon,
+  label,
+  href,
+  onNavigate,
+  isActive,
+}: {
+  icon: LucideIcon;
+  label: string;
+  href: Route;
+  onNavigate?: () => void;
+  isActive: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={isActive ? "page" : undefined}
+      onClick={onNavigate}
+      className={cn(
+        "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent",
+        isActive
+          ? "bg-accent font-semibold text-accent-foreground"
+          : "text-foreground/80",
+      )}
+    >
+      <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <span className="truncate">{label}</span>
+    </Link>
   );
 }
 
@@ -166,7 +207,17 @@ export function Sidebar({
       <ul className="flex flex-col gap-0.5">
         {PROGRAMS.map((p) => (
           <li key={p.label}>
-            <ComingSoonItem {...p} />
+            {p.href ? (
+              <ProgramLink
+                icon={p.icon}
+                label={p.label}
+                href={p.href}
+                onNavigate={onNavigate}
+                isActive={pathname === p.href}
+              />
+            ) : (
+              <ComingSoonItem {...p} />
+            )}
           </li>
         ))}
       </ul>
