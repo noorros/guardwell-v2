@@ -58,7 +58,7 @@ const OSHA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "Annual training on the exposure control plan for all workforce members with occupational exposure. Records retained for 3 years.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["TRAINING:BLOODBORNE_PATHOGEN_TRAINING"],
     sortOrder: 20,
   },
   {
