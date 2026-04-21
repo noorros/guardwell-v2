@@ -17,6 +17,8 @@ export const EVENT_TYPES = [
   "VENDOR_UPSERTED",
   "VENDOR_BAA_EXECUTED",
   "VENDOR_REMOVED",
+  "CREDENTIAL_UPSERTED",
+  "CREDENTIAL_REMOVED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -122,6 +124,24 @@ export const EVENT_SCHEMAS = {
   VENDOR_REMOVED: {
     1: z.object({
       vendorId: z.string().min(1),
+    }),
+  },
+  CREDENTIAL_UPSERTED: {
+    1: z.object({
+      credentialId: z.string().min(1),
+      credentialTypeCode: z.string().min(1),
+      holderId: z.string().min(1).nullable().optional(),
+      title: z.string().min(1).max(200),
+      licenseNumber: z.string().max(100).nullable().optional(),
+      issuingBody: z.string().max(200).nullable().optional(),
+      issueDate: z.string().datetime().nullable().optional(),
+      expiryDate: z.string().datetime().nullable().optional(),
+      notes: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  CREDENTIAL_REMOVED: {
+    1: z.object({
+      credentialId: z.string().min(1),
     }),
   },
 } as const;
