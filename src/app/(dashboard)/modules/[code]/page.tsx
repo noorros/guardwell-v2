@@ -1,9 +1,16 @@
 // src/app/(dashboard)/modules/[code]/page.tsx
 import { notFound } from "next/navigation";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, FileText } from "lucide-react";
 import { getPracticeUser } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { ModuleHeader } from "@/components/gw/ModuleHeader";
+import { ModuleSummaryBand } from "@/components/gw/ModuleSummaryBand";
+import { EmptyState } from "@/components/gw/EmptyState";
+import {
+  ModuleActivityFeed,
+  type ModuleActivityEvent,
+  type ActivityStatus,
+} from "@/components/gw/ModuleActivityFeed";
 import { AiAssistTrigger } from "@/components/gw/AiAssistDrawer/AiAssistTrigger";
 import { ChecklistItemServer } from "./ChecklistItemServer";
 import { AiAssessmentButton } from "./AiAssessmentButton";
@@ -20,16 +27,21 @@ export async function generateMetadata({
 
 type StatusEventPayload = {
   requirementId?: string;
+  frameworkCode?: string;
   source?: AiReasonSource;
   reason?: string;
+  nextStatus?: ActivityStatus;
 };
 
 export default async function ModulePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ code: string }>;
+  searchParams?: Promise<{ status?: string }>;
 }) {
   const { code } = await params;
+  const sp = (await searchParams) ?? {};
   const pu = await getPracticeUser();
   if (!pu) return null;
 
@@ -48,6 +60,29 @@ export default async function ModulePage({
     },
   });
   const byReq = new Map(items.map((i) => [i.requirementId, i]));
+
+  // Section B counts, computed pre-filter so the band always shows the true shape.
+  const compliantCount = items.filter((i) => i.status === "COMPLIANT").length;
+  const totalRequirements = framework.requirements.length;
+  const gapCount = items.filter((i) => i.status === "GAP").length;
+  const deadlineCount = 0; // Placeholder — no deadline source until operational pages.
+
+  // Apply Section-C status filter from Section-B click: ?status=compliant|gap|not-started.
+  // Unknown values fall through to "show all".
+  const statusFilter = sp.status?.toLowerCase();
+  const filteredRequirements = framework.requirements.filter((r) => {
+    if (statusFilter === "compliant") {
+      return byReq.get(r.id)?.status === "COMPLIANT";
+    }
+    if (statusFilter === "gap") {
+      return byReq.get(r.id)?.status === "GAP";
+    }
+    if (statusFilter === "not-started") {
+      const s = byReq.get(r.id)?.status;
+      return s === undefined || s === "NOT_STARTED";
+    }
+    return true;
+  });
 
   // Pull the most recent REQUIREMENT_STATUS_UPDATED events for this practice,
   // then keep only the latest one per requirement. 10 requirements per module
@@ -85,6 +120,35 @@ export default async function ModulePage({
   });
   const score = pf?.scoreCache ?? 0;
 
+  // Section E — last 10 status-change events for this framework.
+  const activityEvents = await db.eventLog.findMany({
+    where: {
+      practiceId: pu.practiceId,
+      type: "REQUIREMENT_STATUS_UPDATED",
+      // Filter on JSON payload: frameworkCode === framework.code
+      // Postgres JSON path filter:
+      AND: [{ payload: { path: ["frameworkCode"], equals: framework.code } }],
+    },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+    include: { actor: { select: { email: true } } },
+  });
+
+  const requirementById = new Map(framework.requirements.map((r) => [r.id, r]));
+  const feedEvents: ModuleActivityEvent[] = activityEvents.map((evt) => {
+    const payload = evt.payload as StatusEventPayload | null;
+    const reqId = payload?.requirementId ?? "";
+    const req = requirementById.get(reqId);
+    return {
+      id: evt.id,
+      createdAt: evt.createdAt,
+      requirementTitle: req?.title ?? "Requirement",
+      nextStatus: payload?.nextStatus ?? "NOT_STARTED",
+      actorEmail: evt.actor?.email ?? null,
+      reason: payload?.reason ?? null,
+    };
+  });
+
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-6">
       <ModuleHeader
@@ -93,6 +157,12 @@ export default async function ModulePage({
         citation={framework.citation ?? undefined}
         score={score}
         jurisdictions={[framework.jurisdiction]}
+      />
+      <ModuleSummaryBand
+        compliantCount={compliantCount}
+        totalRequirements={totalRequirements}
+        gapCount={gapCount}
+        deadlineCount={deadlineCount}
       />
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
@@ -108,7 +178,7 @@ export default async function ModulePage({
           </div>
         </div>
         <div className="space-y-2">
-          {framework.requirements.map((r) => {
+          {filteredRequirements.map((r) => {
             const ci = byReq.get(r.id);
             const lastEvt = latestEventByReq.get(r.id);
             return (
@@ -126,6 +196,19 @@ export default async function ModulePage({
             );
           })}
         </div>
+      </section>
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-foreground">Evidence</h2>
+        <EmptyState
+          icon={FileText}
+          title="No linked evidence yet"
+          description="Evidence from policies, training, BAAs, and other operational surfaces will appear here once those pages ship. Requirements can still be marked compliant manually above."
+          action={{ label: "Go to My Programs (coming soon)", href: "#" }}
+        />
+      </section>
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-foreground">Recent activity</h2>
+        <ModuleActivityFeed events={feedEvents} />
       </section>
     </main>
   );
