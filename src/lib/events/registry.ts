@@ -13,6 +13,7 @@ export const EVENT_TYPES = [
   "OFFICER_DESIGNATED",
   "POLICY_ADOPTED",
   "POLICY_RETIRED",
+  "TRAINING_COMPLETED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -78,6 +79,18 @@ export const EVENT_SCHEMAS = {
     1: z.object({
       practicePolicyId: z.string().min(1),
       policyCode: z.string().min(1),
+    }),
+  },
+  TRAINING_COMPLETED: {
+    1: z.object({
+      trainingCompletionId: z.string().min(1),
+      userId: z.string().min(1),
+      courseId: z.string().min(1),
+      courseCode: z.string().min(1),
+      courseVersion: z.number().int().positive(),
+      score: z.number().int().min(0).max(100),
+      passed: z.boolean(),
+      expiresAt: z.string().datetime(),
     }),
   },
 } as const;

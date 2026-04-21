@@ -1,0 +1,134 @@
+{
+  "title": "HIPAA 101: Privacy Rule Fundamentals",
+  "description": "Learn the core requirements of the HIPAA Privacy Rule, patient rights, and your obligations as a workforce member.",
+  "type": "HIPAA_BASICS",
+  "duration": 30,
+  "passingScore": 80,
+  "isRequired": true,
+  "roles": [
+    "all"
+  ],
+  "lessonContent": "<div class=\"lesson-content\">\n\n  <div class=\"lesson-intro\">\n    <h2>Before we start — why this actually matters</h2>\n    <p>In 2023, a solo dental practice in California paid <strong>$23,000 to OCR</strong> after a receptionist texted a patient's diagnosis to the wrong number. The violation took about 10 seconds. The investigation took 8 months. That's not a horror story about big hospital systems — that's a three-person office that made one careless mistake.</p>\n    <p>HIPAA isn't bureaucratic red tape. It's the legal framework that defines your relationship with every piece of patient information you touch. Understanding it isn't optional — it's the baseline for working in healthcare.</p>\n  </div>\n\n  <h2>What is PHI — and what isn't</h2>\n  <p>Protected Health Information (PHI) is any information that could identify a patient AND relates to their health, treatment, or payment for care. The key word is \"identify.\" If someone could use the information to figure out who the patient is, it's PHI.</p>\n  <p>The 18 HIPAA identifiers include the obvious ones — name, date of birth, Social Security number, medical record number — but also less obvious ones like dates of service, geographic data smaller than a state, and even device serial numbers.</p>\n  <p>What's NOT PHI: information with all 18 identifiers completely removed. That's called de-identified information, and HIPAA doesn't apply to it. But \"de-identified\" means all 18 are gone — not just the name.</p>\n\n  <div class=\"callout callout-example\">\n    <strong>Real scenario:</strong> A billing coordinator exports a list of patients who had cardiology appointments last Tuesday. Even without names, that list is still PHI — the appointment dates, combined with any other identifying detail, could identify individuals. De-identification requires systematic removal, not just deleting a name column.\n  </div>\n\n  <h2>The three rules under HIPAA</h2>\n  <p>Most people think of HIPAA as one law. It's actually three rules that work together:</p>\n  <ul>\n    <li><strong>The Privacy Rule</strong> — governs how PHI can be used and disclosed. This is what most people mean when they say \"HIPAA.\" It applies to PHI in any form.</li>\n    <li><strong>The Security Rule</strong> — governs electronic PHI (ePHI) specifically. Your EHR, email, laptops, phones. If it's digital and contains patient data, the Security Rule applies.</li>\n    <li><strong>The Breach Notification Rule</strong> — governs what happens when something goes wrong. Timelines, notifications, documentation requirements.</li>\n  </ul>\n  <p>This course covers the Privacy Rule. You'll have dedicated courses on the Security Rule and Breach Notification separately.</p>\n\n  <h2>When you can share PHI — and when you can't</h2>\n  <p>The Privacy Rule permits disclosures for Treatment, Payment, and Healthcare Operations — commonly called TPO — without patient authorization. That covers most of what happens in a normal workday.</p>\n  <ul>\n    <li><strong>Treatment:</strong> Sharing records with a specialist you're referring to, discussing a patient with the treating physician, sending labs to another provider.</li>\n    <li><strong>Payment:</strong> Submitting claims to insurance, sending a bill, verifying coverage.</li>\n    <li><strong>Healthcare Operations:</strong> Quality improvement activities, staff training, scheduling, compliance reviews.</li>\n  </ul>\n  <p>Outside of TPO, you generally need written patient authorization before sharing PHI. There are specific exceptions — public health reporting, law enforcement with a valid court order, reporting to oversight agencies — but these are exceptions, not everyday situations.</p>\n\n  <div class=\"callout callout-warning\">\n    <strong>Common trap:</strong> A patient's employer calls asking about their employee's medical condition. Even if the patient works for the employer, even if the employer is paying for the visit — you cannot share PHI without a signed authorization. Employment does not create a TPO relationship.\n  </div>\n\n  <h2>The Minimum Necessary Standard</h2>\n  <p>Even when you're permitted to share PHI, you should only share the minimum amount necessary for the purpose. A billing clerk submitting an insurance claim needs the diagnosis codes and procedure codes — they don't need the entire clinical note. A front desk staff member confirming an appointment needs the schedule — not the patient's full chart.</p>\n  <p>This isn't just a philosophical principle. It's an enforceable requirement. If OCR investigates a complaint and finds that your practice routinely shares more PHI than necessary, that's a finding — regardless of whether any of those disclosures were ultimately harmful.</p>\n\n  <h2>Patient rights you need to know</h2>\n  <p>Under HIPAA, patients have six core rights. You don't need to memorize all the legal details, but you need to know these exist and know to involve your Privacy Officer when a patient invokes them:</p>\n  <ul>\n    <li><strong>Right to Access</strong> — patients can request a copy of their records. You have 30 days to respond.</li>\n    <li><strong>Right to Amendment</strong> — patients can request corrections to their records.</li>\n    <li><strong>Right to an Accounting of Disclosures</strong> — patients can ask for a list of who you've shared their information with.</li>\n    <li><strong>Right to Request Restrictions</strong> — patients can ask you to limit certain disclosures.</li>\n    <li><strong>Right to Confidential Communications</strong> — patients can ask you to contact them in specific ways (send mail to a P.O. box, only call a cell phone, never leave voicemails).</li>\n    <li><strong>Right to a Notice of Privacy Practices</strong> — patients are entitled to know how you use their information.</li>\n  </ul>\n\n  <h2>Common mistakes that lead to real violations</h2>\n  <ul>\n    <li><strong>Verbal disclosures in public spaces.</strong> Discussing a patient's condition at the front desk while other patients are in the waiting room. Using a patient's name loudly in a hallway. These incidental disclosures add up — and patients notice.</li>\n    <li><strong>Assuming family members have automatic access.</strong> A patient's spouse, parent, or adult child does not automatically have the right to receive PHI. Unless the patient has specifically authorized it, or there's a healthcare proxy in place, family is a third party.</li>\n    <li><strong>Responding to social media reviews with PHI.</strong> A patient leaves a negative Google review. You respond with details about their visit to defend the practice. That response just disclosed PHI publicly. OCR has issued settlements specifically for this.</li>\n  </ul>\n\n  <h2>Key takeaways</h2>\n  <ul>\n    <li>PHI is any information that could identify a patient and relates to their health, treatment, or payment.</li>\n    <li>You can share PHI for Treatment, Payment, and Healthcare Operations without authorization. Almost everything else requires authorization or a specific legal exception.</li>\n    <li>The Minimum Necessary Standard means sharing only what's needed for the specific purpose — not everything available.</li>\n    <li>Patients have six rights under HIPAA. When a patient invokes one, involve your Privacy Officer immediately.</li>\n    <li>Violations don't require malicious intent. Accidents, carelessness, and \"I didn't know\" all count.</li>\n    <li>The person answering the phone, confirming appointments, and explaining bills is just as responsible for HIPAA compliance as the physician.</li>\n  </ul>\n\n  <div class=\"lesson-quiz-intro\">\n    <p>You're ready for the quiz. Ten questions covering what you just learned. You need 80% to pass and earn your certificate.</p>\n  </div>\n\n</div>",
+  "quizQuestions": [
+    {
+      "question": "What does HIPAA stand for?",
+      "options": [
+        "Health Insurance Portability and Accountability Act",
+        "Healthcare Information Privacy and Access Act",
+        "Hospital Insurance Payment and Accountability Act",
+        "Health Information Protection and Access Act"
+      ],
+      "correctIndex": 0,
+      "explanation": "HIPAA stands for the Health Insurance Portability and Accountability Act, enacted in 1996.",
+      "order": 1
+    },
+    {
+      "question": "Which of the following is NOT considered Protected Health Information (PHI)?",
+      "options": [
+        "A patient's diagnosis shared with their treating physician",
+        "A patient's name and date of birth in a billing record",
+        "De-identified health information with all 18 identifiers removed",
+        "A patient's medical record number"
+      ],
+      "correctIndex": 2,
+      "explanation": "De-identified information — from which all 18 HIPAA identifiers have been removed — is not PHI and is not subject to HIPAA protections.",
+      "order": 2
+    },
+    {
+      "question": "Under the Minimum Necessary Standard, a workforce member should:",
+      "options": [
+        "Access all patient records to stay prepared",
+        "Only access the PHI needed to do their specific job",
+        "Share all patient information with any colleague who asks",
+        "Access PHI freely since it is within the practice"
+      ],
+      "correctIndex": 1,
+      "explanation": "The Minimum Necessary Standard requires that workforce members only use, disclose, or request the minimum amount of PHI necessary to accomplish their intended purpose.",
+      "order": 3
+    },
+    {
+      "question": "A patient asks to see a copy of their medical records. Under HIPAA, you must respond within:",
+      "options": [
+        "7 days",
+        "14 days",
+        "30 days (with one possible 30-day extension)",
+        "60 days"
+      ],
+      "correctIndex": 2,
+      "explanation": "The HIPAA Privacy Rule requires covered entities to provide access to PHI within 30 days, with a single 30-day extension allowed if the entity notifies the individual in writing.",
+      "order": 4
+    },
+    {
+      "question": "Which of the following is a permitted use or disclosure of PHI WITHOUT patient authorization?",
+      "options": [
+        "Disclosing a patient's records to their employer",
+        "Sharing a patient's information with a marketing company",
+        "Disclosing PHI for treatment, payment, or healthcare operations (TPO)",
+        "Selling PHI to a research firm"
+      ],
+      "correctIndex": 2,
+      "explanation": "HIPAA permits the use and disclosure of PHI for Treatment, Payment, and Healthcare Operations (TPO) without patient authorization. All other uses generally require written authorization.",
+      "order": 5
+    },
+    {
+      "question": "What is a Business Associate under HIPAA?",
+      "options": [
+        "Any patient who has insurance",
+        "A workforce member of a covered entity",
+        "A person or entity that performs services for a covered entity involving access to PHI",
+        "A state government health agency"
+      ],
+      "correctIndex": 2,
+      "explanation": "A Business Associate is a person or entity that performs functions or activities involving the use or disclosure of PHI on behalf of a covered entity — such as IT vendors, billing companies, or transcription services.",
+      "order": 6
+    },
+    {
+      "question": "You receive a call from someone claiming to be a patient's family member asking about their condition. What should you do?",
+      "options": [
+        "Provide all requested information since they are family",
+        "Verify that the patient has authorized disclosure to that person before sharing any PHI",
+        "Refuse to confirm the patient is even in the practice",
+        "Transfer the call to the billing department"
+      ],
+      "correctIndex": 1,
+      "explanation": "You should verify that the patient has authorized the disclosure of PHI to that family member. Absent prior authorization or an emergency, you should not disclose PHI to third parties, including family members.",
+      "order": 7
+    },
+    {
+      "question": "Which entity enforces the HIPAA Privacy and Security Rules?",
+      "options": [
+        "The Joint Commission (TJC)",
+        "The Centers for Medicare & Medicaid Services (CMS)",
+        "The HHS Office for Civil Rights (OCR)",
+        "The FBI Cyber Division"
+      ],
+      "correctIndex": 2,
+      "explanation": "The Office for Civil Rights (OCR) within the U.S. Department of Health and Human Services (HHS) is responsible for enforcing the HIPAA Privacy and Security Rules.",
+      "order": 8
+    },
+    {
+      "question": "A Notice of Privacy Practices (NPP) must be given to patients:",
+      "options": [
+        "Only when a patient requests it",
+        "At the first date of service and upon request thereafter",
+        "Annually every January",
+        "Only to new patients under age 18"
+      ],
+      "correctIndex": 1,
+      "explanation": "Covered entities must provide the NPP to patients no later than the date of first service delivery and must make a good-faith effort to obtain written acknowledgment of receipt.",
+      "order": 9
+    },
+    {
+      "question": "HIPAA civil monetary penalties can reach up to how much per violation category per year?",
+      "options": [
+        "$500 per violation",
+        "$5,000 per violation",
+        "$50,000 per violation, up to $1.9 million per violation category per year",
+        "$100 per violation with no annual cap"
+      ],
+      "correctIndex": 2,
+      "explanation": "HIPAA civil monetary penalties range from $100 to $50,000 per violation, depending on the level of culpability, with an annual maximum of $1.9 million for identical violations.",
+      "order": 10
+    }
+  ]
+}

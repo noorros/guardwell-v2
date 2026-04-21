@@ -91,13 +91,14 @@ model Practice {
   trialEndsAt            DateTime?
   currentPeriodEnd       DateTime?
 
-  practiceUsers     PracticeUser[]
-  practicePolicies  PracticePolicy[]
-  events            EventLog[]
-  complianceItems   ComplianceItem[]
-  enabledFrameworks PracticeFramework[]
-  llmCalls          LlmCall[]
-  scoreSnapshots    ComplianceScoreSnapshot[]
+  practiceUsers       PracticeUser[]
+  practicePolicies    PracticePolicy[]
+  trainingCompletions TrainingCompletion[]
+  events              EventLog[]
+  complianceItems     ComplianceItem[]
+  enabledFrameworks   PracticeFramework[]
+  llmCalls            LlmCall[]
+  scoreSnapshots      ComplianceScoreSnapshot[]
 
   @@index([primaryState])
   @@index([subscriptionStatus])
@@ -150,6 +151,71 @@ model PracticePolicy {
 
   @@unique([practiceId, policyCode])
   @@index([practiceId, retiredAt])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Training — courses + quiz + completions (ported from v1, minus AI/BYOV)
+// ────────────────────────────────────────────────────────────────────────────
+
+// Reference data. Seeded from scripts/seed-training.ts; read-only for practices.
+model TrainingCourse {
+  id              String   @id @default(cuid())
+  code            String   @unique   // "HIPAA_BASICS" — used in evidence type TRAINING:<code>
+  title           String
+  description     String?  @db.Text
+  type            String   // "HIPAA" | "OSHA" | etc. — display grouping
+  lessonContent   String   @db.Text
+  durationMinutes Int?
+  passingScore    Int      @default(80)
+  isRequired      Boolean  @default(false)
+  roles           String[] @default([])
+  version         Int      @default(1)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  quizQuestions QuizQuestion[]
+  completions   TrainingCompletion[]
+
+  @@index([type, sortOrder])
+  @@index([isRequired])
+}
+
+model QuizQuestion {
+  id           String   @id @default(cuid())
+  courseId     String
+  question     String   @db.Text
+  options      String[]
+  correctIndex Int
+  explanation  String?  @db.Text
+  order        Int
+
+  course       TrainingCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId, order])
+}
+
+// Evidence for TRAINING:* requirements. Append-only at the application layer —
+// mutations go through appendEventAndApply() per ADR-0001. Retaking a course
+// creates a new row; derivation picks the latest passed-and-unexpired row per
+// (userId, courseId).
+model TrainingCompletion {
+  id             String   @id @default(cuid())
+  practiceId     String
+  userId         String   // identity User.id (practiceId + userId → PracticeUser)
+  courseId       String
+  courseVersion  Int
+  score          Int      // 0–100
+  passed         Boolean
+  completedAt    DateTime @default(now())
+  expiresAt      DateTime // completedAt + 365 days at write time
+  certificateUrl String?
+
+  practice Practice       @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  course   TrainingCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([practiceId, userId, courseId])
+  @@index([practiceId, courseId, passed, expiresAt])
 }
 
 // ────────────────────────────────────────────────────────────────────────────
