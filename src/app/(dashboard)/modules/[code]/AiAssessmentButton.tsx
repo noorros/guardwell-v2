@@ -2,15 +2,17 @@
 "use client";
 
 import { useTransition, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { runAiAssessmentAction } from "@/app/(dashboard)/modules/hipaa/assess/actions";
 
 export function AiAssessmentButton({ frameworkCode }: { frameworkCode: string }) {
+  const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   if (frameworkCode.toUpperCase() !== "HIPAA") {
-    return null; // Only wired for HIPAA in week 5.
+    return null;
   }
 
   return (
@@ -24,6 +26,7 @@ export function AiAssessmentButton({ frameworkCode }: { frameworkCode: string })
             setError(null);
             try {
               await runAiAssessmentAction();
+              router.refresh();
             } catch (e) {
               setError(e instanceof Error ? e.message : "Assessment failed");
             }

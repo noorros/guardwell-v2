@@ -4,6 +4,7 @@ import { ShieldCheck } from "lucide-react";
 import { getPracticeUser } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { ModuleHeader } from "@/components/gw/ModuleHeader";
+import { AiAssistTrigger } from "@/components/gw/AiAssistDrawer/AiAssistTrigger";
 import { ChecklistItemServer } from "./ChecklistItemServer";
 import { AiAssessmentButton } from "./AiAssessmentButton";
 
@@ -61,9 +62,17 @@ export default async function ModulePage({
         jurisdictions={[framework.jurisdiction]}
       />
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-foreground">Requirements</h2>
-          <AiAssessmentButton frameworkCode={framework.code} />
+          <div className="flex items-center gap-2">
+            <AiAssistTrigger
+              pageContext={{
+                route: `/modules/${framework.code.toLowerCase()}`,
+                summary: `${framework.name} requirements for ${pu.practice.name}`,
+              }}
+            />
+            <AiAssessmentButton frameworkCode={framework.code} />
+          </div>
         </div>
         <div className="space-y-2">
           {framework.requirements.map((r) => {
