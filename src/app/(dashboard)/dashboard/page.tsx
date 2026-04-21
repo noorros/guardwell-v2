@@ -1,5 +1,12 @@
 import { getPracticeUser } from "@/lib/rbac";
 import { db } from "@/lib/db";
+import { PracticeIdentityCard } from "@/components/gw/PracticeIdentityCard";
+import { EmptyState } from "@/components/gw/EmptyState";
+import { Inbox } from "lucide-react";
+
+export const metadata = {
+  title: "Dashboard · GuardWell",
+};
 
 export default async function DashboardPage() {
   const pu = await getPracticeUser();
@@ -9,19 +16,30 @@ export default async function DashboardPage() {
     where: { practiceId: pu.practiceId },
   });
 
+  const officerRoles: Array<"Privacy Officer" | "Security Officer" | "Compliance Officer"> = [];
+  if (pu.isPrivacyOfficer) officerRoles.push("Privacy Officer");
+  if (pu.isComplianceOfficer) officerRoles.push("Compliance Officer");
+
   return (
-    <main className="mx-auto max-w-3xl p-6 space-y-4">
-      <h1 className="text-2xl font-bold text-slate-900">
-        Welcome to {pu.practice.name}
-      </h1>
-      <div className="rounded-xl bg-white p-6 shadow">
-        <p className="text-sm text-slate-600">Practice ID: {pu.practiceId}</p>
-        <p className="text-sm text-slate-600">Primary state: {pu.practice.primaryState}</p>
-        <p className="text-sm text-slate-600">Your role: {pu.role}</p>
-        <p className="mt-4 text-xs text-slate-400">
+    <main className="mx-auto max-w-3xl space-y-6 p-6">
+      <PracticeIdentityCard
+        name={pu.practice.name}
+        primaryState={pu.practice.primaryState}
+        role={pu.role}
+        officerRoles={officerRoles}
+        setupProgress={eventCount > 0 ? 10 : 0}
+      />
+      {eventCount === 0 ? (
+        <EmptyState
+          icon={Inbox}
+          title="No activity yet"
+          description="As you complete compliance items, they'll show up here."
+        />
+      ) : (
+        <p className="text-xs text-muted-foreground">
           Events recorded for this practice: {eventCount}
         </p>
-      </div>
+      )}
     </main>
   );
 }

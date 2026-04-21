@@ -43,7 +43,7 @@ describe("<ScoreRing>", () => {
     const labelledBy = svg?.getAttribute("aria-labelledby");
     expect(labelledBy).toBeTruthy();
     // The referenced element exists and contains useful text
-    const labelEl = labelledBy && document.getElementById(labelledBy);
+    const labelEl = labelledBy ? document.getElementById(labelledBy) : null;
     expect(labelEl?.textContent).toMatch(/HIPAA Privacy/);
   });
 
