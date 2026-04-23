@@ -1,6 +1,11 @@
 import { config } from "dotenv";
 config({ path: ".env" });
 
+// Short-circuit Upstash rate-limiting in tests — the integration suite
+// hits a real Postgres but must NOT reach an external Redis. Matches the
+// escape hatch defined in src/lib/ai/rateLimit.ts.
+process.env.UPSTASH_DISABLE = "1";
+
 import { afterEach, beforeAll } from "vitest";
 import { db } from "@/lib/db";
 
