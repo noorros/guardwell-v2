@@ -14,6 +14,8 @@ import {
 import { OfficerCheckbox } from "./OfficerCheckbox";
 import { InviteMemberForm } from "./InviteMemberForm";
 import { RevokeButton } from "./RevokeButton";
+import { ResendButton } from "./ResendButton";
+import { RemoveMemberButton } from "./RemoveMemberButton";
 import type { OfficerRole } from "@/lib/events/registry";
 
 export const metadata = { title: "Staff · My Programs" };
@@ -141,7 +143,12 @@ export default async function StaffPage() {
                           </code>
                         </p>
                       </div>
-                      {canInvite && <RevokeButton invitationId={inv.id} />}
+                      {canInvite && (
+                        <div className="flex items-center gap-2">
+                          <ResendButton invitationId={inv.id} />
+                          <RevokeButton invitationId={inv.id} />
+                        </div>
+                      )}
                     </li>
                   );
                 })}
@@ -182,6 +189,12 @@ export default async function StaffPage() {
                       )}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
+                      {canInvite && m.userId !== pu.userId && (
+                        <RemoveMemberButton
+                          practiceUserId={m.id}
+                          memberLabel={m.user.email}
+                        />
+                      )}
                       {OFFICER_COLUMNS.map((col) => {
                         const flag =
                           col.role === "PRIVACY"
