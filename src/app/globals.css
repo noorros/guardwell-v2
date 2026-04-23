@@ -12,6 +12,7 @@
   --gw-color-good:      oklch(0.72 0.15 90);  /* amber-yellow */
   --gw-color-needs:     oklch(0.72 0.18 50);  /* orange */
   --gw-color-risk:      oklch(0.62 0.22 25);  /* red */
+  --gw-color-setup:     oklch(0.60 0.14 245); /* blue — "Not assessed" / setup state */
 
   /* Z-index scale */
   --gw-z-sticky:    10;

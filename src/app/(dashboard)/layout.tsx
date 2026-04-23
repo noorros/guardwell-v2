@@ -24,11 +24,35 @@ export default async function DashboardLayout({
     orderBy: { framework: { sortOrder: "asc" } },
   });
 
+  // "Assessed" = the practice has at least one ComplianceItem row whose
+  // requirement belongs to this framework. Grouped count keeps this to a
+  // single DB trip regardless of the framework count.
+  const assessedGroups = await db.complianceItem.groupBy({
+    by: ["requirementId"],
+    where: {
+      practiceId: pu.practiceId,
+      requirement: {
+        frameworkId: { in: practiceFrameworks.map((pf) => pf.frameworkId) },
+      },
+    },
+  });
+  const assessedRequirementIds = new Set(assessedGroups.map((g) => g.requirementId));
+  const requirementsByFramework = await db.regulatoryRequirement.findMany({
+    where: { frameworkId: { in: practiceFrameworks.map((pf) => pf.frameworkId) } },
+    select: { id: true, frameworkId: true },
+  });
+  const assessedFrameworkIds = new Set(
+    requirementsByFramework
+      .filter((r) => assessedRequirementIds.has(r.id))
+      .map((r) => r.frameworkId),
+  );
+
   const myComplianceItems = practiceFrameworks.map((pf) => ({
     code: pf.framework.code,
     name: pf.framework.name,
     shortName: pf.framework.shortName,
     score: Math.round(pf.scoreCache ?? 0),
+    assessed: assessedFrameworkIds.has(pf.frameworkId),
   }));
 
   return (

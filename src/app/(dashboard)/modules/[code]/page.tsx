@@ -200,6 +200,7 @@ export default async function ModulePage({
         score={score}
         jurisdictions={[framework.jurisdiction]}
         assessedAt={pf?.lastScoredAt ?? null}
+        assessed={items.length > 0}
       />
       <ModuleSummaryBand
         compliantCount={compliantCount}

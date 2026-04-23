@@ -26,3 +26,9 @@ export function scoreToColorToken(score: number): string {
   if (score >= 50) return "var(--gw-color-needs)";
   return "var(--gw-color-risk)";
 }
+
+/** Used when a framework has no ComplianceItem rows yet — paints the score
+ *  ring / dot blue and swaps the status label to "Not assessed". Kept
+ *  distinct from scoreToColorToken so the threshold pipeline stays pure. */
+export const NOT_ASSESSED_LABEL = "Not assessed" as const;
+export const NOT_ASSESSED_COLOR_TOKEN = "var(--gw-color-setup)";

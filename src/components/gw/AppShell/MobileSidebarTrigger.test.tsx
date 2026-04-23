@@ -20,7 +20,7 @@ describe("<MobileSidebarTrigger>", () => {
     const user = userEvent.setup();
     render(
       <MobileSidebarTrigger
-        myComplianceItems={[{ code: "HIPAA", name: "HIPAA", score: 70 }]}
+        myComplianceItems={[{ code: "HIPAA", name: "HIPAA", score: 70, assessed: true }]}
       />,
     );
     // Before clicking, the sheet content is not present.
