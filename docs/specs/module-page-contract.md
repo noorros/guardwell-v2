@@ -1,8 +1,8 @@
 ---
 title: Module Page Contract — `/modules/[code]`
-status: Draft for review
+status: Live (validated against shipped HIPAA + state-overlay matrix)
 owners: Noorros (product), Engineering
-date: 2026-04-20
+date: 2026-04-23
 related:
   - docs/adr/0002-regulations-operations-matrix.md
   - docs/adr/0004-modules-as-data.md
@@ -12,7 +12,7 @@ related:
 
 # Module Page Contract — `/modules/[code]`
 
-**Status:** Draft for review
+**Status:** Live (validated against shipped HIPAA + state-overlay matrix)
 **Owners:** Noorros (product), Engineering
 **Related:** [ADR-0002](../adr/0002-regulations-operations-matrix.md), [ADR-0004](../adr/0004-modules-as-data.md), [ADR-0005](../adr/0005-design-system.md), [weeks-5-6 plan](../plans/weeks-5-6-llm-ops-first-module.md)
 
@@ -21,6 +21,7 @@ related:
 | Date | Author | Change |
 |---|---|---|
 | 2026-04-20 | Noorros + Engineering | Initial draft. Locks the shell (Sections A–G), acceptance criteria (30), and the 14-framework scope for v2 launch. Open questions O-1 through O-12 awaiting product decisions. |
+| 2026-04-23 | Engineering | Post-build refresh after sessions 5–31. **Resolved:** O-4 (state overlays as filtered rows on the federal framework — 40 overlays now live across 20 states), O-7 (Run AI assessment button + supporting code removed in PR #86). **Partially resolved:** O-1, O-5, O-6 (see annotations). **Status:** elevated from "Draft" to "Live" — the contract has been validated end-to-end against the shipped HIPAA module + the multi-state overlay matrix on `v2.app.gwcomp.com`. Added "Live surfaces" section enumerating shipped extras. |
 
 ---
 
@@ -648,9 +649,9 @@ What does **not** happen: no new file under `src/app/(dashboard)/modules/`, no e
 These are decisions Product (Noorros) needs to make before engineering can lock the template. Listed with the specific choices in play so a decision can be a one-line reply.
 
 **O-1. Activity feed scope.** Does Section E show only `REQUIREMENT_STATUS_UPDATED` events (the current plan), or all framework-scoped events including future types like `EVIDENCE_LINKED`, `POLICY_ACKNOWLEDGED`, `TRAINING_COMPLETED`?
- - Option A (locked): status events only. Pros: bounded; matches the current `projectRequirementStatusUpdated` surface. Cons: misses the "a staff member completed HIPAA training → score went up" story.
- - Option B: all events whose payload includes a `frameworkCode` match. Pros: richer feed. Cons: needs every future event to include `frameworkCode` in payload; more indexing.
- - Option C: status events + a curated short list (evidence linked, training completed) with per-type row templates. Compromise.
+ - **🟡 PARTIALLY RESOLVED 2026-04-23 — leaning Option C.** PR #90 (activity log category chips on `/audit/activity`) ships an "Auto-derivations" chip that maps to `REQUIREMENT_STATUS_UPDATED`, plus chips for Incidents, Policies, Training, etc. The cross-framework activity log uses the broader filter; the per-module Section E feed has not been retroactively widened. Recommend locking Option C for the per-module feed (status events + a curated short list — INCIDENT_NOTIFIED_AFFECTED_INDIVIDUALS for the breach-response requirement, POLICY_ADOPTED for HIPAA policies, TRAINING_COMPLETED for HIPAA basics) once weeks 7–9 work surfaces concrete user requests for it.
+ - Option A (still default for v2 launch): status events only.
+ - Option B: all events whose payload includes a `frameworkCode` match.
 
 **O-2. Requirement description format — markdown or plain text?** The current schema stores `description` as `String @db.Text`. Long HIPAA descriptions would benefit from bullet lists; DEA schedule notes might need tables.
  - Option A: plain text only. Pros: simplest; no XSS surface. Cons: long descriptions become dense walls.
@@ -663,26 +664,23 @@ These are decisions Product (Noorros) needs to make before engineering can lock 
  - Option C: banner whenever the framework has a recent update.
 
 **O-4. Per-state overlays on federal frameworks.** HIPAA is federal but California's CMIA, Texas HB300, etc. add HIPAA-adjacent requirements. How do they render?
- - Option A: a single federal framework; state-specific requirements live as rows on that framework with `jurisdictionFilter = ["CA"]` (preserves one module page per topic).
- - Option B: a sibling framework `HIPAA_CA` that the user sees when their `primaryState === "CA"` (one module page per framework × state combination).
- - Option C: separate "State Law" framework that aggregates all state-specific requirements regardless of federal parent (matches v1's consolidated state section).
- - This decision interacts with the "overlay badge" in Section A and the requirement-list rendering in Section C.
+ - **✅ RESOLVED 2026-04-22 — Option A.** State-specific requirements live as rows on the federal framework with `jurisdictionFilter` arrays scoped to one or more state codes. Implementation lives in `src/lib/compliance/jurisdictions.ts` (helpers) and `scripts/seed-state-overlays.ts` (40 overlays across CA · TX · NY · FL · IL · WA · MA · CO · VA · NJ · OR · NV · UT · GA · NC · OH · MI · PA · MD · MN as of PR #88). The rendered chip set on `/modules/hipaa` shows one chip per state-scoped requirement; non-applicable practices never see them because both the requirement-list query and `recomputeFrameworkScore` apply the jurisdiction filter at the data layer. Option B/C rejected as documented.
+ - ❌ Option B: a sibling framework `HIPAA_CA` that the user sees when their `primaryState === "CA"` (one module page per framework × state combination).
+ - ❌ Option C: separate "State Law" framework that aggregates all state-specific requirements regardless of federal parent (matches v1's consolidated state section).
 
 **O-5. Deadline sourcing.** Section B's "N deadlines this month" — does that pull from:
+ - **🟡 PARTIALLY RESOLVED 2026-04-23 — Option B in production via /audit/overview.** PR #91 added an "Upcoming deadlines (next 30 days)" widget to `/audit/overview` that aggregates credential `expiryDate`, vendor `baaExpiresAt`, training-completion `expiresAt`, and unresolved-breach HHS deadlines (`discoveredAt + 60d` while `ocrNotifiedAt = null`). This is Option B applied at the cross-framework surface — no module-page Section B sourcing yet. When Section B ships, recommend reusing the same query shape rather than introducing a parallel `requirement.metadata.deadline` field (Option A keeps surfacing in product convos but adds a hand-curation tax that hasn't paid off yet).
  - Option A: a `requirement.metadata.deadline` ISO string seeded by the framework script (hand-curated per requirement).
- - Option B: linked evidence with renewal dates (e.g., a BAA expires, a training is due).
  - Option C: both unioned.
- - Without an answer, the summary band can't ship in its full form; it would default to counting upcoming credential renewals only (which is Option B for a subset).
 
 **O-6. Toast infrastructure.** Several states in the matrix ("Offline status write failed," "Rate-limited AI request") call for a toast but no toast primitive exists in `gw/` yet.
+ - **🟡 PARTIALLY RESOLVED 2026-04-23 — Option B has held through 30+ sessions of build.** Every error-state surface shipped so far (BreachDeterminationWizard, ComplianceProfileForm, NotificationLog, InviteMemberForm, RemoveMemberButton, ResendButton, RevokeButton) renders errors inline near the action that failed using the `text-[color:var(--gw-color-risk)]` token. The notification bell + per-rule digest channel address the "ambient feedback" need without needing a transient toast primitive. Recommend keeping Option B unless customer feedback during weeks 13–14 surfaces a specific gap.
  - Option A: add `<ToastProvider>` + `<useToast>` to the design system before shipping the first module page.
- - Option B: defer to weeks 12 (notification redesign) and have the module page render errors inline in the affected section's body.
 
 **O-7. Fate of the "Run AI assessment" button.** The `AiAssessmentButton.tsx` file early-returns `null`. The component, server action (`runAiAssessmentAction`), and prompt registry entry (`hipaa.assess.v1`) are still wired. Before v2 launch, decide:
- - Option A: delete the button + its assess action + the prompt entry. If/when we want an AI-assessment flow again, rebuild it with a different purpose.
- - Option B: keep the plumbing, repurpose the button for policy-gap drafting (Extras slot on HIPAA).
- - Option C: keep the button hidden but retain the assess prompt as a reference for the eval harness.
- - This decision changes the files enumerated under "Section F" and "Section G" above.
+ - **✅ RESOLVED 2026-04-22 — Option A.** Removed the button + supporting surface in PR #86 (`cleanup/hidden-run-ai`). The Ambient AI Concierge (Section F) is now the sole AI surface on `/modules/[code]`. If a per-module AI assessment is reintroduced, it ships as a new Extras-slot component (Section G) with a fresh prompt-registry entry. The eval harness keeps the old `hipaa.assess.v1` reference fixture under `src/lib/ai/evals/` for regression coverage even after the runtime path was deleted.
+ - ❌ Option B: keep the plumbing, repurpose the button for policy-gap drafting.
+ - ❌ Option C: keep the button hidden but retain the assess prompt as a reference for the eval harness.
 
 **O-8. Thin vs. full module pages — which template?** The spec currently asserts a single template serves both. If the thin versions (Training, Policies, etc.) end up needing a visually distinct layout (e.g., one big KPI card + a "Go to program" CTA replacing the requirements list), we would need to split into two templates keyed on `framework.metadata.template = "FULL" | "THIN"`.
  - Option A: one template, operational frameworks use ~5 program-level requirements that happen to render through the same rows. Minimal variance.
@@ -708,6 +706,27 @@ These are decisions Product (Noorros) needs to make before engineering can lock 
  - Option A (status quo): no distinction; absent = `NOT_STARTED`.
  - Option B: show a fourth row state "Unknown" (gray dashed outline) until a user affirmatively clicks.
  - Option C: auto-create a `ComplianceItem` for every requirement when a practice activates a framework, so the DB always mirrors the UI. Adds write volume on practice creation (14 frameworks × ~8 requirements = ~112 inserts per practice).
+
+---
+
+## Live surfaces (shipped + verified post-2026-04-22)
+
+This section enumerates surfaces that have shipped to `v2.app.gwcomp.com` and been Chrome-verified end-to-end since the contract was first drafted. It is the answer to the question "what's actually live, beyond the contract's nominal sections?" — useful when sequencing follow-up work and when judging whether a new request belongs in this contract or in a separate spec.
+
+| Surface | Section | Shipped in | Verified |
+|---|---|---|---|
+| ScoreRing in header (Section A) | A | weeks 5–6 | yes |
+| Compliance profile auto-enable/disable of frameworks | (sidebar, not module) | PR #82 | yes |
+| Per-state requirement chips on `/modules/hipaa` | C | PR #72 + #85 + #88 | yes (11 chips at AZ + CA/TX/NY/FL/IL test) |
+| State-overlay derivation for breach-notification timing | C (status flips) | PR #89 (CA + 17 more states via factory) | pending merge |
+| Notification log on incident detail page | (incident detail, not module) | PR #89 | pending merge |
+| Run-AI button removal | F (gone) | PR #86 | yes |
+| Activity log category chips | (cross-module audit surface) | PR #90 | pending merge |
+| Upcoming deadlines widget on `/audit/overview` | (cross-module audit surface) | PR #91 | pending merge |
+| Polished `/programs/incidents` empty state | (programs, not module) | PR #92 | pending merge |
+| a11y sweep over new client islands (axe-core) | quality gate | PR #87 | yes |
+
+The above does not change the contract's normative sections — it documents what shipped *underneath* the contract during the first month of build. New module-page sections (e.g., Section B's "N deadlines this month" pulling from credential renewals) should reference the corresponding cross-module surface in this table to avoid duplicating implementation effort.
 
 ---
 
