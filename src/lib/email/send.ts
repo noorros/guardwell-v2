@@ -11,8 +11,12 @@ import { Resend } from "resend";
 interface SendInput {
   to: string;
   subject: string;
-  /** Plain-text body. HTML templates can land in a follow-up. */
+  /** Plain-text body. Always required as a fallback for clients that
+   *  don't render HTML. */
   text: string;
+  /** Optional HTML body. When present, most email clients show this
+   *  instead of `text`. */
+  html?: string;
 }
 
 interface SendResult {
@@ -50,6 +54,7 @@ export async function sendEmail(input: SendInput): Promise<SendResult> {
       to: input.to,
       subject: input.subject,
       text: input.text,
+      ...(input.html ? { html: input.html } : {}),
     });
     if (error) {
       console.error("[email:error]", error);

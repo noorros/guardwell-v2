@@ -129,6 +129,7 @@ export async function runNotificationDigest(): Promise<DigestRunSummary> {
           to: m.user.email,
           subject: digest.subject,
           text: digest.text,
+          html: digest.html,
         });
         if (result.delivered) {
           summary.emailsDelivered += 1;
