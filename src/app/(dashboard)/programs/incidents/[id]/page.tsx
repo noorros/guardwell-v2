@@ -14,6 +14,7 @@ import {
   IncidentBreachBadge,
 } from "../IncidentBadges";
 import { BreachDeterminationWizard } from "./BreachDeterminationWizard";
+import { NotificationLog } from "./NotificationLog";
 import { ResolveButton } from "./ResolveButton";
 
 interface PageProps {
@@ -174,6 +175,22 @@ export default async function IncidentDetailPage({ params }: PageProps) {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {hasDetermined && incident.isBreach === true && (
+        <NotificationLog
+          incidentId={incident.id}
+          affectedCount={incident.affectedCount ?? 0}
+          ocrNotifiedAtIso={incident.ocrNotifiedAt?.toISOString() ?? null}
+          affectedIndividualsNotifiedAtIso={
+            incident.affectedIndividualsNotifiedAt?.toISOString() ?? null
+          }
+          mediaNotifiedAtIso={incident.mediaNotifiedAt?.toISOString() ?? null}
+          stateAgNotifiedAtIso={
+            incident.stateAgNotifiedAt?.toISOString() ?? null
+          }
+          defaultStateCode={incident.patientState ?? pu.practice.primaryState}
+        />
       )}
 
       {incident.status !== "RESOLVED" && incident.status !== "CLOSED" && (

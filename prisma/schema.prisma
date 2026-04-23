@@ -363,9 +363,19 @@ model Incident {
   factor4Score     Int?
   overallRiskScore Int? // composite 0-100 produced by the breach wizard
   breachDeterminedAt DateTime?
-  // HHS Office for Civil Rights notification tracking
+  // HHS Office for Civil Rights notification tracking. ocrNotifiedAt is
+  // synonymous with the new INCIDENT_NOTIFIED_HHS event timestamp; the
+  // event projection writes here directly so existing readers keep working.
   ocrNotifyRequired Boolean          @default(false)
   ocrNotifiedAt     DateTime?
+  // Granular post-determination notification tracking. Populated by the
+  // INCIDENT_NOTIFIED_AFFECTED_INDIVIDUALS / _MEDIA / _STATE_AG events.
+  // null = not yet notified. State-overlay derivation rules (e.g.
+  // HIPAA_CA_BREACH_NOTIFICATION_72HR) read these timestamps to decide
+  // whether the state-specific notification window was met.
+  affectedIndividualsNotifiedAt DateTime?
+  mediaNotifiedAt               DateTime?
+  stateAgNotifiedAt             DateTime?
   // OSHA recordable fields — only populated when type=OSHA_RECORDABLE.
   oshaBodyPart       String?
   oshaInjuryNature   String?

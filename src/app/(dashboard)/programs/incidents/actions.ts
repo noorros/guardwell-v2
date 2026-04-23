@@ -11,6 +11,10 @@ import {
   projectIncidentReported,
   projectIncidentBreachDetermined,
   projectIncidentResolved,
+  projectIncidentNotifiedHhs,
+  projectIncidentNotifiedAffectedIndividuals,
+  projectIncidentNotifiedMedia,
+  projectIncidentNotifiedStateAg,
 } from "@/lib/events/projections/incident";
 import { emitCriticalBreachAlert } from "@/lib/notifications/critical-alert";
 import { db } from "@/lib/db";
@@ -239,4 +243,122 @@ export async function resolveIncidentAction(
   revalidatePath(`/programs/incidents/${parsed.incidentId}`);
   revalidatePath("/dashboard");
   revalidatePath("/modules/hipaa");
+}
+
+const NotificationKindEnum = z.enum([
+  "HHS",
+  "AFFECTED_INDIVIDUALS",
+  "MEDIA",
+  "STATE_AG",
+]);
+
+const NotificationInput = z.object({
+  incidentId: z.string().min(1),
+  kind: NotificationKindEnum,
+  notifiedAt: z.string().datetime().optional(),
+  stateCode: z
+    .string()
+    .length(2)
+    .regex(/^[A-Z]{2}$/)
+    .optional(),
+});
+
+export async function recordIncidentNotificationAction(
+  input: z.infer<typeof NotificationInput>,
+): Promise<{ kind: z.infer<typeof NotificationKindEnum>; notifiedAt: string }> {
+  const user = await requireUser();
+  const pu = await getPracticeUser();
+  if (!pu) throw new Error("Unauthorized");
+  const parsed = NotificationInput.parse(input);
+
+  // Default to "now" so the common case (button click = "I just sent it")
+  // doesn't require the UI to handle date entry. Backdated entries pass
+  // an explicit notifiedAt.
+  const notifiedAt = parsed.notifiedAt ?? new Date().toISOString();
+
+  if (parsed.kind === "STATE_AG" && !parsed.stateCode) {
+    throw new Error("stateCode is required for STATE_AG notifications.");
+  }
+
+  switch (parsed.kind) {
+    case "HHS": {
+      const payload = { incidentId: parsed.incidentId, notifiedAt };
+      await appendEventAndApply(
+        {
+          practiceId: pu.practiceId,
+          actorUserId: user.id,
+          type: "INCIDENT_NOTIFIED_HHS",
+          payload,
+        },
+        async (tx) =>
+          projectIncidentNotifiedHhs(tx, {
+            practiceId: pu.practiceId,
+            payload,
+          }),
+      );
+      break;
+    }
+    case "AFFECTED_INDIVIDUALS": {
+      const payload = { incidentId: parsed.incidentId, notifiedAt };
+      await appendEventAndApply(
+        {
+          practiceId: pu.practiceId,
+          actorUserId: user.id,
+          type: "INCIDENT_NOTIFIED_AFFECTED_INDIVIDUALS",
+          payload,
+        },
+        async (tx) =>
+          projectIncidentNotifiedAffectedIndividuals(tx, {
+            practiceId: pu.practiceId,
+            payload,
+          }),
+      );
+      break;
+    }
+    case "MEDIA": {
+      const payload = { incidentId: parsed.incidentId, notifiedAt };
+      await appendEventAndApply(
+        {
+          practiceId: pu.practiceId,
+          actorUserId: user.id,
+          type: "INCIDENT_NOTIFIED_MEDIA",
+          payload,
+        },
+        async (tx) =>
+          projectIncidentNotifiedMedia(tx, {
+            practiceId: pu.practiceId,
+            payload,
+          }),
+      );
+      break;
+    }
+    case "STATE_AG": {
+      const payload = {
+        incidentId: parsed.incidentId,
+        notifiedAt,
+        stateCode: parsed.stateCode!,
+      };
+      await appendEventAndApply(
+        {
+          practiceId: pu.practiceId,
+          actorUserId: user.id,
+          type: "INCIDENT_NOTIFIED_STATE_AG",
+          payload,
+        },
+        async (tx) =>
+          projectIncidentNotifiedStateAg(tx, {
+            practiceId: pu.practiceId,
+            payload,
+          }),
+      );
+      break;
+    }
+  }
+
+  revalidatePath("/programs/incidents");
+  revalidatePath(`/programs/incidents/${parsed.incidentId}`);
+  revalidatePath("/dashboard");
+  revalidatePath("/modules/hipaa");
+
+  return { kind: parsed.kind, notifiedAt };
 }

@@ -142,6 +142,79 @@ export async function hipaaBaaRule(
   return allCovered ? "COMPLIANT" : "GAP";
 }
 
+/**
+ * California overlay (Cal. Civil Code §56.36 · Health & Safety Code §1280.15).
+ * Practice owes notice to affected individuals within 15 business days of
+ * discovery for any CA-scoped breach. Stricter than HIPAA's 60-day ceiling
+ * — both deadlines must be met.
+ *
+ * Derivation logic:
+ *   - No CA-scoped breaches yet → COMPLIANT (vacuously satisfied; nothing
+ *     to notify on).
+ *   - Any CA-scoped breach where the affected-individuals notification was
+ *     recorded within 15 business days of discovery → still COMPLIANT.
+ *   - Any CA-scoped breach where notice is missing AND the window has not
+ *     yet elapsed → GAP (drives action — surface the obligation now).
+ *   - Any CA-scoped breach where notice is missing AND the window elapsed
+ *     OR notice was recorded after the window → GAP.
+ *
+ * "CA-scoped breach" = isBreach=true AND (patientState='CA' OR
+ * patientState=null AND practice.primaryState='CA'). The jurisdiction
+ * filter on the requirement itself already gates whether this rule
+ * runs at all — it only applies to practices with CA in scope.
+ */
+export async function hipaaCaBreachNotification15BizDaysRule(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<DerivedStatus | null> {
+  const practice = await tx.practice.findUnique({
+    where: { id: practiceId },
+    select: { primaryState: true },
+  });
+  const caBreaches = await tx.incident.findMany({
+    where: {
+      practiceId,
+      isBreach: true,
+      OR: [
+        { patientState: "CA" },
+        ...(practice?.primaryState === "CA"
+          ? [{ patientState: null }]
+          : []),
+      ],
+    },
+    select: {
+      discoveredAt: true,
+      affectedIndividualsNotifiedAt: true,
+    },
+  });
+  if (caBreaches.length === 0) return "COMPLIANT";
+
+  for (const b of caBreaches) {
+    const deadline = addBusinessDays(b.discoveredAt, 15);
+    if (!b.affectedIndividualsNotifiedAt) return "GAP";
+    if (b.affectedIndividualsNotifiedAt > deadline) return "GAP";
+  }
+  return "COMPLIANT";
+}
+
+/**
+ * Pure helper. Returns the date that is `n` business days after `from`
+ * (skipping weekends only — federal holiday calendar isn't tracked yet,
+ * so the result is a slight overestimate of the actual statutory deadline.
+ * Conservative for the practice: a true holiday-aware computation would
+ * push the deadline LATER, never sooner).
+ */
+function addBusinessDays(from: Date, n: number): Date {
+  const result = new Date(from);
+  let added = 0;
+  while (added < n) {
+    result.setDate(result.getDate() + 1);
+    const day = result.getDay(); // 0 = Sun, 6 = Sat
+    if (day !== 0 && day !== 6) added += 1;
+  }
+  return result;
+}
+
 import { hipaaSraRule } from "./hipaaSra";
 
 export const HIPAA_DERIVATION_RULES: Record<string, DerivationRule> = {
@@ -155,4 +228,5 @@ export const HIPAA_DERIVATION_RULES: Record<string, DerivationRule> = {
   HIPAA_WORKFORCE_TRAINING: hipaaWorkforceTrainingRule,
   HIPAA_BAAS: hipaaBaaRule,
   HIPAA_SRA: hipaaSraRule,
+  HIPAA_CA_BREACH_NOTIFICATION_72HR: hipaaCaBreachNotification15BizDaysRule,
 };
