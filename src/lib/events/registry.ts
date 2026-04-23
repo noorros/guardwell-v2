@@ -13,6 +13,7 @@ export const EVENT_TYPES = [
   "OFFICER_DESIGNATED",
   "POLICY_ADOPTED",
   "POLICY_RETIRED",
+  "POLICY_REVIEWED",
   "TRAINING_COMPLETED",
   "VENDOR_UPSERTED",
   "VENDOR_BAA_EXECUTED",
@@ -128,6 +129,15 @@ export const EVENT_SCHEMAS = {
     1: z.object({
       practicePolicyId: z.string().min(1),
       policyCode: z.string().min(1),
+    }),
+  },
+  // Annual review attestation. Bumps PracticePolicy.lastReviewedAt to
+  // now and rederives HIPAA_POLICIES_REVIEW_CURRENT.
+  POLICY_REVIEWED: {
+    1: z.object({
+      practicePolicyId: z.string().min(1),
+      policyCode: z.string().min(1),
+      reviewedByUserId: z.string().min(1),
     }),
   },
   TRAINING_COMPLETED: {

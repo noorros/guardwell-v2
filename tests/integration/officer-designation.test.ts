@@ -109,7 +109,14 @@ describe("OFFICER_DESIGNATED → HIPAA requirement derivation", () => {
     expect(payload1.source).toBe("DERIVED");
     expect(payload1.requirementId).toBe(privacyReq.id);
 
-    // PracticeFramework score: 1 compliant of 10 = 10.
+    // PracticeFramework score: 1 compliant of N applicable requirements.
+    // Count federal-only (empty jurisdictionFilter) since this practice is
+    // AZ and never opted into state overlays. HIPAA seed grows over
+    // time — assert dynamically rather than hard-coding 10/11/etc.
+    const federalReqs = framework.requirements.filter(
+      (r) => r.jurisdictionFilter.length === 0,
+    );
+    const expectedScore = Math.round((1 / federalReqs.length) * 100);
     const pf = await db.practiceFramework.findUnique({
       where: {
         practiceId_frameworkId: {
@@ -118,7 +125,7 @@ describe("OFFICER_DESIGNATED → HIPAA requirement derivation", () => {
         },
       },
     });
-    expect(pf?.scoreCache).toBe(10);
+    expect(pf?.scoreCache).toBe(expectedScore);
   });
 
   it("removing the only Privacy Officer flips derivation back to GAP", async () => {
