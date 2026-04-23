@@ -14,6 +14,7 @@
 
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email/send";
+import { renderEmailHtml } from "@/lib/email/template";
 
 export interface CriticalBreachAlertInput {
   practiceId: string;
@@ -105,11 +106,35 @@ export async function emitCriticalBreachAlert(
         ``,
         `— GuardWell`,
       ].join("\n");
+      const html = renderEmailHtml({
+        preheader: title,
+        headline: title,
+        subheadline: isMajor
+          ? "Major-breach (500+) HHS OCR + media notice obligations triggered."
+          : "HHS OCR notification obligation triggered.",
+        accent: "critical",
+        sections: [
+          { html: `<p style="margin:0;">${escapeHtml(body)}</p>` },
+        ],
+        cta: {
+          label: "Open incident",
+          href: `${baseUrl.replace(/\/$/, "")}${href}`,
+        },
+        secondaryLinks: [
+          {
+            label: "Notification preferences",
+            href: `${baseUrl.replace(/\/$/, "")}/settings/notifications`,
+          },
+        ],
+        practiceName: practice.name,
+        baseUrl,
+      });
 
       const result = await sendEmail({
         to: m.user.email,
         subject,
         text,
+        html,
       });
       if (result.delivered) {
         emailed += 1;
@@ -133,4 +158,13 @@ export async function emitCriticalBreachAlert(
   }
 
   return { notified, emailed };
+}
+
+function escapeHtml(s: string): string {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }

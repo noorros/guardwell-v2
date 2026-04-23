@@ -12,6 +12,7 @@ import {
   projectInvitationRevoked,
 } from "@/lib/events/projections/invitation";
 import { sendEmail } from "@/lib/email/send";
+import { renderEmailHtml } from "@/lib/email/template";
 
 const InviteInput = z.object({
   email: z.string().email().max(200),
@@ -79,19 +80,38 @@ export async function inviteTeamMemberAction(
   // Best-effort email. Dev environments without RESEND_API_KEY return
   // delivered=false; the invitation row still exists and the accept URL
   // is visible in the staff-page "Pending invitations" list.
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://v2.app.gwcomp.com";
+  const href = acceptUrl(token);
+  const subject = `${pu.practice.name} invited you to GuardWell`;
+  const text = [
+    `${user.email} invited you to join ${pu.practice.name} on GuardWell.`,
+    `Role: ${parsed.role}.`,
+    ``,
+    `Accept the invitation: ${href}`,
+    ``,
+    `This invitation expires ${expiresAt.toUTCString()}.`,
+    ``,
+    `If you weren't expecting this, it's safe to ignore.`,
+  ].join("\n");
+  const html = renderEmailHtml({
+    preheader: `${user.email} invited you to ${pu.practice.name} on GuardWell.`,
+    headline: `You're invited to ${pu.practice.name}`,
+    subheadline: `${user.email} wants you to join as ${parsed.role}.`,
+    sections: [
+      {
+        html: `<p style="margin:0 0 8px;">GuardWell is how ${pu.practice.name} tracks compliance across HIPAA, OSHA, and other frameworks. Accept the invitation to collaborate with your team.</p><p style="margin:0; color:#64748B;">This invitation expires ${expiresAt.toUTCString()}.</p>`,
+      },
+    ],
+    cta: { label: "Accept invitation", href },
+    practiceName: pu.practice.name,
+    baseUrl,
+  });
   const result = await sendEmail({
     to: email,
-    subject: `${pu.practice.name} invited you to GuardWell`,
-    text: [
-      `${user.email} invited you to join ${pu.practice.name} on GuardWell.`,
-      `Role: ${parsed.role}.`,
-      ``,
-      `Accept the invitation: ${acceptUrl(token)}`,
-      ``,
-      `This invitation expires ${expiresAt.toUTCString()}.`,
-      ``,
-      `If you weren't expecting this, it's safe to ignore.`,
-    ].join("\n"),
+    subject,
+    text,
+    html,
   });
 
   revalidatePath("/programs/staff");
