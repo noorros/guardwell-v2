@@ -14,6 +14,8 @@ const PROJECTION_TABLES = new Set([
   "practiceSraAnswer",
   "incident",
   "practiceInvitation",
+  "notification",
+  "notificationPreference",
 ]);
 
 const MUTATING_METHODS = new Set([
