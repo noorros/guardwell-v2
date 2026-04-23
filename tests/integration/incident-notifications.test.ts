@@ -18,7 +18,10 @@ import {
   projectIncidentNotifiedMedia,
   projectIncidentNotifiedStateAg,
 } from "@/lib/events/projections/incident";
-import { hipaaCaBreachNotification15BizDaysRule } from "@/lib/compliance/derivation/hipaa";
+import {
+  hipaaCaBreachNotification15BizDaysRule,
+  HIPAA_DERIVATION_RULES,
+} from "@/lib/compliance/derivation/hipaa";
 
 async function seedFrameworkAndCaOverlay() {
   const framework = await db.regulatoryFramework.upsert({
@@ -371,6 +374,136 @@ describe("CA 15-business-day overlay derivation", () => {
     const status = await db.$transaction((tx) =>
       hipaaCaBreachNotification15BizDaysRule(tx, practice.id),
     );
+    expect(status).toBe("COMPLIANT");
+  });
+});
+
+describe("State breach-notification rule factory (other states)", () => {
+  it("TX 60-day rule: COMPLIANT when no TX breaches", async () => {
+    const { practice } = await seedPractice("TX");
+    const rule = HIPAA_DERIVATION_RULES.HIPAA_TX_BREACH_60DAY!;
+    const status = await db.$transaction((tx) => rule(tx, practice.id));
+    expect(status).toBe("COMPLIANT");
+  });
+
+  it("TX 60-day rule: GAP when TX breach has no notification yet", async () => {
+    await seedFrameworkAndCaOverlay();
+    const { user, practice } = await seedPractice("TX");
+    await reportAndDetermineBreach(user, practice, {
+      patientState: "TX",
+      discoveredAt: new Date(),
+    });
+    const rule = HIPAA_DERIVATION_RULES.HIPAA_TX_BREACH_60DAY!;
+    const status = await db.$transaction((tx) => rule(tx, practice.id));
+    expect(status).toBe("GAP");
+  });
+
+  it("TX 60-day rule: COMPLIANT when notification recorded within window", async () => {
+    await seedFrameworkAndCaOverlay();
+    const { user, practice } = await seedPractice("TX");
+    const discoveredAt = new Date();
+    const incidentId = await reportAndDetermineBreach(user, practice, {
+      patientState: "TX",
+      discoveredAt,
+    });
+    // Notify 30 calendar days later — well within 60.
+    const notifiedAt = new Date(
+      discoveredAt.getTime() + 30 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    await appendEventAndApply(
+      {
+        practiceId: practice.id,
+        actorUserId: user.id,
+        type: "INCIDENT_NOTIFIED_AFFECTED_INDIVIDUALS",
+        payload: { incidentId, notifiedAt },
+      },
+      async (tx) =>
+        projectIncidentNotifiedAffectedIndividuals(tx, {
+          practiceId: practice.id,
+          payload: { incidentId, notifiedAt },
+        }),
+    );
+    const rule = HIPAA_DERIVATION_RULES.HIPAA_TX_BREACH_60DAY!;
+    const status = await db.$transaction((tx) => rule(tx, practice.id));
+    expect(status).toBe("COMPLIANT");
+  });
+
+  it("TX 60-day rule: GAP when notification recorded AFTER window", async () => {
+    await seedFrameworkAndCaOverlay();
+    const { user, practice } = await seedPractice("TX");
+    // Discovered 90 days ago, notified yesterday — 30 days late.
+    const discoveredAt = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const incidentId = await reportAndDetermineBreach(user, practice, {
+      patientState: "TX",
+      discoveredAt,
+    });
+    const notifiedAt = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    await appendEventAndApply(
+      {
+        practiceId: practice.id,
+        actorUserId: user.id,
+        type: "INCIDENT_NOTIFIED_AFFECTED_INDIVIDUALS",
+        payload: { incidentId, notifiedAt },
+      },
+      async (tx) =>
+        projectIncidentNotifiedAffectedIndividuals(tx, {
+          practiceId: practice.id,
+          payload: { incidentId, notifiedAt },
+        }),
+    );
+    const rule = HIPAA_DERIVATION_RULES.HIPAA_TX_BREACH_60DAY!;
+    const status = await db.$transaction((tx) => rule(tx, practice.id));
+    expect(status).toBe("GAP");
+  });
+
+  it("NY expedient rule: COMPLIANT once a notification exists, no window enforced", async () => {
+    await seedFrameworkAndCaOverlay();
+    const { user, practice } = await seedPractice("NY");
+    const discoveredAt = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+    const incidentId = await reportAndDetermineBreach(user, practice, {
+      patientState: "NY",
+      discoveredAt,
+    });
+    const notifiedAt = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    await appendEventAndApply(
+      {
+        practiceId: practice.id,
+        actorUserId: user.id,
+        type: "INCIDENT_NOTIFIED_AFFECTED_INDIVIDUALS",
+        payload: { incidentId, notifiedAt },
+      },
+      async (tx) =>
+        projectIncidentNotifiedAffectedIndividuals(tx, {
+          practiceId: practice.id,
+          payload: { incidentId, notifiedAt },
+        }),
+    );
+    const rule = HIPAA_DERIVATION_RULES.HIPAA_NY_BREACH_EXPEDIENT!;
+    const status = await db.$transaction((tx) => rule(tx, practice.id));
+    expect(status).toBe("COMPLIANT");
+  });
+
+  it("NY expedient rule: GAP when no notification at all", async () => {
+    await seedFrameworkAndCaOverlay();
+    const { user, practice } = await seedPractice("NY");
+    await reportAndDetermineBreach(user, practice, {
+      patientState: "NY",
+      discoveredAt: new Date(),
+    });
+    const rule = HIPAA_DERIVATION_RULES.HIPAA_NY_BREACH_EXPEDIENT!;
+    const status = await db.$transaction((tx) => rule(tx, practice.id));
+    expect(status).toBe("GAP");
+  });
+
+  it("OR 45-day rule: vacuous when no OR-scoped breaches (CA breach doesn't count)", async () => {
+    await seedFrameworkAndCaOverlay();
+    const { user, practice } = await seedPractice("OR");
+    await reportAndDetermineBreach(user, practice, {
+      patientState: "CA",
+      discoveredAt: new Date(),
+    });
+    const rule = HIPAA_DERIVATION_RULES.HIPAA_OR_BREACH_45DAY!;
+    const status = await db.$transaction((tx) => rule(tx, practice.id));
     expect(status).toBe("COMPLIANT");
   });
 });

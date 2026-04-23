@@ -211,18 +211,21 @@ export async function projectIncidentNotifiedAffectedIndividuals(
     where: { id: payload.incidentId },
     data: { affectedIndividualsNotifiedAt: new Date(payload.notifiedAt) },
   });
-  // The CA 15-business-day overlay (and any future state overlay that
-  // keys off affected-individual notice timing) rederives off this code.
-  await rederiveRequirementStatus(
-    tx,
-    practiceId,
+  // Every state-overlay breach-notification rule keys off affected-
+  // individual notice timing. The state-overlay seed uses one of a few
+  // canonical evidence-type codes per overlay (15-biz-days for CA, N-day
+  // windows for fixed-deadline states, EXPEDIENT for the rest).
+  // Rederiving each one here drives the matching rule via the registry.
+  for (const evidenceCode of [
     "INCIDENT:BREACH_NOTIFIED_15_BIZ_DAYS",
-  );
-  await rederiveRequirementStatus(
-    tx,
-    practiceId,
+    "INCIDENT:BREACH_NOTIFIED_30_DAYS",
+    "INCIDENT:BREACH_NOTIFIED_45_DAYS",
+    "INCIDENT:BREACH_NOTIFIED_60_DAYS",
+    "INCIDENT:BREACH_NOTIFIED_EXPEDIENT",
     "INCIDENT:NOTIFIED_AFFECTED_INDIVIDUALS",
-  );
+  ]) {
+    await rederiveRequirementStatus(tx, practiceId, evidenceCode);
+  }
 }
 
 export async function projectIncidentNotifiedMedia(
