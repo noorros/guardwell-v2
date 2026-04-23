@@ -13,10 +13,11 @@
 // origin readable in activity feeds (e.g. "Auto-derived from
 // HIPAA_CA_BREACH_NOTIFICATION_72HR").
 //
-// This initial pass ships 3 California HIPAA overlays as
-// proof-of-architecture — enough to drive the UI chip, scoring filter,
-// and integration tests end-to-end. Full 50-state matrix build-out
-// happens in follow-up seed PRs.
+// Build-out is incremental: batch 1 covered the 10 highest-customer-
+// volume states (CA, TX, NY, FL, IL, WA, MA, CO, VA, NJ). Batch 2
+// extends coverage to the next 10 (OR, NV, UT, GA, NC, OH, MI, PA, MD,
+// MN). Remaining states are added in follow-up seed PRs as additional
+// state-specific deltas come into scope.
 
 import { PrismaClient } from "@prisma/client";
 import { config } from "dotenv";
@@ -328,6 +329,286 @@ const OVERLAYS: StateOverlayFixture[] = [
     jurisdictionFilter: ["NJ"],
     acceptedEvidenceTypes: ["POLICY:NJ_RECORDS_RETENTION"],
     sortOrder: 1110,
+  },
+
+  // ─── Oregon (OR) ───────────────────────────────────────────────
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_OR_BREACH_45DAY",
+    title: "Oregon breach notification within 45 days (OR)",
+    citation: "Or. Rev. Stat. §646A.604",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Oregon Identity Theft Protection Act requires breach notice to affected residents within 45 days of discovery — tighter than HIPAA's 60-day ceiling. AG notice and credit bureau notice required when 250+ Oregonians are affected.",
+    jurisdictionFilter: ["OR"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_45_DAYS"],
+    sortOrder: 1200,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_OR_OCPA_CONSUMER_RIGHTS",
+    title: "Oregon Consumer Privacy Act consumer rights (OR)",
+    citation: "Or. Rev. Stat. §646A.570 et seq.",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Oregon Consumer Privacy Act (effective July 2024) grants consumers rights to access, delete, correct, and opt out of sale or targeted advertising. 45-day response window. Applies to entities controlling/processing data of 100k+ OR consumers OR 25k+ when ≥25% revenue from data sale.",
+    jurisdictionFilter: ["OR"],
+    acceptedEvidenceTypes: ["POLICY:OR_OCPA_PRIVACY_NOTICE"],
+    sortOrder: 1210,
+  },
+
+  // ─── Nevada (NV) ───────────────────────────────────────────────
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_NV_BREACH_EXPEDIENT",
+    title: "Nevada breach notification — most expedient (NV)",
+    citation: "Nev. Rev. Stat. §603A.220",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Nevada requires breach notice 'in the most expedient time possible and without unreasonable delay.' AG notice required when 1,000+ Nevadans are affected. Encryption-of-data-at-rest safe harbor available.",
+    jurisdictionFilter: ["NV"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 1300,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_NV_ONLINE_PRIVACY_NOTICE",
+    title: "Nevada online privacy notice + sale opt-out (NV)",
+    citation: "Nev. Rev. Stat. §603A.300-360",
+    severity: "STANDARD",
+    weight: 1,
+    description:
+      "Nevada requires a privacy notice for any operator collecting personal information from NV residents through a website or online service, and an opt-out mechanism for the sale of covered information. 60-day response window for opt-out requests.",
+    jurisdictionFilter: ["NV"],
+    acceptedEvidenceTypes: ["POLICY:NV_ONLINE_PRIVACY_NOTICE"],
+    sortOrder: 1310,
+  },
+
+  // ─── Utah (UT) ─────────────────────────────────────────────────
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_UT_UCPA_CONSUMER_RIGHTS",
+    title: "Utah Consumer Privacy Act consumer rights (UT)",
+    citation: "Utah Code §13-61-101 et seq.",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Utah Consumer Privacy Act grants consumers rights to access, delete, and opt out of targeted advertising or sale of personal data. 45-day response window. Applies to controllers with $25M+ annual revenue that process data of 100k+ UT consumers OR 25k+ when ≥50% revenue is from data sale.",
+    jurisdictionFilter: ["UT"],
+    acceptedEvidenceTypes: ["POLICY:UT_UCPA_PRIVACY_NOTICE"],
+    sortOrder: 1400,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_UT_BREACH_EXPEDIENT",
+    title: "Utah breach notification — most expedient (UT)",
+    citation: "Utah Code §13-44-202",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Utah Protection of Personal Information Act requires breach notice 'in the most expedient time possible and without unreasonable delay.' AG notice required when 500+ Utah residents are affected.",
+    jurisdictionFilter: ["UT"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 1410,
+  },
+
+  // ─── Georgia (GA) ──────────────────────────────────────────────
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_GA_BREACH_EXPEDIENT",
+    title: "Georgia breach notification — most expedient (GA)",
+    citation: "Ga. Code §10-1-912",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Georgia Personal Identity Protection Act requires breach notice 'in the most expedient time possible and without unreasonable delay.' Information brokers face heightened obligations including consumer-reporting-agency notice when 10,000+ GA residents are affected.",
+    jurisdictionFilter: ["GA"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 1500,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_GA_MEDICAL_RECORDS_10YR",
+    title: "Georgia medical records retention — 10 years (GA)",
+    citation: "Ga. Comp. R. & Regs. 360-3-.02",
+    severity: "STANDARD",
+    weight: 1,
+    description:
+      "Georgia physicians must retain adult medical records for at least 10 years from the date of the last patient encounter; minor records until the patient reaches age 28. Longer than HIPAA's 6-year policy retention floor — set retention to the longer of the two.",
+    jurisdictionFilter: ["GA"],
+    acceptedEvidenceTypes: ["POLICY:GA_RECORDS_RETENTION"],
+    sortOrder: 1510,
+  },
+
+  // ─── North Carolina (NC) ───────────────────────────────────────
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_NC_BREACH_EXPEDIENT",
+    title: "NC breach notification — without unreasonable delay (NC)",
+    citation: "N.C. Gen. Stat. §75-65",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "North Carolina Identity Theft Protection Act requires breach notice without unreasonable delay. Notice to the Consumer Protection Division of the AG's office is required for any breach affecting NC residents — no minimum threshold like other states.",
+    jurisdictionFilter: ["NC"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 1600,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_NC_MEDICAL_RECORDS_11YR",
+    title: "NC medical records retention — 11 years (NC)",
+    citation: "21 NCAC 32M .0102",
+    severity: "STANDARD",
+    weight: 1,
+    description:
+      "North Carolina physicians must retain medical records for at least 11 years from the date of patient discharge or the most recent treatment. Significantly longer than HIPAA's 6-year retention floor for policies.",
+    jurisdictionFilter: ["NC"],
+    acceptedEvidenceTypes: ["POLICY:NC_RECORDS_RETENTION"],
+    sortOrder: 1610,
+  },
+
+  // ─── Ohio (OH) ─────────────────────────────────────────────────
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_OH_DATA_PROTECTION_SAFE_HARBOR",
+    title: "Ohio Data Protection Act safe-harbor program (OH)",
+    citation: "Ohio Rev. Code §1354",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Ohio's Data Protection Act provides an affirmative defense in breach litigation when a practice maintains a written cybersecurity program that reasonably conforms to a recognized framework (NIST CSF, NIST 800-171, ISO 27001, HIPAA Security Rule, PCI DSS, etc.). Effectively requires a documented and audited program.",
+    jurisdictionFilter: ["OH"],
+    acceptedEvidenceTypes: ["POLICY:OH_CYBERSECURITY_PROGRAM"],
+    sortOrder: 1700,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_OH_BREACH_45DAY",
+    title: "Ohio breach notification within 45 days (OH)",
+    citation: "Ohio Rev. Code §1349.19",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Ohio requires breach notice within 45 days of discovery — tighter than HIPAA's 60-day ceiling. Substitute notice via email/website permitted only above cost-and-volume thresholds defined in statute.",
+    jurisdictionFilter: ["OH"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_45_DAYS"],
+    sortOrder: 1710,
+  },
+
+  // ─── Michigan (MI) ─────────────────────────────────────────────
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_MI_BREACH_EXPEDIENT",
+    title: "Michigan breach notification — without unreasonable delay (MI)",
+    citation: "Mich. Comp. Laws §445.72",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Michigan Identity Theft Protection Act requires breach notice without unreasonable delay following discovery. AG notice required when 1,000+ Michigan residents are affected; consumer-reporting-agency notice also triggered at that threshold.",
+    jurisdictionFilter: ["MI"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 1800,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_MI_MEDICAL_RECORDS_ACCESS",
+    title: "MI Medical Records Access Act (MI)",
+    citation: "Mich. Comp. Laws §333.26261 et seq.",
+    severity: "STANDARD",
+    weight: 1,
+    description:
+      "Michigan's Medical Records Access Act gives patients the right to access records within 30 days of a written request, with a specific statutory copy fee schedule. Broader than HIPAA's right of access — also reaches non-HIPAA-covered providers operating in MI.",
+    jurisdictionFilter: ["MI"],
+    acceptedEvidenceTypes: ["POLICY:MI_RECORDS_ACCESS"],
+    sortOrder: 1810,
+  },
+
+  // ─── Pennsylvania (PA) ─────────────────────────────────────────
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_PA_BREACH_EXPEDIENT",
+    title: "PA breach notification — without unreasonable delay (PA)",
+    citation: "73 Pa.C.S. §2301-2329",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Pennsylvania Breach of Personal Information Notification Act requires breach notice without unreasonable delay. 2023 amendment added AG-notice obligation when 500+ PA residents are affected and tightened required notice contents (incident description, type of info breached, mitigation steps).",
+    jurisdictionFilter: ["PA"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 1900,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_PA_MEDICAL_RECORDS_7YR",
+    title: "Pennsylvania medical records retention — 7 years (PA)",
+    citation: "49 Pa. Code §16.95",
+    severity: "STANDARD",
+    weight: 1,
+    description:
+      "Pennsylvania physicians must retain medical records for at least 7 years from the date of last service for adult patients (longer for minors — until at least age 28). Longer than HIPAA's 6-year policy retention.",
+    jurisdictionFilter: ["PA"],
+    acceptedEvidenceTypes: ["POLICY:PA_RECORDS_RETENTION"],
+    sortOrder: 1910,
+  },
+
+  // ─── Maryland (MD) ─────────────────────────────────────────────
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_MD_PIPA_45DAY",
+    title: "Maryland PIPA breach notification within 45 days (MD)",
+    citation: "Md. Comm. Law §14-3504",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Maryland Personal Information Protection Act requires breach notice within 45 days of discovery — tighter than HIPAA's 60-day ceiling. Pre-notice AG submission required when 500+ MD residents are affected, with the AG able to extend the consumer-notice deadline.",
+    jurisdictionFilter: ["MD"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_45_DAYS"],
+    sortOrder: 2000,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_MD_CMRA_AUTHORIZATION",
+    title: "MD Confidentiality of Medical Records Act authorization (MD)",
+    citation: "Md. Health-Gen. §4-301 et seq.",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Maryland's Confidentiality of Medical Records Act requires specific written authorization for disclosure of mental-health, HIV, and genetic information beyond the HIPAA baseline. Form requirements (signature, expiration, purpose) are stricter than the HIPAA 164.508 authorization.",
+    jurisdictionFilter: ["MD"],
+    acceptedEvidenceTypes: ["POLICY:MD_CMRA_AUTHORIZATION"],
+    sortOrder: 2010,
+  },
+
+  // ─── Minnesota (MN) ────────────────────────────────────────────
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_MN_HEALTH_RECORDS_AUTH",
+    title: "MN Health Records Act consent (MN)",
+    citation: "Minn. Stat. §144.291 et seq.",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Minnesota Health Records Act requires written patient consent for release of health records in more situations than HIPAA — including for many treatment-related disclosures that would be permitted federally without authorization. Patients must receive records within 30 days of request; specific copy fee schedule applies.",
+    jurisdictionFilter: ["MN"],
+    acceptedEvidenceTypes: ["POLICY:MN_HEALTH_RECORDS_CONSENT"],
+    sortOrder: 2100,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_MN_BREACH_EXPEDIENT",
+    title: "Minnesota breach notification — most expedient (MN)",
+    citation: "Minn. Stat. §325E.61",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Minnesota requires breach notice 'in the most expedient time possible and without unreasonable delay.' AG notice required when 500+ Minnesota residents are affected; consumer-reporting-agency notice triggered at the same threshold.",
+    jurisdictionFilter: ["MN"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 2110,
   },
 ];
 
