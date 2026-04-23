@@ -11,6 +11,11 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { LayoutDashboard, AlertTriangle, Clock } from "lucide-react";
+import {
+  ScoreSparkline,
+  computeDailyCompliantCounts,
+  type StatusFlipEvent,
+} from "@/components/gw/ScoreSparkline";
 import { db } from "@/lib/db";
 import { getPracticeUser } from "@/lib/rbac";
 import { Breadcrumb } from "@/components/gw/Breadcrumb";
@@ -41,6 +46,9 @@ const RECENT_ACTIVITY_LIMIT = 8;
 const UPCOMING_WINDOW_DAYS = 30;
 const UPCOMING_WINDOW_MS = UPCOMING_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 const UPCOMING_LIMIT = 6;
+// 30-day sparkline window for the score-trend mini graph.
+const SPARKLINE_DAYS = 30;
+const SPARKLINE_WINDOW_MS = SPARKLINE_DAYS * 24 * 60 * 60 * 1000;
 
 export default async function AuditOverviewPage() {
   const pu = await getPracticeUser();
@@ -182,9 +190,47 @@ export default async function AuditOverviewPage() {
   // Aggregate totals filtered by the practice's jurisdictions so the
   // denominator matches what /modules/[code] shows.
   const totalApplicable = applicableRequirements.length;
-  const compliantApplicable = allComplianceItems.filter(
+  const compliantApplicable: number = allComplianceItems.filter(
     (ci) => ci.status === "COMPLIANT" && applicableIdSet.has(ci.requirementId),
   ).length;
+
+  // 30-day score-trend events. Computed AFTER compliantApplicable since
+  // the sparkline reverse-derives daily counts from the current count.
+  // Filter to status flips that touched COMPLIANT on either side — those
+  // are the only ones that affect the count.
+  const sparklineSinceMs = Date.now() - SPARKLINE_WINDOW_MS;
+  const recentFlipEvents = await db.eventLog.findMany({
+    where: {
+      practiceId: pu.practiceId,
+      type: "REQUIREMENT_STATUS_UPDATED",
+      createdAt: { gte: new Date(sparklineSinceMs) },
+    },
+    orderBy: { createdAt: "asc" },
+    select: { createdAt: true, payload: true },
+  });
+  const flipEvents: StatusFlipEvent[] = recentFlipEvents.flatMap((e) => {
+    const payload = e.payload as {
+      previousStatus?: string | null;
+      nextStatus?: string;
+    } | null;
+    if (!payload?.nextStatus) return [];
+    return [
+      {
+        createdAt: e.createdAt,
+        previousStatus: payload.previousStatus ?? null,
+        nextStatus: payload.nextStatus,
+      },
+    ];
+  });
+  const sparklinePoints = computeDailyCompliantCounts(
+    compliantApplicable,
+    flipEvents,
+    SPARKLINE_DAYS,
+  );
+  const trendDelta =
+    sparklinePoints.length > 1
+      ? sparklinePoints[sparklinePoints.length - 1]! - sparklinePoints[0]!
+      : 0;
   const gapApplicable = allComplianceItems.filter(
     (ci) => ci.status === "GAP" && applicableIdSet.has(ci.requirementId),
   ).length;
@@ -332,16 +378,45 @@ export default async function AuditOverviewPage() {
               assessed={isAssessed}
               label="Overall"
             />
-            <div className="min-w-0 flex-1 space-y-0.5">
+            <div className="min-w-0 flex-1 space-y-1">
               <h3 className="text-sm font-semibold">Overall score</h3>
               <p className="text-xs text-muted-foreground">
                 {compliantApplicable} of {totalApplicable} applicable
                 requirements met
               </p>
-              <p className="text-[11px] text-muted-foreground">
-                Across {practiceFrameworks.length} enabled framework
-                {practiceFrameworks.length === 1 ? "" : "s"}
-              </p>
+              <div className="flex items-center gap-2 pt-1">
+                <ScoreSparkline
+                  points={sparklinePoints}
+                  width={110}
+                  height={26}
+                  color={
+                    trendDelta < 0
+                      ? "var(--gw-color-risk)"
+                      : trendDelta === 0
+                        ? "var(--gw-color-setup)"
+                        : "var(--gw-color-compliant)"
+                  }
+                  ariaLabel={`30-day compliance trend: ${trendDelta > 0 ? `up ${trendDelta}` : trendDelta < 0 ? `down ${Math.abs(trendDelta)}` : "flat"}`}
+                />
+                <span
+                  className="text-[11px] tabular-nums"
+                  style={{
+                    color:
+                      trendDelta < 0
+                        ? "var(--gw-color-risk)"
+                        : trendDelta > 0
+                          ? "var(--gw-color-compliant)"
+                          : "var(--muted-foreground)",
+                  }}
+                >
+                  {trendDelta > 0
+                    ? `+${trendDelta}`
+                    : trendDelta < 0
+                      ? `${trendDelta}`
+                      : "—"}
+                  {" "}<span className="text-muted-foreground">in 30d</span>
+                </span>
+              </div>
             </div>
           </CardContent>
         </Card>
