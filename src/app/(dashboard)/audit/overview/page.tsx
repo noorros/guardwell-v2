@@ -10,7 +10,7 @@
 
 import Link from "next/link";
 import type { Route } from "next";
-import { LayoutDashboard, AlertTriangle } from "lucide-react";
+import { LayoutDashboard, AlertTriangle, Clock } from "lucide-react";
 import { db } from "@/lib/db";
 import { getPracticeUser } from "@/lib/rbac";
 import { Breadcrumb } from "@/components/gw/Breadcrumb";
@@ -34,6 +34,13 @@ export const dynamic = "force-dynamic";
 const OCR_WINDOW_MS = 60 * 24 * 60 * 60 * 1000;
 const SRA_WINDOW_MS = 365 * 24 * 60 * 60 * 1000;
 const RECENT_ACTIVITY_LIMIT = 8;
+// Look-ahead window for the "Upcoming deadlines" widget. 30 calendar
+// days is the standard professional warning horizon for credential and
+// training expirations — enough lead time to schedule the renewal action
+// without flooding the page with months of distant items.
+const UPCOMING_WINDOW_DAYS = 30;
+const UPCOMING_WINDOW_MS = UPCOMING_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+const UPCOMING_LIMIT = 6;
 
 export default async function AuditOverviewPage() {
   const pu = await getPracticeUser();
@@ -42,6 +49,7 @@ export default async function AuditOverviewPage() {
   const jurisdictions = getPracticeJurisdictions(pu.practice);
   const jurisdictionClause = jurisdictionRequirementFilter(jurisdictions);
 
+  const upcomingHorizon = new Date(Date.now() + UPCOMING_WINDOW_MS);
   const [
     practiceFrameworks,
     applicableRequirements,
@@ -51,6 +59,10 @@ export default async function AuditOverviewPage() {
     unresolvedBreachCount,
     openIncidentCount,
     latestSra,
+    expiringCredentials,
+    expiringBaas,
+    expiringTrainings,
+    breachesAwaitingHhs,
   ] = await Promise.all([
     db.practiceFramework.findMany({
       where: {
@@ -110,6 +122,60 @@ export default async function AuditOverviewPage() {
       orderBy: { completedAt: "desc" },
       select: { completedAt: true, overallScore: true },
     }),
+    // Credentials expiring in the next UPCOMING_WINDOW_DAYS (or already
+    // expired). retiredAt: null filters out credentials the user already
+    // dismissed.
+    db.credential.findMany({
+      where: {
+        practiceId: pu.practiceId,
+        retiredAt: null,
+        expiryDate: { not: null, lte: upcomingHorizon },
+      },
+      orderBy: { expiryDate: "asc" },
+      take: UPCOMING_LIMIT,
+      select: { id: true, title: true, expiryDate: true },
+    }),
+    // BAAs expiring in window. processesPhi=true mirrors the BAA derivation
+    // rule's scope.
+    db.vendor.findMany({
+      where: {
+        practiceId: pu.practiceId,
+        retiredAt: null,
+        processesPhi: true,
+        baaExpiresAt: { not: null, lte: upcomingHorizon },
+      },
+      orderBy: { baaExpiresAt: "asc" },
+      take: UPCOMING_LIMIT,
+      select: { id: true, name: true, baaExpiresAt: true },
+    }),
+    // Training completions expiring in window — distinct courses (a
+    // course-level row not user-level row to avoid noise from multi-staff
+    // practices). Aggregated server-side to one row per (courseCode).
+    db.trainingCompletion.findMany({
+      where: {
+        practiceId: pu.practiceId,
+        passed: true,
+        expiresAt: { lte: upcomingHorizon },
+      },
+      orderBy: { expiresAt: "asc" },
+      take: UPCOMING_LIMIT,
+      select: {
+        id: true,
+        expiresAt: true,
+        course: { select: { code: true, title: true } },
+      },
+    }),
+    // Unresolved breaches whose 60-day HHS deadline falls in the window.
+    db.incident.findMany({
+      where: {
+        practiceId: pu.practiceId,
+        isBreach: true,
+        ocrNotifiedAt: null,
+      },
+      orderBy: { discoveredAt: "asc" },
+      take: UPCOMING_LIMIT,
+      select: { id: true, title: true, discoveredAt: true },
+    }),
   ]);
 
   const applicableIdSet = new Set(applicableRequirements.map((r) => r.id));
@@ -148,6 +214,73 @@ export default async function AuditOverviewPage() {
   const reportingDeadline = unresolvedMajorBreach
     ? new Date(unresolvedMajorBreach.discoveredAt.getTime() + OCR_WINDOW_MS)
     : null;
+
+  // Build the unified upcoming-deadlines feed. Each entry is a row with a
+  // label, a human-readable due date, a link to the relevant detail page,
+  // and a color-token to visually emphasize already-overdue items.
+  interface UpcomingItem {
+    key: string;
+    kind: "credential" | "baa" | "training" | "breach-hhs";
+    label: string;
+    dueDate: Date;
+    href: Route;
+  }
+  const upcoming: UpcomingItem[] = [];
+  for (const c of expiringCredentials) {
+    if (c.expiryDate)
+      upcoming.push({
+        key: `cred-${c.id}`,
+        kind: "credential",
+        label: `Credential — ${c.title}`,
+        dueDate: c.expiryDate,
+        href: "/programs/credentials" as Route,
+      });
+  }
+  for (const v of expiringBaas) {
+    if (v.baaExpiresAt)
+      upcoming.push({
+        key: `baa-${v.id}`,
+        kind: "baa",
+        label: `BAA — ${v.name}`,
+        dueDate: v.baaExpiresAt,
+        href: "/programs/vendors" as Route,
+      });
+  }
+  // Aggregate trainings by course code so a 12-staff practice doesn't see
+  // the same expiring course 12 times.
+  const trainingByCourse = new Map<
+    string,
+    { earliest: Date; title: string }
+  >();
+  for (const t of expiringTrainings) {
+    const existing = trainingByCourse.get(t.course.code);
+    if (!existing || t.expiresAt < existing.earliest) {
+      trainingByCourse.set(t.course.code, {
+        earliest: t.expiresAt,
+        title: t.course.title,
+      });
+    }
+  }
+  for (const [code, info] of trainingByCourse) {
+    upcoming.push({
+      key: `training-${code}`,
+      kind: "training",
+      label: `Training — ${info.title}`,
+      dueDate: info.earliest,
+      href: "/programs/training" as Route,
+    });
+  }
+  for (const b of breachesAwaitingHhs) {
+    upcoming.push({
+      key: `breach-${b.id}`,
+      kind: "breach-hhs",
+      label: `HHS notification — ${b.title}`,
+      dueDate: new Date(b.discoveredAt.getTime() + OCR_WINDOW_MS),
+      href: `/programs/incidents/${b.id}` as Route,
+    });
+  }
+  upcoming.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+  const upcomingTrimmed = upcoming.slice(0, UPCOMING_LIMIT);
 
   return (
     <main className="mx-auto max-w-5xl space-y-6 p-6">
@@ -294,6 +427,81 @@ export default async function AuditOverviewPage() {
                         strokeWidth={6}
                         assessed={frameworkAssessed}
                       />
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section>
+        <Card>
+          <CardContent className="p-0">
+            <div className="flex items-center justify-between border-b px-4 py-2">
+              <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                Upcoming deadlines (next {UPCOMING_WINDOW_DAYS} days)
+              </h2>
+              <span className="text-[11px] text-muted-foreground">
+                {upcoming.length} item{upcoming.length === 1 ? "" : "s"}
+              </span>
+            </div>
+            {upcomingTrimmed.length === 0 ? (
+              <div className="p-4 text-sm text-muted-foreground">
+                Nothing due in the next {UPCOMING_WINDOW_DAYS} days. ✓
+              </div>
+            ) : (
+              <ul className="divide-y">
+                {upcomingTrimmed.map((item) => {
+                  const daysOut = Math.ceil(
+                    (item.dueDate.getTime() - now) /
+                      (24 * 60 * 60 * 1000),
+                  );
+                  const isOverdue = daysOut < 0;
+                  const tone = isOverdue
+                    ? "var(--gw-color-risk)"
+                    : daysOut <= 7
+                      ? "var(--gw-color-needs)"
+                      : "var(--gw-color-setup)";
+                  const dateText = item.dueDate
+                    .toISOString()
+                    .slice(0, 10);
+                  const relText = isOverdue
+                    ? `${Math.abs(daysOut)}d overdue`
+                    : daysOut === 0
+                      ? "due today"
+                      : `in ${daysOut}d`;
+                  return (
+                    <li
+                      key={item.key}
+                      className="flex items-center justify-between p-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <Link
+                          href={item.href}
+                          className="truncate text-sm font-medium text-foreground hover:underline"
+                        >
+                          {item.label}
+                        </Link>
+                        <p className="text-[11px] text-muted-foreground">
+                          {dateText} · {relText}
+                        </p>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className="text-[10px]"
+                        style={{ color: tone, borderColor: tone }}
+                      >
+                        {item.kind === "breach-hhs"
+                          ? "HHS"
+                          : item.kind === "baa"
+                            ? "BAA"
+                            : item.kind === "credential"
+                              ? "Cred"
+                              : "Training"}
+                      </Badge>
                     </li>
                   );
                 })}
