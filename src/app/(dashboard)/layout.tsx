@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getPracticeUser } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/gw/AppShell";
+import { getUserNotificationsSummary } from "@/lib/notifications/get-user-notifications";
 
 export default async function DashboardLayout({
   children,
@@ -55,11 +56,14 @@ export default async function DashboardLayout({
     assessed: assessedFrameworkIds.has(pf.frameworkId),
   }));
 
+  const notificationSummary = await getUserNotificationsSummary(pu.userId);
+
   return (
     <AppShell
       practice={{ name: pu.practice.name }}
       user={{ email: pu.dbUser.email }}
       myComplianceItems={myComplianceItems}
+      notifications={notificationSummary}
     >
       {children}
     </AppShell>
