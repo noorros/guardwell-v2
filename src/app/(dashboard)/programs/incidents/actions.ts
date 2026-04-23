@@ -12,6 +12,10 @@ import {
   projectIncidentBreachDetermined,
   projectIncidentResolved,
 } from "@/lib/events/projections/incident";
+import { emitCriticalBreachAlert } from "@/lib/notifications/critical-alert";
+import { db } from "@/lib/db";
+// db needed to read incident title + discoveredAt after breach-determination
+// commits, so the critical-alert email can render a practice-specific subject.
 
 const IncidentTypeEnum = z.enum([
   "PRIVACY",
@@ -162,6 +166,33 @@ export async function completeBreachDeterminationAction(
         payload,
       }),
   );
+
+  // Same-day critical alert when the determination flips isBreach=true.
+  // Runs after the event-apply transaction commits — the alert is not
+  // transactional with the projection, and a failed email shouldn't
+  // roll back a recorded breach determination.
+  if (isBreach) {
+    try {
+      const incident = await db.incident.findUnique({
+        where: { id: parsed.incidentId },
+        select: { title: true, discoveredAt: true },
+      });
+      if (incident) {
+        await emitCriticalBreachAlert({
+          practiceId: pu.practiceId,
+          incidentId: parsed.incidentId,
+          incidentTitle: incident.title,
+          affectedCount: parsed.affectedCount,
+          overallRiskScore,
+          discoveredAt: incident.discoveredAt,
+        });
+      }
+    } catch (err) {
+      // Notification delivery is best-effort. Log and move on so the
+      // action still resolves successfully for the UI.
+      console.error("[critical-alert] emit failed", err);
+    }
+  }
 
   revalidatePath("/programs/incidents");
   revalidatePath(`/programs/incidents/${parsed.incidentId}`);
