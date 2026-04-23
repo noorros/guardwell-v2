@@ -78,7 +78,7 @@ const PROGRAMS: ProgramItem[] = [
 ];
 
 const AUDIT_ITEMS: ProgramItem[] = [
-  { label: "Overview", icon: LayoutDashboard },
+  { label: "Overview", icon: LayoutDashboard, href: "/audit/overview" as Route },
   { label: "Activity log", icon: ScrollText, href: "/audit/activity" as Route },
   { label: "Reports", icon: FileBarChart2 },
 ];
