@@ -281,6 +281,37 @@ function addBusinessDays(from: Date, n: number): Date {
   return result;
 }
 
+/**
+ * HIPAA documentation-retention practice (§164.530(j)). The practice must
+ * retain required documentation (policies, authorizations, access
+ * records) for ≥6 years and destroy securely when the retention period
+ * expires. This rule operationalizes "you actually run a destruction
+ * cadence" by requiring at least one DestructionLog entry within the
+ * last 365 days.
+ *
+ * - 0 destruction-log entries ever → null (rule doesn't fire yet — new
+ *   practices have nothing to destroy in their first year)
+ * - At least one entry in the last 365 days → COMPLIANT
+ * - Entries exist but none in the last 365 days → GAP (cadence lapsed)
+ *
+ * Practices with no PHI to destroy in a year can mark NOT_APPLICABLE
+ * via the requirement checklist on /modules/hipaa.
+ */
+export async function hipaaDocumentationRetentionRule(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<DerivedStatus | null> {
+  const totalCount = await tx.destructionLog.count({
+    where: { practiceId },
+  });
+  if (totalCount === 0) return null;
+  const cutoff = new Date(Date.now() - REVIEW_WINDOW_MS);
+  const recentCount = await tx.destructionLog.count({
+    where: { practiceId, destroyedAt: { gte: cutoff } },
+  });
+  return recentCount > 0 ? "COMPLIANT" : "GAP";
+}
+
 import { hipaaSraRule } from "./hipaaSra";
 
 export const HIPAA_DERIVATION_RULES: Record<string, DerivationRule> = {
@@ -288,6 +319,7 @@ export const HIPAA_DERIVATION_RULES: Record<string, DerivationRule> = {
   HIPAA_SECURITY_OFFICER: hipaaSecurityOfficerRule,
   HIPAA_POLICIES_PROCEDURES: hipaaPoliciesProceduresRule,
   HIPAA_POLICIES_REVIEW_CURRENT: hipaaPoliciesReviewCurrentRule,
+  HIPAA_DOCUMENTATION_RETENTION: hipaaDocumentationRetentionRule,
   HIPAA_MINIMUM_NECESSARY: singlePolicyRule("HIPAA_MINIMUM_NECESSARY_POLICY"),
   HIPAA_NPP: singlePolicyRule("HIPAA_NPP_POLICY"),
   HIPAA_BREACH_RESPONSE: hipaaBreachResponseRule,
