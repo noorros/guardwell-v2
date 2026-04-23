@@ -138,6 +138,55 @@ export async function rederiveRequirementStatus(
     });
 
     await recomputeFrameworkScore(tx, practiceId, req.framework.id);
+
+    // Auto-complete any Compliance Track task whose requirementCode
+    // matches and is still open. Skips on non-COMPLIANT flips so a
+    // COMPLIANT → GAP transition doesn't reopen finished work.
+    if (derivedStatus === "COMPLIANT") {
+      const matchingTasks = await tx.practiceTrackTask.findMany({
+        where: {
+          practiceId,
+          requirementCode: req.code,
+          completedAt: null,
+        },
+        select: { id: true },
+      });
+      if (matchingTasks.length > 0) {
+        for (const t of matchingTasks) {
+          await tx.eventLog.create({
+            data: {
+              practiceId,
+              actorUserId: null,
+              type: "TRACK_TASK_COMPLETED",
+              schemaVersion: 1,
+              payload: {
+                trackTaskId: t.id,
+                completedByUserId: null,
+                reason: "DERIVED",
+              },
+            },
+          });
+          await tx.practiceTrackTask.update({
+            where: { id: t.id },
+            data: {
+              completedAt: new Date(),
+              completedByUserId: null,
+            },
+          });
+        }
+        // If that closed every remaining open task, mark the track complete.
+        const remaining = await tx.practiceTrackTask.count({
+          where: { practiceId, completedAt: null },
+        });
+        if (remaining === 0) {
+          await tx.practiceTrack.update({
+            where: { practiceId },
+            data: { completedAt: new Date() },
+          });
+        }
+      }
+    }
+
     rederived += 1;
   }
 

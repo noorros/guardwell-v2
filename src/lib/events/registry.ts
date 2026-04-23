@@ -33,6 +33,9 @@ export const EVENT_TYPES = [
   "INVITATION_RESENT",
   "MEMBER_REMOVED",
   "PRACTICE_PROFILE_UPDATED",
+  "TRACK_GENERATED",
+  "TRACK_TASK_COMPLETED",
+  "TRACK_TASK_REOPENED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -341,6 +344,33 @@ export const EVENT_SCHEMAS = {
         .nullable()
         .optional(),
       providerCount: z.number().int().min(0).nullable().optional(),
+    }),
+  },
+  // Compliance Track auto-generation. Fired by generateTrackIfMissing
+  // when PRACTICE_PROFILE_UPDATED runs and the practice has no track yet.
+  TRACK_GENERATED: {
+    1: z.object({
+      templateCode: z.enum([
+        "GENERAL_PRIMARY_CARE",
+        "DENTAL",
+        "BEHAVIORAL",
+        "GENERIC",
+      ]),
+      taskCount: z.number().int().min(0),
+    }),
+  },
+  // Track task lifecycle. reason="USER" when a user clicks Mark done;
+  // "DERIVED" when the rederive hook auto-completes via requirementCode.
+  TRACK_TASK_COMPLETED: {
+    1: z.object({
+      trackTaskId: z.string().min(1),
+      completedByUserId: z.string().nullable(),
+      reason: z.enum(["USER", "DERIVED"]),
+    }),
+  },
+  TRACK_TASK_REOPENED: {
+    1: z.object({
+      trackTaskId: z.string().min(1),
     }),
   },
 } as const;

@@ -120,4 +120,10 @@ export async function projectPracticeProfileUpdated(
       });
     }
   }
+
+  // Auto-generate the Compliance Track for this practice if none exists.
+  // Idempotent — second + later PRACTICE_PROFILE_UPDATED calls are no-ops
+  // since the row already exists. Per docs/specs/v1-ideas-survey.md §1.2.
+  const { generateTrackIfMissing } = await import("./track");
+  await generateTrackIfMissing(tx, practiceId, null);
 }
