@@ -132,9 +132,9 @@ describe("REQUIREMENT_STATUS_UPDATED", () => {
     expect(events).toHaveLength(2);
   });
 
-  it("recomputes PracticeFramework.scoreCache after a COMPLIANT status (1/10 = 10%)", async () => {
+  it("recomputes PracticeFramework.scoreCache after a COMPLIANT status (1/N requirements)", async () => {
     const { user, practice } = await seedPracticeAndHipaaReq();
-    // Ensure HIPAA framework is fully seeded (10 requirements).
+    // HIPAA seed grows over time; assert dynamically against the actual count.
     const framework = await db.regulatoryFramework.findUniqueOrThrow({
       where: { code: "HIPAA" },
       include: { requirements: true },
@@ -144,7 +144,14 @@ describe("REQUIREMENT_STATUS_UPDATED", () => {
         `HIPAA framework has only ${framework.requirements.length} requirements; run \`npm run db:seed:hipaa\` first.`,
       );
     }
-    const req = framework.requirements[0]!;
+    // Federal-only count (state-overlay rows have non-empty
+    // jurisdictionFilter and don't apply to AZ practices).
+    const federalReqs = framework.requirements.filter(
+      (r) => r.jurisdictionFilter.length === 0,
+    );
+    const total = federalReqs.length;
+    const expectedScore = Math.round((1 / total) * 100);
+    const req = federalReqs[0]!;
 
     await appendEventAndApply(
       {
@@ -183,13 +190,13 @@ describe("REQUIREMENT_STATUS_UPDATED", () => {
       },
     });
     expect(pf).not.toBeNull();
-    expect(pf!.scoreCache).toBe(10);
+    expect(pf!.scoreCache).toBe(expectedScore);
     expect(pf!.scoreLabel).toBe("At Risk");
     expect(pf!.enabled).toBe(true);
     expect(pf!.lastScoredAt).toBeInstanceOf(Date);
   });
 
-  it("scoreCache reaches 50 after 5 COMPLIANT requirements (label: Needs Work)", async () => {
+  it("scoreCache crosses the Needs Work threshold (≥50) after marking half compliant", async () => {
     const { user, practice } = await seedPracticeAndHipaaReq();
     const framework = await db.regulatoryFramework.findUniqueOrThrow({
       where: { code: "HIPAA" },
@@ -201,8 +208,15 @@ describe("REQUIREMENT_STATUS_UPDATED", () => {
       );
     }
 
-    for (let i = 0; i < 5; i++) {
-      const req = framework.requirements[i]!;
+    // Mark ceil(N/2) of the federal requirements compliant — guarantees
+    // ≥50% regardless of seed growth. State overlays don't apply to AZ.
+    const federalReqs = framework.requirements.filter(
+      (r) => r.jurisdictionFilter.length === 0,
+    );
+    const total = federalReqs.length;
+    const halfPlus = Math.ceil(total / 2);
+    for (let i = 0; i < halfPlus; i++) {
+      const req = federalReqs[i]!;
       await appendEventAndApply(
         {
           practiceId: practice.id,
@@ -241,7 +255,7 @@ describe("REQUIREMENT_STATUS_UPDATED", () => {
       },
     });
     expect(pf).not.toBeNull();
-    expect(pf!.scoreCache).toBe(50);
+    expect(pf!.scoreCache).toBeGreaterThanOrEqual(50);
     expect(pf!.scoreLabel).toBe("Needs Work");
   });
 

@@ -110,6 +110,44 @@ export async function hipaaPoliciesProceduresRule(
 }
 
 /**
+ * HIPAA §164.530(i)(2) — periodic review of policies and procedures.
+ * Annual review is the de-facto standard. Scoped to the 3 core HIPAA
+ * P&P policies (HIPAA_PP_POLICY_SET): Privacy, Security, Breach Response.
+ *
+ * - 0 of those 3 adopted → null (rule doesn't apply yet — the parent
+ *   HIPAA_POLICIES_PROCEDURES rule already covers "go adopt them"; we
+ *   don't want to spawn a stale-review GAP row before there's anything
+ *   to review)
+ * - All adopted-and-not-retired HIPAA P&P policies have lastReviewedAt
+ *   within 365 days → COMPLIANT
+ * - Any one is past 365 days OR never reviewed → GAP
+ *
+ * Adopting a non-HIPAA policy (e.g. OSHA HAZCOM) is a no-op here — the
+ * rule still sees 0 HIPAA P&P adopted and returns null.
+ */
+const REVIEW_WINDOW_MS = 365 * 24 * 60 * 60 * 1000;
+
+export async function hipaaPoliciesReviewCurrentRule(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<DerivedStatus | null> {
+  const adopted = await tx.practicePolicy.findMany({
+    where: {
+      practiceId,
+      retiredAt: null,
+      policyCode: { in: [...HIPAA_PP_POLICY_SET] },
+    },
+    select: { lastReviewedAt: true },
+  });
+  if (adopted.length === 0) return null;
+  const cutoff = new Date(Date.now() - REVIEW_WINDOW_MS);
+  const allCurrent = adopted.every(
+    (p) => p.lastReviewedAt !== null && p.lastReviewedAt >= cutoff,
+  );
+  return allCurrent ? "COMPLIANT" : "GAP";
+}
+
+/**
  * HIPAA §164.530(b)(1). Satisfied when ≥95% of active workforce has a
  * passed, non-expired TrainingCompletion for the HIPAA_BASICS course.
  * Single-owner practices hit 100% after one completion.
@@ -249,6 +287,7 @@ export const HIPAA_DERIVATION_RULES: Record<string, DerivationRule> = {
   HIPAA_PRIVACY_OFFICER: hipaaPrivacyOfficerRule,
   HIPAA_SECURITY_OFFICER: hipaaSecurityOfficerRule,
   HIPAA_POLICIES_PROCEDURES: hipaaPoliciesProceduresRule,
+  HIPAA_POLICIES_REVIEW_CURRENT: hipaaPoliciesReviewCurrentRule,
   HIPAA_MINIMUM_NECESSARY: singlePolicyRule("HIPAA_MINIMUM_NECESSARY_POLICY"),
   HIPAA_NPP: singlePolicyRule("HIPAA_NPP_POLICY"),
   HIPAA_BREACH_RESPONSE: hipaaBreachResponseRule,

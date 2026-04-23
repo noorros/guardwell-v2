@@ -10,6 +10,7 @@ import { appendEventAndApply } from "@/lib/events";
 import {
   projectPolicyAdopted,
   projectPolicyRetired,
+  projectPolicyReviewed,
 } from "@/lib/events/projections/policyAdopted";
 import { ALL_POLICY_CODES } from "@/lib/compliance/policies";
 import { db } from "@/lib/db";
@@ -58,6 +59,53 @@ export async function adoptPolicyAction(input: z.infer<typeof AdoptInput>) {
           practicePolicyId,
           policyCode: parsed.policyCode,
           version,
+        },
+      }),
+  );
+
+  revalidatePath("/programs/policies");
+  revalidatePath("/modules/hipaa");
+}
+
+const ReviewInput = z.object({
+  practicePolicyId: z.string().min(1),
+});
+
+export async function reviewPolicyAction(input: z.infer<typeof ReviewInput>) {
+  const user = await requireUser();
+  const pu = await getPracticeUser();
+  if (!pu) throw new Error("Unauthorized");
+  const parsed = ReviewInput.parse(input);
+
+  const target = await db.practicePolicy.findUnique({
+    where: { id: parsed.practicePolicyId },
+    select: { id: true, practiceId: true, policyCode: true, retiredAt: true },
+  });
+  if (!target || target.practiceId !== pu.practiceId) {
+    throw new Error("Unauthorized: policy not in your practice");
+  }
+  if (target.retiredAt) {
+    throw new Error("Cannot review a retired policy. Re-adopt first.");
+  }
+
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: user.id,
+      type: "POLICY_REVIEWED",
+      payload: {
+        practicePolicyId: target.id,
+        policyCode: target.policyCode,
+        reviewedByUserId: user.id,
+      },
+    },
+    async (tx) =>
+      projectPolicyReviewed(tx, {
+        practiceId: pu.practiceId,
+        payload: {
+          practicePolicyId: target.id,
+          policyCode: target.policyCode,
+          reviewedByUserId: user.id,
         },
       }),
   );

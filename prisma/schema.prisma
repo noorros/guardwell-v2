@@ -156,6 +156,10 @@ model PracticePolicy {
   content    String?  @db.Text
   version    Int      @default(1)
   adoptedAt  DateTime @default(now())
+  // Set on each annual review attestation. Initially equals adoptedAt;
+  // bumped via POLICY_REVIEWED event. Drives the "Review due in N days"
+  // reminder + a new HIPAA_POLICIES_REVIEW_CURRENT requirement.
+  lastReviewedAt DateTime?
   retiredAt  DateTime?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -164,6 +168,7 @@ model PracticePolicy {
 
   @@unique([practiceId, policyCode])
   @@index([practiceId, retiredAt])
+  @@index([practiceId, lastReviewedAt])
 }
 
 // ────────────────────────────────────────────────────────────────────────────

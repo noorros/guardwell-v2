@@ -24,6 +24,7 @@ export default async function PoliciesPage() {
       id: true,
       policyCode: true,
       adoptedAt: true,
+      lastReviewedAt: true,
       retiredAt: true,
     },
   });
@@ -72,8 +73,26 @@ export default async function PoliciesPage() {
                 const row = byCode.get(code);
                 const isActive = row && !row.retiredAt;
                 const adopted = isActive
-                  ? { practicePolicyId: row.id, adoptedAt: row.adoptedAt }
+                  ? {
+                      practicePolicyId: row.id,
+                      adoptedAt: row.adoptedAt,
+                      lastReviewedAt:
+                        row.lastReviewedAt?.toISOString() ?? null,
+                    }
                   : null;
+                // Review-status surfacing: when adopted + a 365-day
+                // review window applies, show how many days until/since
+                // the next required review.
+                const REVIEW_WINDOW_MS = 365 * 24 * 60 * 60 * 1000;
+                const reviewDaysOut =
+                  isActive && row.lastReviewedAt
+                    ? Math.ceil(
+                        (row.lastReviewedAt.getTime() +
+                          REVIEW_WINDOW_MS -
+                          Date.now()) /
+                          (24 * 60 * 60 * 1000),
+                      )
+                    : null;
 
                 return (
                   <li
@@ -98,6 +117,25 @@ export default async function PoliciesPage() {
                       <p className="text-xs text-muted-foreground">
                         {meta.description}
                       </p>
+                      {isActive && reviewDaysOut !== null && (
+                        <p
+                          className="text-[11px]"
+                          style={{
+                            color:
+                              reviewDaysOut < 0
+                                ? "var(--gw-color-risk)"
+                                : reviewDaysOut <= 60
+                                  ? "var(--gw-color-needs)"
+                                  : "var(--gw-color-compliant)",
+                          }}
+                        >
+                          {reviewDaysOut < 0
+                            ? `Review overdue by ${Math.abs(reviewDaysOut)} day${Math.abs(reviewDaysOut) === 1 ? "" : "s"}`
+                            : reviewDaysOut === 0
+                              ? "Review due today"
+                              : `Next review in ${reviewDaysOut} day${reviewDaysOut === 1 ? "" : "s"}`}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <PolicyActions policyCode={code} adopted={adopted} />

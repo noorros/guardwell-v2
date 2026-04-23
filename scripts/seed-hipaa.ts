@@ -100,6 +100,17 @@ async function main() {
       sortOrder: 40,
     },
     {
+      code: "HIPAA_POLICIES_REVIEW_CURRENT",
+      title: "Review policies + procedures within the last 12 months",
+      citation: "45 CFR §164.530(i)(2)",
+      severity: "STANDARD",
+      weight: 1,
+      description:
+        "Periodically review and update policies and procedures. Annual review is the de-facto standard. Review attestation logged via the Review button on each policy at /programs/policies — bumps lastReviewedAt.",
+      acceptedEvidenceTypes: ["POLICY_REVIEW:CURRENT"],
+      sortOrder: 45,
+    },
+    {
       code: "HIPAA_WORKFORCE_TRAINING",
       title: "Train all workforce members on HIPAA",
       citation: "45 CFR §164.530(b)(1)",
