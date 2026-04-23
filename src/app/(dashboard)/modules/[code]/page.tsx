@@ -16,6 +16,10 @@ import { AiAssistTrigger } from "@/components/gw/AiAssistDrawer/AiAssistTrigger"
 import { ChecklistItemServer } from "./ChecklistItemServer";
 import { AiAssessmentButton } from "./AiAssessmentButton";
 import type { AiReasonSource } from "@/components/gw/ChecklistItem/AiReasonIndicator";
+import {
+  getPracticeJurisdictions,
+  requirementAppliesToJurisdictions,
+} from "@/lib/compliance/jurisdictions";
 
 export async function generateMetadata({
   params,
@@ -54,24 +58,34 @@ export default async function ModulePage({
   });
   if (!framework) notFound();
 
+  // State-overlay filter: keep federal requirements (empty jurisdictionFilter)
+  // and any state-specific requirements that match this practice's
+  // primaryState + operatingStates. CA-only requirements stay hidden for an
+  // AZ-only practice, visible for a CA practice or a multi-state CA+AZ one.
+  const jurisdictions = getPracticeJurisdictions(pu.practice);
+  const applicableRequirements = framework.requirements.filter((r) =>
+    requirementAppliesToJurisdictions(r, jurisdictions),
+  );
+
   const items = await db.complianceItem.findMany({
     where: {
       practiceId: pu.practiceId,
-      requirementId: { in: framework.requirements.map((r) => r.id) },
+      requirementId: { in: applicableRequirements.map((r) => r.id) },
     },
   });
   const byReq = new Map(items.map((i) => [i.requirementId, i]));
 
-  // Section B counts, computed pre-filter so the band always shows the true shape.
+  // Section B counts, computed pre-status-filter so the band always shows the
+  // true shape across requirements applicable to this practice.
   const compliantCount = items.filter((i) => i.status === "COMPLIANT").length;
-  const totalRequirements = framework.requirements.length;
+  const totalRequirements = applicableRequirements.length;
   const gapCount = items.filter((i) => i.status === "GAP").length;
   const deadlineCount = 0; // Placeholder — no deadline source until operational pages.
 
   // Apply Section-C status filter from Section-B click: ?status=compliant|gap|not-started.
   // Unknown values fall through to "show all".
   const statusFilter = sp.status?.toLowerCase();
-  const filteredRequirements = framework.requirements.filter((r) => {
+  const filteredRequirements = applicableRequirements.filter((r) => {
     if (statusFilter === "compliant") {
       return byReq.get(r.id)?.status === "COMPLIANT";
     }
@@ -168,7 +182,7 @@ export default async function ModulePage({
     dedupedActivity.map((e) => e.actorUserId),
   ).size;
 
-  const requirementById = new Map(framework.requirements.map((r) => [r.id, r]));
+  const requirementById = new Map(applicableRequirements.map((r) => [r.id, r]));
   const feedEvents: ModuleActivityEvent[] = dedupedActivity.map((evt) => {
     const payload = evt.payload as StatusEventPayload | null;
     const reqId = payload?.requirementId ?? "";
@@ -233,6 +247,7 @@ export default async function ModulePage({
                 requirementCode={r.code}
                 title={r.title}
                 description={r.citation ?? undefined}
+                jurisdictionFilter={r.jurisdictionFilter}
                 initialStatus={ciStatusToChecklist(ci?.status)}
                 lastEventSource={lastEvt?.source ?? null}
                 lastEventReason={lastEvt?.reason ?? null}

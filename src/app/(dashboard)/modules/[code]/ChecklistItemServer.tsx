@@ -2,6 +2,7 @@
 "use client";
 
 import { useTransition, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { ChecklistItem, type ChecklistStatus } from "@/components/gw/ChecklistItem";
 import {
   AiReasonIndicator,
@@ -15,18 +16,40 @@ export function ChecklistItemServer(props: {
   requirementCode: string;
   title: string;
   description?: string;
+  /** State codes this requirement applies to. Empty = federal. */
+  jurisdictionFilter?: string[];
   initialStatus: ChecklistStatus;
   lastEventSource?: AiReasonSource | null;
   lastEventReason?: string | null;
 }) {
   const [status, setStatus] = useState<ChecklistStatus>(props.initialStatus);
   const [isPending, startTransition] = useTransition();
+  const states = props.jurisdictionFilter ?? [];
+  // Title renders with a leading state-chip when the requirement is a
+  // state overlay, so users can tell which obligations are federal vs.
+  // which kick in only because of the practice's primaryState / operatingStates.
+  const titleNode = states.length > 0 ? (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      {states.map((s) => (
+        <Badge
+          key={s}
+          variant="outline"
+          className="border-[color:var(--gw-color-setup)] bg-[color:color-mix(in_oklch,var(--gw-color-setup)_10%,transparent)] px-1.5 py-0 text-[10px] font-semibold uppercase text-[color:var(--gw-color-setup)]"
+        >
+          {s}
+        </Badge>
+      ))}
+      <span>{props.title}</span>
+    </span>
+  ) : (
+    props.title
+  );
 
   return (
     <div className="flex items-start gap-2">
       <div className="min-w-0 flex-1">
         <ChecklistItem
-          title={props.title}
+          title={titleNode}
           description={props.description}
           status={status}
           disabled={isPending}
