@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   ScrollText,
   FileBarChart2,
+  Compass,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn, scoreToColorToken, NOT_ASSESSED_COLOR_TOKEN } from "@/lib/utils";
@@ -68,6 +69,7 @@ const PROGRAMS: ProgramItem[] = [
   // after a build. The /programs/staff route is new in this PR and will
   // be picked up on the first `next build`, but tsc standalone doesn't
   // know about it yet.
+  { label: "Get started", icon: Compass, href: "/programs/track" as Route },
   { label: "Staff", icon: Users, href: "/programs/staff" as Route },
   { label: "Policies", icon: FileText, href: "/programs/policies" as Route },
   { label: "Training", icon: GraduationCap, href: "/programs/training" as Route },

@@ -107,6 +107,10 @@ model Practice {
   enabledFrameworks   PracticeFramework[]
   llmCalls            LlmCall[]
   scoreSnapshots      ComplianceScoreSnapshot[]
+  // PracticeTrackTask rows are accessed via complianceTrack.tasks — no
+  // direct back-relation needed since PracticeTrackTask.practiceId
+  // references PracticeTrack.practiceId, not Practice.id.
+  complianceTrack     PracticeTrack?
 
   @@index([primaryState])
   @@index([subscriptionStatus])
@@ -813,4 +817,50 @@ model Waitlist {
   createdAt    DateTime @default(now())
 
   @@index([invited, createdAt])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Compliance Track — auto-generated onramp
+// ────────────────────────────────────────────────────────────────────────────
+//
+// Each practice gets a single "track" of dated milestones the first time
+// PRACTICE_PROFILE_UPDATED fires. The template is keyed by the practice's
+// specialtyCategory so a behavioral-health practice doesn't see CLIA/DEA
+// tasks. Per docs/specs/v1-ideas-survey.md §1.2.
+
+model PracticeTrack {
+  practiceId    String   @id
+  templateCode  String   // GENERAL_PRIMARY_CARE | DENTAL | BEHAVIORAL | GENERIC
+  generatedAt   DateTime @default(now())
+  // Set when ALL tasks have completedAt non-null. Recomputed on each
+  // task flip; nullable so re-opening a task can clear it.
+  completedAt   DateTime?
+
+  practice Practice            @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  tasks    PracticeTrackTask[]
+}
+
+model PracticeTrackTask {
+  id              String   @id @default(cuid())
+  practiceId      String
+  weekTarget      Int      // 1, 2, 4, 8, 12 — target week from track generation
+  sortOrder       Int      @default(0)
+  title           String
+  description     String   @db.Text
+  // Route the user clicks to "do" the task (e.g. /programs/staff for the
+  // designate-officer tasks).
+  href            String
+  // Optional auto-completion: if set, the task auto-completes when the
+  // matching ComplianceItem (by RegulatoryRequirement.code) flips to
+  // COMPLIANT. Hooked into rederiveRequirementStatus.
+  requirementCode String?
+  completedAt     DateTime?
+  completedByUserId String?
+  createdAt       DateTime @default(now())
+
+  practiceTrack PracticeTrack @relation(fields: [practiceId], references: [practiceId], onDelete: Cascade)
+
+  @@index([practiceId, weekTarget, sortOrder])
+  @@index([practiceId, completedAt])
+  @@index([practiceId, requirementCode])
 }
