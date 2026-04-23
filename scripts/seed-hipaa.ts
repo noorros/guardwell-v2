@@ -111,6 +111,17 @@ async function main() {
       sortOrder: 45,
     },
     {
+      code: "HIPAA_DOCUMENTATION_RETENTION",
+      title: "Active document destruction cadence",
+      citation: "45 CFR §164.530(j)",
+      severity: "STANDARD",
+      weight: 1,
+      description:
+        "Maintain a destruction cadence for retired documents — paper shredding, secure media wipe, deidentification. Log each batch at /programs/document-retention; the rule flips COMPLIANT once ≥1 destruction event lands in the last 365 days. Mark NOT_APPLICABLE if your practice genuinely has nothing destroyed in a year.",
+      acceptedEvidenceTypes: ["DESTRUCTION:LOGGED"],
+      sortOrder: 47,
+    },
+    {
       code: "HIPAA_WORKFORCE_TRAINING",
       title: "Train all workforce members on HIPAA",
       citation: "45 CFR §164.530(b)(1)",

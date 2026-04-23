@@ -37,6 +37,7 @@ export const EVENT_TYPES = [
   "TRACK_GENERATED",
   "TRACK_TASK_COMPLETED",
   "TRACK_TASK_REOPENED",
+  "DESTRUCTION_LOGGED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -381,6 +382,36 @@ export const EVENT_SCHEMAS = {
   TRACK_TASK_REOPENED: {
     1: z.object({
       trackTaskId: z.string().min(1),
+    }),
+  },
+  // Document retention destruction event. Each row = one batch of
+  // documents destroyed; the projection writes a DestructionLog row +
+  // rederives HIPAA_DOCUMENTATION_RETENTION (COMPLIANT when ≥1 entry
+  // within last 365 days).
+  DESTRUCTION_LOGGED: {
+    1: z.object({
+      destructionLogId: z.string().min(1),
+      documentType: z.enum([
+        "MEDICAL_RECORDS",
+        "BILLING",
+        "HR",
+        "EMAIL_BACKUPS",
+        "OTHER",
+      ]),
+      description: z.string().min(1).max(2000),
+      volumeEstimate: z.string().max(200).nullable().optional(),
+      method: z.enum([
+        "SHREDDING",
+        "SECURE_WIPE",
+        "DEIDENTIFICATION",
+        "INCINERATION",
+        "OTHER",
+      ]),
+      performedByUserId: z.string().min(1),
+      witnessedByUserId: z.string().nullable().optional(),
+      certificateUrl: z.string().max(500).nullable().optional(),
+      destroyedAt: z.string().datetime(),
+      notes: z.string().max(2000).nullable().optional(),
     }),
   },
 } as const;

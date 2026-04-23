@@ -111,6 +111,7 @@ model Practice {
   // direct back-relation needed since PracticeTrackTask.practiceId
   // references PracticeTrack.practiceId, not Practice.id.
   complianceTrack     PracticeTrack?
+  destructionLogs     DestructionLog[]
 
   @@index([primaryState])
   @@index([subscriptionStatus])
@@ -868,4 +869,37 @@ model PracticeTrackTask {
   @@index([practiceId, weekTarget, sortOrder])
   @@index([practiceId, completedAt])
   @@index([practiceId, requirementCode])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Document retention — destruction log per HIPAA + state retention rules
+// ────────────────────────────────────────────────────────────────────────────
+//
+// Each row = one destruction event documented for audit defensibility.
+// Adopting a regular destruction cadence is the practice's evidence that
+// retention policies are followed (vs. theoretical-only).
+
+model DestructionLog {
+  id              String   @id @default(cuid())
+  practiceId      String
+  // What was destroyed.
+  documentType    String   // MEDICAL_RECORDS | BILLING | HR | EMAIL_BACKUPS | OTHER
+  description     String   @db.Text  // Free-text describing scope (date range, patient cohort, etc.)
+  volumeEstimate  String?  // "12 boxes" / "300 GB" / "47 patient charts"
+  // How.
+  method          String   // SHREDDING | SECURE_WIPE | DEIDENTIFICATION | INCINERATION | OTHER
+  // Who.
+  performedByUserId String
+  witnessedByUserId String?
+  // Vendor-issued certificate of destruction URL/path (if external vendor).
+  certificateUrl  String?
+  // When the destruction happened (may be backdated).
+  destroyedAt     DateTime
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now())
+
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  @@index([practiceId, destroyedAt])
+  @@index([practiceId, documentType])
 }
