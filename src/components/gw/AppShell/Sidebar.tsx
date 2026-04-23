@@ -80,7 +80,7 @@ const PROGRAMS: ProgramItem[] = [
 const AUDIT_ITEMS: ProgramItem[] = [
   { label: "Overview", icon: LayoutDashboard, href: "/audit/overview" as Route },
   { label: "Activity log", icon: ScrollText, href: "/audit/activity" as Route },
-  { label: "Reports", icon: FileBarChart2 },
+  { label: "Reports", icon: FileBarChart2, href: "/audit/reports" as Route },
 ];
 
 function SectionHeader({ children }: { children: React.ReactNode }) {

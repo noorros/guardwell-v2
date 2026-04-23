@@ -179,6 +179,14 @@ export default async function AuditOverviewPage() {
             for {jurisdictions.join(", ")}.
           </p>
         </div>
+        <a
+          href="/api/audit/compliance-report"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-md border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent"
+        >
+          Download PDF
+        </a>
       </header>
 
       <section className="grid gap-4 sm:grid-cols-3">
