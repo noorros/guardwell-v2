@@ -4,16 +4,19 @@ import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { signOutAction } from "@/app/(auth)/sign-out/actions";
 import { cn } from "@/lib/utils";
+import {
+  NotificationBell,
+  type NotificationBellItem,
+} from "./NotificationBell";
 
 export interface TopBarProps {
   practiceName: string;
   userEmail: string;
-  /**
-   * Optional hamburger trigger rendered on the left for viewports that hide
-   * the sidebar. Kept as a slot so the TopBar stays a server component and
-   * the responsive trigger (which owns a Sheet state) can be a client island.
-   */
   mobileTrigger?: ReactNode;
+  notifications?: {
+    unreadCount: number;
+    recent: NotificationBellItem[];
+  };
   className?: string;
 }
 
@@ -21,6 +24,7 @@ export function TopBar({
   practiceName,
   userEmail,
   mobileTrigger,
+  notifications,
   className,
 }: TopBarProps) {
   return (
@@ -33,6 +37,12 @@ export function TopBar({
       {mobileTrigger}
       <span className="truncate font-semibold text-foreground">{practiceName}</span>
       <div className="ml-auto flex items-center gap-3">
+        {notifications && (
+          <NotificationBell
+            unreadCount={notifications.unreadCount}
+            recent={notifications.recent}
+          />
+        )}
         <span className="hidden truncate text-sm text-muted-foreground sm:inline">
           {userEmail}
         </span>

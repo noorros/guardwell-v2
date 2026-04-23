@@ -3,12 +3,17 @@ import type { ReactNode } from "react";
 import { Sidebar, type MyComplianceItem } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { MobileSidebarTrigger } from "./MobileSidebarTrigger";
+import type { NotificationBellItem } from "./NotificationBell";
 
 export interface AppShellProps {
   children: ReactNode;
   practice: { name: string };
   user: { email: string };
   myComplianceItems: MyComplianceItem[];
+  notifications?: {
+    unreadCount: number;
+    recent: NotificationBellItem[];
+  };
 }
 
 /**
@@ -24,6 +29,7 @@ export function AppShell({
   practice,
   user,
   myComplianceItems,
+  notifications,
 }: AppShellProps) {
   return (
     <div className="flex h-screen flex-col bg-background">
@@ -33,6 +39,7 @@ export function AppShell({
         mobileTrigger={
           <MobileSidebarTrigger myComplianceItems={myComplianceItems} />
         }
+        notifications={notifications}
       />
       <div className="flex min-h-0 flex-1">
         <aside className="hidden w-60 shrink-0 overflow-y-auto md:block">
