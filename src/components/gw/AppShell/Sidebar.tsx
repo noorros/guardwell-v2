@@ -79,7 +79,7 @@ const PROGRAMS: ProgramItem[] = [
 
 const AUDIT_ITEMS: ProgramItem[] = [
   { label: "Overview", icon: LayoutDashboard },
-  { label: "Activity log", icon: ScrollText },
+  { label: "Activity log", icon: ScrollText, href: "/audit/activity" as Route },
   { label: "Reports", icon: FileBarChart2 },
 ];
 
@@ -235,7 +235,17 @@ export function Sidebar({
       <ul className="flex flex-col gap-0.5">
         {AUDIT_ITEMS.map((p) => (
           <li key={p.label}>
-            <ComingSoonItem {...p} />
+            {p.href ? (
+              <ProgramLink
+                icon={p.icon}
+                label={p.label}
+                href={p.href}
+                onNavigate={onNavigate}
+                isActive={pathname === p.href}
+              />
+            ) : (
+              <ComingSoonItem {...p} />
+            )}
           </li>
         ))}
       </ul>
