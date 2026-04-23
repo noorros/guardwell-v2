@@ -38,6 +38,8 @@ export const EVENT_TYPES = [
   "TRACK_TASK_COMPLETED",
   "TRACK_TASK_REOPENED",
   "DESTRUCTION_LOGGED",
+  "TECH_ASSET_UPSERTED",
+  "TECH_ASSET_RETIRED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -412,6 +414,40 @@ export const EVENT_SCHEMAS = {
       certificateUrl: z.string().max(500).nullable().optional(),
       destroyedAt: z.string().datetime(),
       notes: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  // Technology asset inventory upsert (create + edit). Retirement uses
+  // TECH_ASSET_RETIRED so the row is preserved for audit history.
+  TECH_ASSET_UPSERTED: {
+    1: z.object({
+      techAssetId: z.string().min(1),
+      name: z.string().min(1).max(200),
+      assetType: z.enum([
+        "SERVER",
+        "LAPTOP",
+        "DESKTOP",
+        "MOBILE",
+        "EMR",
+        "NETWORK_DEVICE",
+        "CLOUD_SERVICE",
+        "OTHER",
+      ]),
+      processesPhi: z.boolean(),
+      encryption: z.enum([
+        "FULL_DISK",
+        "FIELD_LEVEL",
+        "NONE",
+        "UNKNOWN",
+      ]),
+      vendor: z.string().max(200).nullable().optional(),
+      location: z.string().max(200).nullable().optional(),
+      ownerUserId: z.string().nullable().optional(),
+      notes: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  TECH_ASSET_RETIRED: {
+    1: z.object({
+      techAssetId: z.string().min(1),
     }),
   },
 } as const;

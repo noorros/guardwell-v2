@@ -23,6 +23,17 @@ async function seed(): Promise<{ practiceId: string; userId: string }> {
   await db.practiceUser.create({
     data: { userId: user.id, practiceId: practice.id, role: "OWNER" },
   });
+  // Asset-inventory gate: HIPAA_SRA derivation now requires ≥1 PHI
+  // asset on file. Seed one so the rule isn't tripped on the gate.
+  await db.techAsset.create({
+    data: {
+      practiceId: practice.id,
+      name: "Test EHR",
+      assetType: "EMR",
+      processesPhi: true,
+      encryption: "FULL_DISK",
+    },
+  });
 
   // Seed HIPAA framework + the SRA requirement + one SraQuestion so the
   // derivation + projection have something to hit. This mirrors the

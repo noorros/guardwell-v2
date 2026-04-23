@@ -80,8 +80,8 @@ async function main() {
       severity: "CRITICAL",
       weight: 2,
       description:
-        "Perform an accurate and thorough assessment of risks and vulnerabilities to the confidentiality, integrity, and availability of ePHI.",
-      acceptedEvidenceTypes: ["SRA_COMPLETED"],
+        "Perform an accurate and thorough assessment of risks and vulnerabilities to the confidentiality, integrity, and availability of ePHI. Requires a current asset inventory (≥1 PHI-processing asset on /programs/security-assets) plus a completed SRA wizard within the last 365 days.",
+      acceptedEvidenceTypes: ["SRA_COMPLETED", "TECH_ASSET:UPSERTED"],
       sortOrder: 30,
     },
     {

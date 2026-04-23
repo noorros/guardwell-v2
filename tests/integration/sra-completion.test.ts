@@ -32,6 +32,18 @@ async function seedPracticeWithSra() {
   await db.practiceUser.create({
     data: { userId: user.id, practiceId: practice.id, role: "OWNER" },
   });
+  // The HIPAA_SRA derivation rule now requires ≥1 PHI-processing
+  // TechAsset on file (asset-inventory gate). Seed one so the rule's
+  // asset gate isn't the test's failure mode.
+  await db.techAsset.create({
+    data: {
+      practiceId: practice.id,
+      name: "Test EHR",
+      assetType: "EMR",
+      processesPhi: true,
+      encryption: "FULL_DISK",
+    },
+  });
   const framework = await db.regulatoryFramework.findUniqueOrThrow({
     where: { code: "HIPAA" },
     include: { requirements: true },
