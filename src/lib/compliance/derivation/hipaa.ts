@@ -60,6 +60,34 @@ function singlePolicyRule(required: HipaaPolicyCode): DerivationRule {
 }
 
 /**
+ * HIPAA §164.530(d). Composite rule: the breach-response policy must be
+ * adopted AND every breach incident (isBreach=true) must be resolved.
+ * Any unresolved breach drops the requirement to GAP regardless of
+ * policy state — you can't claim a working breach-response program while
+ * a breach is mid-flight.
+ */
+export async function hipaaBreachResponseRule(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<DerivedStatus | null> {
+  const policyAdopted = await tx.practicePolicy.count({
+    where: {
+      practiceId,
+      policyCode: "HIPAA_BREACH_RESPONSE_POLICY",
+      retiredAt: null,
+    },
+  });
+  if (policyAdopted === 0) return "GAP";
+
+  const unresolvedBreaches = await tx.incident.count({
+    where: { practiceId, isBreach: true, resolvedAt: null },
+  });
+  if (unresolvedBreaches > 0) return "GAP";
+
+  return "COMPLIANT";
+}
+
+/**
  * HIPAA §164.530(i)(1). Satisfied only when ALL three core P&P policies —
  * Privacy, Security, and Breach Response — are adopted and not retired.
  */
@@ -122,7 +150,7 @@ export const HIPAA_DERIVATION_RULES: Record<string, DerivationRule> = {
   HIPAA_POLICIES_PROCEDURES: hipaaPoliciesProceduresRule,
   HIPAA_MINIMUM_NECESSARY: singlePolicyRule("HIPAA_MINIMUM_NECESSARY_POLICY"),
   HIPAA_NPP: singlePolicyRule("HIPAA_NPP_POLICY"),
-  HIPAA_BREACH_RESPONSE: singlePolicyRule("HIPAA_BREACH_RESPONSE_POLICY"),
+  HIPAA_BREACH_RESPONSE: hipaaBreachResponseRule,
   HIPAA_WORKSTATION_USE: singlePolicyRule("HIPAA_WORKSTATION_POLICY"),
   HIPAA_WORKFORCE_TRAINING: hipaaWorkforceTrainingRule,
   HIPAA_BAAS: hipaaBaaRule,

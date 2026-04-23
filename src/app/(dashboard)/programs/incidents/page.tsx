@@ -1,0 +1,151 @@
+// src/app/(dashboard)/programs/incidents/page.tsx
+import Link from "next/link";
+import type { Route } from "next";
+import { AlertTriangle } from "lucide-react";
+import { db } from "@/lib/db";
+import { getPracticeUser } from "@/lib/rbac";
+import { Breadcrumb } from "@/components/gw/Breadcrumb";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { IncidentStatusBadge, IncidentBreachBadge } from "./IncidentBadges";
+
+export const metadata = { title: "Incidents · My Programs" };
+export const dynamic = "force-dynamic";
+
+const TYPE_LABELS: Record<string, string> = {
+  PRIVACY: "Privacy",
+  SECURITY: "Security",
+  OSHA_RECORDABLE: "OSHA recordable",
+  NEAR_MISS: "Near miss",
+  DEA_THEFT_LOSS: "DEA theft/loss",
+  CLIA_QC_FAILURE: "CLIA QC failure",
+  TCPA_COMPLAINT: "TCPA complaint",
+};
+
+const SEVERITY_LABELS: Record<string, string> = {
+  CRITICAL: "Critical",
+  HIGH: "High",
+  MEDIUM: "Medium",
+  LOW: "Low",
+};
+
+export default async function IncidentsPage() {
+  const pu = await getPracticeUser();
+  if (!pu) return null;
+
+  const incidents = await db.incident.findMany({
+    where: { practiceId: pu.practiceId },
+    orderBy: [{ status: "asc" }, { discoveredAt: "desc" }],
+    take: 50,
+  });
+
+  const openCount = incidents.filter(
+    (i) => i.status === "OPEN" || i.status === "UNDER_INVESTIGATION",
+  ).length;
+  const unresolvedBreachCount = incidents.filter(
+    (i) => i.isBreach === true && i.resolvedAt === null,
+  ).length;
+
+  return (
+    <main className="mx-auto max-w-4xl space-y-6 p-6">
+      <Breadcrumb items={[{ label: "My Programs" }, { label: "Incidents" }]} />
+      <header className="flex items-start gap-3">
+        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+          <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div className="flex-1 space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Incidents</h1>
+          <p className="text-sm text-muted-foreground">
+            Report privacy/security/OSHA events, run the HIPAA §164.402 four-factor
+            breach determination, and track resolution. Incidents with
+            isBreach=true that stay unresolved flip HIPAA_BREACH_RESPONSE to GAP.
+          </p>
+        </div>
+        <Button asChild size="sm">
+          <Link href={"/programs/incidents/new" as Route}>Report incident</Link>
+        </Button>
+      </header>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Open
+            </p>
+            <p className="text-2xl font-semibold">{openCount}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Unresolved breaches
+            </p>
+            <p className="text-2xl font-semibold">{unresolvedBreachCount}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Total tracked
+            </p>
+            <p className="text-2xl font-semibold">{incidents.length}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <div className="flex items-center justify-between border-b px-4 py-2">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Recent
+            </h2>
+            <span className="text-[10px] text-muted-foreground">
+              {incidents.length} incident{incidents.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          {incidents.length === 0 ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">
+              No incidents reported yet. Workforce members should report privacy,
+              security, or OSHA events here as soon as they&apos;re discovered.
+            </div>
+          ) : (
+            <ul className="divide-y">
+              {incidents.map((i) => (
+                <li
+                  key={i.id}
+                  className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {i.title}
+                      </p>
+                      <IncidentStatusBadge status={i.status} />
+                      <IncidentBreachBadge
+                        isBreach={i.isBreach}
+                        affectedCount={i.affectedCount ?? 0}
+                      />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      <Badge variant="secondary" className="text-[10px]">
+                        {TYPE_LABELS[i.type] ?? i.type}
+                      </Badge>{" "}
+                      · {SEVERITY_LABELS[i.severity] ?? i.severity} · Discovered{" "}
+                      {i.discoveredAt.toISOString().slice(0, 10)}
+                    </p>
+                  </div>
+                  <Button asChild size="sm" variant="ghost">
+                    <Link href={`/programs/incidents/${i.id}` as Route}>
+                      View
+                    </Link>
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </main>
+  );
+}

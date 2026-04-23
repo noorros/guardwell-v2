@@ -70,10 +70,10 @@ describe("<Sidebar>", () => {
   it("renders My Programs items with a Soon badge (except live links)", () => {
     pathnameMock.mockReturnValue("/dashboard");
     render(<Sidebar myComplianceItems={makeItems()} />);
-    // 6 programs are live (Staff, Policies, Training, Credentials, Vendors, Risk);
-    // Incidents is the only pending program + 3 Audit & Insights items = 4 Soon badges.
+    // All 7 programs are live (Staff, Policies, Training, Incidents, Credentials,
+    // Vendors, Risk); only the 3 Audit & Insights items remain pending = 3 Soon badges.
     const soonBadges = screen.getAllByText(/soon/i);
-    expect(soonBadges.length).toBeGreaterThanOrEqual(4);
+    expect(soonBadges.length).toBeGreaterThanOrEqual(3);
     // Specific program names should be visible as static labels.
     expect(screen.getByText(/staff/i)).toBeInTheDocument();
     expect(screen.getByText(/policies/i)).toBeInTheDocument();
