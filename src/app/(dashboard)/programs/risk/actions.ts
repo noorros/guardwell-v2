@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/auth";
 import { getPracticeUser } from "@/lib/rbac";
 import { appendEventAndApply } from "@/lib/events";
 import { projectSraCompleted } from "@/lib/events/projections/sraCompleted";
+import { projectSraDraftSaved } from "@/lib/events/projections/sraDraftSaved";
 import { db } from "@/lib/db";
 
 const AnswerInput = z.object({
@@ -16,8 +17,15 @@ const AnswerInput = z.object({
   notes: z.string().max(2000).nullable().optional(),
 });
 
-const Input = z.object({
+const CompleteInput = z.object({
+  assessmentId: z.string().min(1).optional(),
   answers: z.array(AnswerInput).min(1),
+});
+
+const DraftInput = z.object({
+  assessmentId: z.string().min(1).optional(),
+  currentStep: z.number().int().min(0).max(2),
+  answers: z.array(AnswerInput),
 });
 
 export interface SraSubmitResult {
@@ -27,24 +35,32 @@ export interface SraSubmitResult {
   totalCount: number;
 }
 
+export interface SraDraftSaveResult {
+  assessmentId: string;
+}
+
+async function validateQuestionCodes(codes: string[]): Promise<void> {
+  if (codes.length === 0) return;
+  const questions = await db.sraQuestion.findMany({
+    where: { code: { in: codes } },
+    select: { code: true },
+  });
+  const known = new Set(questions.map((q) => q.code));
+  const bad = codes.filter((c) => !known.has(c));
+  if (bad.length > 0) {
+    throw new Error(`Unknown SRA question codes: ${bad.join(", ")}`);
+  }
+}
+
 export async function completeSraAction(
-  input: z.infer<typeof Input>,
+  input: z.infer<typeof CompleteInput>,
 ): Promise<SraSubmitResult> {
   const user = await requireUser();
   const pu = await getPracticeUser();
   if (!pu) throw new Error("Unauthorized");
-  const parsed = Input.parse(input);
+  const parsed = CompleteInput.parse(input);
 
-  // Validate every answered question exists.
-  const questions = await db.sraQuestion.findMany({
-    where: { code: { in: parsed.answers.map((a) => a.questionCode) } },
-    select: { code: true },
-  });
-  const knownCodes = new Set(questions.map((q) => q.code));
-  const bad = parsed.answers.filter((a) => !knownCodes.has(a.questionCode));
-  if (bad.length > 0) {
-    throw new Error(`Unknown SRA question codes: ${bad.map((b) => b.questionCode).join(", ")}`);
-  }
+  await validateQuestionCodes(parsed.answers.map((a) => a.questionCode));
 
   const totalCount = parsed.answers.length;
   const addressedCount = parsed.answers.filter(
@@ -52,7 +68,9 @@ export async function completeSraAction(
   ).length;
   const overallScore = Math.round((addressedCount / totalCount) * 100);
 
-  const assessmentId = randomUUID();
+  // If the wizard is promoting a draft, reuse that assessment id so the
+  // projection upserts rather than creating a second row.
+  const assessmentId = parsed.assessmentId ?? randomUUID();
   const payload = {
     assessmentId,
     completedByUserId: user.id,
@@ -80,4 +98,45 @@ export async function completeSraAction(
   revalidatePath("/modules/hipaa");
 
   return { assessmentId, overallScore, addressedCount, totalCount };
+}
+
+export async function saveSraDraftAction(
+  input: z.infer<typeof DraftInput>,
+): Promise<SraDraftSaveResult> {
+  const user = await requireUser();
+  const pu = await getPracticeUser();
+  if (!pu) throw new Error("Unauthorized");
+  const parsed = DraftInput.parse(input);
+
+  await validateQuestionCodes(parsed.answers.map((a) => a.questionCode));
+
+  const assessmentId = parsed.assessmentId ?? randomUUID();
+  const payload = {
+    assessmentId,
+    currentStep: parsed.currentStep,
+    answers: parsed.answers.map((a) => ({
+      questionCode: a.questionCode,
+      answer: a.answer,
+      notes: a.notes ?? null,
+    })),
+  };
+
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: user.id,
+      type: "SRA_DRAFT_SAVED",
+      payload,
+    },
+    async (tx) =>
+      projectSraDraftSaved(tx, {
+        practiceId: pu.practiceId,
+        actorUserId: user.id,
+        payload,
+      }),
+  );
+
+  revalidatePath("/programs/risk");
+
+  return { assessmentId };
 }

@@ -194,22 +194,34 @@ model SraQuestion {
   @@index([category, sortOrder])
 }
 
-// Evidence for HIPAA_SRA. One row per completion event.
-// Answers live in PracticeSraAnswer (foreign-key, many-per-assessment).
+// Evidence for HIPAA_SRA. One row per completion event. Drafts (isDraft=true)
+// persist partial progress across sessions and are promoted to completed
+// on SRA_COMPLETED. Only completed (isDraft=false) rows satisfy the HIPAA_SRA
+// derivation rule.
 model PracticeSraAssessment {
   id                String    @id @default(cuid())
   practiceId        String
   completedByUserId String
-  completedAt       DateTime  @default(now())
-  overallScore      Int       // % of questions addressed (YES or NA), 0-100
-  addressedCount    Int       // count of YES + NA
-  totalCount        Int       // total questions answered
+  // Null while drafting; set on promotion to completed. Used by
+  // hipaaSraRule to count only completed assessments in the last 365 days.
+  completedAt       DateTime?
+  overallScore      Int       @default(0) // % of questions addressed (YES or NA), 0-100
+  addressedCount    Int       @default(0) // count of YES + NA
+  totalCount        Int       @default(0) // total questions answered
+  // True while the user is still working through the wizard. Flipped to
+  // false when SRA_COMPLETED promotes the draft.
+  isDraft           Boolean   @default(false)
+  // Which wizard step the user left off on (0=administrative, 1=physical,
+  // 2=technical). Only meaningful while isDraft=true.
+  currentStep       Int       @default(0)
   createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   practice Practice            @relation(fields: [practiceId], references: [id], onDelete: Cascade)
   answers  PracticeSraAnswer[]
 
   @@index([practiceId, completedAt])
+  @@index([practiceId, isDraft])
 }
 
 model PracticeSraAnswer {

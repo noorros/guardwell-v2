@@ -1,8 +1,11 @@
 // src/lib/events/projections/sraCompleted.ts
 //
 // Projects SRA_COMPLETED events. One event represents a completed HIPAA
-// Security Risk Assessment — creates the PracticeSraAssessment row +
-// one PracticeSraAnswer per question, then rederives HIPAA_SRA.
+// Security Risk Assessment. If a draft row already exists (from prior
+// SRA_DRAFT_SAVED events), it is promoted — isDraft flips to false and
+// completedAt is set. Otherwise a fresh row is created. Answers are
+// always rewritten from the event payload so the final completion is
+// the source of truth. Then rederives HIPAA_SRA.
 
 import type { Prisma } from "@prisma/client";
 import type { PayloadFor } from "../registry";
@@ -29,22 +32,41 @@ export async function projectSraCompleted(
     throw new Error(`Unknown SRA question codes: ${missing.join(", ")}`);
   }
 
-  await tx.practiceSraAssessment.create({
-    data: {
+  // Upsert handles both the fresh-completion and draft-promotion paths.
+  // Answers are fully replaced so the final SRA_COMPLETED payload is the
+  // source of truth for the assessment's question set.
+  await tx.practiceSraAssessment.upsert({
+    where: { id: payload.assessmentId },
+    create: {
       id: payload.assessmentId,
       practiceId,
       completedByUserId: payload.completedByUserId,
+      completedAt: new Date(),
       overallScore: payload.overallScore,
       addressedCount: payload.addressedCount,
       totalCount: payload.totalCount,
-      answers: {
-        create: payload.answers.map((a) => ({
-          questionId: byCode.get(a.questionCode)!,
-          answer: a.answer,
-          notes: a.notes ?? null,
-        })),
-      },
+      isDraft: false,
     },
+    update: {
+      completedByUserId: payload.completedByUserId,
+      completedAt: new Date(),
+      overallScore: payload.overallScore,
+      addressedCount: payload.addressedCount,
+      totalCount: payload.totalCount,
+      isDraft: false,
+    },
+  });
+
+  await tx.practiceSraAnswer.deleteMany({
+    where: { assessmentId: payload.assessmentId },
+  });
+  await tx.practiceSraAnswer.createMany({
+    data: payload.answers.map((a) => ({
+      assessmentId: payload.assessmentId,
+      questionId: byCode.get(a.questionCode)!,
+      answer: a.answer,
+      notes: a.notes ?? null,
+    })),
   });
 
   await rederiveRequirementStatus(tx, practiceId, "SRA_COMPLETED");

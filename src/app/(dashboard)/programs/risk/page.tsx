@@ -18,16 +18,26 @@ export default async function RiskPage() {
   const pu = await getPracticeUser();
   if (!pu) return null;
 
-  const assessments = await db.practiceSraAssessment.findMany({
-    where: { practiceId: pu.practiceId },
-    orderBy: { completedAt: "desc" },
-    take: 20,
-  });
+  const [completedAssessments, draft] = await Promise.all([
+    db.practiceSraAssessment.findMany({
+      where: {
+        practiceId: pu.practiceId,
+        isDraft: false,
+        completedAt: { not: null },
+      },
+      orderBy: { completedAt: "desc" },
+      take: 20,
+    }),
+    db.practiceSraAssessment.findFirst({
+      where: { practiceId: pu.practiceId, isDraft: true },
+      orderBy: { updatedAt: "desc" },
+    }),
+  ]);
 
-  const latest = assessments[0];
+  const latest = completedAssessments[0];
   const now = new Date();
   const isFresh =
-    latest != null &&
+    latest?.completedAt != null &&
     now.getTime() - latest.completedAt.getTime() < 365 * DAY_MS;
 
   return (
@@ -48,11 +58,35 @@ export default async function RiskPage() {
         </div>
       </header>
 
+      {draft && (
+        <Card className="border-[color:var(--gw-color-setup)]/50 bg-[color:color-mix(in_oklch,var(--gw-color-setup)_8%,transparent)]">
+          <CardContent className="space-y-3 p-6">
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-sm font-semibold">In-progress SRA</h2>
+              <Badge variant="outline" className="text-[10px]">
+                Draft · {draft.addressedCount} of {draft.totalCount} answered
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              You have a draft SRA in progress. Pick up where you left off — your
+              answers are saved automatically as you move between steps.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild size="sm">
+                <Link href={`/programs/risk/new?draftId=${draft.id}` as Route}>
+                  Resume draft
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardContent className="space-y-3 p-6">
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="text-sm font-semibold">Current status</h2>
-            {latest ? (
+            {latest?.completedAt ? (
               <SraAssessmentBadge
                 completedAt={latest.completedAt.toISOString()}
                 overallScore={latest.overallScore}
@@ -64,7 +98,7 @@ export default async function RiskPage() {
               </Badge>
             )}
           </div>
-          {latest ? (
+          {latest?.completedAt ? (
             <p className="text-xs text-muted-foreground">
               {isFresh
                 ? `Last assessment addressed ${latest.addressedCount} of ${latest.totalCount} safeguards. HIPAA_SRA will auto-expire 365 days after completion — schedule a refresh before then.`
@@ -78,7 +112,7 @@ export default async function RiskPage() {
             </p>
           )}
           <div>
-            <Button asChild size="sm">
+            <Button asChild size="sm" variant={draft ? "outline" : "default"}>
               <Link href={"/programs/risk/new" as Route}>
                 {latest ? "Start new SRA" : "Start your first SRA"}
               </Link>
@@ -87,7 +121,7 @@ export default async function RiskPage() {
         </CardContent>
       </Card>
 
-      {assessments.length > 0 && (
+      {completedAssessments.length > 0 && (
         <Card>
           <CardContent className="p-0">
             <div className="flex items-center justify-between border-b px-4 py-2">
@@ -95,35 +129,41 @@ export default async function RiskPage() {
                 Assessment history
               </h3>
               <span className="text-[10px] text-muted-foreground">
-                {assessments.length} assessment{assessments.length === 1 ? "" : "s"}
+                {completedAssessments.length} assessment
+                {completedAssessments.length === 1 ? "" : "s"}
               </span>
             </div>
             <ul className="divide-y">
-              {assessments.map((a) => (
-                <li
-                  key={a.id}
-                  className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="flex-1 space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium text-foreground">
-                        SRA
+              {completedAssessments.map((a) => {
+                // isDraft=false guarantees completedAt is set; narrow here for TS.
+                if (!a.completedAt) return null;
+                const completedAt = a.completedAt;
+                return (
+                  <li
+                    key={a.id}
+                    className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium text-foreground">
+                          SRA
+                        </p>
+                        <SraAssessmentBadge
+                          completedAt={completedAt.toISOString()}
+                          overallScore={a.overallScore}
+                          fresh={now.getTime() - completedAt.getTime() < 365 * DAY_MS}
+                        />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        {a.addressedCount} of {a.totalCount} safeguards addressed
                       </p>
-                      <SraAssessmentBadge
-                        completedAt={a.completedAt.toISOString()}
-                        overallScore={a.overallScore}
-                        fresh={now.getTime() - a.completedAt.getTime() < 365 * DAY_MS}
-                      />
                     </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      {a.addressedCount} of {a.totalCount} safeguards addressed
-                    </p>
-                  </div>
-                  <Button asChild size="sm" variant="ghost">
-                    <Link href={`/programs/risk/${a.id}` as Route}>View</Link>
-                  </Button>
-                </li>
-              ))}
+                    <Button asChild size="sm" variant="ghost">
+                      <Link href={`/programs/risk/${a.id}` as Route}>View</Link>
+                    </Button>
+                  </li>
+                );
+              })}
             </ul>
           </CardContent>
         </Card>
