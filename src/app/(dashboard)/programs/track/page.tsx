@@ -9,6 +9,7 @@ import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScoreRing } from "@/components/gw/ScoreRing";
 import { EmptyState } from "@/components/gw/EmptyState";
+import { generateTrackIfMissing } from "@/lib/events/projections/track";
 import { TrackTaskRow } from "./TrackTaskRow";
 
 export const metadata = { title: "Get started · My Programs" };
@@ -26,7 +27,7 @@ export default async function TrackPage() {
   const pu = await getPracticeUser();
   if (!pu) return null;
 
-  const track = await db.practiceTrack.findUnique({
+  let track = await db.practiceTrack.findUnique({
     where: { practiceId: pu.practiceId },
     include: {
       tasks: {
@@ -35,10 +36,34 @@ export default async function TrackPage() {
     },
   });
 
-  // Onboarding gate — no track means the user hasn't filled out the
-  // compliance profile yet (the profile projection generates the track).
+  // Backfill path: practice may have a compliance profile from before the
+  // Track feature shipped (the profile projection didn't generate a track
+  // historically). If a profile exists, lazy-generate the track on first
+  // page load. If no profile, send the user to onboarding to fill it out.
   if (!track) {
-    redirect("/onboarding/compliance-profile" as Route);
+    const profile = await db.practiceComplianceProfile.findUnique({
+      where: { practiceId: pu.practiceId },
+      select: { practiceId: true },
+    });
+    if (!profile) {
+      redirect("/onboarding/compliance-profile" as Route);
+    }
+    await db.$transaction(async (tx) => {
+      await generateTrackIfMissing(tx, pu.practiceId, pu.dbUser.id);
+    });
+    track = await db.practiceTrack.findUnique({
+      where: { practiceId: pu.practiceId },
+      include: {
+        tasks: {
+          orderBy: [{ weekTarget: "asc" }, { sortOrder: "asc" }],
+        },
+      },
+    });
+    if (!track) {
+      // Should never happen — generateTrackIfMissing returned without
+      // creating a row. Surface as 500 rather than redirect-loop.
+      throw new Error("Failed to generate Compliance Track");
+    }
   }
 
   const total = track.tasks.length;
