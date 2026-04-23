@@ -28,6 +28,12 @@ export interface ModuleHeaderProps {
    * tests can pin time.
    */
   now?: Date;
+  /**
+   * True when the practice has at least one ComplianceItem row for this
+   * framework. When false, the score ring renders in the "Not assessed"
+   * setup state (blue, em-dash). Defaults to true.
+   */
+  assessed?: boolean;
   className?: string;
 }
 
@@ -42,6 +48,7 @@ export function ModuleHeader({
   jurisdictions,
   assessedAt,
   now = new Date(),
+  assessed = true,
   className,
 }: ModuleHeaderProps) {
   const isStale =
@@ -81,7 +88,7 @@ export function ModuleHeader({
         )}
       </div>
       {typeof score === "number" && (
-        <ScoreRing score={score} size={72} strokeWidth={8} />
+        <ScoreRing score={score} size={72} strokeWidth={8} assessed={assessed} />
       )}
     </header>
   );

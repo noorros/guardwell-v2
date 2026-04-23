@@ -55,8 +55,8 @@ describe("<AppShell>", () => {
         practice={{ name: "Acme" }}
         user={{ email: "jane@acme.test" }}
         myComplianceItems={[
-          { code: "HIPAA", name: "HIPAA", score: 82 },
-          { code: "OSHA", name: "OSHA", score: 54 },
+          { code: "HIPAA", name: "HIPAA", score: 82, assessed: true },
+          { code: "OSHA", name: "OSHA", score: 54, assessed: true },
         ]}
       >
         <div>page-content</div>

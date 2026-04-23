@@ -19,7 +19,7 @@ import {
   FileBarChart2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { cn, scoreToColorToken } from "@/lib/utils";
+import { cn, scoreToColorToken, NOT_ASSESSED_COLOR_TOKEN } from "@/lib/utils";
 
 /**
  * A single regulatory framework the practice has enabled. Used to render one
@@ -34,6 +34,12 @@ export interface MyComplianceItem {
   shortName?: string | null;
   /** Cached compliance score 0-100 for the mini indicator. */
   score: number;
+  /**
+   * True when the practice has at least one ComplianceItem row for this
+   * framework. When false, the score row shows the "Not assessed" setup
+   * state (blue dot, em-dash instead of the score number).
+   */
+  assessed: boolean;
 }
 
 export interface SidebarProps {
@@ -96,13 +102,16 @@ function SoonBadge() {
   );
 }
 
-function ScoreDot({ score }: { score: number }) {
+function ScoreDot({ score, assessed }: { score: number; assessed: boolean }) {
   return (
     <span
       data-slot="score-dot"
+      data-assessed={assessed ? "true" : "false"}
       aria-hidden="true"
       className="inline-block h-2 w-2 rounded-full"
-      style={{ backgroundColor: scoreToColorToken(score) }}
+      style={{
+        backgroundColor: assessed ? scoreToColorToken(score) : NOT_ASSESSED_COLOR_TOKEN,
+      }}
     />
   );
 }
@@ -193,8 +202,8 @@ export function Sidebar({
                   <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
                   <span className="truncate">{label}</span>
                   <span className="ml-auto flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground">
-                    <ScoreDot score={item.score} />
-                    <span>{item.score}</span>
+                    <ScoreDot score={item.score} assessed={item.assessed} />
+                    <span>{item.assessed ? item.score : "—"}</span>
                   </span>
                 </Link>
               </li>

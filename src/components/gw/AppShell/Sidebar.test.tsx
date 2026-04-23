@@ -12,9 +12,9 @@ vi.mock("next/navigation", () => ({
 
 function makeItems(): MyComplianceItem[] {
   return [
-    { code: "HIPAA", name: "HIPAA", score: 82 },
-    { code: "OSHA", name: "OSHA", shortName: "OSHA", score: 46 },
-    { code: "OIG", name: "OIG Compliance", score: 10 },
+    { code: "HIPAA", name: "HIPAA", score: 82, assessed: true },
+    { code: "OSHA", name: "OSHA", shortName: "OSHA", score: 46, assessed: true },
+    { code: "OIG", name: "OIG Compliance", score: 10, assessed: true },
   ];
 }
 
@@ -67,13 +67,13 @@ describe("<Sidebar>", () => {
     expect(oshaLink).not.toHaveAttribute("aria-current");
   });
 
-  it("renders My Programs items with a Soon badge (except Staff, which is live)", () => {
+  it("renders My Programs items with a Soon badge (except live links)", () => {
     pathnameMock.mockReturnValue("/dashboard");
     render(<Sidebar myComplianceItems={makeItems()} />);
-    // Staff is now a live link (no Soon badge); 6 remaining programs
-    // + 3 audit-and-insights items = 9 "Soon" badges total.
+    // 6 programs are live (Staff, Policies, Training, Credentials, Vendors, Risk);
+    // Incidents is the only pending program + 3 Audit & Insights items = 4 Soon badges.
     const soonBadges = screen.getAllByText(/soon/i);
-    expect(soonBadges.length).toBeGreaterThanOrEqual(9);
+    expect(soonBadges.length).toBeGreaterThanOrEqual(4);
     // Specific program names should be visible as static labels.
     expect(screen.getByText(/staff/i)).toBeInTheDocument();
     expect(screen.getByText(/policies/i)).toBeInTheDocument();
@@ -122,7 +122,7 @@ describe("<Sidebar>", () => {
     render(
       <Sidebar
         myComplianceItems={[
-          { code: "HIPAA", name: "HIPAA Privacy Rule", shortName: "HIPAA", score: 50 },
+          { code: "HIPAA", name: "HIPAA Privacy Rule", shortName: "HIPAA", score: 50, assessed: true },
         ]}
       />,
     );
@@ -137,5 +137,23 @@ describe("<Sidebar>", () => {
     pathnameMock.mockReturnValue("/dashboard");
     render(<Sidebar myComplianceItems={[]} />);
     expect(screen.getByText(/no frameworks/i)).toBeInTheDocument();
+  });
+
+  it("renders the 'Not assessed' setup state: em-dash instead of score + blue dot", async () => {
+    pathnameMock.mockReturnValue("/dashboard");
+    const { container } = render(
+      <Sidebar
+        myComplianceItems={[
+          { code: "TCPA", name: "TCPA", score: 0, assessed: false },
+        ]}
+      />,
+    );
+    const { NOT_ASSESSED_COLOR_TOKEN } = await import("@/lib/utils");
+    // em-dash stands in for the score number when not assessed
+    expect(screen.getByText("\u2014")).toBeInTheDocument();
+    const dot = container.querySelector<HTMLElement>("[data-slot='score-dot']");
+    if (!dot) throw new Error("missing score dot");
+    expect(dot.getAttribute("data-assessed")).toBe("false");
+    expect(dot.style.backgroundColor || dot.getAttribute("style") || "").toContain(NOT_ASSESSED_COLOR_TOKEN);
   });
 });
