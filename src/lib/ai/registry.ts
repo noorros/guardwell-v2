@@ -12,11 +12,6 @@
 
 import { z } from "zod";
 import {
-  HIPAA_ASSESS_SYSTEM,
-  hipaaAssessInputSchema,
-  hipaaAssessOutputSchema,
-} from "./prompts/hipaa-assess";
-import {
   PAGE_HELP_SYSTEM,
   pageHelpInputSchema,
   pageHelpOutputSchema,
@@ -39,23 +34,8 @@ export interface PromptDef<
   maxTokens: number;
 }
 
-function idToToolName(id: string): string {
-  return id.replace(/\./g, "_");
-}
 
 export const PROMPTS = {
-  "hipaa.assess.v1": {
-    id: "hipaa.assess.v1",
-    version: 1,
-    model: "claude-opus-4-7",
-    system: HIPAA_ASSESS_SYSTEM,
-    inputSchema: hipaaAssessInputSchema,
-    outputSchema: hipaaAssessOutputSchema,
-    toolName: idToToolName("hipaa.assess.v1"),
-    toolDescription:
-      "Return a best-guess status (COMPLIANT | GAP | NOT_STARTED) and reason for each requested HIPAA requirement code.",
-    maxTokens: 2048,
-  },
   "assistant.page-help.v1": {
     id: "assistant.page-help.v1",
     version: 1,

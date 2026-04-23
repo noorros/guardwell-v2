@@ -26,8 +26,7 @@
     "db:seed:training": "tsx scripts/seed-training.ts",
     "db:seed:credentials": "tsx scripts/seed-credentials.ts",
     "db:seed:sra": "tsx scripts/seed-sra.ts",
-    "db:seed:state-overlays": "tsx scripts/seed-state-overlays.ts",
-    "eval:prompts": "tsx scripts/eval-prompts.ts"
+    "db:seed:state-overlays": "tsx scripts/seed-state-overlays.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",

@@ -14,7 +14,6 @@ import {
 } from "@/components/gw/ModuleActivityFeed";
 import { AiAssistTrigger } from "@/components/gw/AiAssistDrawer/AiAssistTrigger";
 import { ChecklistItemServer } from "./ChecklistItemServer";
-import { AiAssessmentButton } from "./AiAssessmentButton";
 import type { AiReasonSource } from "@/components/gw/ChecklistItem/AiReasonIndicator";
 import {
   getPracticeJurisdictions,
@@ -232,7 +231,6 @@ export default async function ModulePage({
                 summary: `${framework.name} requirements for ${pu.practice.name}`,
               }}
             />
-            <AiAssessmentButton frameworkCode={framework.code} />
           </div>
         </div>
         <div className="space-y-2">
