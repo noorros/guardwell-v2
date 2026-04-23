@@ -26,6 +26,8 @@ export const EVENT_TYPES = [
   "INCIDENT_RESOLVED",
   "INVITATION_ACCEPTED",
   "INVITATION_REVOKED",
+  "INVITATION_RESENT",
+  "MEMBER_REMOVED",
   "PRACTICE_PROFILE_UPDATED",
 ] as const;
 
@@ -74,6 +76,18 @@ export const EVENT_SCHEMAS = {
   INVITATION_REVOKED: {
     1: z.object({
       invitationId: z.string().min(1),
+    }),
+  },
+  INVITATION_RESENT: {
+    1: z.object({
+      invitationId: z.string().min(1),
+      newExpiresAt: z.string().datetime(),
+    }),
+  },
+  MEMBER_REMOVED: {
+    1: z.object({
+      practiceUserId: z.string().min(1),
+      removedUserId: z.string().min(1),
     }),
   },
   REQUIREMENT_STATUS_UPDATED: {
