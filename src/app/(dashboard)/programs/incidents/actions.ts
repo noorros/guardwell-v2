@@ -1,0 +1,211 @@
+// src/app/(dashboard)/programs/incidents/actions.ts
+"use server";
+
+import { randomUUID } from "node:crypto";
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { requireUser } from "@/lib/auth";
+import { getPracticeUser } from "@/lib/rbac";
+import { appendEventAndApply } from "@/lib/events";
+import {
+  projectIncidentReported,
+  projectIncidentBreachDetermined,
+  projectIncidentResolved,
+} from "@/lib/events/projections/incident";
+
+const IncidentTypeEnum = z.enum([
+  "PRIVACY",
+  "SECURITY",
+  "OSHA_RECORDABLE",
+  "NEAR_MISS",
+  "DEA_THEFT_LOSS",
+  "CLIA_QC_FAILURE",
+  "TCPA_COMPLAINT",
+]);
+const SeverityEnum = z.enum(["CRITICAL", "HIGH", "MEDIUM", "LOW"]);
+const OshaOutcomeEnum = z.enum([
+  "DEATH",
+  "DAYS_AWAY",
+  "RESTRICTED",
+  "OTHER_RECORDABLE",
+  "FIRST_AID",
+]);
+
+const ReportInput = z.object({
+  title: z.string().min(1).max(200),
+  description: z.string().min(1).max(5000),
+  type: IncidentTypeEnum,
+  severity: SeverityEnum,
+  phiInvolved: z.boolean(),
+  affectedCount: z.number().int().min(0).nullable().optional(),
+  discoveredAt: z.string().datetime(),
+  patientState: z
+    .string()
+    .length(2)
+    .regex(/^[A-Z]{2}$/)
+    .nullable()
+    .optional(),
+  oshaBodyPart: z.string().max(200).nullable().optional(),
+  oshaInjuryNature: z.string().max(200).nullable().optional(),
+  oshaOutcome: OshaOutcomeEnum.nullable().optional(),
+  oshaDaysAway: z.number().int().min(0).nullable().optional(),
+  oshaDaysRestricted: z.number().int().min(0).nullable().optional(),
+});
+
+export interface ReportIncidentResult {
+  incidentId: string;
+}
+
+export async function reportIncidentAction(
+  input: z.infer<typeof ReportInput>,
+): Promise<ReportIncidentResult> {
+  const user = await requireUser();
+  const pu = await getPracticeUser();
+  if (!pu) throw new Error("Unauthorized");
+  const parsed = ReportInput.parse(input);
+
+  const incidentId = randomUUID();
+  const payload = {
+    incidentId,
+    title: parsed.title,
+    description: parsed.description,
+    type: parsed.type,
+    severity: parsed.severity,
+    phiInvolved: parsed.phiInvolved,
+    affectedCount: parsed.affectedCount ?? null,
+    discoveredAt: parsed.discoveredAt,
+    patientState: parsed.patientState ?? null,
+    oshaBodyPart: parsed.oshaBodyPart ?? null,
+    oshaInjuryNature: parsed.oshaInjuryNature ?? null,
+    oshaOutcome: parsed.oshaOutcome ?? null,
+    oshaDaysAway: parsed.oshaDaysAway ?? null,
+    oshaDaysRestricted: parsed.oshaDaysRestricted ?? null,
+  };
+
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: user.id,
+      type: "INCIDENT_REPORTED",
+      payload,
+    },
+    async (tx) =>
+      projectIncidentReported(tx, {
+        practiceId: pu.practiceId,
+        reportedByUserId: user.id,
+        payload,
+      }),
+  );
+
+  revalidatePath("/programs/incidents");
+  revalidatePath("/dashboard");
+  revalidatePath("/modules/hipaa");
+  revalidatePath("/modules/osha");
+
+  return { incidentId };
+}
+
+const BreachInput = z.object({
+  incidentId: z.string().min(1),
+  factor1Score: z.number().int().min(1).max(5),
+  factor2Score: z.number().int().min(1).max(5),
+  factor3Score: z.number().int().min(1).max(5),
+  factor4Score: z.number().int().min(1).max(5),
+  affectedCount: z.number().int().min(0),
+});
+
+export async function completeBreachDeterminationAction(
+  input: z.infer<typeof BreachInput>,
+): Promise<{ isBreach: boolean; overallRiskScore: number }> {
+  const user = await requireUser();
+  const pu = await getPracticeUser();
+  if (!pu) throw new Error("Unauthorized");
+  const parsed = BreachInput.parse(input);
+
+  // HIPAA §164.402 "low probability of compromise" analysis. Each factor
+  // is 1-5 (5 = high probability). Composite ≥ 50 (half of 100) = breach.
+  // Hard trigger: any individual factor at 5 forces isBreach=true.
+  const factors = [
+    parsed.factor1Score,
+    parsed.factor2Score,
+    parsed.factor3Score,
+    parsed.factor4Score,
+  ];
+  const sum = factors.reduce((a, b) => a + b, 0);
+  const overallRiskScore = Math.round((sum / (factors.length * 5)) * 100);
+  const hasMaxFactor = factors.some((f) => f === 5);
+  const isBreach = hasMaxFactor || overallRiskScore >= 50;
+  const ocrNotifyRequired = isBreach;
+
+  const payload = {
+    incidentId: parsed.incidentId,
+    factor1Score: parsed.factor1Score,
+    factor2Score: parsed.factor2Score,
+    factor3Score: parsed.factor3Score,
+    factor4Score: parsed.factor4Score,
+    overallRiskScore,
+    isBreach,
+    affectedCount: parsed.affectedCount,
+    ocrNotifyRequired,
+  };
+
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: user.id,
+      type: "INCIDENT_BREACH_DETERMINED",
+      payload,
+    },
+    async (tx) =>
+      projectIncidentBreachDetermined(tx, {
+        practiceId: pu.practiceId,
+        payload,
+      }),
+  );
+
+  revalidatePath("/programs/incidents");
+  revalidatePath(`/programs/incidents/${parsed.incidentId}`);
+  revalidatePath("/dashboard");
+  revalidatePath("/modules/hipaa");
+
+  return { isBreach, overallRiskScore };
+}
+
+const ResolveInput = z.object({
+  incidentId: z.string().min(1),
+  resolution: z.string().max(2000).nullable().optional(),
+});
+
+export async function resolveIncidentAction(
+  input: z.infer<typeof ResolveInput>,
+): Promise<void> {
+  const user = await requireUser();
+  const pu = await getPracticeUser();
+  if (!pu) throw new Error("Unauthorized");
+  const parsed = ResolveInput.parse(input);
+
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: user.id,
+      type: "INCIDENT_RESOLVED",
+      payload: {
+        incidentId: parsed.incidentId,
+        resolution: parsed.resolution ?? null,
+      },
+    },
+    async (tx) =>
+      projectIncidentResolved(tx, {
+        practiceId: pu.practiceId,
+        payload: {
+          incidentId: parsed.incidentId,
+          resolution: parsed.resolution ?? null,
+        },
+      }),
+  );
+
+  revalidatePath("/programs/incidents");
+  revalidatePath(`/programs/incidents/${parsed.incidentId}`);
+  revalidatePath("/dashboard");
+  revalidatePath("/modules/hipaa");
+}

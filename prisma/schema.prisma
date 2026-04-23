@@ -97,6 +97,7 @@ model Practice {
   vendors             Vendor[]
   credentials         Credential[]
   sraAssessments      PracticeSraAssessment[]
+  incidents           Incident[]
   events              EventLog[]
   complianceItems     ComplianceItem[]
   enabledFrameworks   PracticeFramework[]
@@ -192,6 +193,87 @@ model SraQuestion {
   answers PracticeSraAnswer[]
 
   @@index([category, sortOrder])
+}
+
+// Incidents — privacy/security/OSHA events that may or may not be breaches.
+// A reported incident starts with status=OPEN + isBreach=null (undetermined).
+// The breach determination wizard fills the four HIPAA §164.402 "low
+// probability of compromise" factors, computes an overall risk score, and
+// sets isBreach. Resolution closes the incident loop.
+//
+// Derivation hooks:
+//   HIPAA_BREACH_RESPONSE — composite rule: breach-response POLICY adopted
+//     AND no unresolved major breaches.
+//   OSHA_300_LOG — wired via INCIDENT:OSHA_RECORDABLE evidence in a later PR.
+//   HIPAA_CA_BREACH_NOTIFICATION_72HR — wired via state-overlay derivation
+//     in a later PR (notification timestamp ≤ 15 business days from discovery).
+enum IncidentType {
+  PRIVACY
+  SECURITY
+  OSHA_RECORDABLE
+  NEAR_MISS
+  DEA_THEFT_LOSS
+  CLIA_QC_FAILURE
+  TCPA_COMPLAINT
+}
+
+enum IncidentSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum IncidentStatus {
+  OPEN
+  UNDER_INVESTIGATION
+  RESOLVED
+  CLOSED
+}
+
+model Incident {
+  id               String           @id @default(cuid())
+  practiceId       String
+  reportedByUserId String
+  title            String
+  description      String           @db.Text
+  type             IncidentType     @default(PRIVACY)
+  severity         IncidentSeverity @default(LOW)
+  status           IncidentStatus   @default(OPEN)
+  // Breach determination state. null = undetermined (wizard not run yet).
+  isBreach         Boolean?
+  phiInvolved      Boolean          @default(false)
+  affectedCount    Int?
+  discoveredAt     DateTime
+  reportedAt       DateTime         @default(now())
+  resolvedAt       DateTime?
+  // HIPAA §164.402 four-factor analysis (1-5 each; 1=low risk → 5=high risk)
+  factor1Score     Int?
+  factor2Score     Int?
+  factor3Score     Int?
+  factor4Score     Int?
+  overallRiskScore Int? // composite 0-100 produced by the breach wizard
+  breachDeterminedAt DateTime?
+  // HHS Office for Civil Rights notification tracking
+  ocrNotifyRequired Boolean          @default(false)
+  ocrNotifiedAt     DateTime?
+  // OSHA recordable fields — only populated when type=OSHA_RECORDABLE.
+  oshaBodyPart       String?
+  oshaInjuryNature   String?
+  oshaOutcome        String? // DEATH | DAYS_AWAY | RESTRICTED | OTHER_RECORDABLE | FIRST_AID
+  oshaDaysAway       Int?
+  oshaDaysRestricted Int?
+  // State breach-notification tracking — populated once the wizard confirms
+  // isBreach=true for a practice with a non-federal state in scope.
+  patientState       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  @@index([practiceId, status])
+  @@index([practiceId, isBreach])
+  @@index([practiceId, discoveredAt])
 }
 
 // Evidence for HIPAA_SRA. One row per completion event. Drafts (isDraft=true)

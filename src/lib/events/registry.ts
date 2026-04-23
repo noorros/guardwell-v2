@@ -21,6 +21,9 @@ export const EVENT_TYPES = [
   "CREDENTIAL_REMOVED",
   "SRA_COMPLETED",
   "SRA_DRAFT_SAVED",
+  "INCIDENT_REPORTED",
+  "INCIDENT_BREACH_DETERMINED",
+  "INCIDENT_RESOLVED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -176,6 +179,72 @@ export const EVENT_SCHEMAS = {
           notes: z.string().max(2000).nullable().optional(),
         }),
       ),
+    }),
+  },
+  // A new privacy/security/OSHA event reported by a workforce member. Does
+  // NOT immediately declare whether it's a HIPAA breach — that happens
+  // in INCIDENT_BREACH_DETERMINED after the four-factor wizard.
+  INCIDENT_REPORTED: {
+    1: z.object({
+      incidentId: z.string().min(1),
+      title: z.string().min(1).max(200),
+      description: z.string().min(1).max(5000),
+      type: z.enum([
+        "PRIVACY",
+        "SECURITY",
+        "OSHA_RECORDABLE",
+        "NEAR_MISS",
+        "DEA_THEFT_LOSS",
+        "CLIA_QC_FAILURE",
+        "TCPA_COMPLAINT",
+      ]),
+      severity: z.enum(["CRITICAL", "HIGH", "MEDIUM", "LOW"]),
+      phiInvolved: z.boolean(),
+      affectedCount: z.number().int().min(0).nullable().optional(),
+      discoveredAt: z.string().datetime(),
+      patientState: z
+        .string()
+        .length(2)
+        .regex(/^[A-Z]{2}$/)
+        .nullable()
+        .optional(),
+      // OSHA-specific fields — only populated when type=OSHA_RECORDABLE.
+      oshaBodyPart: z.string().max(200).nullable().optional(),
+      oshaInjuryNature: z.string().max(200).nullable().optional(),
+      oshaOutcome: z
+        .enum([
+          "DEATH",
+          "DAYS_AWAY",
+          "RESTRICTED",
+          "OTHER_RECORDABLE",
+          "FIRST_AID",
+        ])
+        .nullable()
+        .optional(),
+      oshaDaysAway: z.number().int().min(0).nullable().optional(),
+      oshaDaysRestricted: z.number().int().min(0).nullable().optional(),
+    }),
+  },
+  // HIPAA §164.402 four-factor breach determination result. Each factor
+  // scored 1-5 (1=low-probability, 5=high-probability of compromise);
+  // overallRiskScore is a 0-100 composite and isBreach is the final call.
+  INCIDENT_BREACH_DETERMINED: {
+    1: z.object({
+      incidentId: z.string().min(1),
+      factor1Score: z.number().int().min(1).max(5),
+      factor2Score: z.number().int().min(1).max(5),
+      factor3Score: z.number().int().min(1).max(5),
+      factor4Score: z.number().int().min(1).max(5),
+      overallRiskScore: z.number().int().min(0).max(100),
+      isBreach: z.boolean(),
+      affectedCount: z.number().int().min(0),
+      ocrNotifyRequired: z.boolean(),
+    }),
+  },
+  INCIDENT_RESOLVED: {
+    1: z.object({
+      incidentId: z.string().min(1),
+      resolution: z.string().max(2000).nullable().optional(),
     }),
   },
 } as const;
