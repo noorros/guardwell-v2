@@ -18,8 +18,14 @@ export const hipaaSraRule: DerivationRule = async (
   practiceId: string,
 ): Promise<DerivedStatus | null> => {
   const cutoff = new Date(Date.now() - 365 * DAY_MS);
+  // Only completed assessments count — drafts (isDraft=true) never
+  // satisfy the HIPAA_SRA obligation, even if answered partially.
   const count = await tx.practiceSraAssessment.count({
-    where: { practiceId, completedAt: { gt: cutoff } },
+    where: {
+      practiceId,
+      isDraft: false,
+      completedAt: { gt: cutoff },
+    },
   });
   return count >= 1 ? "COMPLIANT" : "GAP";
 };

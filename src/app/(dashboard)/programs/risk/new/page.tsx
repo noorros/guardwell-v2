@@ -5,26 +5,62 @@ import { ShieldAlert } from "lucide-react";
 import { db } from "@/lib/db";
 import { getPracticeUser } from "@/lib/rbac";
 import { Breadcrumb } from "@/components/gw/Breadcrumb";
-import { SraWizard } from "./SraWizard";
+import { SraWizard, type SraWizardInitialState } from "./SraWizard";
 
 export const metadata = { title: "New SRA · My Programs" };
 
-export default async function NewSraPage() {
+type Answer = "YES" | "NO" | "PARTIAL" | "NA";
+
+export default async function NewSraPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ draftId?: string }>;
+}) {
   const pu = await getPracticeUser();
   if (!pu) return null;
 
-  const questions = await db.sraQuestion.findMany({
-    orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
-    select: {
-      code: true,
-      category: true,
-      subcategory: true,
-      title: true,
-      description: true,
-      guidance: true,
-      lookFor: true,
-    },
-  });
+  const sp = (await searchParams) ?? {};
+
+  const [questions, draft] = await Promise.all([
+    db.sraQuestion.findMany({
+      orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
+      select: {
+        code: true,
+        category: true,
+        subcategory: true,
+        title: true,
+        description: true,
+        guidance: true,
+        lookFor: true,
+      },
+    }),
+    sp.draftId
+      ? db.practiceSraAssessment.findFirst({
+          where: {
+            id: sp.draftId,
+            practiceId: pu.practiceId,
+            isDraft: true,
+          },
+          include: { answers: { include: { question: true } } },
+        })
+      : Promise.resolve(null),
+  ]);
+
+  let initialState: SraWizardInitialState | undefined;
+  if (draft) {
+    const answerMap: Record<string, Answer> = {};
+    const noteMap: Record<string, string> = {};
+    for (const a of draft.answers) {
+      answerMap[a.question.code] = a.answer as Answer;
+      if (a.notes) noteMap[a.question.code] = a.notes;
+    }
+    initialState = {
+      assessmentId: draft.id,
+      currentStep: draft.currentStep,
+      answers: answerMap,
+      notes: noteMap,
+    };
+  }
 
   return (
     <main className="mx-auto max-w-3xl space-y-6 p-6">
@@ -32,7 +68,7 @@ export default async function NewSraPage() {
         items={[
           { label: "My Programs" },
           { label: "Risk", href: "/programs/risk" as Route },
-          { label: "New SRA" },
+          { label: draft ? "Resume SRA" : "New SRA" },
         ]}
       />
       <header className="flex items-start gap-3">
@@ -40,10 +76,13 @@ export default async function NewSraPage() {
           <ShieldAlert className="h-5 w-5" aria-hidden="true" />
         </span>
         <div className="flex-1">
-          <h1 className="text-2xl font-semibold tracking-tight">New Security Risk Assessment</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {draft ? "Resume Security Risk Assessment" : "New Security Risk Assessment"}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {questions.length} safeguards across 3 categories. Answers save on
-            submit only — don&apos;t close the tab mid-assessment.
+            {questions.length} safeguards across 3 categories. Answers save
+            automatically as you move between steps — it&apos;s safe to close the
+            tab and come back later.
           </p>
         </div>
         <Link
@@ -64,6 +103,7 @@ export default async function NewSraPage() {
           guidance: q.guidance,
           lookFor: q.lookFor,
         }))}
+        initialState={initialState}
       />
     </main>
   );

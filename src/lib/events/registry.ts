@@ -20,6 +20,7 @@ export const EVENT_TYPES = [
   "CREDENTIAL_UPSERTED",
   "CREDENTIAL_REMOVED",
   "SRA_COMPLETED",
+  "SRA_DRAFT_SAVED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -152,6 +153,22 @@ export const EVENT_SCHEMAS = {
       overallScore: z.number().int().min(0).max(100),
       addressedCount: z.number().int().min(0),
       totalCount: z.number().int().min(1),
+      answers: z.array(
+        z.object({
+          questionCode: z.string().min(1),
+          answer: z.enum(["YES", "NO", "PARTIAL", "NA"]),
+          notes: z.string().max(2000).nullable().optional(),
+        }),
+      ),
+    }),
+  },
+  // Save-as-you-go progress event. Emitted every time the SRA wizard
+  // persists a step of the user's answers. Does NOT satisfy HIPAA_SRA —
+  // only SRA_COMPLETED does. Idempotent on assessmentId.
+  SRA_DRAFT_SAVED: {
+    1: z.object({
+      assessmentId: z.string().min(1),
+      currentStep: z.number().int().min(0).max(2),
       answers: z.array(
         z.object({
           questionCode: z.string().min(1),
