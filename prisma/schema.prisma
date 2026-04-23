@@ -112,6 +112,7 @@ model Practice {
   // references PracticeTrack.practiceId, not Practice.id.
   complianceTrack     PracticeTrack?
   destructionLogs     DestructionLog[]
+  techAssets          TechAsset[]
 
   @@index([primaryState])
   @@index([subscriptionStatus])
@@ -902,4 +903,35 @@ model DestructionLog {
 
   @@index([practiceId, destroyedAt])
   @@index([practiceId, documentType])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Technology asset inventory — HIPAA Security Rule §164.310 + .312
+// ────────────────────────────────────────────────────────────────────────────
+//
+// Each row = one piece of tech the practice uses. Used by the SRA to
+// answer "what systems hold or transmit ePHI?" — required for a real
+// risk analysis.
+
+model TechAsset {
+  id             String   @id @default(cuid())
+  practiceId     String
+  name           String
+  // Asset class. Free-form for flexibility but UI offers a fixed set.
+  assetType      String   // SERVER | LAPTOP | DESKTOP | MOBILE | EMR | NETWORK_DEVICE | CLOUD_SERVICE | OTHER
+  processesPhi   Boolean  @default(false)
+  // Encryption posture for at-rest data on this asset.
+  encryption     String   // FULL_DISK | FIELD_LEVEL | NONE | UNKNOWN
+  vendor         String?
+  location       String?  // physical location or hosting region
+  ownerUserId    String?  // staff member responsible
+  notes          String?  @db.Text
+  retiredAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  @@index([practiceId, retiredAt])
+  @@index([practiceId, processesPhi])
 }

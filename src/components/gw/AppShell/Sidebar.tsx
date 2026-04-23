@@ -19,6 +19,7 @@ import {
   FileBarChart2,
   Compass,
   Trash2,
+  Server,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn, scoreToColorToken, NOT_ASSESSED_COLOR_TOKEN } from "@/lib/utils";
@@ -78,6 +79,7 @@ const PROGRAMS: ProgramItem[] = [
   { label: "Credentials", icon: IdCard, href: "/programs/credentials" as Route },
   { label: "Vendors", icon: Building2, href: "/programs/vendors" as Route },
   { label: "Risk", icon: ShieldAlert, href: "/programs/risk" as Route },
+  { label: "Security assets", icon: Server, href: "/programs/security-assets" as Route },
   { label: "Document retention", icon: Trash2, href: "/programs/document-retention" as Route },
 ];
 
