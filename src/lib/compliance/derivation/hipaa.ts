@@ -142,6 +142,107 @@ export async function hipaaBaaRule(
   return allCovered ? "COMPLIANT" : "GAP";
 }
 
+/**
+ * Generic state breach-notification rule factory. Used for every state
+ * overlay where the obligation is "notify affected individuals within
+ * X days of discovery for any breach scoped to that state."
+ *
+ * Derivation logic:
+ *   - No state-scoped breaches yet → COMPLIANT (vacuously satisfied).
+ *   - Every state-scoped breach has affectedIndividualsNotifiedAt within
+ *     the window → COMPLIANT.
+ *   - Any state-scoped breach has no notification yet → GAP (drives
+ *     action regardless of whether the window has elapsed).
+ *   - Any state-scoped breach has notification recorded AFTER the
+ *     window (when windowDays is non-null) → GAP.
+ *
+ * "State-scoped breach" = isBreach=true AND (patientState=stateCode OR
+ * patientState=null AND practice.primaryState=stateCode).
+ *
+ * windowDays=null means "most expedient time possible" — courts read
+ * this strictly but there's no fixed numeric deadline. We treat presence
+ * of a notification as compliance and absence as a gap. The user
+ * judges whether their notice was timely; we surface the obligation.
+ *
+ * useBusinessDays=true skips weekends when computing the deadline (CA's
+ * 15-business-day rule). Federal holidays aren't tracked, so the
+ * computation is a slight overestimate of the real deadline — conservative
+ * for the practice in the borderline case.
+ */
+function stateBreachNotificationRule(
+  stateCode: string,
+  windowDays: number | null,
+  useBusinessDays: boolean = false,
+): DerivationRule {
+  return async (tx, practiceId) => {
+    const practice = await tx.practice.findUnique({
+      where: { id: practiceId },
+      select: { primaryState: true },
+    });
+    const stateBreaches = await tx.incident.findMany({
+      where: {
+        practiceId,
+        isBreach: true,
+        OR: [
+          { patientState: stateCode },
+          ...(practice?.primaryState === stateCode
+            ? [{ patientState: null }]
+            : []),
+        ],
+      },
+      select: {
+        discoveredAt: true,
+        affectedIndividualsNotifiedAt: true,
+      },
+    });
+    if (stateBreaches.length === 0) return "COMPLIANT";
+
+    for (const b of stateBreaches) {
+      if (!b.affectedIndividualsNotifiedAt) return "GAP";
+      if (windowDays !== null) {
+        const deadline = useBusinessDays
+          ? addBusinessDays(b.discoveredAt, windowDays)
+          : addCalendarDays(b.discoveredAt, windowDays);
+        if (b.affectedIndividualsNotifiedAt > deadline) return "GAP";
+      }
+    }
+    return "COMPLIANT";
+  };
+}
+
+/**
+ * California overlay (Cal. Civil Code §56.36 · Health & Safety Code §1280.15).
+ * Backwards-compatible alias kept as an exported name so the original
+ * tests + any external callers continue to work.
+ */
+export const hipaaCaBreachNotification15BizDaysRule: DerivationRule =
+  stateBreachNotificationRule("CA", 15, true);
+
+/** Pure helper. Adds n calendar days to `from`. */
+function addCalendarDays(from: Date, n: number): Date {
+  const result = new Date(from);
+  result.setDate(result.getDate() + n);
+  return result;
+}
+
+/**
+ * Pure helper. Returns the date that is `n` business days after `from`
+ * (skipping weekends only — federal holiday calendar isn't tracked yet,
+ * so the result is a slight overestimate of the actual statutory deadline.
+ * Conservative for the practice: a true holiday-aware computation would
+ * push the deadline LATER, never sooner).
+ */
+function addBusinessDays(from: Date, n: number): Date {
+  const result = new Date(from);
+  let added = 0;
+  while (added < n) {
+    result.setDate(result.getDate() + 1);
+    const day = result.getDay(); // 0 = Sun, 6 = Sat
+    if (day !== 0 && day !== 6) added += 1;
+  }
+  return result;
+}
+
 import { hipaaSraRule } from "./hipaaSra";
 
 export const HIPAA_DERIVATION_RULES: Record<string, DerivationRule> = {
@@ -155,4 +256,30 @@ export const HIPAA_DERIVATION_RULES: Record<string, DerivationRule> = {
   HIPAA_WORKFORCE_TRAINING: hipaaWorkforceTrainingRule,
   HIPAA_BAAS: hipaaBaaRule,
   HIPAA_SRA: hipaaSraRule,
+  // State breach-notification overlays. Each rule shares the same shape:
+  // any state-scoped breach must have affected-individual notice recorded
+  // within the statutory window. See stateBreachNotificationRule for the
+  // GAP/COMPLIANT decision logic and "state-scoped" definition.
+  // Fixed-window states:
+  HIPAA_CA_BREACH_NOTIFICATION_72HR: hipaaCaBreachNotification15BizDaysRule,
+  HIPAA_TX_BREACH_60DAY: stateBreachNotificationRule("TX", 60),
+  HIPAA_FL_FIPA_30DAY: stateBreachNotificationRule("FL", 30),
+  HIPAA_WA_BREACH_30DAY: stateBreachNotificationRule("WA", 30),
+  HIPAA_CO_BREACH_30DAY: stateBreachNotificationRule("CO", 30),
+  HIPAA_OR_BREACH_45DAY: stateBreachNotificationRule("OR", 45),
+  HIPAA_OH_BREACH_45DAY: stateBreachNotificationRule("OH", 45),
+  HIPAA_MD_PIPA_45DAY: stateBreachNotificationRule("MD", 45),
+  // "Most expedient time possible" states — no fixed numeric deadline.
+  // Presence of a notification = COMPLIANT; absence = GAP.
+  HIPAA_NY_BREACH_EXPEDIENT: stateBreachNotificationRule("NY", null),
+  HIPAA_IL_PIPA_BREACH: stateBreachNotificationRule("IL", null),
+  HIPAA_MA_BREACH_ASAP: stateBreachNotificationRule("MA", null),
+  HIPAA_NJ_BREACH_EXPEDIENT: stateBreachNotificationRule("NJ", null),
+  HIPAA_NV_BREACH_EXPEDIENT: stateBreachNotificationRule("NV", null),
+  HIPAA_UT_BREACH_EXPEDIENT: stateBreachNotificationRule("UT", null),
+  HIPAA_GA_BREACH_EXPEDIENT: stateBreachNotificationRule("GA", null),
+  HIPAA_NC_BREACH_EXPEDIENT: stateBreachNotificationRule("NC", null),
+  HIPAA_MI_BREACH_EXPEDIENT: stateBreachNotificationRule("MI", null),
+  HIPAA_PA_BREACH_EXPEDIENT: stateBreachNotificationRule("PA", null),
+  HIPAA_MN_BREACH_EXPEDIENT: stateBreachNotificationRule("MN", null),
 };

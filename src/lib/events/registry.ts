@@ -24,6 +24,10 @@ export const EVENT_TYPES = [
   "INCIDENT_REPORTED",
   "INCIDENT_BREACH_DETERMINED",
   "INCIDENT_RESOLVED",
+  "INCIDENT_NOTIFIED_HHS",
+  "INCIDENT_NOTIFIED_AFFECTED_INDIVIDUALS",
+  "INCIDENT_NOTIFIED_MEDIA",
+  "INCIDENT_NOTIFIED_STATE_AG",
   "INVITATION_ACCEPTED",
   "INVITATION_REVOKED",
   "INVITATION_RESENT",
@@ -277,6 +281,40 @@ export const EVENT_SCHEMAS = {
     1: z.object({
       incidentId: z.string().min(1),
       resolution: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  // Granular post-determination notification events. Each one updates a
+  // dedicated timestamp column on Incident and triggers rederivation of
+  // any requirement whose acceptedEvidenceTypes match the matching code
+  // (e.g. INCIDENT:NOTIFIED_AFFECTED_INDIVIDUALS for the CA 15-business-
+  // day overlay). notifiedAt is the wall-clock time the notice was sent
+  // (not necessarily "now") so backdated entries are supported.
+  INCIDENT_NOTIFIED_HHS: {
+    1: z.object({
+      incidentId: z.string().min(1),
+      notifiedAt: z.string().datetime(),
+    }),
+  },
+  INCIDENT_NOTIFIED_AFFECTED_INDIVIDUALS: {
+    1: z.object({
+      incidentId: z.string().min(1),
+      notifiedAt: z.string().datetime(),
+    }),
+  },
+  INCIDENT_NOTIFIED_MEDIA: {
+    1: z.object({
+      incidentId: z.string().min(1),
+      notifiedAt: z.string().datetime(),
+    }),
+  },
+  INCIDENT_NOTIFIED_STATE_AG: {
+    1: z.object({
+      incidentId: z.string().min(1),
+      notifiedAt: z.string().datetime(),
+      stateCode: z
+        .string()
+        .length(2)
+        .regex(/^[A-Z]{2}$/),
     }),
   },
   // Practice compliance profile upsert. Emitted by the onboarding

@@ -1,16 +1,18 @@
 // src/lib/events/projections/incident.ts
 //
-// Three projections for the incident lifecycle:
+// Projections for the incident lifecycle:
 //
-//   INCIDENT_REPORTED          → create row (status=OPEN, isBreach=null)
-//   INCIDENT_BREACH_DETERMINED → update with factor scores + isBreach
-//                                + rederive HIPAA_BREACH_RESPONSE + OSHA_300_LOG
-//   INCIDENT_RESOLVED          → set resolvedAt + status=RESOLVED
-//                                + rederive HIPAA_BREACH_RESPONSE (unresolved→resolved)
-//
-// Notifications to HHS, affected individuals, media, or state AG will get
-// their own events in a follow-up PR. For this PR the breach-determination
-// event carries ocrNotifyRequired as a flag the UI uses to prompt the user.
+//   INCIDENT_REPORTED                       → create row (status=OPEN)
+//   INCIDENT_BREACH_DETERMINED              → factor scores + isBreach
+//                                             + rederive HIPAA_BREACH_RESPONSE
+//   INCIDENT_RESOLVED                       → resolvedAt + status=RESOLVED
+//                                             + rederive HIPAA_BREACH_RESPONSE
+//   INCIDENT_NOTIFIED_HHS                   → ocrNotifiedAt timestamp
+//   INCIDENT_NOTIFIED_AFFECTED_INDIVIDUALS  → affectedIndividualsNotifiedAt
+//                                             + rederive state-overlay rules
+//                                             (e.g. HIPAA_CA_BREACH_NOTIFICATION_72HR)
+//   INCIDENT_NOTIFIED_MEDIA                 → mediaNotifiedAt
+//   INCIDENT_NOTIFIED_STATE_AG              → stateAgNotifiedAt
 
 import type { Prisma } from "@prisma/client";
 import type { PayloadFor } from "../registry";
@@ -19,6 +21,13 @@ import { rederiveRequirementStatus } from "@/lib/compliance/derivation/rederive"
 type ReportedPayload = PayloadFor<"INCIDENT_REPORTED", 1>;
 type BreachPayload = PayloadFor<"INCIDENT_BREACH_DETERMINED", 1>;
 type ResolvedPayload = PayloadFor<"INCIDENT_RESOLVED", 1>;
+type NotifiedHhsPayload = PayloadFor<"INCIDENT_NOTIFIED_HHS", 1>;
+type NotifiedAffectedPayload = PayloadFor<
+  "INCIDENT_NOTIFIED_AFFECTED_INDIVIDUALS",
+  1
+>;
+type NotifiedMediaPayload = PayloadFor<"INCIDENT_NOTIFIED_MEDIA", 1>;
+type NotifiedStateAgPayload = PayloadFor<"INCIDENT_NOTIFIED_STATE_AG", 1>;
 
 export async function projectIncidentReported(
   tx: Prisma.TransactionClient,
@@ -140,5 +149,125 @@ export async function projectIncidentResolved(
     tx,
     practiceId,
     "POLICY:HIPAA_BREACH_RESPONSE_POLICY",
+  );
+}
+
+async function loadIncidentForNotification(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  incidentId: string,
+  eventType: string,
+): Promise<void> {
+  const existing = await tx.incident.findUnique({
+    where: { id: incidentId },
+    select: { practiceId: true },
+  });
+  if (!existing) {
+    throw new Error(
+      `${eventType} refused: incident ${incidentId} not found`,
+    );
+  }
+  if (existing.practiceId !== practiceId) {
+    throw new Error(
+      `${eventType} refused: incident ${incidentId} belongs to a different practice`,
+    );
+  }
+}
+
+export async function projectIncidentNotifiedHhs(
+  tx: Prisma.TransactionClient,
+  args: { practiceId: string; payload: NotifiedHhsPayload },
+): Promise<void> {
+  const { practiceId, payload } = args;
+  await loadIncidentForNotification(
+    tx,
+    practiceId,
+    payload.incidentId,
+    "INCIDENT_NOTIFIED_HHS",
+  );
+  await tx.incident.update({
+    where: { id: payload.incidentId },
+    data: { ocrNotifiedAt: new Date(payload.notifiedAt) },
+  });
+  await rederiveRequirementStatus(
+    tx,
+    practiceId,
+    "INCIDENT:NOTIFIED_HHS",
+  );
+}
+
+export async function projectIncidentNotifiedAffectedIndividuals(
+  tx: Prisma.TransactionClient,
+  args: { practiceId: string; payload: NotifiedAffectedPayload },
+): Promise<void> {
+  const { practiceId, payload } = args;
+  await loadIncidentForNotification(
+    tx,
+    practiceId,
+    payload.incidentId,
+    "INCIDENT_NOTIFIED_AFFECTED_INDIVIDUALS",
+  );
+  await tx.incident.update({
+    where: { id: payload.incidentId },
+    data: { affectedIndividualsNotifiedAt: new Date(payload.notifiedAt) },
+  });
+  // Every state-overlay breach-notification rule keys off affected-
+  // individual notice timing. The state-overlay seed uses one of a few
+  // canonical evidence-type codes per overlay (15-biz-days for CA, N-day
+  // windows for fixed-deadline states, EXPEDIENT for the rest).
+  // Rederiving each one here drives the matching rule via the registry.
+  for (const evidenceCode of [
+    "INCIDENT:BREACH_NOTIFIED_15_BIZ_DAYS",
+    "INCIDENT:BREACH_NOTIFIED_30_DAYS",
+    "INCIDENT:BREACH_NOTIFIED_45_DAYS",
+    "INCIDENT:BREACH_NOTIFIED_60_DAYS",
+    "INCIDENT:BREACH_NOTIFIED_EXPEDIENT",
+    "INCIDENT:NOTIFIED_AFFECTED_INDIVIDUALS",
+  ]) {
+    await rederiveRequirementStatus(tx, practiceId, evidenceCode);
+  }
+}
+
+export async function projectIncidentNotifiedMedia(
+  tx: Prisma.TransactionClient,
+  args: { practiceId: string; payload: NotifiedMediaPayload },
+): Promise<void> {
+  const { practiceId, payload } = args;
+  await loadIncidentForNotification(
+    tx,
+    practiceId,
+    payload.incidentId,
+    "INCIDENT_NOTIFIED_MEDIA",
+  );
+  await tx.incident.update({
+    where: { id: payload.incidentId },
+    data: { mediaNotifiedAt: new Date(payload.notifiedAt) },
+  });
+  await rederiveRequirementStatus(
+    tx,
+    practiceId,
+    "INCIDENT:NOTIFIED_MEDIA",
+  );
+}
+
+export async function projectIncidentNotifiedStateAg(
+  tx: Prisma.TransactionClient,
+  args: { practiceId: string; payload: NotifiedStateAgPayload },
+): Promise<void> {
+  const { practiceId, payload } = args;
+  await loadIncidentForNotification(
+    tx,
+    practiceId,
+    payload.incidentId,
+    "INCIDENT_NOTIFIED_STATE_AG",
+  );
+  await tx.incident.update({
+    where: { id: payload.incidentId },
+    data: { stateAgNotifiedAt: new Date(payload.notifiedAt) },
+  });
+  await rederiveRequirementStatus(
+    tx,
+    practiceId,
+    "INCIDENT:NOTIFIED_STATE_AG",
   );
 }
