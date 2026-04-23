@@ -1,11 +1,13 @@
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import { Check, AlertTriangle, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type ChecklistStatus = "compliant" | "gap" | "not_started";
 
 export interface ChecklistItemProps {
-  title: string;
+  /** Title can be a plain string or a ReactNode (e.g. title with a leading
+   *  state-overlay badge). String is still the common case. */
+  title: ReactNode;
   description?: string;
   status: ChecklistStatus;
   onStatusChange: (next: ChecklistStatus) => void;

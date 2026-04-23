@@ -6,17 +6,34 @@
 // derivation-driven projection like OFFICER_DESIGNATED). Lives in
 // src/lib/events/ so the no-direct-projection-mutation lint rule allows
 // its PracticeFramework upsert.
+//
+// Jurisdiction-aware: totals and compliant counts are scoped to
+// requirements that apply to the practice (federal OR overlap any of
+// the practice's operatingStates + primaryState). CA-only requirements
+// don't drag down an AZ practice's score.
 
 import type { Prisma } from "@prisma/client";
 import { scoreToLabel } from "@/lib/utils";
+import {
+  getPracticeJurisdictions,
+  jurisdictionRequirementFilter,
+} from "@/lib/compliance/jurisdictions";
 
 export async function recomputeFrameworkScore(
   tx: Prisma.TransactionClient,
   practiceId: string,
   frameworkId: string,
 ): Promise<void> {
+  const practice = await tx.practice.findUnique({
+    where: { id: practiceId },
+    select: { primaryState: true, operatingStates: true },
+  });
+  if (!practice) return;
+  const jurisdictions = getPracticeJurisdictions(practice);
+  const jurisdictionClause = jurisdictionRequirementFilter(jurisdictions);
+
   const totalCount = await tx.regulatoryRequirement.count({
-    where: { frameworkId },
+    where: { frameworkId, ...jurisdictionClause },
   });
   if (totalCount === 0) return;
 
@@ -24,7 +41,7 @@ export async function recomputeFrameworkScore(
     where: {
       practiceId,
       status: "COMPLIANT",
-      requirement: { frameworkId },
+      requirement: { frameworkId, ...jurisdictionClause },
     },
   });
 

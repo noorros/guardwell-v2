@@ -27,6 +27,10 @@
 import type { Prisma } from "@prisma/client";
 import { DERIVATION_RULES } from "./index";
 import { recomputeFrameworkScore } from "@/lib/events/projections/frameworkScore";
+import {
+  getPracticeJurisdictions,
+  jurisdictionRequirementFilter,
+} from "@/lib/compliance/jurisdictions";
 
 type EventLogPayload = { requirementId?: string; source?: string } | null;
 
@@ -40,8 +44,24 @@ export async function rederiveRequirementStatus(
   practiceId: string,
   evidenceTypeCode: string,
 ): Promise<RederiveResult> {
+  // State-overlay guard: only rederive requirements that apply to this
+  // practice's jurisdictions (primaryState + operatingStates). A CA-only
+  // requirement should never spawn a ComplianceItem row on an AZ practice
+  // even if the evidence event arrives.
+  const practice = await tx.practice.findUnique({
+    where: { id: practiceId },
+    select: { primaryState: true, operatingStates: true },
+  });
+  if (!practice) return { rederived: 0 };
+  const jurisdictionClause = jurisdictionRequirementFilter(
+    getPracticeJurisdictions(practice),
+  );
+
   const requirements = await tx.regulatoryRequirement.findMany({
-    where: { acceptedEvidenceTypes: { has: evidenceTypeCode } },
+    where: {
+      acceptedEvidenceTypes: { has: evidenceTypeCode },
+      ...jurisdictionClause,
+    },
     include: { framework: true },
   });
 
