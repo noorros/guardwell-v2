@@ -26,6 +26,7 @@ export const EVENT_TYPES = [
   "INCIDENT_RESOLVED",
   "INVITATION_ACCEPTED",
   "INVITATION_REVOKED",
+  "PRACTICE_PROFILE_UPDATED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -262,6 +263,32 @@ export const EVENT_SCHEMAS = {
     1: z.object({
       incidentId: z.string().min(1),
       resolution: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  // Practice compliance profile upsert. Emitted by the onboarding
+  // compliance-profile step and the /settings/practice surface.
+  // Projection writes PracticeComplianceProfile AND flips
+  // PracticeFramework.enabled per the applicability matrix.
+  PRACTICE_PROFILE_UPDATED: {
+    1: z.object({
+      hasInHouseLab: z.boolean(),
+      dispensesControlledSubstances: z.boolean(),
+      medicareParticipant: z.boolean(),
+      billsMedicaid: z.boolean(),
+      subjectToMacraMips: z.boolean(),
+      sendsAutomatedPatientMessages: z.boolean(),
+      specialtyCategory: z
+        .enum([
+          "PRIMARY_CARE",
+          "SPECIALTY",
+          "DENTAL",
+          "BEHAVIORAL",
+          "ALLIED",
+          "OTHER",
+        ])
+        .nullable()
+        .optional(),
+      providerCount: z.number().int().min(0).nullable().optional(),
     }),
   },
 } as const;
