@@ -18,6 +18,11 @@ export default defineConfig({
           setupFiles: ["./tests/setup.ts"],
           include: ["tests/**/*.test.ts", "src/lib/**/*.test.ts"],
           globals: false,
+          // Integration tests share one Docker Postgres DB, so parallel
+          // file execution races on cross-file FK/cleanup ordering. Each
+          // file still runs tests in order with afterEach cleanup; we
+          // just serialize between files.
+          fileParallelism: false,
         },
       },
       {
