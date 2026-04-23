@@ -92,7 +92,7 @@ const OSHA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1,
     description:
       "Maintain OSHA 300 log of work-related injuries/illnesses. Post 300A Annual Summary Feb 1–Apr 30 each year. 301 Incident Reports within 7 days of incident. Applies to practices with 10+ employees; others keep sharps injury log per §1910.1030.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["INCIDENT:OSHA_RECORDABLE"],
     sortOrder: 50,
   },
   {
