@@ -16,6 +16,7 @@ const PROJECTION_TABLES = new Set([
   "practiceInvitation",
   "notification",
   "notificationPreference",
+  "practiceComplianceProfile",
 ]);
 
 const MUTATING_METHODS = new Set([

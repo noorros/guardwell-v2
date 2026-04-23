@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { Route } from "next";
 import { getPracticeUser } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/gw/AppShell";
@@ -11,6 +12,18 @@ export default async function DashboardLayout({
 }) {
   const pu = await getPracticeUser();
   if (!pu) redirect("/onboarding/create-practice");
+
+  // Force the compliance-profile step until the owner completes it.
+  // OWNER/ADMIN are the only roles that can fill the questionnaire, so
+  // STAFF/VIEWER users on a pre-profile practice see the dashboard
+  // without the step — their owner will fill it next time they sign in.
+  if (pu.role === "OWNER" || pu.role === "ADMIN") {
+    const profile = await db.practiceComplianceProfile.findUnique({
+      where: { practiceId: pu.practiceId },
+      select: { practiceId: true },
+    });
+    if (!profile) redirect("/onboarding/compliance-profile" as Route);
+  }
 
   // Enabled frameworks only — the practice's "My Compliance" list. Ordered by
   // the framework-level sortOrder so HIPAA/OSHA/OIG stay at the top regardless

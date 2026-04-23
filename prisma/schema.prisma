@@ -101,6 +101,7 @@ model Practice {
   sraAssessments      PracticeSraAssessment[]
   incidents           Incident[]
   invitations         PracticeInvitation[]
+  complianceProfile   PracticeComplianceProfile?
   events              EventLog[]
   complianceItems     ComplianceItem[]
   enabledFrameworks   PracticeFramework[]
@@ -196,6 +197,32 @@ model SraQuestion {
   answers PracticeSraAnswer[]
 
   @@index([category, sortOrder])
+}
+
+// Practice-level compliance characteristics. Drives which frameworks
+// appear in the sidebar: a practice without an in-house lab has CLIA
+// auto-disabled; a practice that doesn't dispense controlled
+// substances has DEA auto-disabled; and so on. HIPAA + OSHA + OIG stay
+// on for everyone — they're baseline for any healthcare practice.
+//
+// Filled during /onboarding/compliance-profile right after the
+// practice is created. Editable later at /settings/practice.
+model PracticeComplianceProfile {
+  practiceId                    String   @id
+  // Operational characteristics that gate framework applicability.
+  hasInHouseLab                 Boolean  @default(false)   // → CLIA
+  dispensesControlledSubstances Boolean  @default(false)   // → DEA
+  medicareParticipant           Boolean  @default(true)    // → CMS
+  billsMedicaid                 Boolean  @default(true)    // → CMS (either)
+  subjectToMacraMips            Boolean  @default(true)    // → MACRA
+  sendsAutomatedPatientMessages Boolean  @default(true)    // → TCPA
+  // Descriptive metadata — not gates today but surfaced in reports.
+  specialtyCategory             String?  // PRIMARY_CARE | SPECIALTY | DENTAL | BEHAVIORAL | ALLIED | OTHER
+  providerCount                 Int?
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
 }
 
 // Per-user notification inbox. One row per user-visible event. Multiple
