@@ -13,6 +13,7 @@ import {
   type ActivityStatus,
 } from "@/components/gw/ModuleActivityFeed";
 import { AiAssistTrigger } from "@/components/gw/AiAssistDrawer/AiAssistTrigger";
+import { EXTRAS_BY_FRAMEWORK_CODE } from "@/components/gw/Extras/registry";
 import { ChecklistItemServer } from "./ChecklistItemServer";
 import type { AiReasonSource } from "@/components/gw/ChecklistItem/AiReasonIndicator";
 import {
@@ -275,6 +276,26 @@ export default async function ModulePage({
           distinctActorCount={distinctActorCount}
         />
       </section>
+      {(() => {
+        // Section G — per-framework Extras (calculators, quick references,
+        // template generators). Lookup is by framework.code; missing entries
+        // render nothing, so operational frameworks (Training, Policies, etc.)
+        // simply omit Section G.
+        const Extras = EXTRAS_BY_FRAMEWORK_CODE[framework.code];
+        if (!Extras) return null;
+        return (
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold text-foreground">
+              {framework.shortName ?? framework.code} helpers
+            </h2>
+            <Extras
+              practiceName={pu.practice.name}
+              practicePrimaryState={pu.practice.primaryState}
+              practiceProviderCount={pu.practice.providerCount ?? null}
+            />
+          </section>
+        );
+      })()}
     </main>
   );
 }
