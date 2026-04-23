@@ -98,6 +98,7 @@ model Practice {
   credentials         Credential[]
   sraAssessments      PracticeSraAssessment[]
   incidents           Incident[]
+  invitations         PracticeInvitation[]
   events              EventLog[]
   complianceItems     ComplianceItem[]
   enabledFrameworks   PracticeFramework[]
@@ -193,6 +194,28 @@ model SraQuestion {
   answers PracticeSraAnswer[]
 
   @@index([category, sortOrder])
+}
+
+// Team invitations. An OWNER/ADMIN invites an email with a role; the
+// invitation persists until accepted, revoked, or expired. Accept flow
+// creates a PracticeUser for the invitee on first sign-in.
+model PracticeInvitation {
+  id               String    @id @default(cuid())
+  practiceId       String
+  invitedByUserId  String
+  invitedEmail     String
+  role             PracticeRole
+  token            String    @unique
+  expiresAt        DateTime
+  acceptedAt       DateTime?
+  acceptedByUserId String?
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  @@index([practiceId, acceptedAt])
+  @@index([invitedEmail])
 }
 
 // Incidents — privacy/security/OSHA events that may or may not be breaches.

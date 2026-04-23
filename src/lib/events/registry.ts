@@ -24,6 +24,8 @@ export const EVENT_TYPES = [
   "INCIDENT_REPORTED",
   "INCIDENT_BREACH_DETERMINED",
   "INCIDENT_RESOLVED",
+  "INVITATION_ACCEPTED",
+  "INVITATION_REVOKED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -54,8 +56,23 @@ export const EVENT_SCHEMAS = {
   },
   USER_INVITED: {
     1: z.object({
+      invitationId: z.string().min(1),
       invitedEmail: z.string().email(),
       role: z.enum(["OWNER", "ADMIN", "STAFF", "VIEWER"]),
+      expiresAt: z.string().datetime(),
+    }),
+  },
+  INVITATION_ACCEPTED: {
+    1: z.object({
+      invitationId: z.string().min(1),
+      acceptedByUserId: z.string().min(1),
+      invitedEmail: z.string().email(),
+      role: z.enum(["OWNER", "ADMIN", "STAFF", "VIEWER"]),
+    }),
+  },
+  INVITATION_REVOKED: {
+    1: z.object({
+      invitationId: z.string().min(1),
     }),
   },
   REQUIREMENT_STATUS_UPDATED: {

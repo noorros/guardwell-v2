@@ -12,6 +12,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { OfficerCheckbox } from "./OfficerCheckbox";
+import { InviteMemberForm } from "./InviteMemberForm";
+import { RevokeButton } from "./RevokeButton";
 import type { OfficerRole } from "@/lib/events/registry";
 
 export const metadata = { title: "Staff · My Programs" };
@@ -51,15 +53,29 @@ export default async function StaffPage() {
   const pu = await getPracticeUser();
   if (!pu) return null;
 
-  const members = await db.practiceUser.findMany({
-    where: { practiceId: pu.practiceId, removedAt: null },
-    include: {
-      user: {
-        select: { id: true, email: true, firstName: true, lastName: true },
+  const [members, pendingInvitations] = await Promise.all([
+    db.practiceUser.findMany({
+      where: { practiceId: pu.practiceId, removedAt: null },
+      include: {
+        user: {
+          select: { id: true, email: true, firstName: true, lastName: true },
+        },
       },
-    },
-    orderBy: [{ role: "asc" }, { joinedAt: "asc" }],
-  });
+      orderBy: [{ role: "asc" }, { joinedAt: "asc" }],
+    }),
+    db.practiceInvitation.findMany({
+      where: {
+        practiceId: pu.practiceId,
+        acceptedAt: null,
+        revokedAt: null,
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  const canInvite = pu.role === "OWNER" || pu.role === "ADMIN";
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ?? "https://v2.app.gwcomp.com";
 
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-6">
@@ -78,6 +94,62 @@ export default async function StaffPage() {
           </p>
         </div>
       </header>
+
+      <Card>
+        <CardContent className="space-y-3 p-6">
+          <h2 className="text-sm font-semibold">Invite team members</h2>
+          <InviteMemberForm canInvite={canInvite} />
+          {pendingInvitations.length > 0 && (
+            <>
+              <p className="mt-4 text-[10px] uppercase tracking-wider text-muted-foreground">
+                Pending invitations ({pendingInvitations.length})
+              </p>
+              <ul className="divide-y rounded-md border">
+                {pendingInvitations.map((inv) => {
+                  const isExpired = inv.expiresAt.getTime() < Date.now();
+                  const acceptUrl = `${baseUrl.replace(/\/$/, "")}/accept-invite/${inv.token}`;
+                  return (
+                    <li
+                      key={inv.id}
+                      className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate text-xs font-medium text-foreground">
+                            {inv.invitedEmail}
+                          </p>
+                          <Badge variant="secondary" className="text-[10px]">
+                            {inv.role}
+                          </Badge>
+                          {isExpired && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px]"
+                              style={{
+                                color: "var(--gw-color-risk)",
+                                borderColor: "var(--gw-color-risk)",
+                              }}
+                            >
+                              Expired
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="truncate text-[10px] text-muted-foreground">
+                          Accept link:{" "}
+                          <code className="rounded bg-muted px-1">
+                            {acceptUrl}
+                          </code>
+                        </p>
+                      </div>
+                      {canInvite && <RevokeButton invitationId={inv.id} />}
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       <TooltipProvider>
         <Card>
