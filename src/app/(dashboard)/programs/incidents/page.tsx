@@ -8,6 +8,7 @@ import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/gw/EmptyState";
 import { IncidentStatusBadge, IncidentBreachBadge } from "./IncidentBadges";
 
 export const metadata = { title: "Incidents · My Programs" };
@@ -94,22 +95,70 @@ export default async function IncidentsPage() {
         </Card>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          <div className="flex items-center justify-between border-b px-4 py-2">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Recent
-            </h2>
-            <span className="text-[10px] text-muted-foreground">
-              {incidents.length} incident{incidents.length === 1 ? "" : "s"}
-            </span>
-          </div>
-          {incidents.length === 0 ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">
-              No incidents reported yet. Workforce members should report privacy,
-              security, or OSHA events here as soon as they&apos;re discovered.
+      {incidents.length === 0 ? (
+        <>
+          <EmptyState
+            icon={AlertTriangle}
+            title="No incidents reported yet"
+            description="Workforce members should report privacy, security, or OSHA-recordable events as soon as they're discovered. Every report walks through the HIPAA §164.402 four-factor breach determination so reportability isn't guessed."
+            action={{
+              label: "Report your first incident",
+              href: "/programs/incidents/new",
+            }}
+          />
+          <Card>
+            <CardContent className="space-y-3 p-5">
+              <h2 className="text-sm font-semibold">What to report here</h2>
+              <ul className="space-y-2 text-xs text-muted-foreground">
+                <li>
+                  <span className="font-medium text-foreground">Privacy:</span>{" "}
+                  PHI sent to the wrong patient, lost device with PHI, snooping
+                  by an unauthorized workforce member, misrouted fax or email,
+                  records left visible in a public area.
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Security:</span>{" "}
+                  successful or attempted breach, ransomware, malware, phishing
+                  click that exposed credentials, suspected unauthorized access
+                  to your EHR.
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">
+                    OSHA-recordable:
+                  </span>{" "}
+                  needlestick, sharps injury, exposure incident, any work-
+                  related injury that meets OSHA&apos;s recordable criteria
+                  (death, days away, restricted duty, medical treatment beyond
+                  first aid).
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">
+                    Other regulated events:
+                  </span>{" "}
+                  DEA theft/loss of controlled substances, CLIA QC failure,
+                  TCPA complaint, or a near-miss that could have been any of
+                  the above.
+                </li>
+              </ul>
+              <p className="rounded-md border bg-muted/30 p-3 text-[11px] text-muted-foreground">
+                Reporting in here is the audit trail. Even if a determination
+                lands at &ldquo;not a breach,&rdquo; you have a documented record of the
+                analysis — which is what OCR looks for in an investigation.
+              </p>
+            </CardContent>
+          </Card>
+        </>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <div className="flex items-center justify-between border-b px-4 py-2">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Recent
+              </h2>
+              <span className="text-[10px] text-muted-foreground">
+                {incidents.length} incident{incidents.length === 1 ? "" : "s"}
+              </span>
             </div>
-          ) : (
             <ul className="divide-y">
               {incidents.map((i) => (
                 <li
@@ -143,9 +192,9 @@ export default async function IncidentsPage() {
                 </li>
               ))}
             </ul>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </main>
   );
 }
