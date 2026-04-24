@@ -81,7 +81,7 @@ describe("bulk invite action", () => {
     });
     expect(result.invitedCount).toBe(0);
     expect(result.skippedDuplicates).toBe(1);
-    expect(result.perRowResults[0].status).toBe("ALREADY_MEMBER");
+    expect(result.perRowResults[0]?.status).toBe("ALREADY_MEMBER");
   });
 
   it("skips emails that are already pending invitations", async () => {
@@ -105,7 +105,7 @@ describe("bulk invite action", () => {
     });
     expect(result.invitedCount).toBe(0);
     expect(result.skippedDuplicates).toBe(1);
-    expect(result.perRowResults[0].status).toBe("ALREADY_PENDING");
+    expect(result.perRowResults[0]?.status).toBe("ALREADY_PENDING");
   });
 
   it("rejects invalid email format", async () => {
@@ -117,7 +117,7 @@ describe("bulk invite action", () => {
     });
     expect(result.invitedCount).toBe(0);
     expect(result.skippedInvalid).toBe(1);
-    expect(result.perRowResults[0].status).toBe("INVALID_EMAIL");
+    expect(result.perRowResults[0]?.status).toBe("INVALID_EMAIL");
   });
 
   it("hard-caps at 200 rows per batch", async () => {
