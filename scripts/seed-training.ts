@@ -248,6 +248,13 @@ async function main() {
     __dirname,
     "_v2-cybersecurity-courses.json",
   );
+  // v2 allergy/USP-797 + anaphylaxis courses — fully authored versions
+  // of the 2 v1 placeholders that batch-2 skipped (USP_797_ALLERGEN_
+  // COMPOUNDING + ANAPHYLAXIS_RESPONSE).
+  const allergyPath = path.resolve(
+    __dirname,
+    "_v2-allergy-courses.json",
+  );
 
   const fixtures: CourseFixture[] = [
     loadHipaaBasics(basicsPath),
@@ -257,6 +264,7 @@ async function main() {
     // groups the new wave at the bottom of the catalog list.
     ...loadFrameworkMixed(batch2Path, 200, { minLessonChars: 500 }),
     ...loadFrameworkMixed(cyberPath, 400),
+    ...loadFrameworkMixed(allergyPath, 500),
   ];
 
   let totalQuestions = 0;

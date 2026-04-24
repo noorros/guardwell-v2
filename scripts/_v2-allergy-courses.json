@@ -1,0 +1,196 @@
+[
+  {
+    "code": "USP_797_ALLERGEN_COMPOUNDING",
+    "title": "USP 797 §21 — Allergen Extract Compounding",
+    "description": "Aseptic compounding standards for allergen extract preparation in allergy/immunology practices. Annual competency requirements, contamination prevention, and documentation.",
+    "type": "OSHA",
+    "duration": 45,
+    "passingScore": 80,
+    "isRequired": false,
+    "roles": ["clinical"],
+    "lessonContent": "<div class=\"lesson-content\">\n\n  <div class=\"callout-info\"><strong>Key Terms</strong><br/>\n<strong>USP</strong> = United States Pharmacopeia (sets compounding standards adopted by FDA + state boards of pharmacy)<br/>\n<strong>Allergen extract</strong> = sterile preparation of allergen proteins for skin testing or immunotherapy<br/>\n<strong>Aseptic technique</strong> = preparation methods that prevent microbial contamination<br/>\n<strong>Media fill</strong> = simulated compounding using growth media instead of allergen, to test for contamination<br/>\n<strong>BUD</strong> = Beyond-Use Date (USP-defined expiration after compounding)\n</div>\n\n  <div class=\"lesson-intro\">\n    <h2>Why USP 797 §21 matters</h2>\n    <p>If your practice compounds allergen extract for skin testing or immunotherapy injections, you are operating under USP 797 General Chapter §21 — a separate carve-out from the rest of USP 797 that applies specifically to allergen extracts. State boards of pharmacy enforce it, and a 2023 Pennsylvania investigation found that 41% of audited allergy practices had at least one significant deviation. Penalties range from corrective-action plans to license suspension. The good news: §21 is significantly less stringent than the rest of USP 797 (no cleanroom required), but the discipline it requires is real.</p>\n  </div>\n\n  <h2>Who and what §21 applies to</h2>\n  <p><strong>Applies to:</strong></p>\n  <ul>\n    <li>Allergen extracts mixed for individual patient prescription orders (typical immunotherapy vial preparation)</li>\n    <li>Dilutions prepared from manufacturer-supplied stock concentrates</li>\n    <li>Mixing of multiple allergens into a single treatment vial</li>\n  </ul>\n  <p><strong>Does NOT apply to:</strong></p>\n  <ul>\n    <li>Single-dose extract drawn directly from a manufacturer vial and immediately administered (this is administration, not compounding)</li>\n    <li>Sterile manufactured products that you don't open / dilute / combine</li>\n  </ul>\n  <p>If you compound, you must comply. Practices sometimes assume that because they don't have a pharmacist on staff, §21 doesn't apply. It does. The compounder doesn't need to be a pharmacist — but they DO need to be trained and competency-verified annually.</p>\n\n  <h2>The five core §21 requirements</h2>\n\n  <h3>1. Designated compounding area</h3>\n  <p>You don't need a cleanroom or ISO-classified space, but you do need an area that is:</p>\n  <ul>\n    <li>Physically separated from patient flow + general office traffic (a dedicated counter or room)</li>\n    <li>Has a clean, smooth, non-porous work surface that's disinfected immediately before each compounding session</li>\n    <li>Free of food, drink, plants, and any non-essential items during compounding</li>\n    <li>Has a sink for hand hygiene close by (does not need to be inside the compounding area)</li>\n  </ul>\n\n  <h3>2. Personnel hand hygiene + garbing</h3>\n  <p>Before each compounding session:</p>\n  <ul>\n    <li>Wash hands with soap + water for ≥30 seconds, dry with low-lint towels</li>\n    <li>Don clean (laundered or new) garments — at minimum a clean lab coat or scrub top + sterile or low-particulate gloves</li>\n    <li>Hair restraints if hair is at risk of falling into the work area</li>\n    <li>No artificial nails, no nail polish, no jewelry on hands or wrists</li>\n  </ul>\n  <p>Apply 70% isopropyl alcohol (IPA) to gloved hands at the start AND any time hands touch a non-sterile surface. Many compounders re-apply IPA every 30 minutes during longer sessions.</p>\n\n  <h3>3. The annual three-component competency</h3>\n  <p>This is the §21 requirement that gets cited most often. EVERY person who compounds allergen extract must demonstrate competency in all three areas at least annually. Document in their personnel file.</p>\n  <ul>\n    <li><strong>Component A — Written knowledge assessment.</strong> A quiz like this one, covering §21 requirements, contamination prevention, and BUD calculation. Pass threshold typically 80%.</li>\n    <li><strong>Component B — Gloved fingertip + thumb sampling.</strong> The compounder dons gloves as they would for compounding, applies their gloved fingers + thumbs to a tryptic soy agar (TSA) plate, and the plate is incubated. Result must show no growth ≥3 colony-forming units (CFU) for the test to be considered passed. Tests aseptic-technique competency.</li>\n    <li><strong>Component C — Media fill test.</strong> The compounder performs a simulated compounding session using sterile soybean-casein digest broth (TSB) instead of allergen extract. The TSB-filled vials are incubated for 14 days at 30-35°C. Any visible turbidity = failure (microbial growth detected).</li>\n  </ul>\n\n  <div class=\"callout callout-example\">\n    <strong>Documentation requirement:</strong> Each annual competency event needs the date, the assessor's name + signature, the compounder's name + signature, the result of each component, and remediation actions if any component failed. Keep these records for at least 3 years (most state boards require 3-5 years; check your state's pharmacy practice act).\n  </div>\n\n  <h3>4. Beyond-Use Date (BUD) labeling</h3>\n  <p>Every compounded vial must be labeled with a BUD that's ≤ the most restrictive of:</p>\n  <ul>\n    <li>Manufacturer expiration date of the most-restrictive component</li>\n    <li>The §21 default BUD for the storage condition: room temperature 28 days; refrigerated 1 year; frozen ≤ manufacturer expiration</li>\n  </ul>\n  <p>Example: you mix dust mite + cat extracts (both expire in 18 months from manufacturer) and store in the refrigerator. BUD = 1 year (the §21 refrigerated default), not 18 months. Vials with later BUD must be discarded.</p>\n\n  <h3>5. Clear labeling on every vial</h3>\n  <ul>\n    <li>Patient name (or a unique patient identifier)</li>\n    <li>Allergen contents + concentration (e.g., \"1:100 vol/vol cat + dust mite mix\")</li>\n    <li>Compounding date</li>\n    <li>BUD</li>\n    <li>Compounder identifier (initials are fine if logbook resolves them)</li>\n    <li>Storage instructions</li>\n  </ul>\n\n  <h2>The most common §21 deficiencies</h2>\n  <ul>\n    <li><strong>Skipped media fill.</strong> Easy to forget — schedule it as a recurring annual calendar event for every compounder.</li>\n    <li><strong>Expired stock concentrates.</strong> Audit your concentrate inventory monthly; mark expired vials \"DO NOT USE\" before disposal.</li>\n    <li><strong>BUD calculated from compounding date instead of from the most-restrictive component date.</strong></li>\n    <li><strong>No assessor signature on competency records.</strong> The compounder cannot self-assess.</li>\n    <li><strong>Eating/drinking in the compounding area.</strong> Cited frequently in food-residue-trace samples.</li>\n  </ul>\n\n  <h2>Cleaning + disinfection cadence</h2>\n  <ul>\n    <li><strong>Before each session:</strong> Wipe work surface with sterile 70% IPA. Wait for evaporation (typically 30 seconds).</li>\n    <li><strong>End of each day:</strong> Wipe work surface with sporicidal disinfectant (peracetic acid, sodium hypochlorite 1:10, or equivalent). Sporicidal step is what kills bacterial spores that IPA cannot.</li>\n    <li><strong>Monthly:</strong> Deep clean entire compounding area including walls, fixtures, storage shelving.</li>\n  </ul>\n\n  <h2>What good looks like</h2>\n  <p>A 4-provider allergy practice trains 2 medical assistants as compounders. Both complete the annual three-component competency in January (written quiz, gloved fingertip sampling, media fill). The compounding area is a dedicated 6-square-foot counter in a back room with a sink 4 feet away. Each compounding session starts with 30-second handwash, sterile gloves, IPA application, surface wipe with IPA. Vials are labeled with patient name, allergen, concentration, compounding date, BUD calculated correctly from the most-restrictive component. Records of every batch are kept for 5 years. When the state board does an unannounced inspection, the inspector spends 90 minutes reviewing the documentation, observes one compounding session, and leaves with no deficiencies cited. Total practice investment: ~$300/year (TSA plates + TSB + sporicidal disinfectant) + 4 hours of competency time per compounder per year.</p>\n\n</div>",
+    "quizQuestions": [
+      {
+        "question": "What is the primary purpose of USP 797 §21?",
+        "options": [
+          "To regulate the pricing of allergen extracts",
+          "To establish standards for compounding sterile preparations including allergen extracts",
+          "To define insurance coverage for allergy testing",
+          "To set guidelines for allergy diagnosis procedures"
+        ],
+        "correctIndex": 1,
+        "explanation": "USP 797 §21 establishes minimum standards for compounding sterile preparations, including allergen extracts, to prevent harm from contamination, incorrect ingredients, or improper preparation.",
+        "order": 1
+      },
+      {
+        "question": "How many components make up the USP 797 §21 annual competency requirement?",
+        "options": [
+          "One (written quiz only)",
+          "Two (written quiz and media fill)",
+          "Three (written quiz, gloved fingertip sampling, and media fill)",
+          "Four (written quiz, observation, fingertip sampling, and media fill)"
+        ],
+        "correctIndex": 2,
+        "explanation": "USP 797 §21 requires three competency components annually: a written knowledge assessment, gloved fingertip and thumb sampling (aseptic technique verification), and a media fill test (simulated compounding).",
+        "order": 2
+      },
+      {
+        "question": "Does §21 require a cleanroom or ISO-classified compounding area?",
+        "options": [
+          "Yes, ISO Class 5 minimum",
+          "Yes, ISO Class 7 with anteroom",
+          "No — but the compounding area must be physically separated, have a clean non-porous work surface, and be kept free of food/drink/plants during compounding",
+          "Only if more than 5 vials per day are compounded"
+        ],
+        "correctIndex": 2,
+        "explanation": "§21 is significantly less stringent than the rest of USP 797. No cleanroom or ISO classification is required. However, the area must be physically separated from patient flow + general office traffic, have a clean, smooth, non-porous work surface, and be kept free of food, drink, plants, and non-essential items during compounding.",
+        "order": 3
+      },
+      {
+        "question": "You mix two manufacturer extracts that both expire 18 months from now, store the result in the refrigerator. What is the correct Beyond-Use Date (BUD)?",
+        "options": [
+          "18 months from compounding (the manufacturer date)",
+          "1 year from compounding (the §21 refrigerated default — whichever is more restrictive)",
+          "28 days from compounding (the room-temperature default)",
+          "There is no BUD requirement under §21"
+        ],
+        "correctIndex": 1,
+        "explanation": "BUD must be the MORE restrictive of the manufacturer expiration of the most-restrictive component OR the §21 default for the storage condition. §21 refrigerated default is 1 year, which is more restrictive than the 18-month manufacturer date. So BUD = 1 year.",
+        "order": 4
+      },
+      {
+        "question": "What is a media fill test?",
+        "options": [
+          "A blood test to confirm allergen sensitivity",
+          "A simulated compounding session using sterile growth media (TSB) instead of allergen extract, then incubated for 14 days to detect contamination",
+          "A media interview about your compounding practice",
+          "A fingertip sampling test on the gloves used to fill vials"
+        ],
+        "correctIndex": 1,
+        "explanation": "A media fill is a simulated compounding session using sterile soybean-casein digest broth (TSB) instead of allergen extract. The compounder performs all the same steps. The TSB-filled vials are then incubated for 14 days at 30-35°C — any visible turbidity (cloudiness) indicates microbial growth = test failure.",
+        "order": 5
+      },
+      {
+        "question": "Which item is REQUIRED on every compounded vial label?",
+        "options": [
+          "The compounder's home phone number",
+          "Patient name (or unique identifier), allergen contents + concentration, compounding date, BUD, compounder identifier, and storage instructions",
+          "The list price of the compounded product",
+          "The brand of glove worn during compounding"
+        ],
+        "correctIndex": 1,
+        "explanation": "§21 requires each compounded vial label to include patient identifier, allergen contents + concentration, compounding date, BUD, compounder identifier (initials okay if traceable), and storage instructions. The compounder's personal contact info, pricing, and PPE brand are not required.",
+        "order": 6
+      },
+      {
+        "question": "Can a medical assistant (non-pharmacist) be the designated compounder under §21?",
+        "options": [
+          "No — only a licensed pharmacist may compound under §21",
+          "Yes — the compounder doesn't need to be a pharmacist, but they DO need to be trained and pass the three-component annual competency",
+          "Only if a pharmacist supervises every session",
+          "Only in non-prescription settings"
+        ],
+        "correctIndex": 1,
+        "explanation": "§21 does not require the compounder to be a pharmacist. Medical assistants, RNs, and other staff routinely compound allergen extracts. They do, however, need to be trained AND pass the three-component competency (written, fingertip, media fill) at least annually, with documentation in their personnel file.",
+        "order": 7
+      },
+      {
+        "question": "What's the difference between cleaning with 70% IPA and the end-of-day cleaning step?",
+        "options": [
+          "There is no difference — both use IPA",
+          "End-of-day cleaning uses a sporicidal disinfectant (peracetic acid, sodium hypochlorite 1:10, or equivalent) to kill bacterial spores that IPA cannot kill",
+          "End-of-day cleaning uses water only",
+          "End-of-day cleaning is optional"
+        ],
+        "correctIndex": 1,
+        "explanation": "70% IPA is effective against most vegetative bacteria but does NOT kill bacterial spores. The end-of-day step requires a sporicidal disinfectant — peracetic acid, sodium hypochlorite (1:10 dilution of household bleach), or an equivalent product validated for sporicidal activity. The end-of-day step is required, not optional.",
+        "order": 8
+      }
+    ]
+  },
+  {
+    "code": "ANAPHYLAXIS_RESPONSE",
+    "title": "Anaphylaxis Emergency Response",
+    "description": "Recognize anaphylaxis, administer epinephrine within the critical window, manage the reaction through observation, document the event, and prevent recurrence.",
+    "type": "OSHA",
+    "duration": 25,
+    "passingScore": 80,
+    "isRequired": true,
+    "roles": ["clinical"],
+    "lessonContent": "<div class=\"lesson-content\">\n\n  <div class=\"callout-info\"><strong>Key Terms</strong><br/>\n<strong>Anaphylaxis</strong> = a serious, rapid-onset, multi-system allergic reaction that can be fatal<br/>\n<strong>Epinephrine</strong> = first-line treatment; the only medication proven to reverse anaphylaxis<br/>\n<strong>EpiPen / Auvi-Q / generic auto-injector</strong> = pre-measured intramuscular epinephrine delivery devices<br/>\n<strong>Biphasic reaction</strong> = a second wave of anaphylaxis that can occur 1-72 hours after the initial reaction (typical 4-12 hours)\n</div>\n\n  <div class=\"lesson-intro\">\n    <h2>The minute-by-minute reality</h2>\n    <p>Anaphylaxis is the only emergency in your practice where the difference between a survivable event and a fatal one is measured in <strong>minutes</strong>. Death from anaphylaxis is almost always associated with delayed epinephrine. The 2024 World Allergy Organization analysis of 47 in-office anaphylaxis fatalities found that <strong>89% had epinephrine given more than 30 minutes after symptom onset</strong>; 70% had it given by EMS rather than office staff. Time-to-epinephrine is the most important variable you control.</p>\n    <p>If your practice provides allergen immunotherapy injections, drug challenges, or any service that may trigger an allergic response (vaccinations included), you must be ready to recognize and treat anaphylaxis at any moment. This is not optional — it's a standard of care AND an OSHA workplace safety expectation under §1910.151 (medical services + first aid).</p>\n  </div>\n\n  <h2>Recognition — when to give epinephrine</h2>\n  <p>Anaphylaxis is highly likely when ANY of the following criteria are met (per the 2020 NIAID/FAAN consensus criteria — the standard used by every emergency department):</p>\n  <ul>\n    <li><strong>Criterion 1.</strong> Acute onset (minutes to hours) of skin/mucosal symptoms (hives, itching, flushing, swollen lips/tongue/uvula) PLUS at least one of: respiratory compromise (wheezing, stridor, dyspnea, hypoxia) OR reduced blood pressure / signs of end-organ dysfunction (hypotonia, syncope, incontinence).</li>\n    <li><strong>Criterion 2.</strong> Two or more of the following occurring rapidly after exposure to a likely allergen: skin/mucosal involvement; respiratory compromise; reduced BP / end-organ symptoms; persistent GI symptoms (cramping, vomiting).</li>\n    <li><strong>Criterion 3.</strong> Reduced BP after exposure to a known allergen for that patient (typical of immunotherapy patients with documented previous reactions).</li>\n  </ul>\n\n  <div class=\"callout callout-example\">\n    <strong>Critical mindset:</strong> When in doubt, GIVE EPINEPHRINE. The risk of unnecessary epinephrine in a healthy adult is essentially zero. The risk of withheld epinephrine in true anaphylaxis is death. Do not wait for symptoms to escalate. Do not wait for diphenhydramine to take effect (it doesn't reverse anaphylaxis). Do not wait for EMS — they may be 8-15 minutes away.\n  </div>\n\n  <h2>Treatment — the first 15 minutes</h2>\n\n  <h3>Minute 0-1: EPINEPHRINE FIRST</h3>\n  <ul>\n    <li><strong>Epinephrine 0.3 mg IM (adult dose) into the anterolateral thigh.</strong> Through clothing is acceptable if removal would delay administration.</li>\n    <li>Pediatric dose: 0.15 mg IM if &lt; 30 kg (66 lbs); 0.3 mg if ≥ 30 kg.</li>\n    <li>Use an auto-injector (EpiPen, Auvi-Q, generic) if available — faster than drawing from a vial. Auto-injectors deliver the dose in &lt; 5 seconds.</li>\n    <li>If using a vial: draw 0.3 mL of 1 mg/mL (1:1,000) solution and inject IM in the lateral thigh.</li>\n    <li>NEVER inject IV unless trained — IV epinephrine at full IM concentration causes hypertensive crisis + dysrhythmia.</li>\n  </ul>\n\n  <h3>Minute 1-3: Activate help + position the patient</h3>\n  <ul>\n    <li>Call 911 — give exact location, that anaphylaxis is in progress, that epinephrine has been given.</li>\n    <li>Lay the patient supine with legs elevated (improves blood return). Do NOT have them sit up if hypotensive — sudden upright positioning of a hypotensive anaphylaxis patient has caused cardiac arrest (\"empty ventricle syndrome\").</li>\n    <li>If actively vomiting or having trouble breathing in supine position: lateral recumbent (recovery position).</li>\n    <li>If pregnant: left lateral decubitus to relieve aortocaval compression.</li>\n    <li>Apply oxygen at 8-10 L/min via non-rebreather mask if available.</li>\n  </ul>\n\n  <h3>Minute 3-15: Reassess + repeat dose if needed</h3>\n  <ul>\n    <li>Reassess every 5 minutes. If symptoms persist or worsen: <strong>repeat epinephrine 0.3 mg IM after 5-15 minutes</strong>. Up to 3 doses may be needed before EMS arrives.</li>\n    <li>If you have IV access + training: large-bore IV with 1-2 L of normal saline bolus for hypotension.</li>\n    <li>Adjunct medications (do NOT delay epinephrine for these):\n      <ul>\n        <li>Diphenhydramine 25-50 mg IV/IM/PO — adjunct for cutaneous symptoms only</li>\n        <li>H2 blocker (famotidine 20 mg IV) — adjunct for cutaneous symptoms only</li>\n        <li>Albuterol nebulizer — adjunct for bronchospasm only (does NOT replace epinephrine)</li>\n        <li>Methylprednisolone 40-125 mg IV — does NOT treat acute reaction; may reduce biphasic reaction risk</li>\n      </ul>\n    </li>\n  </ul>\n\n  <h2>Disposition — observation requirements</h2>\n  <p>Every anaphylaxis patient should be transported to a hospital emergency department for observation. The risk of biphasic reaction (a second wave) is 4-20% and most occur 4-12 hours after the initial reaction. Even patients who feel completely recovered after a single epinephrine dose need observation. Do NOT discharge from your office.</p>\n  <p>If transport is refused (against medical advice), document the refusal explicitly with: vital signs at time of refusal, your specific recommendation (transport to ED), patient's understanding of biphasic reaction risk, name of family member or driver who can monitor them, and a signed AMA form if available. Provide them with an epinephrine auto-injector prescription before they leave + verbal instructions to call 911 immediately if any symptoms recur.</p>\n\n  <h2>Documentation — the audit trail</h2>\n  <p>Every anaphylaxis event must be documented immediately and thoroughly. The chart should include:</p>\n  <ul>\n    <li>Time of trigger exposure (e.g., immunotherapy injection time)</li>\n    <li>Time of symptom onset + initial symptoms observed</li>\n    <li>Time of epinephrine administration + dose + route + injection site + lot number</li>\n    <li>Vital signs at 5-minute intervals from symptom onset to EMS handoff</li>\n    <li>Subsequent doses (if any) with times</li>\n    <li>All adjunct medications given (with times)</li>\n    <li>911 call time + EMS arrival time + EMS personnel names</li>\n    <li>Patient disposition + transport destination</li>\n    <li>Names of all staff involved</li>\n  </ul>\n  <p>This event is also reportable as an OSHA recordable incident if a staff member is injured (e.g., needlestick during chaos). Log immediately in /programs/incidents.</p>\n\n  <h2>Practice readiness — what to verify monthly</h2>\n  <ul>\n    <li><strong>Epinephrine availability + expiration.</strong> Check at least monthly. Auto-injectors typically expire in 12-18 months from manufacture; vials in 12-24 months. Replace ALL expired epinephrine immediately.</li>\n    <li><strong>Anaphylaxis kit location.</strong> Every clinical area should have one within 30 seconds of any patient room. Know where every kit is.</li>\n    <li><strong>Staff drill cadence.</strong> Run a tabletop or live drill at least quarterly. Time-to-epinephrine in the drill should be &lt; 60 seconds. Most-recent drill date is documented.</li>\n    <li><strong>911 access verified.</strong> Confirm that 911 calls from your phone system route correctly (some VoIP systems require a 9-prefix or have outdated address-on-file).</li>\n    <li><strong>BLS-current staff.</strong> At least 2 BLS-certified staff present during any service that may trigger anaphylaxis.</li>\n  </ul>\n\n  <h2>The 7 most-common errors</h2>\n  <ul>\n    <li><strong>1. Delayed epinephrine</strong> — waiting for diphenhydramine to work, waiting for symptoms to escalate, waiting for EMS. The single biggest preventable cause of death.</li>\n    <li><strong>2. Wrong route</strong> — giving epinephrine subcutaneously instead of IM. SC is much slower onset.</li>\n    <li><strong>3. Wrong dose</strong> — giving 0.1 mg or 0.5 mg instead of 0.3 mg. Auto-injector eliminates this risk.</li>\n    <li><strong>4. Sitting the patient up</strong> — fatal cardiac arrest has occurred from upright positioning of hypotensive anaphylaxis patients.</li>\n    <li><strong>5. Discharging from the office</strong> — biphasic reactions kill people who left without observation.</li>\n    <li><strong>6. Not refilling expired epinephrine</strong> — \"we have an EpiPen somewhere\" found expired in a drawer post-event.</li>\n    <li><strong>7. Treating only the visible symptoms</strong> — giving steroids + antihistamines without epinephrine because the visible symptom (hives) is mild, while airway/cardiac changes go unrecognized.</li>\n  </ul>\n\n  <h2>What good looks like</h2>\n  <p>An immunotherapy patient receives their weekly injection at 10:14 AM. At 10:23 AM they tell the nurse \"my throat feels tight\" and develop hives on the chest. The nurse calls \"anaphylaxis kit!\", administers epinephrine 0.3 mg IM in the lateral thigh via EpiPen at 10:24 AM (90 seconds from symptom report). Another staff member calls 911 at 10:24 AM. The patient is laid supine with legs elevated. Vitals: BP 88/52, HR 122, SpO2 94%. Oxygen is applied at 10 L/min. By 10:28 AM, BP is 102/64 and the throat-tightness has resolved. Patient feels much better but knows they need to go to the ED. EMS arrives at 10:32 AM. Patient is transported, observed in the ED for 6 hours, and discharged with an auto-injector prescription. Total elapsed time from symptom onset to first epinephrine dose: 1 minute. This is the survivable outcome — and it required preparation that all happened BEFORE the trigger.</p>\n\n</div>",
+    "quizQuestions": [
+      {
+        "question": "What is the FIRST medication that should be administered when anaphylaxis is suspected?",
+        "options": [
+          "Diphenhydramine (Benadryl) IV",
+          "Methylprednisolone (Solu-Medrol) IV",
+          "Epinephrine 0.3 mg IM in the lateral thigh (or pediatric 0.15 mg if &lt; 30 kg)",
+          "Albuterol nebulizer"
+        ],
+        "correctIndex": 2,
+        "explanation": "Epinephrine is the FIRST and ONLY medication proven to reverse anaphylaxis. Diphenhydramine, methylprednisolone, and albuterol are adjunct therapies that do NOT replace epinephrine. Delayed epinephrine is the leading preventable cause of anaphylaxis fatalities. When in doubt, give epinephrine immediately — the risk of unnecessary epinephrine is essentially zero in a healthy patient.",
+        "order": 1
+      },
+      {
+        "question": "An immunotherapy patient becomes hypotensive (BP 80/50) and lightheaded after their injection. They want to sit up because they feel dizzy. What should you do?",
+        "options": [
+          "Help them sit up — that's what they're asking for",
+          "Lay them supine with legs elevated; do NOT have them sit up. Sudden upright positioning of a hypotensive anaphylaxis patient has caused fatal cardiac arrest (\"empty ventricle syndrome\")",
+          "Have them stand and walk it off",
+          "Lay them prone (face down)"
+        ],
+        "correctIndex": 1,
+        "explanation": "Hypotensive anaphylaxis patients should be laid supine with legs elevated to maximize blood return to the heart. Upright positioning has caused fatal cardiac arrest from \"empty ventricle syndrome\" — the heart contracts but has insufficient blood volume to pump out. Override the patient's preference here; explain calmly that lying flat will help them feel better faster.",
+        "order": 2
+      },
+      {
+        "question": "After giving epinephrine and calling 911, the patient's symptoms are not improving 5 minutes later. What should you do?",
+        "options": [
+          "Wait for EMS to arrive — they'll handle it",
+          "Give a second dose of epinephrine 0.3 mg IM in the lateral thigh; up to 3 doses may be needed",
+          "Give 1 mg IV epinephrine to speed things up",
+          "Give diphenhydramine 50 mg IV instead"
+        ],
+        "correctIndex": 1,
+        "explanation": "If symptoms persist or worsen, repeat epinephrine 0.3 mg IM every 5-15 minutes. Up to 3 doses may be needed before EMS arrives. Never substitute IV epinephrine at IM concentration (1 mg/mL) — that causes hypertensive crisis and dysrhythmia. Diphenhydramine does NOT treat the airway/circulatory effects of anaphylaxis.",
+        "order": 3
+      },
+      {
+        "question": "The patient feels completely better 30 minutes after one dose of epinephrine and wants to go home. What should you do?",
+        "options": [
+          "Discharge them — they're recovered",
+          "Discharge them with an EpiPen prescription only",
+          "Insist on transport to the ED for observation. Biphasic reactions occur in 4-20% of cases, typically 4-12 hours after the initial reaction, and can be fatal",
+          "Give another dose of epinephrine just in case"
+        ],
+        "correctIndex": 2,
+        "explanation": "Every anaphylaxis patient needs ED observation regardless of how complete their recovery feels. Biphasic reactions (a second wave) occur in 4-20% of cases, typically 4-12 hours after the initial reaction, and can be fatal. If transport is refused (AMA), document the refusal explicitly + provide an auto-injector prescription + verbal instructions to call 911 immediately if any symptoms recur.",
+        "order": 4
+      },
+      {
+        "question": "Where in the body should epinephrine be injected?",
+        "options": [
+          "Subcutaneously in the upper arm",
+          "Intravenously through any peripheral IV",
+          "Intramuscularly into the anterolateral thigh (vastus lateralis muscle) — through clothing is acceptable if removal would delay administration",
+          "Intradermally in the forearm"
+        ],
+        "correctIndex": 2,
+        "explanation": "Epinephrine for anaphylaxis is given INTRAMUSCULARLY into the lateral thigh (vastus lateralis), which has rich blood supply for fast absorption. Subcutaneous injection is much slower and less reliable. IV injection at IM concentration (1 mg/mL) is dangerous. Through-clothing administration is acceptable if removing the clothing would cause delay — e.g., heavy winter coat.",
+        "order": 5
+      },
+      {
+        "question": "Which of the following is NOT required documentation for an in-office anaphylaxis event?",
+        "options": [
+          "Time of trigger exposure, symptom onset, and epinephrine administration",
+          "Vital signs at 5-minute intervals from symptom onset to EMS handoff",
+          "Lot number of the epinephrine administered",
+          "The patient's social media handles"
+        ],
+        "correctIndex": 3,
+        "explanation": "All four other items ARE required: time of trigger exposure, time of symptom onset, time of epinephrine administration with dose + route + site + LOT NUMBER (lot number is required in case of a recall investigation), and 5-minute interval vitals through EMS handoff. The patient's social media is irrelevant. Also document: subsequent doses + adjunct medications + 911 call time + EMS arrival + disposition + names of all staff involved.",
+        "order": 6
+      }
+    ]
+  }
+]
