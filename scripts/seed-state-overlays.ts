@@ -15,9 +15,12 @@
 //
 // Build-out is incremental: batch 1 covered the 10 highest-customer-
 // volume states (CA, TX, NY, FL, IL, WA, MA, CO, VA, NJ). Batch 2
-// extends coverage to the next 10 (OR, NV, UT, GA, NC, OH, MI, PA, MD,
-// MN). Remaining states are added in follow-up seed PRs as additional
-// state-specific deltas come into scope.
+// extended coverage to the next 10 (OR, NV, UT, GA, NC, OH, MI, PA, MD,
+// MN). Batch 3 (2026-04-24) adds breach-notification overlays for 10
+// more states (AZ, CT, TN, IN, WI, KY, LA, IA, MO, AL) — most are
+// 45-day or "expedient" rules that diverge from HIPAA's 60-day ceiling.
+// Remaining states get added as additional state-specific deltas
+// come into scope.
 
 import { PrismaClient } from "@prisma/client";
 import { config } from "dotenv";
@@ -609,6 +612,160 @@ const OVERLAYS: StateOverlayFixture[] = [
     jurisdictionFilter: ["MN"],
     acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
     sortOrder: 2110,
+  },
+
+  // ──────────────────────────────────────────────────────────────────
+  // Batch 3 (2026-04-24) — 10 more states' breach-notification rules
+  // ──────────────────────────────────────────────────────────────────
+
+  // ─── Arizona (AZ) ──────────────────────────────────────────────
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_AZ_BREACH_45DAY",
+    title: "Arizona breach notification within 45 days (AZ)",
+    citation: "A.R.S. §18-552",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Arizona's data breach notification statute requires notice to affected residents within 45 days of breach determination — tighter than HIPAA's 60-day ceiling. AG + 3 nationwide consumer reporting agencies notice required when 1,000+ Arizona residents are affected.",
+    jurisdictionFilter: ["AZ"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_45_DAYS"],
+    sortOrder: 2200,
+  },
+
+  // ─── Connecticut (CT) ──────────────────────────────────────────
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_CT_BREACH_60DAY_AG",
+    title: "Connecticut breach notification within 60 days + AG notice (CT)",
+    citation: "Conn. Gen. Stat. §36a-701b",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Connecticut requires breach notice to affected residents within 60 days of discovery + simultaneous notice to the CT Attorney General. CT's law also requires the practice to offer affected residents 24 months of free identity-theft prevention service when breach involves SSNs.",
+    jurisdictionFilter: ["CT"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_60_DAYS"],
+    sortOrder: 2300,
+  },
+
+  // ─── Tennessee (TN) ────────────────────────────────────────────
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_TN_BREACH_45DAY",
+    title: "Tennessee breach notification within 45 days (TN)",
+    citation: "Tenn. Code Ann. §47-18-2107",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Tennessee Identity Theft Deterrence Act requires breach notice within 45 days of discovery. Encryption safe harbor: notice not required if breached data was encrypted using industry-standard methods. Consumer-reporting-agency notice required when 1,000+ Tennessee residents are affected.",
+    jurisdictionFilter: ["TN"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_45_DAYS"],
+    sortOrder: 2400,
+  },
+
+  // ─── Indiana (IN) ──────────────────────────────────────────────
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_IN_BREACH_EXPEDIENT",
+    title: "Indiana breach notification — without unreasonable delay (IN)",
+    citation: "Ind. Code §24-4.9",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Indiana Disclosure of Security Breach Act requires notice without unreasonable delay following breach discovery. AG notice required when any IN resident is affected — no minimum threshold. Consumer-reporting-agency notice triggered when 1,000+ IN residents are affected.",
+    jurisdictionFilter: ["IN"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 2500,
+  },
+
+  // ─── Wisconsin (WI) ────────────────────────────────────────────
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_WI_BREACH_45DAY",
+    title: "Wisconsin breach notification within 45 days (WI)",
+    citation: "Wis. Stat. §134.98",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Wisconsin requires breach notice to affected residents within 45 days of discovery — tighter than HIPAA's 60-day ceiling. Encryption + redaction safe harbor available. Consumer-reporting-agency notice required when 1,000+ WI residents are affected.",
+    jurisdictionFilter: ["WI"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_45_DAYS"],
+    sortOrder: 2600,
+  },
+
+  // ─── Kentucky (KY) ─────────────────────────────────────────────
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_KY_BREACH_EXPEDIENT",
+    title: "Kentucky breach notification — most expedient (KY)",
+    citation: "Ky. Rev. Stat. §365.732",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Kentucky's data-breach notification statute requires notice 'in the most expedient time possible and without unreasonable delay.' Consumer-reporting-agency notice required when 1,000+ KY residents are affected. The 2014 KY HB 232 expanded coverage to include health information held by non-HIPAA entities.",
+    jurisdictionFilter: ["KY"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 2700,
+  },
+
+  // ─── Louisiana (LA) ────────────────────────────────────────────
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_LA_BREACH_60DAY",
+    title: "Louisiana breach notification within 60 days (LA)",
+    citation: "La. Rev. Stat. §51:3074",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Louisiana Database Security Breach Notification Law requires breach notice within 60 days of discovery — matches HIPAA's ceiling. AG notice required for any breach affecting LA residents (no minimum threshold), with a 10-day window from determining notice is required.",
+    jurisdictionFilter: ["LA"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_60_DAYS"],
+    sortOrder: 2800,
+  },
+
+  // ─── Iowa (IA) ─────────────────────────────────────────────────
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_IA_BREACH_EXPEDIENT",
+    title: "Iowa breach notification — most expedient (IA)",
+    citation: "Iowa Code §715C",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Iowa's Personal Information Security Breach Protection Act requires breach notice 'in the most expedient manner possible and without unreasonable delay.' AG notice required within 5 business days of consumer notice when 500+ Iowa residents are affected. Maximum 60 days unless law-enforcement delay.",
+    jurisdictionFilter: ["IA"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 2900,
+  },
+
+  // ─── Missouri (MO) ─────────────────────────────────────────────
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_MO_BREACH_EXPEDIENT",
+    title: "Missouri breach notification — most expedient (MO)",
+    citation: "Mo. Rev. Stat. §407.1500",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Missouri requires breach notice 'in the most expedient time possible and without unreasonable delay.' AG notice required when 1,000+ Missouri residents are affected — Missouri AG has issued multiple healthcare-specific enforcement actions for late notice. Consumer-reporting-agency notice triggered at same threshold.",
+    jurisdictionFilter: ["MO"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 3000,
+  },
+
+  // ─── Alabama (AL) ──────────────────────────────────────────────
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_AL_BREACH_45DAY",
+    title: "Alabama breach notification within 45 days (AL)",
+    citation: "Ala. Code §8-38-1 et seq.",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Alabama Data Breach Notification Act of 2018 requires breach notice within 45 days of discovery — Alabama was the last US state to enact a breach-notification law. AG notice required when 1,000+ AL residents are affected. Consumer-reporting-agency notice triggered at the same threshold.",
+    jurisdictionFilter: ["AL"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_45_DAYS"],
+    sortOrder: 3100,
   },
 ];
 

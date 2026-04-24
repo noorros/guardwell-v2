@@ -11,8 +11,13 @@ async function seedPracticeAndHipaaReq() {
       email: `${Math.random().toString(36).slice(2)}@test.com`,
     },
   });
+  // Wyoming has no state overlays as of 2026-04-24, so the federal-only
+  // requirement count is the full applicable count for this practice.
+  // Tests that rely on "mark ceil(federal/2) compliant → ≥50%" need
+  // this property to hold. (AZ used to work but got an AZ_BREACH_45DAY
+  // overlay added in batch 3.)
   const practice = await db.practice.create({
-    data: { name: "Test Clinic", primaryState: "AZ" },
+    data: { name: "Test Clinic", primaryState: "WY" },
   });
   const framework = await db.regulatoryFramework.upsert({
     where: { code: "HIPAA" },
