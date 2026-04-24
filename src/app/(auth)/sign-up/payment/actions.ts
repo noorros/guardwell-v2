@@ -41,6 +41,20 @@ export type CreateCheckoutSessionResult =
 export async function createCheckoutSessionAction(
   input: z.infer<typeof Input>,
 ): Promise<CreateCheckoutSessionResult> {
+  try {
+    return await createCheckoutSessionInner(input);
+  } catch (err) {
+    // Surface the message to the client instead of letting Next swallow
+    // it as an opaque 500. The client renders this in a red alert.
+    const msg = err instanceof Error ? err.message : "unknown";
+    console.error("[createCheckoutSessionAction] failed:", err);
+    return { ok: false, error: `checkout-error: ${msg}` };
+  }
+}
+
+async function createCheckoutSessionInner(
+  input: z.infer<typeof Input>,
+): Promise<CreateCheckoutSessionResult> {
   const user = await requireUser();
   const pu = await getPracticeUser();
   if (!pu) return { ok: false, error: "no-practice" };
