@@ -13,6 +13,14 @@ export const metadata: Metadata = {
   description:
     "All-in-one healthcare compliance platform. HIPAA, OSHA, OIG, CMS, DEA, CLIA, MACRA, TCPA + state law in one dashboard.",
   applicationName: "GuardWell",
+  // Next.js auto-discovers /src/app/icon.svg as the SVG favicon. The
+  // PNG fallback (180x180 apple-touch icon + larger raster favicon)
+  // come from /public/icon.png. Both ported from v1.
+  icons: {
+    icon: [{ url: "/icon.png", type: "image/png", sizes: "any" }],
+    apple: { url: "/icon.png", sizes: "180x180" },
+    shortcut: "/icon.png",
+  },
   robots: { index: false, follow: false }, // v2 staging — flip to true at launch
 };
 

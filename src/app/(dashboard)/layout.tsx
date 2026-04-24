@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import type { Route } from "next";
+import { getCurrentUser } from "@/lib/auth";
 import { getPracticeUser } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/gw/AppShell";
@@ -10,6 +11,14 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Email-verify gate (Phase B). Unverified users on the dashboard get
+  // bounced back to /sign-up/verify. The verify page polls for the
+  // emailVerified flip and auto-advances them once it lands.
+  const currentUser = await getCurrentUser();
+  if (currentUser && !currentUser.emailVerified) {
+    redirect("/sign-up/verify" as Route);
+  }
+
   const pu = await getPracticeUser();
   if (!pu) redirect("/onboarding/create-practice");
 
