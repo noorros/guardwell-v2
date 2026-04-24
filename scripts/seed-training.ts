@@ -178,6 +178,53 @@ function loadFramework(
   }));
 }
 
+// Mixed-type export — each course carries its own `type` field. Used for the
+// v1 batch-2 port (HIPAA + OSHA in a single file) and for greenfield v2
+// course collections that span frameworks.
+interface V1CourseWithCodeAndType extends V1CourseWithCode {
+  type: string;
+}
+
+interface MixedLoadOptions {
+  /** Skip courses whose lessonContent is shorter than this. Used to drop
+   *  placeholder rows that v1 had quizzes for but never authored content. */
+  minLessonChars?: number;
+}
+
+function loadFrameworkMixed(
+  filePath: string,
+  baseSortOrder: number,
+  options: MixedLoadOptions = {},
+): CourseFixture[] {
+  const raw: V1CourseWithCodeAndType[] = JSON.parse(
+    readFileSync(filePath, "utf8"),
+  );
+  const minLen = options.minLessonChars ?? 0;
+  const filtered = raw.filter((r) => (r.lessonContent?.length ?? 0) >= minLen);
+  if (filtered.length < raw.length) {
+    const skipped = raw
+      .filter((r) => (r.lessonContent?.length ?? 0) < minLen)
+      .map((r) => r.code);
+    console.log(
+      `  ⚠ skipping ${skipped.length} placeholder course(s): ${skipped.join(", ")}`,
+    );
+  }
+  return filtered.map((r, idx) => ({
+    code: r.code,
+    title: r.title,
+    description: r.description,
+    type: r.type,
+    durationMinutes: r.duration,
+    passingScore: r.passingScore,
+    isRequired: r.isRequired,
+    roles: r.roles,
+    sortOrder: baseSortOrder + idx * 10,
+    version: 1,
+    lessonContent: r.lessonContent,
+    quizQuestions: r.quizQuestions,
+  }));
+}
+
 async function main() {
   const basicsPath = path.resolve(__dirname, "_v1-hipaa-101-export.json");
   const hipaaAdditionalPath = path.resolve(
@@ -185,11 +232,22 @@ async function main() {
     "_v1-hipaa-additional-courses-export.json",
   );
   const oshaPath = path.resolve(__dirname, "_v1-osha-training-export.json");
+  // Batch 2 — mixed HIPAA + OSHA, ported from v1 in the v2 catalog
+  // completion sweep (2026-04-23). Two courses (USP_797_ALLERGEN_COMPOUNDING,
+  // ANAPHYLAXIS_RESPONSE) had quiz questions but only ~68 chars of lesson
+  // content in v1; we skip them here and will author content in a follow-up.
+  const batch2Path = path.resolve(
+    __dirname,
+    "_v1-training-batch-2-export.json",
+  );
 
   const fixtures: CourseFixture[] = [
     loadHipaaBasics(basicsPath),
     ...loadFramework(hipaaAdditionalPath, "HIPAA", 20),
     ...loadFramework(oshaPath, "OSHA", 100),
+    // Use sortOrder 200+ for the batch — keeps existing courses stable and
+    // groups the new wave at the bottom of the catalog list.
+    ...loadFrameworkMixed(batch2Path, 200, { minLessonChars: 500 }),
   ];
 
   let totalQuestions = 0;
