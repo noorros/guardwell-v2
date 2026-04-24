@@ -36,10 +36,106 @@ const ZERO: Form300AInputs = {
 
 export function OshaExtras() {
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <Form300AWorksheet />
-      <OshaPostingChecklist />
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2">
+        <Form300AWorksheet />
+        <OshaPostingChecklist />
+      </div>
+      <BloodbornePathogensEcpTemplate />
     </div>
+  );
+}
+
+function BloodbornePathogensEcpTemplate() {
+  // §1910.1030(c)(1)(i) requires a written Exposure Control Plan for any
+  // facility with reasonably anticipated occupational exposure to blood
+  // or other potentially infectious materials. Annual review required.
+  const sections: Array<{ heading: string; bullets: string[] }> = [
+    {
+      heading: "1. Exposure determination",
+      bullets: [
+        "List job classifications with exposure (e.g. RN, MA, LPN, Phlebotomist).",
+        "List tasks/procedures involving exposure (venipuncture, sharps handling, instrument cleaning, vaccine administration).",
+      ],
+    },
+    {
+      heading: "2. Methods of compliance",
+      bullets: [
+        "Universal precautions used at all times.",
+        "Engineering controls — sharps containers, safer needle devices, biohazard bags.",
+        "Work-practice controls — no recapping needles, hand hygiene after glove removal.",
+        "PPE — gloves required for venipuncture; eye protection + masks where splash risk exists.",
+        "Housekeeping — written cleaning + decontamination schedule per surface type.",
+      ],
+    },
+    {
+      heading: "3. Hepatitis B vaccination",
+      bullets: [
+        "Offered free of charge within 10 working days of initial assignment to at-risk roles.",
+        "Declination form on file for any employee who declines (OSHA-specified language).",
+      ],
+    },
+    {
+      heading: "4. Post-exposure evaluation + follow-up",
+      bullets: [
+        "Confidential medical evaluation offered immediately after any exposure incident.",
+        "Source-individual blood test (with consent) + employee testing per CDC protocol.",
+        "Healthcare-professional written opinion provided to employee within 15 days.",
+      ],
+    },
+    {
+      heading: "5. Communication of hazards",
+      bullets: [
+        "Biohazard labels on contaminated equipment + containers.",
+        "Initial + annual training documented for all at-risk staff.",
+      ],
+    },
+    {
+      heading: "6. Recordkeeping",
+      bullets: [
+        "Sharps Injury Log maintained (separate from OSHA 300; CDC NaSH-style format acceptable).",
+        "Training records retained 3 years; medical records retained for duration of employment + 30 years.",
+      ],
+    },
+    {
+      heading: "7. Annual review",
+      bullets: [
+        "Plan reviewed + updated annually + whenever procedures change.",
+        "Employees solicited for input on safer engineering controls.",
+      ],
+    },
+  ];
+  return (
+    <Card>
+      <CardContent className="space-y-3 p-4">
+        <div>
+          <h3 className="text-sm font-semibold">
+            Bloodborne Pathogens Exposure Control Plan template
+          </h3>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            §1910.1030(c)(1)(i) requires a written Exposure Control Plan for
+            any facility with reasonably anticipated occupational exposure to
+            blood or OPIM. Annual review + updates required. Use this
+            outline to draft your practice-specific ECP.
+          </p>
+        </div>
+        <ol className="space-y-2 text-[11px]">
+          {sections.map((sec) => (
+            <li key={sec.heading} className="rounded-md border p-2">
+              <p className="font-semibold text-foreground">{sec.heading}</p>
+              <ul className="mt-1 list-disc pl-4 text-muted-foreground">
+                {sec.bullets.map((b, i) => (
+                  <li key={i}>{b}</li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ol>
+        <Badge variant="outline" className="text-[10px]">
+          29 CFR §1910.1030
+        </Badge>
+      </CardContent>
+    </Card>
   );
 }
 
