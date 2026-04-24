@@ -44,6 +44,9 @@ export const EVENT_TYPES = [
   "AUDIT_PREP_STEP_COMPLETED",
   "AUDIT_PREP_STEP_REOPENED",
   "AUDIT_PREP_PACKET_GENERATED",
+  "PHISHING_DRILL_LOGGED",
+  "MFA_ENROLLMENT_RECORDED",
+  "BACKUP_VERIFICATION_LOGGED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -484,6 +487,43 @@ export const EVENT_SCHEMAS = {
     1: z.object({
       auditPrepSessionId: z.string().min(1),
       generatedByUserId: z.string().min(1),
+    }),
+  },
+  // Cybersecurity emphasis (2026-04-23) — feeds /programs/cybersecurity
+  // and HIPAA_PHISHING_DRILL_RECENT requirement.
+  PHISHING_DRILL_LOGGED: {
+    1: z.object({
+      phishingDrillId: z.string().min(1),
+      conductedAt: z.string().datetime(),
+      vendor: z.string().max(200).nullable().optional(),
+      totalRecipients: z.number().int().min(1),
+      clickedCount: z.number().int().min(0),
+      reportedCount: z.number().int().min(0),
+      attachmentUrl: z.string().max(500).nullable().optional(),
+      loggedByUserId: z.string().min(1),
+      notes: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  // Officer-attested MFA enrollment for a specific user. We deliberately
+  // do NOT integrate IdP webhooks for v2 launch — too many EHR/email
+  // combos. Instead, an officer attests once per user (auditable event).
+  MFA_ENROLLMENT_RECORDED: {
+    1: z.object({
+      practiceUserId: z.string().min(1),
+      enrolled: z.boolean(),
+      recordedByUserId: z.string().min(1),
+      notes: z.string().max(1000).nullable().optional(),
+    }),
+  },
+  BACKUP_VERIFICATION_LOGGED: {
+    1: z.object({
+      backupVerificationId: z.string().min(1),
+      verifiedAt: z.string().datetime(),
+      scope: z.string().min(1).max(200),
+      success: z.boolean(),
+      restoreTimeMinutes: z.number().int().min(0).nullable().optional(),
+      loggedByUserId: z.string().min(1),
+      notes: z.string().max(2000).nullable().optional(),
     }),
   },
 } as const;

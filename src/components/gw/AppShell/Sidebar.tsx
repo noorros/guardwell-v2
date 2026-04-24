@@ -81,6 +81,7 @@ const PROGRAMS: ProgramItem[] = [
   { label: "Vendors", icon: Building2, href: "/programs/vendors" as Route },
   { label: "Risk", icon: ShieldAlert, href: "/programs/risk" as Route },
   { label: "Security assets", icon: Server, href: "/programs/security-assets" as Route },
+  { label: "Cybersecurity", icon: ShieldCheck, href: "/programs/cybersecurity" as Route },
   { label: "Document retention", icon: Trash2, href: "/programs/document-retention" as Route },
 ];
 

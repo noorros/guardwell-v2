@@ -11,7 +11,10 @@
 
 import type { Prisma } from "@prisma/client";
 import { HIPAA_PP_POLICY_SET, type HipaaPolicyCode } from "@/lib/compliance/policies";
-import { courseCompletionThresholdRule } from "./shared";
+import {
+  courseCompletionThresholdRule,
+  multipleCoursesCompletionThresholdRule,
+} from "./shared";
 
 export type DerivedStatus = "COMPLIANT" | "GAP" | "NOT_STARTED";
 export type DerivationRule = (
@@ -282,6 +285,99 @@ function addBusinessDays(from: Date, n: number): Date {
 }
 
 /**
+ * HIPAA §164.308(a)(5) — workforce trained on ALL four cybersecurity
+ * topics. Wraps multipleCoursesCompletionThresholdRule with the canonical
+ * cyber course set. Threshold is 80% (lower than HIPAA_BASICS' 95% — the
+ * cyber catalog is broader and we want practices to make meaningful
+ * progress, not be punished for one staff member behind on one course).
+ */
+export const hipaaCyberTrainingCompleteRule: DerivationRule =
+  multipleCoursesCompletionThresholdRule(
+    [
+      "PHISHING_RECOGNITION_RESPONSE",
+      "MFA_AUTHENTICATION_HYGIENE",
+      "RANSOMWARE_DEFENSE_PLAYBOOK",
+      "CYBERSECURITY_MEDICAL_OFFICES",
+    ],
+    0.8,
+  );
+
+/**
+ * HIPAA §164.308(a)(5)(ii)(D) — MFA coverage. Counts active practice
+ * users with mfaEnrolledAt set vs total active. ≥80% → COMPLIANT.
+ *
+ * Returns null when there are zero active users (vacuously true; no
+ * one to enroll yet) so we don't flash a GAP on brand-new practices.
+ */
+const MFA_COVERAGE_THRESHOLD = 0.8;
+
+export async function hipaaMfaCoverageRule(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<DerivedStatus | null> {
+  const total = await tx.practiceUser.count({
+    where: { practiceId, removedAt: null },
+  });
+  if (total === 0) return null;
+  const enrolled = await tx.practiceUser.count({
+    where: { practiceId, removedAt: null, mfaEnrolledAt: { not: null } },
+  });
+  return enrolled / total >= MFA_COVERAGE_THRESHOLD ? "COMPLIANT" : "GAP";
+}
+
+/**
+ * HIPAA §164.308(a)(5)(ii)(B) — recent phishing simulation. ≥1 PhishingDrill
+ * row with conductedAt within the last 6 months → COMPLIANT.
+ *
+ * Returns null when there are ZERO phishing drills ever logged, so the
+ * requirement defaults to NOT_STARTED in the UI rather than GAP — gives
+ * a new practice a beat to set up their drill cadence before the score
+ * starts pushing back.
+ */
+const PHISHING_WINDOW_MS = 183 * 24 * 60 * 60 * 1000; // ~6 months
+
+export async function hipaaPhishingDrillRecentRule(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<DerivedStatus | null> {
+  const totalCount = await tx.phishingDrill.count({
+    where: { practiceId },
+  });
+  if (totalCount === 0) return null;
+  const cutoff = new Date(Date.now() - PHISHING_WINDOW_MS);
+  const recentCount = await tx.phishingDrill.count({
+    where: { practiceId, conductedAt: { gte: cutoff } },
+  });
+  return recentCount > 0 ? "COMPLIANT" : "GAP";
+}
+
+/**
+ * HIPAA §164.308(a)(7) — backup verified within 90 days. ≥1
+ * BackupVerification row with success=true and verifiedAt within window
+ * → COMPLIANT.
+ */
+const BACKUP_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
+
+export async function hipaaBackupVerifiedRecentRule(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<DerivedStatus | null> {
+  const totalCount = await tx.backupVerification.count({
+    where: { practiceId },
+  });
+  if (totalCount === 0) return null;
+  const cutoff = new Date(Date.now() - BACKUP_WINDOW_MS);
+  const recentCount = await tx.backupVerification.count({
+    where: {
+      practiceId,
+      success: true,
+      verifiedAt: { gte: cutoff },
+    },
+  });
+  return recentCount > 0 ? "COMPLIANT" : "GAP";
+}
+
+/**
  * HIPAA documentation-retention practice (§164.530(j)). The practice must
  * retain required documentation (policies, authorizations, access
  * records) for ≥6 years and destroy securely when the retention period
@@ -327,6 +423,11 @@ export const HIPAA_DERIVATION_RULES: Record<string, DerivationRule> = {
   HIPAA_WORKFORCE_TRAINING: hipaaWorkforceTrainingRule,
   HIPAA_BAAS: hipaaBaaRule,
   HIPAA_SRA: hipaaSraRule,
+  // Cybersecurity emphasis (2026-04-23) — see comments on each rule.
+  HIPAA_CYBER_TRAINING_COMPLETE: hipaaCyberTrainingCompleteRule,
+  HIPAA_MFA_COVERAGE_GE_80: hipaaMfaCoverageRule,
+  HIPAA_PHISHING_DRILL_RECENT: hipaaPhishingDrillRecentRule,
+  HIPAA_BACKUP_VERIFIED_RECENT: hipaaBackupVerifiedRecentRule,
   // State breach-notification overlays. Each rule shares the same shape:
   // any state-scoped breach must have affected-individual notice recorded
   // within the statutory window. See stateBreachNotificationRule for the
