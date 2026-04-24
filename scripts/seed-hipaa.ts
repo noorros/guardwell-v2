@@ -239,6 +239,17 @@ async function main() {
       acceptedEvidenceTypes: ["BACKUP_VERIFICATION:LOGGED"],
       sortOrder: 140,
     },
+    {
+      code: "HIPAA_POLICY_ACKNOWLEDGMENT_COVERAGE",
+      title: "≥80% workforce signed every adopted policy at current version",
+      citation: "45 CFR §164.530(b)(2) (workforce P&P attestation)",
+      severity: "CRITICAL",
+      weight: 1.5,
+      description:
+        "Per-user attestation that every workforce member has read + understood every adopted policy. Each policy edit (POLICY_CONTENT_UPDATED) bumps the version and makes prior acknowledgments stale — staff need to re-sign. Bar: ≥80% of active workforce has a current-version signature for every adopted (non-retired) policy. This is the OCR-audit gold-standard signal: 'Show me every workforce member's signature on the current Privacy Policy.'",
+      acceptedEvidenceTypes: ["POLICY_ACK:COVERED"],
+      sortOrder: 150,
+    },
   ];
 
   let upserted = 0;

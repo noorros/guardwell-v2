@@ -14,7 +14,10 @@ import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { POLICY_METADATA, type PolicyCode } from "@/lib/compliance/policies";
+import { getRequiredCourseCodesForPolicy } from "@/lib/compliance/policy-prereqs";
+import { requireUser } from "@/lib/auth";
 import { PolicyEditor } from "./PolicyEditor";
+import { AcknowledgeForm } from "./AcknowledgeForm";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +31,7 @@ export default async function PolicyDetailPage({
   const { id } = await params;
   const pu = await getPracticeUser();
   if (!pu) return null;
+  const user = await requireUser();
 
   const policy = await db.practicePolicy.findUnique({
     where: { id },
@@ -143,17 +147,38 @@ export default async function PolicyDetailPage({
         </div>
       </header>
 
+      {/* Acknowledgment block — per-user signature gate */}
+      {await renderAcknowledgeBlock({
+        practicePolicyId: policy.id,
+        policyCode: policy.policyCode,
+        policyVersion: policy.version,
+        policyTitle: title ?? policy.policyCode,
+        userId: user.id,
+        userFirstName: user.firstName ?? null,
+        userLastName: user.lastName ?? null,
+        userEmail: user.email,
+        practiceId: pu.practiceId,
+      })}
+
       <Card>
         <CardContent className="space-y-2 p-5">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-sm font-semibold">Policy content</h2>
-            <Link
-              href={`/programs/policies/${policy.id}/history` as Route}
-              className="inline-flex items-center gap-1 text-[11px] text-foreground underline hover:no-underline"
-            >
-              <History className="h-3 w-3" aria-hidden="true" />
-              Version history
-            </Link>
+            <div className="flex gap-3">
+              <Link
+                href={`/programs/policies/${policy.id}/acknowledgments` as Route}
+                className="inline-flex items-center gap-1 text-[11px] text-foreground underline hover:no-underline"
+              >
+                Workforce signatures
+              </Link>
+              <Link
+                href={`/programs/policies/${policy.id}/history` as Route}
+                className="inline-flex items-center gap-1 text-[11px] text-foreground underline hover:no-underline"
+              >
+                <History className="h-3 w-3" aria-hidden="true" />
+                Version history
+              </Link>
+            </div>
           </div>
           <p className="text-[11px] text-muted-foreground">
             Edit in Markdown. The body is rendered into your audit
@@ -168,5 +193,77 @@ export default async function PolicyDetailPage({
         </CardContent>
       </Card>
     </main>
+  );
+}
+
+async function renderAcknowledgeBlock(args: {
+  practicePolicyId: string;
+  policyCode: string;
+  policyVersion: number;
+  policyTitle: string;
+  userId: string;
+  userFirstName: string | null;
+  userLastName: string | null;
+  userEmail: string;
+  practiceId: string;
+}) {
+  // Already-acked-this-version lookup.
+  const existing = await db.policyAcknowledgment.findUnique({
+    where: {
+      practicePolicyId_userId_policyVersion: {
+        practicePolicyId: args.practicePolicyId,
+        userId: args.userId,
+        policyVersion: args.policyVersion,
+      },
+    },
+    select: { acknowledgedAt: true },
+  });
+
+  // Resolve prerequisite courses + the user's completion state for each.
+  const requiredCourseCodes = getRequiredCourseCodesForPolicy(args.policyCode);
+  const courses =
+    requiredCourseCodes.length > 0
+      ? await db.trainingCourse.findMany({
+          where: { code: { in: requiredCourseCodes } },
+          select: { id: true, code: true, title: true },
+        })
+      : [];
+  const completions =
+    courses.length > 0
+      ? await db.trainingCompletion.findMany({
+          where: {
+            userId: args.userId,
+            practiceId: args.practiceId,
+            courseId: { in: courses.map((c) => c.id) },
+            passed: true,
+            expiresAt: { gt: new Date() },
+          },
+          distinct: ["userId", "courseId"],
+          select: { courseId: true },
+        })
+      : [];
+  const completedSet = new Set(completions.map((c) => c.courseId));
+  const prerequisites = courses.map((c) => ({
+    courseCode: c.code,
+    courseTitle: c.title,
+    completed: completedSet.has(c.id),
+  }));
+
+  const fullName = [args.userFirstName, args.userLastName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  const defaultSignature = `I, ${fullName || args.userEmail}, have read and will comply with the ${args.policyTitle}.`;
+
+  return (
+    <AcknowledgeForm
+      practicePolicyId={args.practicePolicyId}
+      policyTitle={args.policyTitle}
+      policyVersion={args.policyVersion}
+      alreadyAcknowledged={!!existing}
+      acknowledgedAt={existing?.acknowledgedAt?.toISOString() ?? null}
+      prerequisites={prerequisites}
+      defaultSignature={defaultSignature}
+    />
   );
 }

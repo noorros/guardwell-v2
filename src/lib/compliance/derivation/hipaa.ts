@@ -378,6 +378,74 @@ export async function hipaaBackupVerifiedRecentRule(
 }
 
 /**
+ * HIPAA §164.530(b)(2) — documented workforce attestation that policies
+ * have been read and understood. ≥80% of active workforce must have a
+ * current-version PolicyAcknowledgment for EVERY non-retired policy
+ * adopted by the practice. Stricter than HIPAA_WORKFORCE_TRAINING
+ * (which only requires the basic course completion) — also requires the
+ * staff member to have signed each adopted policy at its current
+ * version.
+ *
+ * - 0 adopted (non-retired) policies → null (rule doesn't fire — adopt
+ *   policies first)
+ * - 0 active workforce → null (vacuously satisfied; nothing to ack)
+ * - ≥80% workforce has signed CURRENT version of EVERY adopted policy
+ *   → COMPLIANT
+ * - Otherwise → GAP
+ */
+const ACK_COVERAGE_THRESHOLD = 0.8;
+
+export async function hipaaPolicyAcknowledgmentCoverageRule(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<DerivedStatus | null> {
+  const adoptedPolicies = await tx.practicePolicy.findMany({
+    where: { practiceId, retiredAt: null },
+    select: { id: true, version: true },
+  });
+  if (adoptedPolicies.length === 0) return null;
+
+  const activeUsers = await tx.practiceUser.findMany({
+    where: { practiceId, removedAt: null },
+    select: { userId: true },
+  });
+  if (activeUsers.length === 0) return null;
+
+  // Pull every current-version acknowledgment for the adopted-policy set.
+  const acks = await tx.policyAcknowledgment.findMany({
+    where: {
+      practicePolicyId: { in: adoptedPolicies.map((p) => p.id) },
+    },
+    select: { practicePolicyId: true, userId: true, policyVersion: true },
+  });
+
+  // userId → set of policy ids they've acked at the CURRENT version
+  const currentVersionByPolicy = new Map(
+    adoptedPolicies.map((p) => [p.id, p.version]),
+  );
+  const ackedByUser = new Map<string, Set<string>>();
+  for (const a of acks) {
+    if (a.policyVersion !== currentVersionByPolicy.get(a.practicePolicyId)) {
+      continue; // stale ack; ignore
+    }
+    const set = ackedByUser.get(a.userId) ?? new Set<string>();
+    set.add(a.practicePolicyId);
+    ackedByUser.set(a.userId, set);
+  }
+
+  const requiredPolicyIds = adoptedPolicies.map((p) => p.id);
+  const compliantCount = activeUsers.filter((u) => {
+    const acked = ackedByUser.get(u.userId);
+    if (!acked) return false;
+    return requiredPolicyIds.every((pid) => acked.has(pid));
+  }).length;
+
+  return compliantCount / activeUsers.length >= ACK_COVERAGE_THRESHOLD
+    ? "COMPLIANT"
+    : "GAP";
+}
+
+/**
  * HIPAA documentation-retention practice (§164.530(j)). The practice must
  * retain required documentation (policies, authorizations, access
  * records) for ≥6 years and destroy securely when the retention period
@@ -428,6 +496,9 @@ export const HIPAA_DERIVATION_RULES: Record<string, DerivationRule> = {
   HIPAA_MFA_COVERAGE_GE_80: hipaaMfaCoverageRule,
   HIPAA_PHISHING_DRILL_RECENT: hipaaPhishingDrillRecentRule,
   HIPAA_BACKUP_VERIFIED_RECENT: hipaaBackupVerifiedRecentRule,
+  // Per-user policy acknowledgment coverage (2026-04-24 evening)
+  HIPAA_POLICY_ACKNOWLEDGMENT_COVERAGE:
+    hipaaPolicyAcknowledgmentCoverageRule,
   // State breach-notification overlays. Each rule shares the same shape:
   // any state-scoped breach must have affected-individual notice recorded
   // within the statutory window. See stateBreachNotificationRule for the

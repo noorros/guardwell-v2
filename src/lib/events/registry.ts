@@ -48,6 +48,7 @@ export const EVENT_TYPES = [
   "MFA_ENROLLMENT_RECORDED",
   "BACKUP_VERIFICATION_LOGGED",
   "POLICY_CONTENT_UPDATED",
+  "POLICY_ACKNOWLEDGED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -539,6 +540,21 @@ export const EVENT_SCHEMAS = {
       newVersion: z.number().int().positive(),
       contentLength: z.number().int().min(0),
       editedByUserId: z.string().min(1),
+    }),
+  },
+  // Per-user policy acknowledgment. Captured when a workforce member
+  // clicks Acknowledge on a policy detail page. policyVersion freezes
+  // which version they signed; later edits to the policy bump the
+  // current version and make this acknowledgment stale.
+  POLICY_ACKNOWLEDGED: {
+    1: z.object({
+      practicePolicyId: z.string().min(1),
+      policyCode: z.string().min(1).max(200),
+      acknowledgingUserId: z.string().min(1),
+      policyVersion: z.number().int().positive(),
+      // Free-form signature text typed by the user — e.g. "I have read
+      // and will comply with the HIPAA Privacy Policy. — Jane Doe"
+      signatureText: z.string().min(1).max(500),
     }),
   },
 } as const;
