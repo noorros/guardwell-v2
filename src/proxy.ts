@@ -16,6 +16,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const PUBLIC_ROUTES = [
   "/",
   "/sign-in",
+  "/sign-up",
   "/api/auth/sync",
   "/api/health",
 ];

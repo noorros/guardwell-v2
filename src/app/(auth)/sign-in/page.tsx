@@ -5,6 +5,7 @@ import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { firebaseAuth } from "@/lib/firebase";
+import { Logo } from "@/components/gw/Logo";
 
 function SignInForm() {
   const router = useRouter();
@@ -40,6 +41,7 @@ function SignInForm() {
       onSubmit={onSubmit}
       className="w-full max-w-sm space-y-4 rounded-xl bg-white p-8 shadow"
     >
+      <Logo className="flex justify-center" height={36} />
       <h1 className="text-2xl font-bold text-slate-900">Sign in</h1>
       {error && (
         <div className="rounded bg-red-50 p-3 text-sm text-red-700">{error}</div>
@@ -77,6 +79,12 @@ function SignInForm() {
       >
         {loading ? "Signing in…" : "Sign in"}
       </button>
+      <p className="text-center text-xs text-slate-500">
+        New to GuardWell?{" "}
+        <a href="/sign-up" className="text-blue-700 underline hover:no-underline">
+          Create an account
+        </a>
+      </p>
     </form>
   );
 }
