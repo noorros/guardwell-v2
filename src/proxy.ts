@@ -1,11 +1,14 @@
 // Next.js 16 middleware.
 //
-// Two responsibilities:
-//  1. Generate a per-request CSP nonce, set the Content-Security-Policy
-//     response header, and expose the nonce to downstream handlers via the
-//     `x-nonce` request header. Replaces the v1 deferred CSP item (nonce-
-//     based CSP with no unsafe-inline).
-//  2. Lightweight cookie gate on authenticated routes — full token
+// Three responsibilities:
+//  1. Generate a per-request CSP nonce + set the Content-Security-Policy
+//     response header. (Note: nonce-based strict CSP is upstream-blocked;
+//     Next.js 16 + Turbopack don't auto-inject nonces into framework-
+//     emitted <script> tags. We use a hardened `unsafe-inline` config
+//     until that lands. See buildCspHeader for details.)
+//  2. Set the rest of the OWASP secure-headers baseline (HSTS, X-CTO,
+//     Referrer-Policy, Permissions-Policy, COOP, CORP).
+//  3. Lightweight cookie gate on authenticated routes — full token
 //     verification still happens in route handlers via verifyFirebaseToken().
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -57,7 +60,50 @@ function buildCspHeader(): string {
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
+    // Block mixed content + force browsers to upgrade insecure subresources.
+    "upgrade-insecure-requests",
   ].join("; ");
+}
+
+/**
+ * OWASP-baseline security headers that are NOT covered by the CSP
+ * builder above. Applied to every response so static assets + API
+ * responses get the same hardening. Idempotent — overwriting any
+ * pre-existing value with our own.
+ */
+function applySecurityHeaders(headers: Headers): void {
+  // 1 year HSTS with preload + subdomains. v2 is HTTPS-only behind
+  // Cloud Run; HSTS keeps it that way against any future TLS-strip MITM.
+  headers.set(
+    "Strict-Transport-Security",
+    "max-age=31536000; includeSubDomains; preload",
+  );
+  // Disable MIME-type sniffing — pair with proper Content-Type on every response.
+  headers.set("X-Content-Type-Options", "nosniff");
+  // Don't leak referrer to cross-origin destinations.
+  headers.set(
+    "Referrer-Policy",
+    "strict-origin-when-cross-origin",
+  );
+  // Disable browser features we don't use. Minimizes attack surface
+  // for any compromised script that might try to call into them.
+  headers.set(
+    "Permissions-Policy",
+    [
+      "camera=()",
+      "microphone=()",
+      "geolocation=()",
+      "interest-cohort=()",
+      "payment=(self \"https://js.stripe.com\")",
+    ].join(", "),
+  );
+  // Cross-origin isolation defaults. Pair with frame-ancestors 'none'
+  // (already in CSP) for clickjacking prevention.
+  headers.set("Cross-Origin-Opener-Policy", "same-origin");
+  headers.set("Cross-Origin-Resource-Policy", "same-origin");
+  // Modern, supported by Chromium-based browsers; harmless in others.
+  // Hides our X-Powered-By + Server identifiers if present.
+  headers.set("X-Frame-Options", "DENY"); // legacy fallback for frame-ancestors
 }
 
 export function proxy(req: NextRequest) {
@@ -82,6 +128,7 @@ export function proxy(req: NextRequest) {
     if (pathname.startsWith("/api/")) {
       const res = NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       res.headers.set("Content-Security-Policy", csp);
+      applySecurityHeaders(res.headers);
       return res;
     }
 
@@ -92,11 +139,13 @@ export function proxy(req: NextRequest) {
     signInUrl.searchParams.set("redirect", redirectTo);
     const res = NextResponse.redirect(signInUrl);
     res.headers.set("Content-Security-Policy", csp);
+    applySecurityHeaders(res.headers);
     return res;
   }
 
   const response = NextResponse.next();
   response.headers.set("Content-Security-Policy", csp);
+  applySecurityHeaders(response.headers);
   return response;
 }
 
