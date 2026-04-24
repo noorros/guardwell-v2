@@ -13,6 +13,8 @@ import {
   projectPolicyReviewed,
 } from "@/lib/events/projections/policyAdopted";
 import { projectPolicyContentUpdated } from "@/lib/events/projections/policyContentUpdated";
+import { projectPolicyAcknowledged } from "@/lib/events/projections/policyAcknowledged";
+import { getRequiredCourseCodesForPolicy } from "@/lib/compliance/policy-prereqs";
 import { ALL_POLICY_CODES } from "@/lib/compliance/policies";
 import { db } from "@/lib/db";
 
@@ -268,6 +270,130 @@ export async function updatePolicyContentAction(
   revalidatePath("/programs/policies");
   revalidatePath(`/programs/policies/${target.id}`);
   revalidatePath("/modules/hipaa");
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Per-user policy acknowledgment (2026-04-24 evening)
+// ────────────────────────────────────────────────────────────────────────
+//
+// User clicks Acknowledge on a policy detail page → server action checks:
+//   1. Policy exists + belongs to user's practice + isn't retired
+//   2. User has completed every prerequisite course (passed +
+//      non-expired) per POLICY_PREREQ_COURSES
+//   3. User hasn't already acknowledged THIS version
+// Then emits POLICY_ACKNOWLEDGED → projection writes the row +
+// rederives HIPAA_POLICY_ACKNOWLEDGMENT_COVERAGE.
+
+const AcknowledgeInput = z.object({
+  practicePolicyId: z.string().min(1),
+  signatureText: z.string().min(1).max(500),
+});
+
+export async function acknowledgePolicyAction(
+  input: z.infer<typeof AcknowledgeInput>,
+) {
+  const user = await requireUser();
+  const pu = await getPracticeUser();
+  if (!pu) throw new Error("Unauthorized");
+  const parsed = AcknowledgeInput.parse(input);
+
+  const policy = await db.practicePolicy.findUnique({
+    where: { id: parsed.practicePolicyId },
+    select: {
+      id: true,
+      practiceId: true,
+      policyCode: true,
+      version: true,
+      retiredAt: true,
+    },
+  });
+  if (!policy || policy.practiceId !== pu.practiceId) {
+    throw new Error("Policy not found");
+  }
+  if (policy.retiredAt) {
+    throw new Error("Cannot acknowledge a retired policy.");
+  }
+
+  // Already-acked-this-version guard.
+  const existing = await db.policyAcknowledgment.findUnique({
+    where: {
+      practicePolicyId_userId_policyVersion: {
+        practicePolicyId: policy.id,
+        userId: user.id,
+        policyVersion: policy.version,
+      },
+    },
+    select: { id: true },
+  });
+  if (existing) {
+    throw new Error(`You have already acknowledged v${policy.version}.`);
+  }
+
+  // Prerequisite-course gate.
+  const requiredCourseCodes = getRequiredCourseCodesForPolicy(
+    policy.policyCode,
+  );
+  if (requiredCourseCodes.length > 0) {
+    const courses = await db.trainingCourse.findMany({
+      where: { code: { in: requiredCourseCodes } },
+      select: { id: true, code: true, title: true },
+    });
+    if (courses.length !== requiredCourseCodes.length) {
+      throw new Error(
+        "One or more prerequisite courses are missing from the catalog. Contact support.",
+      );
+    }
+    const completions = await db.trainingCompletion.findMany({
+      where: {
+        userId: user.id,
+        practiceId: pu.practiceId,
+        courseId: { in: courses.map((c) => c.id) },
+        passed: true,
+        expiresAt: { gt: new Date() },
+      },
+      distinct: ["userId", "courseId"],
+      select: { courseId: true },
+    });
+    const completedCourseIds = new Set(completions.map((c) => c.courseId));
+    const missing = courses.filter((c) => !completedCourseIds.has(c.id));
+    if (missing.length > 0) {
+      const titles = missing.map((c) => c.title).join(", ");
+      throw new Error(
+        `Complete required course${missing.length === 1 ? "" : "s"} first: ${titles}`,
+      );
+    }
+  }
+
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: user.id,
+      type: "POLICY_ACKNOWLEDGED",
+      payload: {
+        practicePolicyId: policy.id,
+        policyCode: policy.policyCode,
+        acknowledgingUserId: user.id,
+        policyVersion: policy.version,
+        signatureText: parsed.signatureText,
+      },
+    },
+    async (tx) =>
+      projectPolicyAcknowledged(tx, {
+        practiceId: pu.practiceId,
+        payload: {
+          practicePolicyId: policy.id,
+          policyCode: policy.policyCode,
+          acknowledgingUserId: user.id,
+          policyVersion: policy.version,
+          signatureText: parsed.signatureText,
+        },
+      }),
+  );
+
+  revalidatePath("/programs/policies");
+  revalidatePath(`/programs/policies/${policy.id}`);
+  revalidatePath(`/programs/policies/${policy.id}/acknowledgments`);
+  revalidatePath("/me/acknowledgments");
 }
 
 export async function retirePolicyAction(input: z.infer<typeof RetireInput>) {

@@ -47,6 +47,7 @@ model User {
   legalAcceptances       LegalAcceptance[]
   notifications          Notification[]
   notificationPreference NotificationPreference?
+  policyAcknowledgments  PolicyAcknowledgment[]
 
   @@index([firebaseUid])
   @@index([email])
@@ -179,8 +180,9 @@ model PracticePolicy {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
-  versions PolicyVersion[]
+  practice         Practice               @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  versions         PolicyVersion[]
+  acknowledgments  PolicyAcknowledgment[]
 
   @@unique([practiceId, policyCode])
   @@index([practiceId, retiredAt])
@@ -212,6 +214,40 @@ model PolicyVersion {
 
   @@unique([practicePolicyId, version])
   @@index([practicePolicyId, savedAt])
+}
+
+// Per-user acknowledgment of a specific PracticePolicy version. v1
+// audit-defense feature port (2026-04-24): "Show me proof every
+// workforce member read your Privacy Policy" is an OCR auditor's
+// first ask. Each acknowledgment captures the user, the policy, the
+// version they signed, and the typed signature text. Editing a policy
+// (POLICY_CONTENT_UPDATED bumps the version) makes prior acknowledgments
+// stale — staff need to re-sign the new version.
+//
+// The PolicyAcknowledgment.policyVersion column is the canonical
+// "what version did this user sign" — we don't reuse PolicyVersion.id
+// because PolicyVersion is per-instance + we want to avoid coupling.
+model PolicyAcknowledgment {
+  id               String   @id @default(cuid())
+  practicePolicyId String
+  userId           String
+  // Snapshot of PracticePolicy.version at signing time. Stale when the
+  // current PracticePolicy.version > this value.
+  policyVersion    Int
+  // Free-form text the user typed when signing — e.g. "I have read and
+  // will comply with the HIPAA Privacy Policy." Becomes part of the
+  // audit trail.
+  signatureText    String   @db.Text
+  acknowledgedAt   DateTime @default(now())
+
+  policy PracticePolicy @relation(fields: [practicePolicyId], references: [id], onDelete: Cascade)
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Allow re-signing each new version: composite unique on (policy,
+  // user, version) so v3-acked + v4-acked can both exist.
+  @@unique([practicePolicyId, userId, policyVersion])
+  @@index([practicePolicyId, acknowledgedAt])
+  @@index([userId, acknowledgedAt])
 }
 
 // ────────────────────────────────────────────────────────────────────────────
