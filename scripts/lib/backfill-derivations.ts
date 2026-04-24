@@ -43,13 +43,20 @@ export async function backfillFrameworkDerivations(
   });
 
   let totalRederived = 0;
+  // Bump transaction timeout from default 5s. Across 47+ evidence codes
+  // and Cloud SQL proxy latency, the per-practice walk routinely takes
+  // 5-15s. Maximum interactive transaction window in Postgres is much
+  // larger; we cap at 60s to keep a clear ceiling.
   for (const p of practices) {
-    await db.$transaction(async (tx) => {
-      for (const code of evidenceCodes) {
-        const { rederived } = await rederiveRequirementStatus(tx, p.id, code);
-        totalRederived += rederived;
-      }
-    });
+    await db.$transaction(
+      async (tx) => {
+        for (const code of evidenceCodes) {
+          const { rederived } = await rederiveRequirementStatus(tx, p.id, code);
+          totalRederived += rederived;
+        }
+      },
+      { timeout: 60_000, maxWait: 5_000 },
+    );
   }
 
   console.log(
