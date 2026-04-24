@@ -7,7 +7,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { notFound } from "next/navigation";
-import { FileText, ChevronLeft } from "lucide-react";
+import { FileText, ChevronLeft, History } from "lucide-react";
 import { db } from "@/lib/db";
 import { getPracticeUser } from "@/lib/rbac";
 import { Breadcrumb } from "@/components/gw/Breadcrumb";
@@ -145,7 +145,16 @@ export default async function PolicyDetailPage({
 
       <Card>
         <CardContent className="space-y-2 p-5">
-          <h2 className="text-sm font-semibold">Policy content</h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">Policy content</h2>
+            <Link
+              href={`/programs/policies/${policy.id}/history` as Route}
+              className="inline-flex items-center gap-1 text-[11px] text-foreground underline hover:no-underline"
+            >
+              <History className="h-3 w-3" aria-hidden="true" />
+              Version history
+            </Link>
+          </div>
           <p className="text-[11px] text-muted-foreground">
             Edit in Markdown. The body is rendered into your audit
             packet PDFs as-is. Save bumps the version and counts as

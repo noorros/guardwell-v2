@@ -180,10 +180,38 @@ model PracticePolicy {
   updatedAt  DateTime @updatedAt
 
   practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  versions PolicyVersion[]
 
   @@unique([practiceId, policyCode])
   @@index([practiceId, retiredAt])
   @@index([practiceId, lastReviewedAt])
+}
+
+// Append-only history of every PracticePolicy state. A new row is
+// created on each save (POLICY_CONTENT_UPDATED) BEFORE the PracticePolicy
+// row is overwritten — so PolicyVersion holds the prior states, and
+// the PracticePolicy row holds the current state. Diff = (current ↔ any
+// historical) or (historical ↔ historical). Adoption itself also writes
+// a v1 baseline row.
+model PolicyVersion {
+  id               String   @id @default(cuid())
+  practicePolicyId String
+  // Sequential version number — matches PracticePolicy.version at the
+  // time this snapshot was taken.
+  version          Int
+  // Body content at this version. Nullable so we can model "policy
+  // adopted but no body authored yet" as version 1 with content=null.
+  content          String?  @db.Text
+  savedByUserId    String?
+  savedAt          DateTime @default(now())
+  // Free-form change-summary the user can include alongside Save.
+  // Empty/null for v1 (initial adoption baseline).
+  changeNote       String?  @db.Text
+
+  policy PracticePolicy @relation(fields: [practicePolicyId], references: [id], onDelete: Cascade)
+
+  @@unique([practicePolicyId, version])
+  @@index([practicePolicyId, savedAt])
 }
 
 // ────────────────────────────────────────────────────────────────────────────
