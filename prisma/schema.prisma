@@ -33,6 +33,11 @@ model User {
   lastName      String?
   emailVerified Boolean  @default(false)
   mfaEnabled    Boolean  @default(false)
+  // Internal admin flag — gates /admin surface (customer health, manual
+  // subscription overrides, etc). Toggled manually via SQL or seeding;
+  // no UI to grant. Defaults to false so a forgotten flag never opens
+  // the admin surface to a real customer.
+  isPlatformAdmin Boolean @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   deletedAt     DateTime?
