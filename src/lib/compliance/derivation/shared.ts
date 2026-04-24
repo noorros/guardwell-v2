@@ -88,3 +88,68 @@ export function courseCompletionThresholdRule(
     return compliantCount / activeUsers.length >= threshold ? "COMPLIANT" : "GAP";
   };
 }
+
+/**
+ * Generic "≥ threshold of active workforce has completed ALL of the listed
+ * courses (passed, non-expired)". Stricter than running multiple
+ * single-course rules because a user only counts as compliant if they've
+ * cleared the FULL set. Used for HIPAA_CYBER_TRAINING_COMPLETE which
+ * requires all four cybersecurity courses.
+ *
+ * @param courseCodes List of TrainingCourse.code values that must all be completed
+ * @param threshold Fraction of workforce required (0-1). 0.80 by default for cyber.
+ */
+export function multipleCoursesCompletionThresholdRule(
+  courseCodes: string[],
+  threshold = 0.8,
+): DerivationRule {
+  return async (
+    tx: Prisma.TransactionClient,
+    practiceId: string,
+  ): Promise<DerivedStatus | null> => {
+    if (courseCodes.length === 0) return null;
+    const courses = await tx.trainingCourse.findMany({
+      where: { code: { in: courseCodes } },
+      select: { id: true, code: true },
+    });
+    // If any required course is missing from the catalog, the rule is
+    // unsatisfiable — return null so we don't show a permanent GAP for
+    // a course we never seeded.
+    if (courses.length !== courseCodes.length) return null;
+
+    const activeUsers = await tx.practiceUser.findMany({
+      where: { practiceId, removedAt: null },
+      select: { userId: true },
+    });
+    if (activeUsers.length === 0) return "GAP";
+
+    const courseIds = courses.map((c) => c.id);
+    const completed = await tx.trainingCompletion.findMany({
+      where: {
+        practiceId,
+        courseId: { in: courseIds },
+        passed: true,
+        expiresAt: { gt: new Date() },
+      },
+      select: { userId: true, courseId: true },
+    });
+
+    // userId → set of completed course ids
+    const byUser = new Map<string, Set<string>>();
+    for (const c of completed) {
+      const set = byUser.get(c.userId) ?? new Set<string>();
+      set.add(c.courseId);
+      byUser.set(c.userId, set);
+    }
+
+    const compliantCount = activeUsers.filter((u) => {
+      const done = byUser.get(u.userId);
+      if (!done) return false;
+      return courseIds.every((id) => done.has(id));
+    }).length;
+
+    return compliantCount / activeUsers.length >= threshold
+      ? "COMPLIANT"
+      : "GAP";
+  };
+}
