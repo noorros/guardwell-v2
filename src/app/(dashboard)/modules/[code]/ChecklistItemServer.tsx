@@ -9,6 +9,15 @@ import {
   type AiReasonSource,
 } from "@/components/gw/ChecklistItem/AiReasonIndicator";
 import { updateRequirementStatusAction } from "./actions";
+import { RequirementAiHelp } from "./RequirementAiHelp";
+
+type SpecialtyCategory =
+  | "PRIMARY_CARE"
+  | "SPECIALTY"
+  | "DENTAL"
+  | "BEHAVIORAL"
+  | "ALLIED"
+  | "OTHER";
 
 export function ChecklistItemServer(props: {
   frameworkCode: string;
@@ -21,6 +30,9 @@ export function ChecklistItemServer(props: {
   initialStatus: ChecklistStatus;
   lastEventSource?: AiReasonSource | null;
   lastEventReason?: string | null;
+  /** Practice state — passed through to the AI helper for context. */
+  practiceState?: string;
+  practiceSpecialty?: SpecialtyCategory | null;
 }) {
   const [status, setStatus] = useState<ChecklistStatus>(props.initialStatus);
   const [isPending, startTransition] = useTransition();
@@ -46,38 +58,51 @@ export function ChecklistItemServer(props: {
   );
 
   return (
-    <div className="flex items-start gap-2">
-      <div className="min-w-0 flex-1">
-        <ChecklistItem
-          title={titleNode}
-          description={props.description}
-          status={status}
-          disabled={isPending}
-          onStatusChange={(next) => {
-            const prev = status;
-            setStatus(next);
-            startTransition(async () => {
-              try {
-                await updateRequirementStatusAction({
-                  frameworkCode: props.frameworkCode,
-                  requirementId: props.requirementId,
-                  requirementCode: props.requirementCode,
-                  nextStatus: checklistToCiStatus(next),
-                  previousStatus: checklistToCiStatus(prev),
-                });
-              } catch (err) {
-                // Revert on server failure.
-                setStatus(prev);
-                console.error(err);
-              }
-            });
-          }}
-        />
+    <div>
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <ChecklistItem
+            title={titleNode}
+            description={props.description}
+            status={status}
+            disabled={isPending}
+            onStatusChange={(next) => {
+              const prev = status;
+              setStatus(next);
+              startTransition(async () => {
+                try {
+                  await updateRequirementStatusAction({
+                    frameworkCode: props.frameworkCode,
+                    requirementId: props.requirementId,
+                    requirementCode: props.requirementCode,
+                    nextStatus: checklistToCiStatus(next),
+                    previousStatus: checklistToCiStatus(prev),
+                  });
+                } catch (err) {
+                  // Revert on server failure.
+                  setStatus(prev);
+                  console.error(err);
+                }
+              });
+            }}
+          />
+        </div>
+        <div className="pt-4">
+          <AiReasonIndicator
+            source={props.lastEventSource ?? null}
+            reason={props.lastEventReason ?? null}
+          />
+        </div>
       </div>
-      <div className="pt-4">
-        <AiReasonIndicator
-          source={props.lastEventSource ?? null}
-          reason={props.lastEventReason ?? null}
+      <div className="ml-7 mt-1">
+        <RequirementAiHelp
+          frameworkCode={props.frameworkCode}
+          requirementCode={props.requirementCode}
+          requirementTitle={props.title}
+          requirementDescription={props.description}
+          currentStatus={ciStatusFromChecklist(status)}
+          practiceState={props.practiceState}
+          specialty={props.practiceSpecialty}
         />
       </div>
     </div>
@@ -87,6 +112,19 @@ export function ChecklistItemServer(props: {
 function checklistToCiStatus(
   s: ChecklistStatus,
 ): "COMPLIANT" | "GAP" | "NOT_STARTED" {
+  if (s === "compliant") return "COMPLIANT";
+  if (s === "gap") return "GAP";
+  return "NOT_STARTED";
+}
+
+function ciStatusFromChecklist(
+  s: ChecklistStatus,
+):
+  | "NOT_STARTED"
+  | "IN_PROGRESS"
+  | "COMPLIANT"
+  | "GAP"
+  | "NOT_APPLICABLE" {
   if (s === "compliant") return "COMPLIANT";
   if (s === "gap") return "GAP";
   return "NOT_STARTED";

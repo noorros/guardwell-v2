@@ -135,6 +135,13 @@ export default async function ModulePage({
   });
   const score = pf?.scoreCache ?? 0;
 
+  // Practice profile drives the AI helper's specialty context. Optional —
+  // null is fine when the profile hasn't been filled out yet.
+  const practiceProfile = await db.practiceComplianceProfile.findUnique({
+    where: { practiceId: pu.practiceId },
+    select: { specialtyCategory: true },
+  });
+
   // Section E — status-change events for this framework. Fetch a larger
   // window (40) so we can dedupe consecutive toggles by the same actor on
   // the same requirement within a 5-minute window, then trim to 10 rows for
@@ -250,6 +257,18 @@ export default async function ModulePage({
                 initialStatus={ciStatusToChecklist(ci?.status)}
                 lastEventSource={lastEvt?.source ?? null}
                 lastEventReason={lastEvt?.reason ?? null}
+                practiceState={pu.practice.primaryState}
+                practiceSpecialty={
+                  practiceProfile?.specialtyCategory as
+                    | "PRIMARY_CARE"
+                    | "SPECIALTY"
+                    | "DENTAL"
+                    | "BEHAVIORAL"
+                    | "ALLIED"
+                    | "OTHER"
+                    | null
+                    | undefined
+                }
               />
             );
           })}
