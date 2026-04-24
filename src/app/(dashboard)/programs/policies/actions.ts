@@ -12,6 +12,7 @@ import {
   projectPolicyRetired,
   projectPolicyReviewed,
 } from "@/lib/events/projections/policyAdopted";
+import { projectPolicyContentUpdated } from "@/lib/events/projections/policyContentUpdated";
 import { ALL_POLICY_CODES } from "@/lib/compliance/policies";
 import { db } from "@/lib/db";
 
@@ -191,6 +192,81 @@ export async function adoptPolicyFromTemplateAction(
   );
 
   revalidatePath("/programs/policies");
+  revalidatePath("/modules/hipaa");
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Edit adopted policy content (2026-04-24 evening)
+// ────────────────────────────────────────────────────────────────────────
+//
+// /programs/policies/[id] uses this. Save bumps version + sets
+// lastReviewedAt = now (save IS review). Records a
+// POLICY_CONTENT_UPDATED event whose payload carries metadata only;
+// the full content is passed to the projection separately so the
+// EventLog payload stays small.
+
+const UpdateContentInput = z.object({
+  practicePolicyId: z.string().min(1),
+  // 200KB cap matches our @react-pdf rendering ceiling for one policy.
+  content: z.string().min(1).max(200_000),
+});
+
+export async function updatePolicyContentAction(
+  input: z.infer<typeof UpdateContentInput>,
+) {
+  const user = await requireUser();
+  const pu = await getPracticeUser();
+  if (!pu) throw new Error("Unauthorized");
+  const parsed = UpdateContentInput.parse(input);
+
+  const target = await db.practicePolicy.findUnique({
+    where: { id: parsed.practicePolicyId },
+    select: {
+      id: true,
+      practiceId: true,
+      policyCode: true,
+      version: true,
+      retiredAt: true,
+    },
+  });
+  if (!target || target.practiceId !== pu.practiceId) {
+    throw new Error("Policy not found");
+  }
+  if (target.retiredAt) {
+    throw new Error("Cannot edit a retired policy. Re-adopt first.");
+  }
+
+  const newVersion = target.version + 1;
+
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: user.id,
+      type: "POLICY_CONTENT_UPDATED",
+      payload: {
+        practicePolicyId: target.id,
+        policyCode: target.policyCode,
+        newVersion,
+        contentLength: parsed.content.length,
+        editedByUserId: user.id,
+      },
+    },
+    async (tx) =>
+      projectPolicyContentUpdated(tx, {
+        practiceId: pu.practiceId,
+        payload: {
+          practicePolicyId: target.id,
+          policyCode: target.policyCode,
+          newVersion,
+          contentLength: parsed.content.length,
+          editedByUserId: user.id,
+        },
+        content: parsed.content,
+      }),
+  );
+
+  revalidatePath("/programs/policies");
+  revalidatePath(`/programs/policies/${target.id}`);
   revalidatePath("/modules/hipaa");
 }
 

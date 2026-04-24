@@ -47,6 +47,7 @@ export const EVENT_TYPES = [
   "PHISHING_DRILL_LOGGED",
   "MFA_ENROLLMENT_RECORDED",
   "BACKUP_VERIFICATION_LOGGED",
+  "POLICY_CONTENT_UPDATED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -524,6 +525,20 @@ export const EVENT_SCHEMAS = {
       restoreTimeMinutes: z.number().int().min(0).nullable().optional(),
       loggedByUserId: z.string().min(1),
       notes: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  // Saving the body of an adopted policy. Treated as both a content
+  // edit AND an implicit review (save = read = review). Bumps version,
+  // updates content, sets lastReviewedAt = now, and rederives the
+  // cross-policy review-current rule. Emitted by /programs/policies/[id]
+  // when the user clicks Save.
+  POLICY_CONTENT_UPDATED: {
+    1: z.object({
+      practicePolicyId: z.string().min(1),
+      policyCode: z.string().min(1).max(200),
+      newVersion: z.number().int().positive(),
+      contentLength: z.number().int().min(0),
+      editedByUserId: z.string().min(1),
     }),
   },
 } as const;
