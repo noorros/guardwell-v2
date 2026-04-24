@@ -454,4 +454,15 @@ export const HIPAA_DERIVATION_RULES: Record<string, DerivationRule> = {
   HIPAA_MI_BREACH_EXPEDIENT: stateBreachNotificationRule("MI", null),
   HIPAA_PA_BREACH_EXPEDIENT: stateBreachNotificationRule("PA", null),
   HIPAA_MN_BREACH_EXPEDIENT: stateBreachNotificationRule("MN", null),
+  // Batch 3 (2026-04-24) — additional state breach overlays
+  HIPAA_AZ_BREACH_45DAY: stateBreachNotificationRule("AZ", 45),
+  HIPAA_CT_BREACH_60DAY_AG: stateBreachNotificationRule("CT", 60),
+  HIPAA_TN_BREACH_45DAY: stateBreachNotificationRule("TN", 45),
+  HIPAA_IN_BREACH_EXPEDIENT: stateBreachNotificationRule("IN", null),
+  HIPAA_WI_BREACH_45DAY: stateBreachNotificationRule("WI", 45),
+  HIPAA_KY_BREACH_EXPEDIENT: stateBreachNotificationRule("KY", null),
+  HIPAA_LA_BREACH_60DAY: stateBreachNotificationRule("LA", 60),
+  HIPAA_IA_BREACH_EXPEDIENT: stateBreachNotificationRule("IA", null),
+  HIPAA_MO_BREACH_EXPEDIENT: stateBreachNotificationRule("MO", null),
+  HIPAA_AL_BREACH_45DAY: stateBreachNotificationRule("AL", 45),
 };
