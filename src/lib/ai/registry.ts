@@ -16,6 +16,11 @@ import {
   pageHelpInputSchema,
   pageHelpOutputSchema,
 } from "./prompts/assistant-page-help";
+import {
+  REQUIREMENT_HELP_SYSTEM,
+  requirementHelpInputSchema,
+  requirementHelpOutputSchema,
+} from "./prompts/requirement-help";
 
 export interface PromptDef<
   TIn extends z.ZodTypeAny = z.ZodTypeAny,
@@ -46,6 +51,18 @@ export const PROMPTS = {
     toolName: "assistant_page_help_v1",
     toolDescription:
       "Return a concise markdown-safe answer and optional in-product next-action link.",
+    maxTokens: 1024,
+  },
+  "requirement.help.v1": {
+    id: "requirement.help.v1",
+    version: 1,
+    model: "claude-sonnet-4-6",
+    system: REQUIREMENT_HELP_SYSTEM,
+    inputSchema: requirementHelpInputSchema,
+    outputSchema: requirementHelpOutputSchema,
+    toolName: "requirement_help_v1",
+    toolDescription:
+      "Return a concise next-step answer for one specific compliance requirement.",
     maxTokens: 1024,
   },
 } as const satisfies Record<string, PromptDef>;
