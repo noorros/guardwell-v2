@@ -213,15 +213,21 @@ describe("REQUIREMENT_STATUS_UPDATED", () => {
       );
     }
 
-    // Mark ceil(N/2) of the federal requirements compliant — guarantees
-    // ≥50% regardless of seed growth. State overlays don't apply to AZ.
-    const federalReqs = framework.requirements.filter(
-      (r) => r.jurisdictionFilter.length === 0,
+    // Mark ceil(N/2) of the APPLICABLE requirements compliant —
+    // guarantees ≥50% regardless of seed growth. As of 2026-04-24
+    // batch 4, every state has at least one breach overlay so we
+    // can't pick a state with zero overlays anymore — instead, walk
+    // every requirement that applies to the practice (federal +
+    // any state overlays for WY) and mark ceil(N/2) of them compliant.
+    const applicableReqs = framework.requirements.filter(
+      (r) =>
+        r.jurisdictionFilter.length === 0 ||
+        r.jurisdictionFilter.includes(practice.primaryState),
     );
-    const total = federalReqs.length;
+    const total = applicableReqs.length;
     const halfPlus = Math.ceil(total / 2);
     for (let i = 0; i < halfPlus; i++) {
-      const req = federalReqs[i]!;
+      const req = applicableReqs[i]!;
       await appendEventAndApply(
         {
           practiceId: practice.id,

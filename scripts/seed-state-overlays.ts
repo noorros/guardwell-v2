@@ -16,11 +16,11 @@
 // Build-out is incremental: batch 1 covered the 10 highest-customer-
 // volume states (CA, TX, NY, FL, IL, WA, MA, CO, VA, NJ). Batch 2
 // extended coverage to the next 10 (OR, NV, UT, GA, NC, OH, MI, PA, MD,
-// MN). Batch 3 (2026-04-24) adds breach-notification overlays for 10
-// more states (AZ, CT, TN, IN, WI, KY, LA, IA, MO, AL) — most are
-// 45-day or "expedient" rules that diverge from HIPAA's 60-day ceiling.
-// Remaining states get added as additional state-specific deltas
-// come into scope.
+// MN). Batch 3 added 10 more (AZ, CT, TN, IN, WI, KY, LA, IA, MO, AL).
+// Batch 4 (2026-04-24 evening) completes 50-state + DC coverage with
+// the remaining 21 jurisdictions — every state now has at minimum a
+// breach-notification overlay. Most are "most expedient" rules; a few
+// have specific windows (ME 30d, NM 45d, RI 45d, SD 60d).
 
 import { PrismaClient } from "@prisma/client";
 import { config } from "dotenv";
@@ -766,6 +766,285 @@ const OVERLAYS: StateOverlayFixture[] = [
     jurisdictionFilter: ["AL"],
     acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_45_DAYS"],
     sortOrder: 3100,
+  },
+
+  // ──────────────────────────────────────────────────────────────────
+  // Batch 4 (2026-04-24 evening) — final 21 jurisdictions to complete
+  // 50-state + DC breach-notification coverage
+  // ──────────────────────────────────────────────────────────────────
+
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_AK_BREACH_EXPEDIENT",
+    title: "Alaska breach notification — most expedient (AK)",
+    citation: "AS §45.48.010",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Alaska's Personal Information Protection Act requires breach notice 'in the most expeditious time possible and without unreasonable delay.' Substitute notice via email + posting permitted only above cost/volume thresholds.",
+    jurisdictionFilter: ["AK"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 3200,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_AR_BREACH_EXPEDIENT",
+    title: "Arkansas breach notification — most expedient (AR)",
+    citation: "Ark. Code §4-110-105",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Arkansas Personal Information Protection Act requires breach notice 'in the most expedient time and manner possible and without unreasonable delay.' AG notice required when 1,000+ AR residents are affected.",
+    jurisdictionFilter: ["AR"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 3210,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_DE_BREACH_EXPEDIENT",
+    title: "Delaware breach notification — most expedient (DE)",
+    citation: "6 Del. C. §12B-102",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Delaware requires breach notice 'in the most expedient time possible and without unreasonable delay.' AG notice required when 500+ DE residents are affected. Encryption + secure-deletion safe harbor available.",
+    jurisdictionFilter: ["DE"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 3220,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_DC_BREACH_EXPEDIENT",
+    title: "DC breach notification — most expedient (DC)",
+    citation: "D.C. Code §28-3852",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "District of Columbia requires breach notice 'in the most expedient time possible and without unreasonable delay.' AG notice required when 50+ DC residents are affected — lowest threshold of any US jurisdiction. CRA notice triggered at the same threshold.",
+    jurisdictionFilter: ["DC"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 3230,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_HI_BREACH_EXPEDIENT",
+    title: "Hawaii breach notification — most expedient (HI)",
+    citation: "HRS §487N-2",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Hawaii requires breach notice 'without unreasonable delay.' Office of Consumer Protection notice required when 1,000+ HI residents are affected. Consumer-reporting-agency notice triggered at the same threshold.",
+    jurisdictionFilter: ["HI"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 3240,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_ID_BREACH_EXPEDIENT",
+    title: "Idaho breach notification — most expedient (ID)",
+    citation: "Idaho Code §28-51-105",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Idaho requires breach notice to affected residents 'in the most expedient time possible and without unreasonable delay.' AG notice required for any breach affecting ID residents.",
+    jurisdictionFilter: ["ID"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 3250,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_KS_BREACH_EXPEDIENT",
+    title: "Kansas breach notification — most expedient (KS)",
+    citation: "K.S.A. §50-7a02",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Kansas requires breach notice 'in the most expedient time possible and without unreasonable delay.' Consumer-reporting-agency notice triggered when 1,000+ KS residents are affected.",
+    jurisdictionFilter: ["KS"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 3260,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_ME_BREACH_30DAY",
+    title: "Maine breach notification within 30 days (ME)",
+    citation: "10 MRS §1348",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Maine requires breach notice to affected residents within 30 days of discovery — among the tightest fixed windows of any state. State CRA + AG notice required when 1,000+ ME residents are affected.",
+    jurisdictionFilter: ["ME"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_30_DAYS"],
+    sortOrder: 3270,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_MS_BREACH_EXPEDIENT",
+    title: "Mississippi breach notification — most expedient (MS)",
+    citation: "Miss. Code §75-24-29",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Mississippi requires breach notice 'without unreasonable delay.' No fixed deadline; courts read this strictly. No AG notice requirement under MS statute.",
+    jurisdictionFilter: ["MS"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 3280,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_MT_BREACH_EXPEDIENT",
+    title: "Montana breach notification — most expedient (MT)",
+    citation: "Mont. Code §30-14-1701 et seq.",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Montana requires breach notice 'without unreasonable delay.' AG notice required when any MT resident is affected. Encryption + redaction safe harbor available.",
+    jurisdictionFilter: ["MT"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 3290,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_NE_BREACH_EXPEDIENT",
+    title: "Nebraska breach notification — most expedient (NE)",
+    citation: "Neb. Rev. Stat. §87-803",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Nebraska Financial Data Protection and Consumer Notification of Data Security Breach Act requires breach notice 'as soon as possible.' AG notice required when any NE resident is affected.",
+    jurisdictionFilter: ["NE"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 3300,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_NH_BREACH_EXPEDIENT",
+    title: "New Hampshire breach notification — most expedient (NH)",
+    citation: "RSA §359-C:20",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "New Hampshire requires breach notice 'as quickly as possible.' AG + DOJ notice required for any breach affecting NH residents — no minimum threshold.",
+    jurisdictionFilter: ["NH"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 3310,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_NM_BREACH_45DAY",
+    title: "New Mexico breach notification within 45 days (NM)",
+    citation: "NMSA §57-12C-6",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "New Mexico Data Breach Notification Act requires notice within 45 days of discovery. AG + nationwide CRA notice required when 1,000+ NM residents are affected. Encryption safe harbor available.",
+    jurisdictionFilter: ["NM"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_45_DAYS"],
+    sortOrder: 3320,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_ND_BREACH_EXPEDIENT",
+    title: "North Dakota breach notification — most expedient (ND)",
+    citation: "N.D.C.C. §51-30-02",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "North Dakota requires breach notice 'in the most expedient time possible and without unreasonable delay.' AG notice required when 250+ ND residents are affected.",
+    jurisdictionFilter: ["ND"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 3330,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_OK_BREACH_EXPEDIENT",
+    title: "Oklahoma breach notification — most expedient (OK)",
+    citation: "24 O.S. §163",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Oklahoma requires breach notice 'without unreasonable delay.' Substitute notice permitted only above $50,000 or 100,000-resident thresholds. No AG-notice requirement at the state level.",
+    jurisdictionFilter: ["OK"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 3340,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_RI_BREACH_45DAY",
+    title: "Rhode Island breach notification within 45 days (RI)",
+    citation: "R.I.G.L. §11-49.3-4",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Rhode Island Identity Theft Protection Act requires breach notice within 45 days of breach confirmation. AG + CRA notice required when 500+ RI residents are affected.",
+    jurisdictionFilter: ["RI"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_45_DAYS"],
+    sortOrder: 3350,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_SC_BREACH_EXPEDIENT",
+    title: "South Carolina breach notification — most expedient (SC)",
+    citation: "S.C. Code §39-1-90",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "South Carolina requires breach notice 'in the most expedient time possible and without unreasonable delay.' Department of Consumer Affairs notice required when 1,000+ SC residents are affected.",
+    jurisdictionFilter: ["SC"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 3360,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_SD_BREACH_60DAY",
+    title: "South Dakota breach notification within 60 days (SD)",
+    citation: "SDCL §22-40-22",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "South Dakota requires breach notice within 60 days of discovery — matches HIPAA's ceiling. AG notice required when 250+ SD residents are affected. Encryption safe harbor available.",
+    jurisdictionFilter: ["SD"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_60_DAYS"],
+    sortOrder: 3370,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_VT_BREACH_EXPEDIENT",
+    title: "Vermont breach notification — most expedient (VT)",
+    citation: "9 V.S.A. §2435",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Vermont Security Breach Notice Act requires preliminary AG notice within 14 days of discovery + consumer notice 'in the most expedient time possible and without unreasonable delay.' Maximum window 45 days. Among the tightest AG-notice timelines in the country.",
+    jurisdictionFilter: ["VT"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 3380,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_WV_BREACH_EXPEDIENT",
+    title: "West Virginia breach notification — most expedient (WV)",
+    citation: "W. Va. Code §46A-2A-102",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "West Virginia Breach of Security of Computerized Personal Information requires breach notice 'in the most expedient time possible and without unreasonable delay.' Substitute notice permitted only above $50,000 cost / 100,000-resident thresholds.",
+    jurisdictionFilter: ["WV"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 3390,
+  },
+  {
+    frameworkCode: "HIPAA",
+    code: "HIPAA_WY_BREACH_EXPEDIENT",
+    title: "Wyoming breach notification — most expedient (WY)",
+    citation: "Wyo. Stat. §40-12-501 et seq.",
+    severity: "STANDARD",
+    weight: 1.5,
+    description:
+      "Wyoming requires breach notice 'in the most expedient time possible and without unreasonable delay.' No state-level AG notice requirement; consumer notice only.",
+    jurisdictionFilter: ["WY"],
+    acceptedEvidenceTypes: ["INCIDENT:BREACH_NOTIFIED_EXPEDIENT"],
+    sortOrder: 3400,
   },
 ];
 
