@@ -28,3 +28,15 @@ export async function requireUser() {
   if (!user) throw new Error("Unauthorized");
   return user;
 }
+
+/**
+ * Gate for the /admin surface. Throws "Forbidden" (not "Unauthorized")
+ * for signed-in non-admin users so the caller can render notFound() or
+ * redirect rather than punting to /sign-in. Use this in every /admin/*
+ * page + every /api/admin/* route.
+ */
+export async function requirePlatformAdmin() {
+  const user = await requireUser();
+  if (!user.isPlatformAdmin) throw new Error("Forbidden");
+  return user;
+}
