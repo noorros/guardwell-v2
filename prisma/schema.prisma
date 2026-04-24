@@ -113,6 +113,7 @@ model Practice {
   complianceTrack     PracticeTrack?
   destructionLogs     DestructionLog[]
   techAssets          TechAsset[]
+  auditPrepSessions   AuditPrepSession[]
 
   @@index([primaryState])
   @@index([subscriptionStatus])
@@ -934,4 +935,69 @@ model TechAsset {
 
   @@index([practiceId, retiredAt])
   @@index([practiceId, processesPhi])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Audit Prep — guided pre-audit workflow per docs/specs/v1-ideas-survey.md §1.1
+// ────────────────────────────────────────────────────────────────────────────
+
+enum AuditPrepMode {
+  HHS_OCR_HIPAA
+  OSHA
+  CMS
+  DEA
+}
+
+enum AuditPrepStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum AuditPrepStepStatus {
+  PENDING
+  COMPLETE
+  NOT_APPLICABLE
+}
+
+// One audit-prep session per "I just got the audit letter" moment. Mode
+// gates which protocols apply; status walks DRAFT → IN_PROGRESS (first
+// step touched) → COMPLETED (packet generated).
+model AuditPrepSession {
+  id              String           @id @default(cuid())
+  practiceId      String
+  mode            AuditPrepMode
+  status          AuditPrepStatus  @default(DRAFT)
+  startedByUserId String
+  startedAt       DateTime         @default(now())
+  completedAt     DateTime?
+  packetGeneratedAt DateTime?
+
+  practice Practice          @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  steps    AuditPrepStep[]
+
+  @@index([practiceId, startedAt])
+  @@index([practiceId, status])
+}
+
+// One row per protocol within a session. Generated up-front when the
+// session opens (one INSERT per ProtocolDef in PROTOCOLS_BY_MODE[mode]).
+// `evidenceJson` snapshots the live evidence at completion time so the
+// PDF stays stable even if underlying tables change later.
+model AuditPrepStep {
+  id           String              @id @default(cuid())
+  sessionId    String
+  code         String              // matches ProtocolDef.code
+  title        String              // snapshot at session creation
+  status       AuditPrepStepStatus @default(PENDING)
+  evidenceJson Json?               // structured evidence captured at completion
+  notes        String?             @db.Text
+  completedAt  DateTime?
+  completedByUserId String?
+  createdAt    DateTime            @default(now())
+
+  session AuditPrepSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, code])
+  @@index([sessionId, status])
 }
