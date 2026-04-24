@@ -49,6 +49,11 @@ export const EVENT_TYPES = [
   "BACKUP_VERIFICATION_LOGGED",
   "POLICY_CONTENT_UPDATED",
   "POLICY_ACKNOWLEDGED",
+  // Onboarding / billing — see docs/specs/onboarding-flow.md
+  "SUBSCRIPTION_STARTED",
+  "SUBSCRIPTION_STATUS_CHANGED",
+  "PROMO_APPLIED",
+  "ONBOARDING_FIRST_RUN_COMPLETED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -555,6 +560,68 @@ export const EVENT_SCHEMAS = {
       // Free-form signature text typed by the user — e.g. "I have read
       // and will comply with the HIPAA Privacy Policy. — Jane Doe"
       signatureText: z.string().min(1).max(500),
+    }),
+  },
+  // ────────────────────────────────────────────────────────────────────
+  // Onboarding / Billing — see docs/specs/onboarding-flow.md
+  // ────────────────────────────────────────────────────────────────────
+  // Stripe Checkout completed → subscription created. Fired once per
+  // practice from the /api/stripe/webhook handler on
+  // checkout.session.completed.
+  SUBSCRIPTION_STARTED: {
+    1: z.object({
+      stripeCustomerId: z.string().min(1),
+      stripeSubscriptionId: z.string().min(1),
+      stripeCheckoutSessionId: z.string().min(1),
+      priceId: z.string().min(1),
+      billingInterval: z.enum(["month", "year"]),
+      trialEndsAt: z.string().datetime().nullable(),
+      promotionCodeId: z.string().nullable(),
+      promotionCode: z.string().nullable(),
+    }),
+  },
+  // Subscription state change from Stripe webhooks: customer.subscription.*
+  // + invoice.payment_succeeded/failed. Captures the new status + window.
+  SUBSCRIPTION_STATUS_CHANGED: {
+    1: z.object({
+      stripeSubscriptionId: z.string().min(1),
+      previousStatus: z.enum([
+        "INCOMPLETE",
+        "TRIALING",
+        "ACTIVE",
+        "PAST_DUE",
+        "CANCELED",
+      ]),
+      nextStatus: z.enum([
+        "INCOMPLETE",
+        "TRIALING",
+        "ACTIVE",
+        "PAST_DUE",
+        "CANCELED",
+      ]),
+      currentPeriodEnd: z.string().datetime().nullable(),
+      reason: z.string().max(200).nullable(),
+    }),
+  },
+  // Independent record that a promotion code was applied to the
+  // practice's subscription. Useful for audit trail + counting beta
+  // enrollments without joining Stripe.
+  PROMO_APPLIED: {
+    1: z.object({
+      stripeCustomerId: z.string().min(1),
+      stripeSubscriptionId: z.string().min(1),
+      promotionCodeId: z.string().min(1),
+      promotionCode: z.string().min(1).max(200),
+      percentOff: z.number().min(0).max(100).nullable(),
+      durationLabel: z.string().max(40).nullable(), // "forever" | "once" | "repeating"
+    }),
+  },
+  // Set on completion of the 4-step first-run wizard.
+  ONBOARDING_FIRST_RUN_COMPLETED: {
+    1: z.object({
+      completedByUserId: z.string().min(1),
+      stepsCompleted: z.array(z.string().min(1)),
+      durationSeconds: z.number().int().min(0),
     }),
   },
 } as const;

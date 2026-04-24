@@ -95,9 +95,16 @@ model Practice {
   // Stripe (single tier)
   stripeCustomerId       String?  @unique
   stripeSubscriptionId   String?  @unique
-  subscriptionStatus     String   @default("TRIALING") // TRIALING | ACTIVE | PAST_DUE | CANCELED
+  // INCOMPLETE = signed up but no Stripe Checkout completed yet (default
+  // for new self-serve sign-ups per docs/specs/onboarding-flow.md).
+  // TRIALING = Stripe webhook fired checkout.session.completed → 7-day trial.
+  // ACTIVE = first invoice paid. PAST_DUE = invoice failed. CANCELED = sub deleted.
+  subscriptionStatus     String   @default("INCOMPLETE") // INCOMPLETE | TRIALING | ACTIVE | PAST_DUE | CANCELED
   trialEndsAt            DateTime?
   currentPeriodEnd       DateTime?
+  // Set when the OWNER completes the 4-step first-run wizard.
+  // null = wizard not finished (top-of-dashboard re-prompt fires).
+  firstRunCompletedAt    DateTime?
 
   practiceUsers       PracticeUser[]
   practicePolicies    PracticePolicy[]
