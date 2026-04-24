@@ -18,9 +18,10 @@ export interface QuizRunnerProps {
   courseId: string;
   passingScore: number;
   questions: QuizQuestion[];
+  onPass?: () => void;
 }
 
-export function QuizRunner({ courseId, passingScore, questions }: QuizRunnerProps) {
+export function QuizRunner({ courseId, passingScore, questions, onPass }: QuizRunnerProps) {
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [result, setResult] = useState<QuizResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +37,7 @@ export function QuizRunner({ courseId, passingScore, questions }: QuizRunnerProp
       try {
         const r = await submitQuizAction({ courseId, answers: answerArray });
         setResult(r);
+        if (r.passed && onPass) onPass();
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Submission failed";
         setError(msg);
