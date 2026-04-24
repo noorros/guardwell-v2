@@ -13,6 +13,7 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
+import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
 import { sendEmailVerification, reload } from "firebase/auth";
 import { firebaseAuth } from "@/lib/firebase";
@@ -35,11 +36,11 @@ function VerifyInner() {
   const [polling, setPolling] = useState<boolean>(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Where do we go once verified? For now, compliance-profile (the
-  // existing step 2 of onboarding). Phase C will insert /sign-up/payment
-  // here. We carry the promo through the URL so it survives the hop.
-  const nextHref =
-    `/onboarding/compliance-profile${promo ? `?promo=${encodeURIComponent(promo)}` : ""}` as `/onboarding/compliance-profile`;
+  // Where do we go once verified? Phase C inserted /sign-up/payment
+  // here; the payment page itself checks whether subscription is
+  // already TRIALING/ACTIVE and redirects onward to compliance-profile
+  // if so. Carry the promo through the URL so it survives the hop.
+  const nextHref = (`/sign-up/payment${promo ? `?promo=${encodeURIComponent(promo)}` : ""}`) as Route;
 
   // Poll the server for the latest emailVerified state. Five-second
   // cadence; stops once verified.

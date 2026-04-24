@@ -22,6 +22,26 @@ export default async function DashboardLayout({
   const pu = await getPracticeUser();
   if (!pu) redirect("/onboarding/create-practice");
 
+  // Subscription gate (Phase C). INCOMPLETE = sign-up done but no
+  // Stripe Checkout completed yet → bounce to /sign-up/payment.
+  // PAST_DUE / CANCELED → bounce to /account/locked.
+  // TRIALING / ACTIVE → fall through to compliance-profile + dashboard.
+  if (pu.role === "OWNER" || pu.role === "ADMIN") {
+    const sub = await db.practice.findUniqueOrThrow({
+      where: { id: pu.practiceId },
+      select: { subscriptionStatus: true },
+    });
+    if (sub.subscriptionStatus === "INCOMPLETE") {
+      redirect("/sign-up/payment" as Route);
+    }
+    if (
+      sub.subscriptionStatus === "PAST_DUE" ||
+      sub.subscriptionStatus === "CANCELED"
+    ) {
+      redirect("/account/locked" as Route);
+    }
+  }
+
   // Force the compliance-profile step until the owner completes it.
   // OWNER/ADMIN are the only roles that can fill the questionnaire, so
   // STAFF/VIEWER users on a pre-profile practice see the dashboard
