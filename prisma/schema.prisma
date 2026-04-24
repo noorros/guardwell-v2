@@ -1015,6 +1015,42 @@ model AuditPrepStep {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Policy template catalog (2026-04-24)
+// ────────────────────────────────────────────────────────────────────────────
+//
+// Browseable catalog of 130+ policy templates ported from v1 (HIPAA: 75,
+// OSHA: 38, GENERAL: 15, DEA: 2). PracticePolicy.policyCode references a
+// template's code; the existing 9-code "core" set in policies.ts still
+// drives derivation. Templates beyond the core 9 are adoptable but
+// optional — they expand the practice's policy library without
+// changing module compliance scoring.
+//
+// Adopting a template creates a PracticePolicy whose `content` is
+// initialized from the template's bodyMarkdown. Subsequent edits live
+// on the PracticePolicy row only — the template stays canonical for
+// new adoptions.
+
+model PolicyTemplate {
+  id           String   @id @default(cuid())
+  code         String   @unique // e.g. HIPAA_RISK_ANALYSIS_POLICY
+  title        String
+  framework    String   // HIPAA | OSHA | GENERAL | DEA — single string,
+                        // matches RegulatoryFramework.code where applicable.
+  description  String   @db.Text
+  bodyMarkdown String   @db.Text
+  // State filter (e.g. "MA" for state-specific templates) and specialty
+  // filter (e.g. "ALLERGY_IMMUNOLOGY"). Both null = universal template.
+  stateFilter     String?
+  specialtyFilter String?
+  sortOrder    Int      @default(100)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([framework, sortOrder])
+  @@index([stateFilter])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Cybersecurity emphasis (2026-04-23) — Phishing drills + backup verification
 // ────────────────────────────────────────────────────────────────────────────
 //
