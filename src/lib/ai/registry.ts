@@ -21,6 +21,11 @@ import {
   requirementHelpInputSchema,
   requirementHelpOutputSchema,
 } from "./prompts/requirement-help";
+import {
+  ACTIVITY_EXPLAIN_SYSTEM,
+  activityExplainInputSchema,
+  activityExplainOutputSchema,
+} from "./prompts/activity-explain";
 
 export interface PromptDef<
   TIn extends z.ZodTypeAny = z.ZodTypeAny,
@@ -63,6 +68,18 @@ export const PROMPTS = {
     toolName: "requirement_help_v1",
     toolDescription:
       "Return a concise next-step answer for one specific compliance requirement.",
+    maxTokens: 1024,
+  },
+  "activity.explain.v1": {
+    id: "activity.explain.v1",
+    version: 1,
+    model: "claude-sonnet-4-6",
+    system: ACTIVITY_EXPLAIN_SYSTEM,
+    inputSchema: activityExplainInputSchema,
+    outputSchema: activityExplainOutputSchema,
+    toolName: "activity_explain_v1",
+    toolDescription:
+      "Explain a single activity-log event in plain English, anchored to the regulation it satisfies.",
     maxTokens: 1024,
   },
 } as const satisfies Record<string, PromptDef>;
