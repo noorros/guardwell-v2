@@ -1,0 +1,293 @@
+[
+  {
+    "code": "PHISHING_RECOGNITION_RESPONSE",
+    "title": "Phishing Recognition & Response",
+    "description": "Spot phishing, smishing, and vishing attempts targeting medical practices — and know exactly what to do (and what NOT to do) when you encounter one.",
+    "type": "HIPAA",
+    "duration": 20,
+    "passingScore": 80,
+    "isRequired": true,
+    "roles": ["all"],
+    "lessonContent": "<div class=\"lesson-content\">\n\n  <div class=\"callout-info\"><strong>Key Terms</strong><br/>\n<strong>Phishing</strong> = fraudulent email impersonating a trusted source<br/>\n<strong>Spear phishing</strong> = phishing customized to a specific person or practice<br/>\n<strong>Smishing</strong> = phishing over SMS/text<br/>\n<strong>Vishing</strong> = phishing over phone (voice)<br/>\n<strong>BEC</strong> = Business Email Compromise — when an attacker sends email FROM a real account they've already taken over\n</div>\n\n  <div class=\"lesson-intro\">\n    <h2>Why this training matters</h2>\n    <p>HHS reports that <strong>over 70% of healthcare data breaches start with a single phishing email</strong>. Not a sophisticated zero-day, not a state actor — one user clicking one link. In 2024, a 12-provider orthopedic practice in Ohio paid $1.9M after a front-desk employee entered their Microsoft 365 password into a fake invoice portal. The attacker rotated the password, exfiltrated 47,000 patient records, and held the practice's calendar hostage for three weeks. Insurance covered some of the recovery — but not the OCR fine, not the breach notification mailing, and not the patients who left.</p>\n    <p>You are the firewall. The technical controls help, but a determined attacker only needs one person to slip up. The good news: phishing is highly recognizable once you know the patterns.</p>\n  </div>\n\n  <h2>The five phishing signals — every email, every time</h2>\n  <p>Before you click ANY link or open ANY attachment, run this five-second mental check. If two or more apply, treat the message as hostile until proven otherwise.</p>\n  <ul>\n    <li><strong>1. Unexpected sender or context.</strong> An invoice from a vendor you don't use. A password reset you didn't request. A \"voicemail transcription\" from a system that doesn't email you. The classic: \"DocuSign — please review the attached contract.\" Did someone actually tell you a contract was coming?</li>\n    <li><strong>2. Urgency or fear.</strong> \"Your account will be suspended in 24 hours.\" \"The CEO needs this wire transfer NOW.\" \"OCR notice — respond by 5 PM.\" Real organizations rarely create artificial deadlines for routine actions. Urgency is a manipulation tactic.</li>\n    <li><strong>3. Sender domain doesn't match the brand.</strong> Hover over the From address. \"Microsoft Security &lt;security-alerts@microsoftt-365.com&gt;\" is not Microsoft. Look for added letters, hyphens, swapped letters (rn looks like m), or completely unrelated domains.</li>\n    <li><strong>4. Mismatched or shortened links.</strong> Hover (don't click) any link. Does the visible text match the actual URL? Does the URL go to bit.ly or tinyurl when a real Microsoft email would go to microsoft.com? Healthcare attackers often use lookalike domains: \"login-office365-help.com\" or \"emrportal-secure.net\".</li>\n    <li><strong>5. Asks you to do something you'd normally do via a different channel.</strong> Real IT does not email you a login link. Real banks do not email a request for your full SSN. Real DEA inspectors do not text you. If the request feels like \"this would normally be a phone call\" — it should be.</li>\n  </ul>\n\n  <div class=\"callout callout-example\">\n    <strong>Real example we've seen:</strong> An email arrives at 4:55 PM Friday from \"Dr. Patel\" (the practice owner): \"Quick favor — I'm in a meeting and can't talk. Please buy three $500 Apple gift cards and email me the codes. I'll explain Monday.\" Five signals at once: unexpected (Dr. Patel doesn't ask for gift cards), urgent (Friday afternoon, can't talk), vague channel justification, asks for an out-of-band action, and the From address is \"drpatel.office@gmail.com\" not the real practice domain. This is gift card BEC fraud — losses average $24,000 per incident. ALWAYS verify out-of-character requests via a known phone number, not by replying to the email.\n  </div>\n\n  <h2>Three flavors of healthcare phishing — and what they want</h2>\n  <ul>\n    <li><strong>Credential harvesting (most common).</strong> Goal: get your username and password. Bait: \"Your Office 365 mailbox is full,\" \"Your Athenahealth password expires today.\" Once they have your password, they log in (often from overseas), set up email forwarding so you never see their replies, and use your account to send invoices, reset other passwords, or download patient records.</li>\n    <li><strong>Malware delivery (often ransomware).</strong> Goal: get you to open an attachment or enable macros. Bait: \"Patient referral attached,\" \"EOB from BCBS,\" \"Updated fee schedule.\" The file looks like a PDF but is actually a .docm, .xlsm, .iso, or .lnk wrapped in a zip. Opening it can install ransomware that encrypts every file the practice can reach within 30–90 minutes.</li>\n    <li><strong>Wire fraud / BEC.</strong> Goal: trick you into changing payment instructions or sending money. Bait: \"Updated banking instructions for our next invoice,\" \"Please pay this attached invoice by EOD.\" Often the attacker has already compromised a vendor's account and is sending real-looking emails from a real domain.</li>\n  </ul>\n\n  <h2>If you clicked — what to do in the first 60 minutes</h2>\n  <p>Mistakes happen. The window between a click and a controlled response is everything. If you suspect you clicked a phishing link, opened a suspicious attachment, or entered credentials anywhere you now suspect was fake:</p>\n  <ul>\n    <li><strong>Step 1 (within 5 minutes):</strong> Disconnect the device from Wi-Fi and unplug ethernet. This prevents lateral movement and stops most ransomware from completing encryption. Do NOT shut down — forensics may need the running state.</li>\n    <li><strong>Step 2 (within 15 minutes):</strong> Tell IT and the Privacy Officer. Be specific: what you clicked, what you entered, when, and on what device. There is zero penalty for reporting fast. There is enormous penalty for hiding it for hours.</li>\n    <li><strong>Step 3 (within 30 minutes):</strong> If you entered a password, change that password from a DIFFERENT device — and change every other place you used the same password. Enable MFA if it wasn't already on.</li>\n    <li><strong>Step 4 (within 60 minutes):</strong> The Privacy Officer assesses whether PHI was potentially accessed. If so, this becomes an Incident in GuardWell and may require breach notification. The 4-factor risk assessment from your Breach Notification training applies here.</li>\n  </ul>\n\n  <div class=\"callout callout-example\">\n    <strong>Reporting suspected phishing (no click):</strong> Forward the email as an attachment (so headers are preserved) to your IT contact, then delete from your inbox. In Outlook, use the \"Report Phishing\" button if installed — it routes to Microsoft AND to your IT team in one action.\n  </div>\n\n  <h2>Building practice-wide resilience</h2>\n  <p>Individual vigilance is necessary but not sufficient. Practices that survive phishing campaigns layer in:</p>\n  <ul>\n    <li><strong>MFA on every account that touches PHI</strong> — even if a password is phished, the attacker is blocked at the second factor. See your MFA training for enrollment steps.</li>\n    <li><strong>Quarterly phishing simulations</strong> — controlled fake-phish campaigns that find the gaps before attackers do. Click rates above 10% are a leadership concern, not a discipline issue.</li>\n    <li><strong>A clear no-blame reporting culture</strong> — the worst outcome is a clicked link nobody mentions. Reporting fast is the most valuable thing any team member does.</li>\n    <li><strong>Verified out-of-band channels</strong> for any payment change, password reset, or unusual request. \"I'll call you back at the number on file\" should be muscle memory.</li>\n  </ul>\n\n  <h2>What good looks like</h2>\n  <p>A team member receives an email from \"Becky in Accounting\" (a real name in the practice) asking them to wire $4,200 to a new vendor. Instead of replying, they walk to Becky's desk and ask. Becky says she didn't send it. They forward the email to IT, IT confirms it's a spoofed sender from outside the domain, IT logs the attempt, the Privacy Officer documents it, no money moves, no PHI lost. Total elapsed time: 4 minutes. That's the standard.</p>\n\n</div>",
+    "quizQuestions": [
+      {
+        "question": "You receive an email at 4:50 PM Friday from someone claiming to be your practice owner, asking you to urgently buy gift cards and email the codes. The From address is a Gmail address you don't recognize. What is the BEST first action?",
+        "options": [
+          "Buy the cards quickly so you don't disappoint the owner",
+          "Reply asking for confirmation before buying",
+          "Verify with the owner via a known phone number or in person before doing anything",
+          "Forward the email to a coworker for a second opinion and wait for them to respond"
+        ],
+        "correctIndex": 2,
+        "explanation": "This is classic gift-card Business Email Compromise (BEC) fraud. Verification must happen on a different channel (phone or in person) using a known number — never by replying to the email, which would just go back to the attacker. Replying or asking a coworker wastes the urgency window and may lead to the same trap.",
+        "order": 1
+      },
+      {
+        "question": "Which of the following is NOT one of the five phishing signals to check before clicking a link?",
+        "options": [
+          "Unexpected sender or context",
+          "Urgency or fear language",
+          "Mismatched sender domain or link target",
+          "The email contains attachments"
+        ],
+        "correctIndex": 3,
+        "explanation": "Attachments alone are not a phishing signal — many legitimate business emails contain attachments. The five signals are: unexpected context, urgency/fear, mismatched domain, mismatched links, and a request that bypasses the normal channel for that action.",
+        "order": 2
+      },
+      {
+        "question": "You realize you just entered your Office 365 password into what was actually a fake login page. What is the FIRST thing you should do (within 5 minutes)?",
+        "options": [
+          "Wait to see if anything bad happens before reporting",
+          "Disconnect the device from the network and tell IT and the Privacy Officer immediately",
+          "Try logging into your real Office 365 to see if it still works",
+          "Email all your colleagues to warn them about the phishing attempt"
+        ],
+        "correctIndex": 1,
+        "explanation": "Disconnecting prevents lateral movement and stops in-progress attacks. Reporting immediately starts the controlled response. Hiding or delaying the report is the single biggest amplifier of phishing damage. Trying to log in or sending mass warnings can actually tip off the attacker or make the situation worse.",
+        "order": 3
+      },
+      {
+        "question": "An email from \"Microsoft Security <security-alerts@microsoftt-365.com>\" warns that your mailbox will be locked unless you click to verify. What signals are present?",
+        "options": [
+          "None — this is from Microsoft so it's safe",
+          "Only urgency",
+          "Mismatched sender domain (\"microsoftt-365.com\" is not microsoft.com), urgency, and a request that should normally go through your IT or directly through the Microsoft portal",
+          "Only the request to verify"
+        ],
+        "correctIndex": 2,
+        "explanation": "The \"microsoftt-365.com\" domain has an extra letter — a classic lookalike technique. Combined with urgency and an out-of-channel request, multiple signals fire. Real Microsoft notifications almost never ask you to click an emailed link to fix a mailbox issue — sign in directly through your trusted bookmark instead.",
+        "order": 4
+      },
+      {
+        "question": "Why does enabling Multi-Factor Authentication (MFA) significantly reduce phishing damage even when a password IS successfully phished?",
+        "options": [
+          "It changes the password automatically",
+          "Even with the password, the attacker still needs the second factor (your phone, an authenticator app, or hardware key) to log in",
+          "It blocks all phishing emails from arriving",
+          "It encrypts the email content so attackers can't read it"
+        ],
+        "correctIndex": 1,
+        "explanation": "MFA breaks the single-factor model. The phished password alone is no longer enough — the attacker would also need physical access to your second factor. Microsoft has reported MFA blocks more than 99% of automated account takeover attempts. It does not, however, prevent the phishing email from arriving or stop someone from clicking — it just blunts the consequence.",
+        "order": 5
+      },
+      {
+        "question": "Your coworker mentions they clicked a suspicious link this morning but \"nothing happened\" so they didn't report it. What should you do?",
+        "options": [
+          "Agree it's probably fine and move on",
+          "Encourage them to report it to IT and the Privacy Officer immediately, even now — silent compromises often don't show symptoms for hours or days",
+          "Wait until tomorrow to see if anything happens to their computer",
+          "Just delete the email from their inbox for them"
+        ],
+        "correctIndex": 1,
+        "explanation": "Many phishing payloads (credential theft, mailbox forwarding rules, sleeper malware) are designed to be invisible to the user. \"Nothing happened\" is the most common comment after a successful compromise. Reporting late is still vastly better than not reporting — IT may still be in the response window. A no-blame culture depends on people speaking up.",
+        "order": 6
+      },
+      {
+        "question": "True or false: It's safe to forward a phishing email to your colleagues so they know what to watch for.",
+        "options": [
+          "True — sharing examples helps everyone learn",
+          "False — forwarding the live phishing email risks coworkers clicking it. Instead, report it to IT (who can send a sanitized warning) or describe the email in a separate message",
+          "True, as long as you add \"PHISHING\" to the subject",
+          "False, because forwarding might trigger malware on your system"
+        ],
+        "correctIndex": 1,
+        "explanation": "Live phishing emails should never be circulated unsanitized — even with a warning subject, someone may absent-mindedly click. The right move is to report (\"Report Phishing\" button or forward to IT as an attachment), then let IT or security send a sanitized awareness note. This also avoids triggering protective email filters that may then block legitimate mail from your account.",
+        "order": 7
+      }
+    ]
+  },
+  {
+    "code": "MFA_AUTHENTICATION_HYGIENE",
+    "title": "Multi-Factor Authentication & Password Hygiene",
+    "description": "Enroll in MFA, use a password manager, and adopt the authentication habits that block 99%+ of account takeover attacks on healthcare practices.",
+    "type": "HIPAA",
+    "duration": 18,
+    "passingScore": 80,
+    "isRequired": true,
+    "roles": ["all"],
+    "lessonContent": "<div class=\"lesson-content\">\n\n  <div class=\"callout-info\"><strong>Key Terms</strong><br/>\n<strong>MFA</strong> = Multi-Factor Authentication (sometimes called 2FA)<br/>\n<strong>Authenticator app</strong> = phone app that generates time-based codes (e.g., Microsoft Authenticator, Google Authenticator, Authy)<br/>\n<strong>Passkey</strong> = phishing-resistant credential stored on your device, replaces passwords entirely on supported sites<br/>\n<strong>Password manager</strong> = encrypted vault that stores and auto-fills strong unique passwords (e.g., 1Password, Bitwarden, Dashlane)\n</div>\n\n  <div class=\"lesson-intro\">\n    <h2>The math is brutal</h2>\n    <p>Microsoft analyzed 18 million account-takeover attempts and reported that <strong>MFA blocks more than 99% of them</strong>. The other 99% of attacks succeed in seconds against accounts with passwords alone. Yet a 2024 HIMSS survey found <strong>34% of small medical practices still don't have MFA enabled on their EHR or email accounts</strong>. That gap is the single biggest preventable risk in your entire compliance posture — bigger than missing policies, bigger than overdue training, bigger than missing BAAs.</p>\n    <p>This training will get you enrolled, comfortable, and using MFA correctly within the next 20 minutes. There is no good reason not to be done by the end of today.</p>\n  </div>\n\n  <h2>Why passwords alone fail</h2>\n  <p>Three reasons, all preventable:</p>\n  <ul>\n    <li><strong>Reuse.</strong> The average person has 100+ accounts and reuses passwords across 30%+ of them. When LinkedIn, Yahoo, or any vendor is breached, attackers immediately try those passwords on every healthcare login they can find. This is called \"credential stuffing\" and it's automated, fast, and free for attackers.</li>\n    <li><strong>Phishing.</strong> Even strong passwords get typed into fake login pages. The password \"H7$qPm!82xZv\" is just as useless as \"password123\" once you've handed it to an attacker via a phishing form.</li>\n    <li><strong>Guessing.</strong> Attackers use leaked password databases plus common patterns (\"PracticeName2024!\", \"Spring2024!\") and brute-force their way in. A 10-character password with mixed case, numbers, and symbols can be broken in under a day on rented cloud hardware.</li>\n  </ul>\n\n  <h2>The three things you need to do</h2>\n\n  <h3>1. Turn on MFA everywhere — these are the priority order</h3>\n  <p>Not all accounts are equal. Enroll in this order:</p>\n  <ul>\n    <li><strong>P1 — Email account</strong> (Microsoft 365, Google Workspace). Email is the master key — every \"forgot password\" flow ends here. If your email is owned, every other account is at risk.</li>\n    <li><strong>P1 — EHR / practice management</strong> (Athenahealth, eClinicalWorks, Epic, Kareo, etc.). This is where PHI lives. Most major EHRs now offer MFA — if yours doesn't, that's a vendor risk worth raising.</li>\n    <li><strong>P2 — Banking and payroll</strong> (your bank, Gusto, ADP). Wire fraud bypasses every other control if these accounts are compromised.</li>\n    <li><strong>P2 — Cloud storage</strong> (Google Drive, OneDrive, Dropbox). Often used for backups, scanned documents, and shared resources containing PHI.</li>\n    <li><strong>P3 — Vendor portals</strong> (state licensing, DEA, payer portals, lab portals). Each represents a path back to your patient data or operations.</li>\n  </ul>\n\n  <h3>2. Use an authenticator app, not SMS, when offered the choice</h3>\n  <p>If a service lets you choose, this is the order from best to worst:</p>\n  <ul>\n    <li><strong>Best — Hardware security key</strong> (YubiKey, Google Titan). Physical USB/NFC device. Phishing-proof. ~$30–60 per user.</li>\n    <li><strong>Best — Passkeys</strong> (where supported). Stored in your phone or password manager. Phishing-proof. Free.</li>\n    <li><strong>Strong — Authenticator app</strong> (Microsoft Authenticator, Google Authenticator, Authy, 1Password). 6-digit code that rotates every 30 seconds. Free.</li>\n    <li><strong>Acceptable — SMS text codes.</strong> Better than nothing. Vulnerable to SIM-swap attacks (where attackers convince your carrier to transfer your number to their device). Use only when no other option exists.</li>\n    <li><strong>Avoid — Email-only verification.</strong> If your email is compromised, this provides zero extra protection.</li>\n  </ul>\n\n  <div class=\"callout callout-example\">\n    <strong>Quick enrollment guide for Microsoft 365:</strong> Go to https://aka.ms/mfasetup → sign in → choose \"Authenticator app\" → install Microsoft Authenticator on your phone from the App Store or Google Play → scan the QR code → approve a test push. Done. ~3 minutes. Apply the same flow for Google Workspace at https://myaccount.google.com/security.\n  </div>\n\n  <h3>3. Stop reusing passwords — use a password manager</h3>\n  <p>You cannot remember a unique strong password for every account, and you shouldn't try. A password manager is encrypted-at-rest software that:</p>\n  <ul>\n    <li>Generates unique random passwords (e.g., \"jL7%pXvN9!qRm2#z\") on demand</li>\n    <li>Auto-fills them into the right login form (which also defeats most phishing — the manager won't auto-fill on a fake domain)</li>\n    <li>Syncs encrypted across your devices behind a single master password and MFA</li>\n  </ul>\n  <p>Recommended for small practices: <strong>1Password Business</strong>, <strong>Bitwarden Business</strong>, or <strong>Dashlane Business</strong>. Cost is typically $4–8 per user per month — significantly less than the cost of a single phishing recovery. The practice should provide and pay for the password manager — never expect staff to manage practice credentials in personal vaults.</p>\n\n  <h2>The MFA fatigue trap — and how to avoid it</h2>\n  <p>Sophisticated attackers who already have your password may try \"MFA fatigue\" or \"MFA bombing\" — they trigger login attempt after login attempt, hoping you'll approve the push notification just to make the buzzing stop. This worked against Uber in 2022 and Cisco in the same year.</p>\n  <p>The rule is simple: <strong>if you didn't just initiate a login, deny the request and report it immediately</strong>. Microsoft and Google now ask you to type a number shown on the login screen into your authenticator — that's specifically to defeat fatigue attacks. If you're getting unexpected prompts, your password is already compromised. Change it immediately and tell IT.</p>\n\n  <h2>What about password complexity rules?</h2>\n  <p>The old advice (\"use at least 12 characters with uppercase, lowercase, number, and symbol, change every 90 days\") has been superseded. NIST's current guidance for healthcare:</p>\n  <ul>\n    <li><strong>Length over complexity.</strong> A 16-character passphrase like \"correct-horse-battery-staple\" is stronger than \"P@ssw0rd!\" and far easier to type.</li>\n    <li><strong>Don't force routine rotation.</strong> Rotating every 90 days produces predictable patterns (\"Spring2024!\" → \"Summer2024!\"). Rotate when there's evidence of compromise, not on a calendar.</li>\n    <li><strong>Block known-leaked passwords.</strong> Most identity systems now check against the \"haveibeenpwned\" database automatically — if your chosen password has appeared in a breach, it's rejected.</li>\n    <li><strong>Unique per account.</strong> Reuse is the #1 amplifier. The password manager handles this for you.</li>\n  </ul>\n\n  <h2>Habits to build today</h2>\n  <ul>\n    <li>Enroll in MFA on email + EHR within 24 hours.</li>\n    <li>Install a password manager and migrate at least your top 5 work accounts in the next week.</li>\n    <li>Never approve an MFA push you didn't initiate.</li>\n    <li>Treat the recovery codes (one-time backup codes) like keys — store in the password manager or a locked drawer, never in plain text in email.</li>\n    <li>If you switch phones, re-enroll MFA on every account before recycling the old phone.</li>\n  </ul>\n\n  <h2>What good looks like</h2>\n  <p>A new front-desk employee starts on Monday. By end of day Tuesday, they're enrolled in MFA on Microsoft 365 (authenticator app), the EHR (push notification), and the patient portal admin account (text code as the only available option). The practice's 1Password vault has been shared with them with read-only access to the shared business folder. They've been told and shown: any unexpected MFA prompt → deny and report. Their password manager auto-fills logins everywhere — they haven't typed a password in days. Total time invested: about 25 minutes. Total risk reduction: 99%+.</p>\n\n</div>",
+    "quizQuestions": [
+      {
+        "question": "Which authentication method is MOST resistant to phishing?",
+        "options": [
+          "A 16-character random password",
+          "SMS text-message verification codes",
+          "A hardware security key (e.g., YubiKey) or a passkey",
+          "An email-based one-time code"
+        ],
+        "correctIndex": 2,
+        "explanation": "Hardware security keys and passkeys are cryptographically bound to the legitimate website's domain — they will refuse to authenticate against a fake login page, defeating phishing entirely. Authenticator apps are also strong but can still be tricked via fatigue attacks. SMS is vulnerable to SIM-swap attacks. Email codes provide no extra protection if the email itself is compromised.",
+        "order": 1
+      },
+      {
+        "question": "You receive a Microsoft Authenticator push notification asking you to approve a sign-in, but you didn't try to log in. What should you do?",
+        "options": [
+          "Approve it — it's probably a system check",
+          "Deny it and report to IT immediately — your password may already be compromised",
+          "Approve it once to silence the notification, then ignore future ones",
+          "Wait to see if more come in before deciding"
+        ],
+        "correctIndex": 1,
+        "explanation": "An unexpected MFA prompt means an attacker already has your password and is trying to use it. This is called MFA fatigue or MFA bombing. Always deny, then change the password and tell IT. Approving even once gives the attacker access. Major breaches at Uber and Cisco both started with a user approving an MFA prompt out of frustration.",
+        "order": 2
+      },
+      {
+        "question": "Which account should be FIRST priority for enabling MFA?",
+        "options": [
+          "Your personal Netflix account",
+          "Your work email account (Microsoft 365 or Google Workspace)",
+          "A vendor portal you use once a year",
+          "Your social media accounts"
+        ],
+        "correctIndex": 1,
+        "explanation": "Email is the master key — every \"forgot password\" flow ultimately resolves to email. If your work email is compromised, attackers can reset passwords on virtually every other account. Enroll there first, then EHR, then banking/payroll, then everything else.",
+        "order": 3
+      },
+      {
+        "question": "Why is using a password manager strongly recommended over trying to remember strong passwords?",
+        "options": [
+          "Password managers are required by HIPAA",
+          "They generate unique random passwords for every account, which prevents credential-stuffing attacks when one site is breached, and they refuse to auto-fill on phishing domains",
+          "They are free for healthcare practices",
+          "They eliminate the need for MFA"
+        ],
+        "correctIndex": 1,
+        "explanation": "The two biggest password risks are reuse and phishing. A password manager addresses both: unique passwords per account mean a breach of one site doesn't compromise others, and the manager will refuse to auto-fill credentials on a domain that doesn't match the saved entry — making most phishing pages immediately suspicious to attentive users. HIPAA does not specifically mandate password managers. They are not free for business use. They complement, not replace, MFA.",
+        "order": 4
+      },
+      {
+        "question": "Which of the following passwords is BEST under modern (NIST 2024) guidance?",
+        "options": [
+          "P@ssw0rd2024!",
+          "correct-horse-battery-staple",
+          "Spring2024!",
+          "12345678"
+        ],
+        "correctIndex": 1,
+        "explanation": "Modern NIST guidance favors length over complexity. A 28-character passphrase like \"correct-horse-battery-staple\" has far more entropy than the 13-character \"P@ssw0rd2024!\" and is much easier to remember and type. Both \"Spring2024!\" and \"P@ssw0rd2024!\" follow predictable patterns and are likely in attacker dictionaries. \"12345678\" is among the most-leaked passwords ever.",
+        "order": 5
+      },
+      {
+        "question": "Your practice owner asks you to enable MFA on the EHR. The EHR offers SMS codes, an authenticator app, and email codes. Which should you choose?",
+        "options": [
+          "SMS codes (easiest)",
+          "Email codes (no extra app needed)",
+          "Authenticator app (strong, free, not vulnerable to SIM-swap)",
+          "Don't enable any — they're all equally weak"
+        ],
+        "correctIndex": 2,
+        "explanation": "Authenticator app codes are stronger than SMS (which is vulnerable to SIM-swap attacks where attackers convince your carrier to transfer your number) and far stronger than email codes (which provide no extra protection if email is compromised). When given the choice, prefer authenticator app over SMS over email. The best option, when offered, is a hardware security key or passkey.",
+        "order": 6
+      }
+    ]
+  },
+  {
+    "code": "RANSOMWARE_DEFENSE_PLAYBOOK",
+    "title": "Ransomware Defense & Response Playbook",
+    "description": "Recognize ransomware delivery vectors, harden the practice against attack, and execute the first 24 hours of response if it happens — including the OCR breach decision.",
+    "type": "HIPAA",
+    "duration": 25,
+    "passingScore": 80,
+    "isRequired": true,
+    "roles": ["all"],
+    "lessonContent": "<div class=\"lesson-content\">\n\n  <div class=\"callout-info\"><strong>Key Terms</strong><br/>\n<strong>Ransomware</strong> = malware that encrypts your files and demands payment for the decryption key<br/>\n<strong>Double extortion</strong> = attacker also exfiltrates data and threatens to publish it if you don't pay, even if you can restore from backup<br/>\n<strong>RTO</strong> = Recovery Time Objective — how fast you need to be back operational<br/>\n<strong>RPO</strong> = Recovery Point Objective — how much data you can afford to lose (e.g., 1 hour means hourly backups)<br/>\n<strong>Air-gapped backup</strong> = backup stored on media not connected to the network, so ransomware cannot encrypt it\n</div>\n\n  <div class=\"lesson-intro\">\n    <h2>Why ransomware is the existential threat for medical practices</h2>\n    <p>The HHS Office for Civil Rights tracked <strong>89 ransomware-related breaches at small to mid-size practices in 2024</strong> — up from 49 the year before. Practices with fewer than 50 employees are now the preferred target: large enough to have valuable PHI and pay a ransom, small enough to lack a dedicated security team. Average ransom demand: $250,000. Average total recovery cost (including downtime, breach notification, and OCR settlement): $1.4M. <strong>One in five attacked practices closes permanently within 18 months.</strong></p>\n    <p>The 2024 attack on Change Healthcare — a UnitedHealth subsidiary processing 1 in 3 US patient transactions — knocked out claim processing for thousands of small practices for over a month. Many did not have cash reserves to survive. The lesson is not just technical: ransomware is a business continuity event, not an IT event.</p>\n  </div>\n\n  <h2>How ransomware reaches a practice — the four common doors</h2>\n  <ul>\n    <li><strong>1. Phishing email with a malicious attachment or link.</strong> Most common. The user clicks, malware lands, attacker spends days quietly mapping the network before triggering encryption. See your Phishing training for details.</li>\n    <li><strong>2. Compromised remote desktop (RDP) exposed to the internet.</strong> If anyone in the practice has \"remote into the office computer\" set up via Windows RDP open to the internet, attackers find it within hours and brute-force the password. RDP should NEVER be exposed directly — use a VPN or Zero Trust solution.</li>\n    <li><strong>3. Vulnerable third-party software.</strong> Old EHR servers, unpatched VPN appliances, or outdated firewalls. The attack on Change Healthcare started with a Citrix VPN missing a patch from two months earlier.</li>\n    <li><strong>4. Compromised vendor or BAA.</strong> Your billing service or IT provider gets attacked and the attackers pivot into your network through the trusted connection. This is why your BAA should require notification within 24 hours of any vendor security incident.</li>\n  </ul>\n\n  <h2>The five things every practice must have BEFORE an attack</h2>\n\n  <h3>1. Tested, air-gapped backups</h3>\n  <p>Backups that ransomware can also encrypt are worse than no backups — they create false confidence. Requirements:</p>\n  <ul>\n    <li>Daily backups of EHR, email, financial systems, and shared drives</li>\n    <li>At least one copy stored offline or in a separate cloud account that cannot be reached from the production network (\"3-2-1 rule\": 3 copies, 2 different media, 1 offsite)</li>\n    <li>Quarterly restore tests that prove the backup actually works — log these in GuardWell as evidence</li>\n    <li>Encrypted at rest and in transit; access requires its own MFA</li>\n  </ul>\n\n  <h3>2. MFA on everything (not just email)</h3>\n  <p>Particularly: EHR admin accounts, VPN, remote access tools (TeamViewer, AnyDesk), backup admin console, cloud storage admin. See your MFA training.</p>\n\n  <h3>3. Endpoint Detection & Response (EDR), not just antivirus</h3>\n  <p>Old-school antivirus catches roughly 30% of modern ransomware. EDR products (CrowdStrike, SentinelOne, Microsoft Defender for Business, Huntress) catch 90%+ and flag suspicious behavior even when malware is brand-new. Annual cost: roughly $5–8 per device per month — meaningful but small relative to a single ransomware incident.</p>\n\n  <h3>4. Patched software</h3>\n  <p>The vast majority of \"sophisticated\" attacks exploit a vulnerability that had a patch available 30+ days earlier. Patch your EHR server, your firewall, your VPN, your operating systems, and your browser within 30 days of release — sooner for critical CVEs.</p>\n\n  <h3>5. A documented response plan</h3>\n  <p>Two pages, printed (because your computers may be down), with: who to call (lawyer, breach coach, IT incident response firm, cyber insurance), the backup admin's number, and the first 6 hours of decisions. We provide a template at /programs/cybersecurity.</p>\n\n  <h2>The first 24 hours of an attack — what to do</h2>\n\n  <h3>Hour 0 — Identification (within 15 minutes of first symptom)</h3>\n  <p>Symptoms: files renamed with strange extensions (.lockbit, .conti, .black), a ransom note on the desktop, EHR running impossibly slowly, printers spitting out ransom demands, your antivirus alerting on every machine at once.</p>\n  <ul>\n    <li>Disconnect affected machines from the network. Pull the cable. Turn off Wi-Fi.</li>\n    <li>Do NOT power off (forensic value of memory state)</li>\n    <li>Stop touching keyboards on potentially infected machines</li>\n    <li>Tell the practice owner and Privacy Officer in person, not via email (email may be compromised)</li>\n  </ul>\n\n  <h3>Hour 1 — Containment</h3>\n  <ul>\n    <li>Isolate the practice network from the internet (unplug the router if needed)</li>\n    <li>Disable VPN access until investigation is done</li>\n    <li>Notify your cyber insurance carrier — they assign an Incident Response (IR) firm and pay for it. If you skip this step, they may deny the claim later.</li>\n    <li>Notify the IT MSP and the EHR vendor</li>\n    <li>Begin documenting: timeline, screenshots of ransom note, file changes, who reported what when</li>\n  </ul>\n\n  <h3>Hours 2–6 — Triage and decision</h3>\n  <ul>\n    <li>The IR firm scopes the attack: which systems, what data accessed, whether attackers are still inside</li>\n    <li>The practice owner + Privacy Officer + breach coach decide:\n      <ul>\n        <li>Continue patient care via paper / partial systems?</li>\n        <li>Notify patients with that day's appointments? (Often yes — appointments may need to reschedule)</li>\n        <li>Engage law enforcement? (FBI's IC3 + state AG; required in some states)</li>\n        <li>Pay or not pay? This is a business + legal call, NOT a clinical or IT call. Federal guidance discourages payment but does not prohibit it for healthcare. Many practices that pay still don't get a working decryptor.</li>\n      </ul>\n    </li>\n  </ul>\n\n  <h3>Hours 6–24 — Restore and notify</h3>\n  <ul>\n    <li>Begin restoring clean systems from air-gapped backups onto known-clean hardware (not the infected machines)</li>\n    <li>Reset every credential — assume all passwords are stolen</li>\n    <li>The Privacy Officer applies the 4-factor breach risk assessment (see Breach Notification training): if PHI was accessed or exfiltrated, this is a reportable breach</li>\n    <li>If &gt;500 individuals affected: HHS notification within 60 days + media notification + state-by-state breach notification (most states have 30–90 day windows)</li>\n  </ul>\n\n  <h2>Should we pay the ransom?</h2>\n  <p>This is genuinely complicated and the call rests with the practice owner + counsel. Considerations:</p>\n  <ul>\n    <li>Federal authorities (FBI, OFAC) discourage payment but do not prohibit it for healthcare. Paying a sanctioned group (some Russian/North Korean affiliates) IS a federal crime.</li>\n    <li>Decryptors often don't work or only partially work. A 2024 Sophos survey found <strong>only 4% of paying organizations got 100% of data back</strong>.</li>\n    <li>Paying signals you're a willing target — repeat attacks within 12 months are common.</li>\n    <li>Insurance may or may not cover the ransom. Read your policy BEFORE you need it.</li>\n    <li>Even if you pay and get data back, breach notification obligations DON'T disappear — PHI was still accessed.</li>\n  </ul>\n\n  <h2>The OCR breach decision</h2>\n  <p>HHS treats ransomware as a presumed breach: per OCR's official Ransomware Fact Sheet, encryption of PHI by ransomware IS an acquisition of PHI by an unauthorized party — meaning a breach unless the practice can demonstrate, through the 4-factor risk assessment, a low probability that PHI was actually compromised. In practice, this is hard to prove for ransomware (the attacker had broad access), so the prudent default is to treat ransomware as a reportable breach. Document the decision and the 4-factor analysis either way.</p>\n\n  <h2>Cyber insurance — what to verify before you need it</h2>\n  <p>Annual policies have grown more restrictive. Confirm with your broker:</p>\n  <ul>\n    <li>Ransomware coverage (some policies have excluded it post-2022)</li>\n    <li>Breach notification cost coverage (the mailings alone can run $5–15 per affected person)</li>\n    <li>Business interruption (lost revenue during downtime)</li>\n    <li>IR firm and breach coach included (carrier-managed vs you choose)</li>\n    <li>Coverage limits — $1M is the modern minimum for a 5–10 provider practice; $3M+ for larger</li>\n    <li>Required controls — most policies now REQUIRE MFA, EDR, and offline backups; without them, claims may be denied</li>\n  </ul>\n\n  <h2>What good looks like</h2>\n  <p>A 6-provider OB-GYN practice clicks a phishing link Tuesday at 10 AM. By 10:08, files start renaming. The front-desk staff member notices and immediately tells the office manager, who unplugs the affected machine and calls the practice owner. By 10:25, the practice has called their cyber insurance hotline, which dispatches an IR firm. By noon, the network is isolated and triage is underway. The IR firm confirms attackers had been in the network for 4 days but had not exfiltrated patient records before encryption fired. Backups (tested last quarter) are restored to clean hardware overnight. By Thursday morning, the practice is operating from clean systems. The Privacy Officer files breach notifications because the 4-factor analysis cannot rule out PHI compromise. Total loss: 1.5 days of operations + $35,000 deductible. This is the survivable outcome — and it required preparation that all happened BEFORE the click.</p>\n\n</div>",
+    "quizQuestions": [
+      {
+        "question": "What does the \"3-2-1 rule\" of backups mean?",
+        "options": [
+          "3 backups per day, 2 hours of retention, 1 administrator",
+          "3 copies of data, on 2 different types of media, with 1 stored offsite or air-gapped",
+          "3 weeks of retention, 2 cloud providers, 1 password",
+          "3 different file formats, 2 different encryption keys, 1 master administrator"
+        ],
+        "correctIndex": 1,
+        "explanation": "The 3-2-1 rule keeps you covered against ransomware, hardware failure, and disasters. The critical part is the air-gapped or offsite copy — without it, ransomware that reaches your backup server can encrypt your backups along with everything else, leaving you with no recovery option.",
+        "order": 1
+      },
+      {
+        "question": "Your computer suddenly shows a ransom note and files are being renamed with strange extensions. What should you do FIRST?",
+        "options": [
+          "Power off the computer immediately",
+          "Try to delete the ransom note",
+          "Disconnect the machine from the network (pull the ethernet cable, turn off Wi-Fi) and notify the office manager and Privacy Officer in person",
+          "Email everyone in the practice to warn them"
+        ],
+        "correctIndex": 2,
+        "explanation": "Disconnecting from the network immediately stops the ransomware from spreading to other machines. DON'T power off — forensics may need the running memory state. DON'T email — your email may already be compromised, and the attacker could read your warning. Tell people in person. Don't try to delete the ransom note — preserve it as evidence for the IR firm and law enforcement.",
+        "order": 2
+      },
+      {
+        "question": "Why is traditional antivirus alone considered insufficient against modern ransomware?",
+        "options": [
+          "It's too expensive for small practices",
+          "It only catches roughly 30% of modern ransomware variants because it relies on known signatures, while EDR products catch 90%+ by detecting suspicious behavior",
+          "It interferes with EHR software",
+          "It's no longer available for purchase"
+        ],
+        "correctIndex": 1,
+        "explanation": "Modern ransomware is polymorphic — each variant looks different to a signature-based scanner. EDR (Endpoint Detection & Response) products like CrowdStrike, SentinelOne, Huntress, and Microsoft Defender for Business detect the BEHAVIORS of ransomware (mass file rewrites, suspicious encryption activity, unusual process spawning) and can stop it even when the variant is brand new. Most cyber insurance policies now require EDR.",
+        "order": 3
+      },
+      {
+        "question": "If your practice has ransomware encrypt PHI, is this automatically a HIPAA breach?",
+        "options": [
+          "No — encryption by ransomware is never a breach because the attackers can't read the encrypted files",
+          "OCR treats ransomware encryption as a presumed breach (acquisition by an unauthorized party); the practice must perform a 4-factor risk assessment to demonstrate low probability of compromise, which is hard for ransomware",
+          "Only if the ransom is paid",
+          "Only if patients ask about it"
+        ],
+        "correctIndex": 1,
+        "explanation": "Per OCR's official Ransomware Fact Sheet, the encryption itself constitutes an acquisition of PHI by an unauthorized party. The presumption is breach, and the burden is on the practice to demonstrate via the 4-factor risk assessment that compromise was unlikely. Because ransomware actors typically have broad network access (often for days before encrypting), the prudent default is to treat it as a reportable breach.",
+        "order": 4
+      },
+      {
+        "question": "Which is the BEST first phone call to make after confirming a ransomware attack?",
+        "options": [
+          "The ransom payment company",
+          "Your cyber insurance carrier — they assign and pay for an Incident Response firm; calling them late may void coverage",
+          "The local news",
+          "Your bank"
+        ],
+        "correctIndex": 1,
+        "explanation": "Cyber insurance carriers run 24/7 incident hotlines. They dispatch a qualified Incident Response firm (whose cost would otherwise be $300–$600/hour out of pocket), connect you with a breach coach attorney, and ensure your response actions don't void the policy. Many policies require notification within 24–72 hours of discovery — late notification is a common reason claims are denied.",
+        "order": 5
+      },
+      {
+        "question": "Why is paying the ransom NOT a guaranteed solution?",
+        "options": [
+          "It's always illegal",
+          "Decryptors often don't work or only partially work (a 2024 Sophos survey found only 4% of paying organizations got 100% of data back), the practice may be marked as a willing target for repeat attacks, paying sanctioned groups is a federal crime, and breach notification obligations don't disappear regardless",
+          "It immediately voids your insurance",
+          "It signals you have backups"
+        ],
+        "correctIndex": 1,
+        "explanation": "All four parts of the answer matter. Paying does not guarantee data recovery, increases the chance of repeat attack, can be a federal crime if the group is sanctioned (OFAC), and does not eliminate the HIPAA breach notification obligation. The decision to pay rests with the practice owner and counsel, but it should never be assumed to solve the problem.",
+        "order": 6
+      },
+      {
+        "question": "What is an \"air-gapped\" backup?",
+        "options": [
+          "A backup stored in a freezer",
+          "A backup that is not connected to the production network — so ransomware reaching the live systems cannot reach the backup to encrypt it",
+          "A backup that has had air bubbles removed",
+          "Any backup stored in the cloud"
+        ],
+        "correctIndex": 1,
+        "explanation": "Air-gapped means physically or logically disconnected. This can be a tape rotated offsite, an external drive that is plugged in only during the backup window, or a cloud backup in an account with separate credentials and immutable storage settings. The point is that an attacker who compromises the live network cannot also encrypt or delete the backup. Cloud storage alone is not air-gapped if it uses the same credentials as the live environment.",
+        "order": 7
+      },
+      {
+        "question": "When restoring after a ransomware incident, the BEST practice is to:",
+        "options": [
+          "Restore the backups onto the same machines that were attacked",
+          "Restore onto known-clean hardware (or fully wiped + reimaged hardware), reset every credential, and verify systems before reconnecting to the network",
+          "Restore the latest backup without verifying it",
+          "Skip restoration and pay the ransom for speed"
+        ],
+        "correctIndex": 1,
+        "explanation": "Restoring onto compromised hardware risks reinfection — sleeper malware can persist through a simple file restore. Wiping and reimaging or using new hardware breaks that path. Resetting every credential matters because attackers typically harvest passwords during their dwell time. And every system should be verified clean before being reconnected to the network or to other restored systems.",
+        "order": 8
+      }
+    ]
+  }
+]

@@ -14,6 +14,7 @@ import {
 } from "@/components/gw/ModuleActivityFeed";
 import { AiAssistTrigger } from "@/components/gw/AiAssistDrawer/AiAssistTrigger";
 import { EXTRAS_BY_FRAMEWORK_CODE } from "@/components/gw/Extras/registry";
+import { CyberReadinessPanel } from "@/components/gw/CyberReadinessPanel/CyberReadinessPanel";
 import { ChecklistItemServer } from "./ChecklistItemServer";
 import type { AiReasonSource } from "@/components/gw/ChecklistItem/AiReasonIndicator";
 import {
@@ -295,6 +296,14 @@ export default async function ModulePage({
           distinctActorCount={distinctActorCount}
         />
       </section>
+      {framework.code === "HIPAA" && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold text-foreground">
+            Cybersecurity readiness
+          </h2>
+          <CyberReadinessPanel practiceId={pu.practiceId} />
+        </section>
+      )}
       {(() => {
         // Section G — per-framework Extras (calculators, quick references,
         // template generators). Lookup is by framework.code; missing entries

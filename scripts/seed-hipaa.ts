@@ -187,6 +187,58 @@ async function main() {
       acceptedEvidenceTypes: ["POLICY:HIPAA_WORKSTATION_POLICY"],
       sortOrder: 100,
     },
+    // Cybersecurity emphasis (2026-04-23) — four new requirements that
+    // operationalize HIPAA Security Rule §164.308(a)(5) administrative
+    // safeguards beyond the existing SRA + workforce-training rules.
+    {
+      code: "HIPAA_CYBER_TRAINING_COMPLETE",
+      title: "Workforce trained on the four core cybersecurity topics",
+      citation: "45 CFR §164.308(a)(5) (Security Awareness & Training)",
+      severity: "STANDARD",
+      weight: 1.25,
+      description:
+        "≥80% of active workforce has a passed, non-expired completion for ALL four cybersecurity courses: Phishing Recognition & Response, MFA & Authentication Hygiene, Ransomware Defense Playbook, and Cybersecurity for Medical Offices. Track progress at /programs/training and /programs/cybersecurity.",
+      acceptedEvidenceTypes: [
+        "TRAINING:PHISHING_RECOGNITION_RESPONSE",
+        "TRAINING:MFA_AUTHENTICATION_HYGIENE",
+        "TRAINING:RANSOMWARE_DEFENSE_PLAYBOOK",
+        "TRAINING:CYBERSECURITY_MEDICAL_OFFICES",
+      ],
+      sortOrder: 110,
+    },
+    {
+      code: "HIPAA_MFA_COVERAGE_GE_80",
+      title: "MFA enrolled for ≥80% of workforce",
+      citation: "45 CFR §164.308(a)(5)(ii)(D)",
+      severity: "CRITICAL",
+      weight: 1.5,
+      description:
+        "Multi-factor authentication is the single highest-leverage account-takeover defense (Microsoft data: blocks 99%+ of automated attacks). Once 80% or more of active practice users have MFA enrolled (officer-attested at /programs/cybersecurity), this requirement is COMPLIANT.",
+      acceptedEvidenceTypes: ["MFA:ENROLLED"],
+      sortOrder: 120,
+    },
+    {
+      code: "HIPAA_PHISHING_DRILL_RECENT",
+      title: "Phishing simulation drill within the last 6 months",
+      citation: "45 CFR §164.308(a)(5)(ii)(B) (Protection from Malicious Software)",
+      severity: "STANDARD",
+      weight: 1,
+      description:
+        "Run a simulated phishing campaign at least every 6 months and log the result at /programs/cybersecurity (vendor, total recipients, click rate, report rate). Industry baseline targets: click rate <10%, report rate >20%. Cyber insurance carriers increasingly require this as a baseline control.",
+      acceptedEvidenceTypes: ["PHISHING_DRILL:LOGGED"],
+      sortOrder: 130,
+    },
+    {
+      code: "HIPAA_BACKUP_VERIFIED_RECENT",
+      title: "Backup restore-test verified within the last 90 days",
+      citation: "45 CFR §164.308(a)(7) (Contingency Plan)",
+      severity: "CRITICAL",
+      weight: 1.5,
+      description:
+        "Untested backups are not backups. Run and log a successful restore-test at least every 90 days at /programs/cybersecurity for at minimum your EHR. Per the OCR Ransomware Fact Sheet, tested + air-gapped backups are the single most effective ransomware-recovery control.",
+      acceptedEvidenceTypes: ["BACKUP_VERIFICATION:LOGGED"],
+      sortOrder: 140,
+    },
   ];
 
   let upserted = 0;

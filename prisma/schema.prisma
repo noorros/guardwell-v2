@@ -119,6 +119,8 @@ model Practice {
   destructionLogs     DestructionLog[]
   techAssets          TechAsset[]
   auditPrepSessions   AuditPrepSession[]
+  phishingDrills      PhishingDrill[]
+  backupVerifications BackupVerification[]
 
   @@index([primaryState])
   @@index([subscriptionStatus])
@@ -144,6 +146,10 @@ model PracticeUser {
   isSafetyOfficer     Boolean @default(false)
   joinedAt    DateTime     @default(now())
   removedAt   DateTime?
+  // Cybersecurity emphasis (2026-04-23): per-user MFA enrollment
+  // attestation. Captured by an officer (no IdP integration in v2 launch
+  // scope), not the user themselves, so it counts as evidence.
+  mfaEnrolledAt DateTime?
 
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   practice    Practice     @relation(fields: [practiceId], references: [id], onDelete: Cascade)
@@ -152,6 +158,7 @@ model PracticeUser {
   @@unique([userId, practiceId])
   @@index([practiceId, role])
   @@index([practiceId, removedAt])
+  @@index([practiceId, mfaEnrolledAt])
 }
 
 // Evidence for POLICY:* requirements. Append-only at the application
@@ -1005,4 +1012,57 @@ model AuditPrepStep {
 
   @@unique([sessionId, code])
   @@index([sessionId, status])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Cybersecurity emphasis (2026-04-23) — Phishing drills + backup verification
+// ────────────────────────────────────────────────────────────────────────────
+//
+// These complement the existing TechAsset model (encryption posture) and the
+// new mfaEnrolledAt field on PracticeUser. Together they feed the
+// /programs/cybersecurity readiness score and four new HIPAA requirements:
+//   - HIPAA_CYBER_TRAINING_COMPLETE   (workforce coverage of 4 cyber courses)
+//   - HIPAA_MFA_COVERAGE_GE_80        (≥80% of users with mfaEnrolledAt set)
+//   - HIPAA_PHISHING_DRILL_RECENT     (≥1 PhishingDrill in last 6 months)
+//   - HIPAA_BACKUP_VERIFIED_RECENT    (≥1 successful BackupVerification in 90 days)
+
+// One row per simulated phishing campaign run for the practice. Cyber
+// insurance carriers and HIPAA Security Rule §164.308(a)(5) treat regular
+// phishing simulation as a baseline workforce-awareness control.
+model PhishingDrill {
+  id                String   @id @default(cuid())
+  practiceId        String
+  conductedAt       DateTime
+  vendor            String?  // e.g., "KnowBe4", "Hoxhunt", "Microsoft Attack Simulator", or "Internal"
+  totalRecipients   Int
+  clickedCount      Int      @default(0)
+  reportedCount     Int      @default(0)
+  attachmentUrl     String?  // optional GCS link to vendor PDF report
+  loggedByUserId    String
+  notes             String?  @db.Text
+  createdAt         DateTime @default(now())
+
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  @@index([practiceId, conductedAt])
+}
+
+// One row per restore-test of a backup. The HHS OCR Ransomware Fact Sheet
+// + the Security Rule contingency plan standards both treat untested
+// backups as effectively no backups.
+model BackupVerification {
+  id                  String   @id @default(cuid())
+  practiceId          String
+  verifiedAt          DateTime
+  scope               String   // free-form: "EHR", "Files", "Email", "Imaging", etc.
+  success             Boolean
+  restoreTimeMinutes  Int?     // optional — measured RTO from the test
+  loggedByUserId      String
+  notes               String?  @db.Text
+  createdAt           DateTime @default(now())
+
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  @@index([practiceId, verifiedAt])
+  @@index([practiceId, success])
 }
