@@ -35,8 +35,8 @@ export function StartSessionForm() {
       <CardContent className="space-y-3 p-5">
         <h2 className="text-sm font-semibold">Start a new session</h2>
         <p className="text-xs text-muted-foreground">
-          Pick the audit type. HHS OCR HIPAA + OSHA are live; CMS / DEA
-          ship in follow-up PRs.
+          Pick the audit type. HHS OCR HIPAA, OSHA, CMS, and DEA modes
+          are all live.
         </p>
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex-1 space-y-1 text-xs font-medium text-foreground">
@@ -52,12 +52,8 @@ export function StartSessionForm() {
             >
               <option value="HHS_OCR_HIPAA">HHS OCR HIPAA</option>
               <option value="OSHA">OSHA inspection</option>
-              <option value="CMS" disabled>
-                CMS (coming soon)
-              </option>
-              <option value="DEA" disabled>
-                DEA (coming soon)
-              </option>
+              <option value="CMS">CMS / Medicare audit</option>
+              <option value="DEA">DEA inspection</option>
             </select>
           </label>
           <Button onClick={handleStart} size="sm" disabled={isPending}>

@@ -95,6 +95,94 @@ export interface OshaNeedlestickEvidence extends EvidenceSnapshotBase {
   totalActiveStaff: number;
 }
 
+// ────────────────────────────────────────────────────────────────────────
+// CMS-mode evidence (added 2026-04-24 evening)
+// ────────────────────────────────────────────────────────────────────────
+
+interface CredentialOnFile {
+  present: boolean;
+  expiryIso: string | null;
+  isCurrent: boolean;
+}
+
+export interface CmsEnrollmentEvidence extends EvidenceSnapshotBase {
+  npi: CredentialOnFile;
+  pecos: CredentialOnFile;
+  medicareProvider: CredentialOnFile;
+}
+
+export interface CmsEpProgramEvidence extends EvidenceSnapshotBase {
+  policyAdopted: boolean;
+  adoptedAt: string | null;
+  lastReviewedAt: string | null;
+  emergencyTrainingCoveragePct: number;
+  totalActiveStaff: number;
+}
+
+export interface CmsBillingEvidence extends EvidenceSnapshotBase {
+  complianceOfficerDesignated: boolean;
+  oigFrameworkEnabled: boolean;
+  oigComplianceCurrentPct: number | null;
+}
+
+export interface CmsOverpaymentEvidence extends EvidenceSnapshotBase {
+  policyAdopted: boolean;
+  adoptedAt: string | null;
+  lastReviewedAt: string | null;
+}
+
+export interface CmsRecordsEvidence extends EvidenceSnapshotBase {
+  destructionCadenceCurrent: boolean;
+  destructionCountLast365Days: number;
+  retentionPolicyAdopted: boolean;
+}
+
+export interface CmsOigScreeningEvidence extends EvidenceSnapshotBase {
+  oigFrameworkEnabled: boolean;
+  totalActiveStaff: number;
+  complianceOfficerDesignated: boolean;
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// DEA-mode evidence (added 2026-04-24 evening)
+// ────────────────────────────────────────────────────────────────────────
+
+export interface DeaRegistrationEvidence extends EvidenceSnapshotBase {
+  registration: CredentialOnFile;
+  mostRecentRenewalAt: string | null;
+}
+
+export interface DeaInventoryEvidence extends EvidenceSnapshotBase {
+  inventoryPolicyAdopted: boolean;
+  inventoryPolicyAdoptedAt: string | null;
+  recentControlledSubstanceIncidents12Months: number;
+}
+
+export interface DeaSecurityEvidence extends EvidenceSnapshotBase {
+  securityOfficerDesignated: boolean;
+  workstationPolicyAdopted: boolean;
+  trackedAssetCount: number;
+}
+
+export interface DeaPdmpEvidence extends EvidenceSnapshotBase {
+  pdmpPolicyAdopted: boolean;
+  statePdmpPolicyAdopted: boolean;
+  practicePrimaryState: string;
+}
+
+export interface DeaPrescriptionsEvidence extends EvidenceSnapshotBase {
+  destructionCadenceCurrent: boolean;
+  destructionCountLast365Days: number;
+  mfaCoveragePct: number;
+  totalActiveStaff: number;
+}
+
+export interface DeaTheftLossEvidence extends EvidenceSnapshotBase {
+  deaIncidentCount: number;
+  mostRecentDeaIncidentAt: string | null;
+  privacyOfficerDesignated: boolean;
+}
+
 export type EvidenceSnapshot =
   | NppEvidence
   | WorkforceTrainingEvidence
@@ -107,7 +195,19 @@ export type EvidenceSnapshot =
   | Osha300LogEvidence
   | OshaPpeEvidence
   | OshaEapEvidence
-  | OshaNeedlestickEvidence;
+  | OshaNeedlestickEvidence
+  | CmsEnrollmentEvidence
+  | CmsEpProgramEvidence
+  | CmsBillingEvidence
+  | CmsOverpaymentEvidence
+  | CmsRecordsEvidence
+  | CmsOigScreeningEvidence
+  | DeaRegistrationEvidence
+  | DeaInventoryEvidence
+  | DeaSecurityEvidence
+  | DeaPdmpEvidence
+  | DeaPrescriptionsEvidence
+  | DeaTheftLossEvidence;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SIXTY_DAYS_MS = 60 * DAY_MS;
@@ -494,6 +594,378 @@ export async function loadOshaNeedlestickEvidence(
   };
 }
 
+// ────────────────────────────────────────────────────────────────────────
+// CMS-mode loaders (added 2026-04-24 evening)
+// ────────────────────────────────────────────────────────────────────────
+
+/** Helper: returns whether ≥1 active+non-expired credential of the given
+ * code exists for the practice. */
+async function credentialOnFile(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  credentialTypeCode: string,
+): Promise<CredentialOnFile> {
+  const credType = await tx.credentialType.findUnique({
+    where: { code: credentialTypeCode },
+    select: { id: true },
+  });
+  if (!credType) {
+    return { present: false, expiryIso: null, isCurrent: false };
+  }
+  const cred = await tx.credential.findFirst({
+    where: { practiceId, credentialTypeId: credType.id, retiredAt: null },
+    orderBy: { expiryDate: "desc" },
+    select: { expiryDate: true },
+  });
+  if (!cred) {
+    return { present: false, expiryIso: null, isCurrent: false };
+  }
+  const now = new Date();
+  const isCurrent =
+    cred.expiryDate === null || cred.expiryDate > now; // null = perpetual
+  return {
+    present: true,
+    expiryIso: cred.expiryDate?.toISOString() ?? null,
+    isCurrent,
+  };
+}
+
+export async function loadCmsEnrollmentEvidence(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<CmsEnrollmentEvidence> {
+  const [npi, pecos, medicareProvider] = await Promise.all([
+    credentialOnFile(tx, practiceId, "NPI_REGISTRATION"),
+    credentialOnFile(tx, practiceId, "MEDICARE_PECOS_ENROLLMENT"),
+    credentialOnFile(tx, practiceId, "MEDICARE_PROVIDER_ENROLLMENT"),
+  ]);
+  return {
+    capturedAt: new Date().toISOString(),
+    npi,
+    pecos,
+    medicareProvider,
+  };
+}
+
+export async function loadCmsEpProgramEvidence(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<CmsEpProgramEvidence> {
+  const policy = await tx.practicePolicy.findUnique({
+    where: {
+      practiceId_policyCode: {
+        practiceId,
+        policyCode: "OSHA_EMERGENCY_ACTION_PLAN",
+      },
+    },
+    select: { adoptedAt: true, lastReviewedAt: true, retiredAt: true },
+  });
+  const { coveragePct, total } = await courseCoveragePct(
+    tx,
+    practiceId,
+    "EMERGENCY_PREPAREDNESS",
+  );
+  return {
+    capturedAt: new Date().toISOString(),
+    policyAdopted: !!policy && policy.retiredAt === null,
+    adoptedAt: policy?.adoptedAt?.toISOString() ?? null,
+    lastReviewedAt: policy?.lastReviewedAt?.toISOString() ?? null,
+    emergencyTrainingCoveragePct: coveragePct,
+    totalActiveStaff: total,
+  };
+}
+
+export async function loadCmsBillingEvidence(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<CmsBillingEvidence> {
+  const complianceOfficer = await tx.practiceUser.findFirst({
+    where: { practiceId, isComplianceOfficer: true, removedAt: null },
+    select: { id: true },
+  });
+  const oigFw = await tx.regulatoryFramework.findUnique({
+    where: { code: "OIG" },
+    select: { id: true },
+  });
+  let oigEnabled = false;
+  let oigScore: number | null = null;
+  if (oigFw) {
+    const pf = await tx.practiceFramework.findUnique({
+      where: {
+        practiceId_frameworkId: { practiceId, frameworkId: oigFw.id },
+      },
+      select: { enabled: true, scoreCache: true },
+    });
+    oigEnabled = pf?.enabled ?? false;
+    oigScore = pf?.scoreCache ?? null;
+  }
+  return {
+    capturedAt: new Date().toISOString(),
+    complianceOfficerDesignated: !!complianceOfficer,
+    oigFrameworkEnabled: oigEnabled,
+    oigComplianceCurrentPct: oigScore,
+  };
+}
+
+export async function loadCmsOverpaymentEvidence(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<CmsOverpaymentEvidence> {
+  // The policy-template catalog (PR #112) ships an overpayment refund
+  // policy as part of the GENERAL framework templates, but the v2
+  // canonical core set doesn't include it. Look up by either code.
+  const policy = await tx.practicePolicy.findFirst({
+    where: {
+      practiceId,
+      retiredAt: null,
+      OR: [
+        { policyCode: { contains: "OVERPAYMENT" } },
+        { policyCode: { contains: "BILLING_COMPLIANCE" } },
+      ],
+    },
+    select: { adoptedAt: true, lastReviewedAt: true },
+  });
+  return {
+    capturedAt: new Date().toISOString(),
+    policyAdopted: !!policy,
+    adoptedAt: policy?.adoptedAt?.toISOString() ?? null,
+    lastReviewedAt: policy?.lastReviewedAt?.toISOString() ?? null,
+  };
+}
+
+export async function loadCmsRecordsEvidence(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<CmsRecordsEvidence> {
+  const cutoff = new Date(Date.now() - 365 * DAY_MS);
+  const destructionCount = await tx.destructionLog.count({
+    where: { practiceId, destroyedAt: { gte: cutoff } },
+  });
+  const policy = await tx.practicePolicy.findFirst({
+    where: {
+      practiceId,
+      retiredAt: null,
+      policyCode: { contains: "RECORDS_RETENTION" },
+    },
+    select: { id: true },
+  });
+  return {
+    capturedAt: new Date().toISOString(),
+    destructionCadenceCurrent: destructionCount > 0,
+    destructionCountLast365Days: destructionCount,
+    retentionPolicyAdopted: !!policy,
+  };
+}
+
+export async function loadCmsOigScreeningEvidence(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<CmsOigScreeningEvidence> {
+  const totalActiveStaff = await tx.practiceUser.count({
+    where: { practiceId, removedAt: null },
+  });
+  const complianceOfficer = await tx.practiceUser.findFirst({
+    where: { practiceId, isComplianceOfficer: true, removedAt: null },
+    select: { id: true },
+  });
+  const oigFw = await tx.regulatoryFramework.findUnique({
+    where: { code: "OIG" },
+    select: { id: true },
+  });
+  let oigEnabled = false;
+  if (oigFw) {
+    const pf = await tx.practiceFramework.findUnique({
+      where: {
+        practiceId_frameworkId: { practiceId, frameworkId: oigFw.id },
+      },
+      select: { enabled: true },
+    });
+    oigEnabled = pf?.enabled ?? false;
+  }
+  return {
+    capturedAt: new Date().toISOString(),
+    oigFrameworkEnabled: oigEnabled,
+    totalActiveStaff,
+    complianceOfficerDesignated: !!complianceOfficer,
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// DEA-mode loaders (added 2026-04-24 evening)
+// ────────────────────────────────────────────────────────────────────────
+
+export async function loadDeaRegistrationEvidence(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<DeaRegistrationEvidence> {
+  const registration = await credentialOnFile(
+    tx,
+    practiceId,
+    "DEA_CONTROLLED_SUBSTANCE_REGISTRATION",
+  );
+  // Most-recent renewal proxy: the credential's most recent createdAt
+  // (we don't track issued-at separately for credentials in v2 yet).
+  const credType = await tx.credentialType.findUnique({
+    where: { code: "DEA_CONTROLLED_SUBSTANCE_REGISTRATION" },
+    select: { id: true },
+  });
+  let mostRecentRenewalAt: string | null = null;
+  if (credType) {
+    const cred = await tx.credential.findFirst({
+      where: { practiceId, credentialTypeId: credType.id, retiredAt: null },
+      orderBy: { updatedAt: "desc" },
+      select: { updatedAt: true },
+    });
+    mostRecentRenewalAt = cred?.updatedAt?.toISOString() ?? null;
+  }
+  return {
+    capturedAt: new Date().toISOString(),
+    registration,
+    mostRecentRenewalAt,
+  };
+}
+
+export async function loadDeaInventoryEvidence(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<DeaInventoryEvidence> {
+  const policy = await tx.practicePolicy.findFirst({
+    where: {
+      practiceId,
+      retiredAt: null,
+      OR: [
+        { policyCode: { contains: "PDMP" } },
+        { policyCode: { contains: "CONTROLLED" } },
+        { policyCode: { contains: "DEA" } },
+      ],
+    },
+    select: { adoptedAt: true },
+  });
+  const cutoff = new Date(Date.now() - 365 * DAY_MS);
+  const recentCount = await tx.incident.count({
+    where: {
+      practiceId,
+      type: "DEA_THEFT_LOSS",
+      discoveredAt: { gte: cutoff },
+    },
+  });
+  return {
+    capturedAt: new Date().toISOString(),
+    inventoryPolicyAdopted: !!policy,
+    inventoryPolicyAdoptedAt: policy?.adoptedAt?.toISOString() ?? null,
+    recentControlledSubstanceIncidents12Months: recentCount,
+  };
+}
+
+export async function loadDeaSecurityEvidence(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<DeaSecurityEvidence> {
+  const securityOfficer = await tx.practiceUser.findFirst({
+    where: { practiceId, isSecurityOfficer: true, removedAt: null },
+    select: { id: true },
+  });
+  const workstationPolicy = await tx.practicePolicy.findUnique({
+    where: {
+      practiceId_policyCode: {
+        practiceId,
+        policyCode: "HIPAA_WORKSTATION_POLICY",
+      },
+    },
+    select: { retiredAt: true },
+  });
+  const trackedAssetCount = await tx.techAsset.count({
+    where: { practiceId, retiredAt: null },
+  });
+  return {
+    capturedAt: new Date().toISOString(),
+    securityOfficerDesignated: !!securityOfficer,
+    workstationPolicyAdopted:
+      !!workstationPolicy && workstationPolicy.retiredAt === null,
+    trackedAssetCount,
+  };
+}
+
+export async function loadDeaPdmpEvidence(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<DeaPdmpEvidence> {
+  const practice = await tx.practice.findUniqueOrThrow({
+    where: { id: practiceId },
+    select: { primaryState: true },
+  });
+  const pdmp = await tx.practicePolicy.findFirst({
+    where: {
+      practiceId,
+      retiredAt: null,
+      policyCode: { contains: "PDMP" },
+    },
+    select: { id: true },
+  });
+  const statePdmp = await tx.practicePolicy.findFirst({
+    where: {
+      practiceId,
+      retiredAt: null,
+      policyCode: { contains: "STATE_PDMP" },
+    },
+    select: { id: true },
+  });
+  return {
+    capturedAt: new Date().toISOString(),
+    pdmpPolicyAdopted: !!pdmp,
+    statePdmpPolicyAdopted: !!statePdmp,
+    practicePrimaryState: practice.primaryState,
+  };
+}
+
+export async function loadDeaPrescriptionsEvidence(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<DeaPrescriptionsEvidence> {
+  const cutoff = new Date(Date.now() - 365 * DAY_MS);
+  const destructionCount = await tx.destructionLog.count({
+    where: { practiceId, destroyedAt: { gte: cutoff } },
+  });
+  const totalActiveStaff = await tx.practiceUser.count({
+    where: { practiceId, removedAt: null },
+  });
+  const enrolled = await tx.practiceUser.count({
+    where: { practiceId, removedAt: null, mfaEnrolledAt: { not: null } },
+  });
+  const mfaCoveragePct =
+    totalActiveStaff === 0
+      ? 0
+      : Math.round((enrolled / totalActiveStaff) * 100);
+  return {
+    capturedAt: new Date().toISOString(),
+    destructionCadenceCurrent: destructionCount > 0,
+    destructionCountLast365Days: destructionCount,
+    mfaCoveragePct,
+    totalActiveStaff,
+  };
+}
+
+export async function loadDeaTheftLossEvidence(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<DeaTheftLossEvidence> {
+  const deaIncidents = await tx.incident.findMany({
+    where: { practiceId, type: "DEA_THEFT_LOSS" },
+    orderBy: { discoveredAt: "desc" },
+    select: { discoveredAt: true },
+  });
+  const privacyOfficer = await tx.practiceUser.findFirst({
+    where: { practiceId, isPrivacyOfficer: true, removedAt: null },
+    select: { id: true },
+  });
+  return {
+    capturedAt: new Date().toISOString(),
+    deaIncidentCount: deaIncidents.length,
+    mostRecentDeaIncidentAt: deaIncidents[0]?.discoveredAt.toISOString() ?? null,
+    privacyOfficerDesignated: !!privacyOfficer,
+  };
+}
+
 export const EVIDENCE_LOADERS: Record<
   string,
   (
@@ -514,4 +986,18 @@ export const EVIDENCE_LOADERS: Record<
   OSHA_PPE: loadOshaPpeEvidence,
   OSHA_EAP: loadOshaEapEvidence,
   OSHA_NEEDLESTICK: loadOshaNeedlestickEvidence,
+  // CMS mode (added 2026-04-24 evening)
+  CMS_ENROLLMENT: loadCmsEnrollmentEvidence,
+  CMS_EP_PROGRAM: loadCmsEpProgramEvidence,
+  CMS_BILLING: loadCmsBillingEvidence,
+  CMS_OVERPAYMENT: loadCmsOverpaymentEvidence,
+  CMS_RECORDS: loadCmsRecordsEvidence,
+  CMS_OIG_SCREENING: loadCmsOigScreeningEvidence,
+  // DEA mode (added 2026-04-24 evening)
+  DEA_REGISTRATION: loadDeaRegistrationEvidence,
+  DEA_INVENTORY: loadDeaInventoryEvidence,
+  DEA_SECURITY: loadDeaSecurityEvidence,
+  DEA_PDMP: loadDeaPdmpEvidence,
+  DEA_PRESCRIPTIONS: loadDeaPrescriptionsEvidence,
+  DEA_THEFT_LOSS: loadDeaTheftLossEvidence,
 };

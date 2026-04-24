@@ -4,8 +4,8 @@
 // ProtocolDef declares which evidence loader runs at completion + a
 // human-readable "what we'll attach" summary shown in the UI.
 //
-// Live modes: HHS_OCR_HIPAA, OSHA. CMS/DEA still stubbed — actions.ts
-// will throw at session-create if selected before the protocols ship.
+// Live modes: HHS_OCR_HIPAA, OSHA, CMS, DEA. All four audit types
+// supported as of 2026-04-24.
 
 export interface ProtocolDef {
   code: string;
@@ -180,7 +180,177 @@ const OSHA_PROTOCOLS: ProtocolDef[] = [
   },
 ];
 
+// CMS audits for SMB outpatient practices typically focus on provider-
+// enrollment currency, emergency preparedness, billing/coding accuracy
+// (Stark + AKS adherence), and the 60-day overpayment refund rule.
+// CMS doesn't usually do "inspections" the way OSHA does — the most
+// common touchpoint is a Medicare Administrative Contractor (MAC)
+// audit triggered by claim patterns, or a Medicaid integrity audit.
+const CMS_PROTOCOLS: ProtocolDef[] = [
+  {
+    code: "CMS_PROVIDER_ENROLLMENT",
+    title: "Provider enrollment currency (NPI + PECOS + Medicare)",
+    citation: "42 CFR §424.510 + §424.535",
+    description:
+      "CMS auditors verify that NPI, PECOS enrollment, and Medicare Provider Enrollment are all current. Stale enrollment is the leading cause of denied claims + revocation.",
+    evidenceLoaderCode: "CMS_ENROLLMENT",
+    whatWeAttach: [
+      "NPI registration on file + expiry status",
+      "PECOS enrollment on file + expiry status",
+      "Medicare Provider Enrollment on file + expiry status",
+    ],
+  },
+  {
+    code: "CMS_EMERGENCY_PREPAREDNESS",
+    title: "Emergency Preparedness program",
+    citation: "42 CFR §482 (Hospital CoP) · §483 (LTC) · §485 (RHC)",
+    description:
+      "CMS-eligible providers must maintain a written Emergency Preparedness program covering risk assessment, communication plan, training, and testing exercises. Annual review required.",
+    evidenceLoaderCode: "CMS_EP_PROGRAM",
+    whatWeAttach: [
+      "Emergency Action Plan policy adoption status",
+      "Emergency preparedness training coverage % across workforce",
+      "Most recent annual review date",
+    ],
+  },
+  {
+    code: "CMS_BILLING_COMPLIANCE",
+    title: "Billing accuracy + Stark/AKS compliance",
+    citation: "42 CFR §1001 (OIG fraud rules) · 42 USC §1395nn (Stark) · §1320a-7b (AKS)",
+    description:
+      "CMS Medicare Administrative Contractor (MAC) audits focus on coding accuracy, medical-necessity documentation, and arrangements that could trigger Stark or Anti-Kickback Statute concerns. Compliance Officer designation + adopted billing policy expected.",
+    evidenceLoaderCode: "CMS_BILLING",
+    whatWeAttach: [
+      "Compliance Officer designation status",
+      "OIG framework enabled?",
+      "OIG compliance score",
+    ],
+  },
+  {
+    code: "CMS_OVERPAYMENT_PROCESS",
+    title: "60-day overpayment refund process",
+    citation: "42 USC §1320a-7k(d) (ACA §6402)",
+    description:
+      "Medicare overpayments must be refunded within 60 days of identification. CMS expects a documented process for surfacing, quantifying, and refunding overpayments. Failure can trigger False Claims Act liability.",
+    evidenceLoaderCode: "CMS_OVERPAYMENT",
+    whatWeAttach: [
+      "Overpayment-refund policy adoption status",
+      "Most recent policy review date",
+    ],
+  },
+  {
+    code: "CMS_PATIENT_RECORDS",
+    title: "Patient encounter documentation + retention",
+    citation: "42 CFR §482.24 + §483.21 (records) · State minimum",
+    description:
+      "CMS auditors review patient records for completeness (history, exam, medical decision-making, time documentation). Records retention typically 7+ years per state, longer in some states. CMS-specific is generally the longer of state law or 5 years post-claim.",
+    evidenceLoaderCode: "CMS_RECORDS",
+    whatWeAttach: [
+      "Document destruction cadence: ≥1 logged in last 365 days?",
+      "Records-retention policy adoption status",
+    ],
+  },
+  {
+    code: "CMS_OIG_EXCLUSION_SCREENING",
+    title: "OIG exclusion screening (LEIE)",
+    citation: "42 USC §1320a-7b(f) · 42 CFR §1001.1901",
+    description:
+      "Federal health programs cannot pay for services rendered or ordered by OIG-excluded individuals. CMS expects monthly screening of all workforce + contractors against the OIG List of Excluded Individuals/Entities (LEIE) + the GSA SAM.gov exclusion list.",
+    evidenceLoaderCode: "CMS_OIG_SCREENING",
+    whatWeAttach: [
+      "OIG framework enabled?",
+      "Active workforce count (= individuals to screen monthly)",
+      "Compliance Officer designation status",
+    ],
+  },
+];
+
+// DEA Diversion Investigators inspect controlled-substance registrants.
+// SMB practices that prescribe schedule II-V drugs are subject. Most
+// common deficiencies: incomplete biennial inventory, weak physical
+// security, missing prescription records, late theft/loss reports.
+const DEA_PROTOCOLS: ProtocolDef[] = [
+  {
+    code: "DEA_REGISTRATION_CURRENCY",
+    title: "DEA registration currency",
+    citation: "21 CFR §1301.13",
+    description:
+      "DEA registration must be valid for every practitioner who prescribes, administers, or dispenses controlled substances. Registration is location-specific + drug-schedule-specific.",
+    evidenceLoaderCode: "DEA_REGISTRATION",
+    whatWeAttach: [
+      "DEA registration credential on file + expiry status",
+      "Most recent renewal date",
+    ],
+  },
+  {
+    code: "DEA_INVENTORY_RECORDKEEPING",
+    title: "Biennial inventory + receipts/disposals records",
+    citation: "21 CFR §1304.11 + §1304.21",
+    description:
+      "Initial inventory at registration + biennial inventory thereafter + ongoing records of every receipt, dispensing, administration, and disposal of controlled substances. Records kept for 2 years (5 years for Schedule II).",
+    evidenceLoaderCode: "DEA_INVENTORY",
+    whatWeAttach: [
+      "DEA inventory + recordkeeping policy adoption status",
+      "Recent controlled-substance Incident count (theft/loss/inventory discrepancies)",
+    ],
+  },
+  {
+    code: "DEA_SECURITY",
+    title: "Physical security of controlled substances",
+    citation: "21 CFR §1301.71-.76",
+    description:
+      "Controlled substances must be stored in a securely locked, substantially constructed cabinet or vault. Access limited to authorized personnel with documented hand-off. Schedule II requires more stringent storage than III-V.",
+    evidenceLoaderCode: "DEA_SECURITY",
+    whatWeAttach: [
+      "Security Officer designation status",
+      "Workstation/security policy adoption status",
+      "Tracked tech assets count (PHI + general)",
+    ],
+  },
+  {
+    code: "DEA_PDMP_COMPLIANCE",
+    title: "State PDMP query before prescribing",
+    citation: "State-specific (e.g., FL §893.055, NY PHL §3343-A)",
+    description:
+      "Most states require prescribers to query the state Prescription Drug Monitoring Program (PDMP) before issuing a Schedule II prescription, often with documentation of the query in the patient chart. Federal law does not require it but state penalties apply.",
+    evidenceLoaderCode: "DEA_PDMP",
+    whatWeAttach: [
+      "PDMP-compliance policy adoption status",
+      "State PDMP-prescriber-obligations policy adoption status",
+      "Practice primary state (drives which PDMP rules apply)",
+    ],
+  },
+  {
+    code: "DEA_PRESCRIPTION_RECORDS",
+    title: "Prescription records + EPCS compliance",
+    citation: "21 CFR §1304.04 + §1311 (EPCS)",
+    description:
+      "Original prescription records (paper or EPCS audit trail) must be retained 2 years (5 years for Schedule II). EPCS systems require two-factor authentication + identity-proofing per §1311.",
+    evidenceLoaderCode: "DEA_PRESCRIPTIONS",
+    whatWeAttach: [
+      "Document destruction cadence: ≥1 logged in last 365 days?",
+      "MFA-coverage % across workforce (EPCS-relevant)",
+      "Active staff count",
+    ],
+  },
+  {
+    code: "DEA_THEFT_LOSS_REPORTING",
+    title: "Theft/loss reporting (DEA Form 106 + 1 day)",
+    citation: "21 CFR §1301.74(c) + §1301.76(b)",
+    description:
+      "Significant theft or loss of controlled substances must be reported to the local DEA Field Office within 1 business day of discovery, AND a written DEA Form 106 must be filed. Local police should also be notified.",
+    evidenceLoaderCode: "DEA_THEFT_LOSS",
+    whatWeAttach: [
+      "DEA-tagged Incident count (DEA_THEFT_LOSS type)",
+      "Most-recent DEA-tagged incident date",
+      "Privacy Officer designation status",
+    ],
+  },
+];
+
 export const PROTOCOLS_BY_MODE: Record<string, ProtocolDef[]> = {
   HHS_OCR_HIPAA: HHS_OCR_HIPAA_PROTOCOLS,
   OSHA: OSHA_PROTOCOLS,
+  CMS: CMS_PROTOCOLS,
+  DEA: DEA_PROTOCOLS,
 };
