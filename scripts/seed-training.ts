@@ -240,6 +240,14 @@ async function main() {
     __dirname,
     "_v1-training-batch-2-export.json",
   );
+  // v2 cybersecurity emphasis (2026-04-23) — 3 fresh courses authored from
+  // scratch to deepen the cybersecurity surface beyond the single
+  // CYBERSECURITY_MEDICAL_OFFICES course in the v1 batch. Sort order 400+
+  // groups them just under the v1 batch in the catalog UI.
+  const cyberPath = path.resolve(
+    __dirname,
+    "_v2-cybersecurity-courses.json",
+  );
 
   const fixtures: CourseFixture[] = [
     loadHipaaBasics(basicsPath),
@@ -248,6 +256,7 @@ async function main() {
     // Use sortOrder 200+ for the batch — keeps existing courses stable and
     // groups the new wave at the bottom of the catalog list.
     ...loadFrameworkMixed(batch2Path, 200, { minLessonChars: 500 }),
+    ...loadFrameworkMixed(cyberPath, 400),
   ];
 
   let totalQuestions = 0;
