@@ -40,6 +40,10 @@ export const EVENT_TYPES = [
   "DESTRUCTION_LOGGED",
   "TECH_ASSET_UPSERTED",
   "TECH_ASSET_RETIRED",
+  "AUDIT_PREP_SESSION_OPENED",
+  "AUDIT_PREP_STEP_COMPLETED",
+  "AUDIT_PREP_STEP_REOPENED",
+  "AUDIT_PREP_PACKET_GENERATED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -448,6 +452,38 @@ export const EVENT_SCHEMAS = {
   TECH_ASSET_RETIRED: {
     1: z.object({
       techAssetId: z.string().min(1),
+    }),
+  },
+  // Audit Prep wizard lifecycle. See docs/specs/v1-ideas-survey.md §1.1
+  // and docs/plans/2026-04-23-audit-prep-wizard.md.
+  AUDIT_PREP_SESSION_OPENED: {
+    1: z.object({
+      auditPrepSessionId: z.string().min(1),
+      mode: z.enum(["HHS_OCR_HIPAA", "OSHA", "CMS", "DEA"]),
+      protocolCount: z.number().int().min(1),
+      startedByUserId: z.string().min(1),
+    }),
+  },
+  AUDIT_PREP_STEP_COMPLETED: {
+    1: z.object({
+      auditPrepSessionId: z.string().min(1),
+      stepCode: z.string().min(1),
+      status: z.enum(["COMPLETE", "NOT_APPLICABLE"]),
+      completedByUserId: z.string().min(1),
+      notes: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  AUDIT_PREP_STEP_REOPENED: {
+    1: z.object({
+      auditPrepSessionId: z.string().min(1),
+      stepCode: z.string().min(1),
+      reopenedByUserId: z.string().min(1),
+    }),
+  },
+  AUDIT_PREP_PACKET_GENERATED: {
+    1: z.object({
+      auditPrepSessionId: z.string().min(1),
+      generatedByUserId: z.string().min(1),
     }),
   },
 } as const;
