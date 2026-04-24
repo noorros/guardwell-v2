@@ -16,10 +16,13 @@ let _stripe: Stripe | null = null;
 
 /** Lazy singleton so unit tests that don't touch billing aren't forced
  *  to set STRIPE_SECRET_KEY. Throws on first access if the key is
- *  missing — that's a config error worth surfacing loudly. */
+ *  missing — that's a config error worth surfacing loudly.
+ *
+ *  Defensive .trim() so a CRLF accidentally stored in Secret Manager
+ *  doesn't produce auth failures or weird API errors. */
 export function getStripe(): Stripe {
   if (_stripe) return _stripe;
-  const key = process.env.STRIPE_SECRET_KEY;
+  const key = process.env.STRIPE_SECRET_KEY?.trim();
   if (!key) {
     throw new Error(
       "STRIPE_SECRET_KEY is not set — billing flows are unavailable.",
@@ -34,15 +37,19 @@ export function getStripe(): Stripe {
 
 /** Price IDs from env. monthly | annual. Validated at process start
  *  (or first billing call) so we surface "STRIPE_PRICE_MONTHLY missing"
- *  with a clean message instead of a Stripe API 400. */
+ *  with a clean message instead of a Stripe API 400.
+ *
+ *  Defensive .trim() on the values: when these are stored in GCP
+ *  Secret Manager via PowerShell `Out-File` or `echo` a trailing
+ *  CRLF can sneak in, which Stripe rejects as "No such price". */
 export interface PriceCatalog {
   monthly: string;
   annual: string;
 }
 
 export function getPriceCatalog(): PriceCatalog {
-  const monthly = process.env.STRIPE_PRICE_MONTHLY;
-  const annual = process.env.STRIPE_PRICE_ANNUAL;
+  const monthly = process.env.STRIPE_PRICE_MONTHLY?.trim();
+  const annual = process.env.STRIPE_PRICE_ANNUAL?.trim();
   if (!monthly || !annual) {
     throw new Error(
       "STRIPE_PRICE_MONTHLY + STRIPE_PRICE_ANNUAL must both be set.",
@@ -104,12 +111,14 @@ export async function getCouponForPromotion(
 
 /** Verify a webhook payload's Stripe-Signature header. Returns the
  *  parsed event on success; throws on tamper/expired. The raw body
- *  must be the unparsed Buffer or string — DO NOT pass an object. */
+ *  must be the unparsed Buffer or string — DO NOT pass an object.
+ *
+ *  Defensive .trim() — same CRLF concern as the API key. */
 export function verifyWebhook(
   rawBody: string | Buffer,
   signature: string,
 ): Stripe.Event {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  const secret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
   if (!secret) {
     throw new Error("STRIPE_WEBHOOK_SECRET is not set.");
   }
