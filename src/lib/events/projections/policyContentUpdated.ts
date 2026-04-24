@@ -25,6 +25,18 @@ export async function projectPolicyContentUpdated(
 ): Promise<void> {
   const { practiceId, payload, content } = args;
   const now = new Date();
+  // Snapshot the NEW content as a PolicyVersion row keyed by the new
+  // version number. Combined with the v1 baseline created on adoption,
+  // this gives us a full append-only history for diffing.
+  await tx.policyVersion.create({
+    data: {
+      practicePolicyId: payload.practicePolicyId,
+      version: payload.newVersion,
+      content,
+      savedByUserId: payload.editedByUserId,
+      changeNote: null, // could be passed through later if we add a UI field
+    },
+  });
   await tx.practicePolicy.update({
     where: { id: payload.practicePolicyId },
     data: {

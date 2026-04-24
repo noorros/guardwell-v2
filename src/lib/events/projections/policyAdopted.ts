@@ -40,6 +40,33 @@ export async function projectPolicyAdopted(
       lastReviewedAt: now,
     },
   });
+  // Capture a PolicyVersion baseline on first adoption. Idempotent:
+  // re-adopting an existing policy skips if the (policyId, version)
+  // tuple already exists.
+  const existingBaseline = await tx.policyVersion.findUnique({
+    where: {
+      practicePolicyId_version: {
+        practicePolicyId: payload.practicePolicyId,
+        version: payload.version,
+      },
+    },
+    select: { id: true },
+  });
+  if (!existingBaseline) {
+    const current = await tx.practicePolicy.findUnique({
+      where: { id: payload.practicePolicyId },
+      select: { content: true },
+    });
+    await tx.policyVersion.create({
+      data: {
+        practicePolicyId: payload.practicePolicyId,
+        version: payload.version,
+        content: current?.content ?? null,
+        savedByUserId: null, // adoption event; body is the template default
+        changeNote: null,
+      },
+    });
+  }
   await rederiveRequirementStatus(
     tx,
     practiceId,
