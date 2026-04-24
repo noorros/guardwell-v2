@@ -21,6 +21,7 @@ import {
   Trash2,
   Server,
   ClipboardCheck,
+  CalendarDays,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn, scoreToColorToken, NOT_ASSESSED_COLOR_TOKEN } from "@/lib/utils";
@@ -88,6 +89,7 @@ const PROGRAMS: ProgramItem[] = [
 const AUDIT_ITEMS: ProgramItem[] = [
   { label: "Overview", icon: LayoutDashboard, href: "/audit/overview" as Route },
   { label: "Activity log", icon: ScrollText, href: "/audit/activity" as Route },
+  { label: "Calendar", icon: CalendarDays, href: "/audit/calendar" as Route },
   { label: "Reports", icon: FileBarChart2, href: "/audit/reports" as Route },
   { label: "Audit Prep", icon: ClipboardCheck, href: "/audit/prep" as Route },
 ];
