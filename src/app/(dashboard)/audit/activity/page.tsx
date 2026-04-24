@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { EVENT_TYPES, type EventType } from "@/lib/events/registry";
 import { formatEventForActivityLog } from "@/lib/audit/format-event";
 import { ActivityTimestamp } from "./ActivityTimestamp";
+import { ActivityExplain } from "./ActivityExplain";
 
 export const metadata = { title: "Activity log · Audit" };
 export const dynamic = "force-dynamic";
@@ -125,7 +126,7 @@ export default async function ActivityLogPage({
       orderBy: { createdAt: "desc" },
       skip,
       take: PAGE_SIZE,
-      include: { actor: { select: { email: true } } },
+      include: { actor: { select: { email: true, firstName: true } } },
     }),
     db.eventLog.count({ where: whereClause }),
   ]);
@@ -301,6 +302,13 @@ export default async function ActivityLogPage({
                         {actor}
                         {fmt.detail ? ` · ${fmt.detail}` : ""}
                       </p>
+                      <ActivityExplain
+                        eventType={evt.type}
+                        summary={fmt.summary}
+                        payloadPreview={JSON.stringify(evt.payload).slice(0, 1500)}
+                        actorFirstName={evt.actor?.firstName ?? undefined}
+                        practiceState={pu.practice.primaryState}
+                      />
                     </div>
                     <div className="text-right">
                       <ActivityTimestamp iso={evt.createdAt.toISOString()} />
