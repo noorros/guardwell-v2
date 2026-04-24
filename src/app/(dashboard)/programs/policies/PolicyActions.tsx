@@ -2,6 +2,8 @@
 "use client";
 
 import { useTransition } from "react";
+import Link from "next/link";
+import type { Route } from "next";
 import { Button } from "@/components/ui/button";
 import type { PolicyCode } from "@/lib/compliance/policies";
 import {
@@ -69,6 +71,11 @@ export function PolicyActions({ policyCode, adopted }: PolicyActionsProps) {
 
   return (
     <div className="flex items-center gap-2">
+      <Button asChild size="sm" variant="outline">
+        <Link href={`/programs/policies/${adopted.practicePolicyId}` as Route}>
+          Edit
+        </Link>
+      </Button>
       <Button
         size="sm"
         variant="default"
