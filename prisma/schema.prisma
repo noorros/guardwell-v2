@@ -26,21 +26,21 @@ datasource db {
 // ────────────────────────────────────────────────────────────────────────────
 
 model User {
-  id            String   @id @default(cuid())
-  firebaseUid   String   @unique
-  email         String   @unique
-  firstName     String?
-  lastName      String?
-  emailVerified Boolean  @default(false)
-  mfaEnabled    Boolean  @default(false)
+  id              String    @id @default(cuid())
+  firebaseUid     String    @unique
+  email           String    @unique
+  firstName       String?
+  lastName        String?
+  emailVerified   Boolean   @default(false)
+  mfaEnabled      Boolean   @default(false)
   // Internal admin flag — gates /admin surface (customer health, manual
   // subscription overrides, etc). Toggled manually via SQL or seeding;
   // no UI to grant. Defaults to false so a forgotten flag never opens
   // the admin surface to a real customer.
-  isPlatformAdmin Boolean @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  deletedAt     DateTime?
+  isPlatformAdmin Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
 
   practiceUsers          PracticeUser[]
   emittedEvents          EventLog[]              @relation("EventActor")
@@ -56,7 +56,7 @@ model User {
 model LegalAcceptance {
   id           String   @id @default(cuid())
   userId       String
-  documentType String   // TOS, PRIVACY, PLATFORM_DISCLAIMER, BAA, DPA
+  documentType String // TOS, PRIVACY, PLATFORM_DISCLAIMER, BAA, DPA
   version      String
   acceptedAt   DateTime @default(now())
   ipAddress    String?
@@ -72,39 +72,39 @@ model LegalAcceptance {
 // ────────────────────────────────────────────────────────────────────────────
 
 model Practice {
-  id           String   @id @default(cuid())
-  name         String
-  primaryState String   // ISO state code, e.g. "AZ"
-  operatingStates String[] @default([]) // additional states for multi-state practices
-  specialty    String?
-  npiNumber    String?
-  ehrSystem    String?
-  phone        String?
-  addressStreet String?
-  addressSuite  String?
-  addressCity   String?
-  addressZip    String?
-  entityType   String   @default("COVERED_ENTITY") // COVERED_ENTITY | BUSINESS_ASSOCIATE
-  providerCount String   @default("SOLO")          // SOLO | SMALL_2_5 | MEDIUM_6_15 | LARGE_16_PLUS
-  staffHeadcount Int?
+  id               String    @id @default(cuid())
+  name             String
+  primaryState     String // ISO state code, e.g. "AZ"
+  operatingStates  String[]  @default([]) // additional states for multi-state practices
+  specialty        String?
+  npiNumber        String?
+  ehrSystem        String?
+  phone            String?
+  addressStreet    String?
+  addressSuite     String?
+  addressCity      String?
+  addressZip       String?
+  entityType       String    @default("COVERED_ENTITY") // COVERED_ENTITY | BUSINESS_ASSOCIATE
+  providerCount    String    @default("SOLO") // SOLO | SMALL_2_5 | MEDIUM_6_15 | LARGE_16_PLUS
+  staffHeadcount   Int?
   setupCompletedAt DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  deletedAt    DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
 
   // Stripe (single tier)
-  stripeCustomerId       String?  @unique
-  stripeSubscriptionId   String?  @unique
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
   // INCOMPLETE = signed up but no Stripe Checkout completed yet (default
   // for new self-serve sign-ups per docs/specs/onboarding-flow.md).
   // TRIALING = Stripe webhook fired checkout.session.completed → 7-day trial.
   // ACTIVE = first invoice paid. PAST_DUE = invoice failed. CANCELED = sub deleted.
-  subscriptionStatus     String   @default("INCOMPLETE") // INCOMPLETE | TRIALING | ACTIVE | PAST_DUE | CANCELED
-  trialEndsAt            DateTime?
-  currentPeriodEnd       DateTime?
+  subscriptionStatus   String    @default("INCOMPLETE") // INCOMPLETE | TRIALING | ACTIVE | PAST_DUE | CANCELED
+  trialEndsAt          DateTime?
+  currentPeriodEnd     DateTime?
   // Set when the OWNER completes the 4-step first-run wizard.
   // null = wizard not finished (top-of-dashboard re-prompt fires).
-  firstRunCompletedAt    DateTime?
+  firstRunCompletedAt  DateTime?
 
   practiceUsers       PracticeUser[]
   practicePolicies    PracticePolicy[]
@@ -127,6 +127,7 @@ model Practice {
   destructionLogs     DestructionLog[]
   techAssets          TechAsset[]
   auditPrepSessions   AuditPrepSession[]
+  dripSends           OnboardingDripSent[]
   phishingDrills      PhishingDrill[]
   backupVerifications BackupVerification[]
 
@@ -143,21 +144,21 @@ enum PracticeRole {
 }
 
 model PracticeUser {
-  id          String       @id @default(cuid())
-  userId      String
-  practiceId  String
-  role        PracticeRole @default(STAFF)
+  id                  String       @id @default(cuid())
+  userId              String
+  practiceId          String
+  role                PracticeRole @default(STAFF)
   // Officer designations (multi-select stored as denormalized booleans)
-  isPrivacyOfficer    Boolean @default(false)
-  isSecurityOfficer   Boolean @default(false)
-  isComplianceOfficer Boolean @default(false)
-  isSafetyOfficer     Boolean @default(false)
-  joinedAt    DateTime     @default(now())
-  removedAt   DateTime?
+  isPrivacyOfficer    Boolean      @default(false)
+  isSecurityOfficer   Boolean      @default(false)
+  isComplianceOfficer Boolean      @default(false)
+  isSafetyOfficer     Boolean      @default(false)
+  joinedAt            DateTime     @default(now())
+  removedAt           DateTime?
   // Cybersecurity emphasis (2026-04-23): per-user MFA enrollment
   // attestation. Captured by an officer (no IdP integration in v2 launch
   // scope), not the user themselves, so it counts as evidence.
-  mfaEnrolledAt DateTime?
+  mfaEnrolledAt       DateTime?
 
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   practice    Practice     @relation(fields: [practiceId], references: [id], onDelete: Cascade)
@@ -173,23 +174,23 @@ model PracticeUser {
 // layer — mutations go through appendEventAndApply() per ADR-0001.
 // Retiring a policy sets retiredAt instead of deleting.
 model PracticePolicy {
-  id         String   @id @default(cuid())
-  practiceId String
-  policyCode String   // e.g. "HIPAA_PRIVACY_POLICY" — see src/lib/compliance/policies.ts
-  content    String?  @db.Text
-  version    Int      @default(1)
-  adoptedAt  DateTime @default(now())
+  id             String    @id @default(cuid())
+  practiceId     String
+  policyCode     String // e.g. "HIPAA_PRIVACY_POLICY" — see src/lib/compliance/policies.ts
+  content        String?   @db.Text
+  version        Int       @default(1)
+  adoptedAt      DateTime  @default(now())
   // Set on each annual review attestation. Initially equals adoptedAt;
   // bumped via POLICY_REVIEWED event. Drives the "Review due in N days"
   // reminder + a new HIPAA_POLICIES_REVIEW_CURRENT requirement.
   lastReviewedAt DateTime?
-  retiredAt  DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  retiredAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  practice         Practice               @relation(fields: [practiceId], references: [id], onDelete: Cascade)
-  versions         PolicyVersion[]
-  acknowledgments  PolicyAcknowledgment[]
+  practice        Practice               @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  versions        PolicyVersion[]
+  acknowledgments PolicyAcknowledgment[]
 
   @@unique([practiceId, policyCode])
   @@index([practiceId, retiredAt])
@@ -278,13 +279,13 @@ enum SraAnswer {
 // ~20 canonical safeguards at launch; expand post-launch.
 model SraQuestion {
   id          String      @id @default(cuid())
-  code        String      @unique    // "ADMIN_RISK_ANALYSIS"
+  code        String      @unique // "ADMIN_RISK_ANALYSIS"
   category    SraCategory
-  subcategory String                  // "Security Management Process"
+  subcategory String // "Security Management Process"
   title       String
   description String      @db.Text
-  guidance    String?     @db.Text    // what OCR looks for
-  lookFor     String[]                // practical checklist items
+  guidance    String?     @db.Text // what OCR looks for
+  lookFor     String[] // practical checklist items
   sortOrder   Int         @default(0)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -305,14 +306,14 @@ model SraQuestion {
 model PracticeComplianceProfile {
   practiceId                    String   @id
   // Operational characteristics that gate framework applicability.
-  hasInHouseLab                 Boolean  @default(false)   // → CLIA
-  dispensesControlledSubstances Boolean  @default(false)   // → DEA
-  medicareParticipant           Boolean  @default(true)    // → CMS
-  billsMedicaid                 Boolean  @default(true)    // → CMS (either)
-  subjectToMacraMips            Boolean  @default(true)    // → MACRA
-  sendsAutomatedPatientMessages Boolean  @default(true)    // → TCPA
+  hasInHouseLab                 Boolean  @default(false) // → CLIA
+  dispensesControlledSubstances Boolean  @default(false) // → DEA
+  medicareParticipant           Boolean  @default(true) // → CMS
+  billsMedicaid                 Boolean  @default(true) // → CMS (either)
+  subjectToMacraMips            Boolean  @default(true) // → MACRA
+  sendsAutomatedPatientMessages Boolean  @default(true) // → TCPA
   // Descriptive metadata — not gates today but surfaced in reports.
-  specialtyCategory             String?  // PRIMARY_CARE | SPECIALTY | DENTAL | BEHAVIORAL | ALLIED | OTHER
+  specialtyCategory             String? // PRIMARY_CARE | SPECIALTY | DENTAL | BEHAVIORAL | ALLIED | OTHER
   providerCount                 Int?
   createdAt                     DateTime @default(now())
   updatedAt                     DateTime @updatedAt
@@ -343,36 +344,36 @@ enum NotificationSeverity {
 }
 
 model Notification {
-  id           String               @id @default(cuid())
-  practiceId   String
-  userId       String
-  type         NotificationType
-  severity     NotificationSeverity @default(INFO)
-  title        String
-  body         String               @db.Text
-  href         String?
+  id             String               @id @default(cuid())
+  practiceId     String
+  userId         String
+  type           NotificationType
+  severity       NotificationSeverity @default(INFO)
+  title          String
+  body           String               @db.Text
+  href           String?
   // "Entity this notification is about" — SRA id, training completion id,
   // vendor id, etc. Used for dedup: running the digest twice in one
   // period shouldn't spam the user with the same alert.
-  entityKey    String?
-  readAt       DateTime?
+  entityKey      String?
+  readAt         DateTime?
   sentViaEmailAt DateTime?
-  createdAt    DateTime             @default(now())
+  createdAt      DateTime             @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, type, entityKey])
   @@index([userId, readAt, createdAt])
   @@index([practiceId, createdAt])
-  @@unique([userId, type, entityKey])
 }
 
 model NotificationPreference {
-  userId                 String  @id
-  digestEnabled          Boolean @default(true)
-  criticalAlertsEnabled  Boolean @default(true)
-  emailEnabled           Boolean @default(true)
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  userId                String   @id
+  digestEnabled         Boolean  @default(true)
+  criticalAlertsEnabled Boolean  @default(true)
+  emailEnabled          Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -381,17 +382,17 @@ model NotificationPreference {
 // invitation persists until accepted, revoked, or expired. Accept flow
 // creates a PracticeUser for the invitee on first sign-in.
 model PracticeInvitation {
-  id               String    @id @default(cuid())
+  id               String       @id @default(cuid())
   practiceId       String
   invitedByUserId  String
   invitedEmail     String
   role             PracticeRole
-  token            String    @unique
+  token            String       @unique
   expiresAt        DateTime
   acceptedAt       DateTime?
   acceptedByUserId String?
   revokedAt        DateTime?
-  createdAt        DateTime  @default(now())
+  createdAt        DateTime     @default(now())
 
   practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
 
@@ -436,33 +437,33 @@ enum IncidentStatus {
 }
 
 model Incident {
-  id               String           @id @default(cuid())
-  practiceId       String
-  reportedByUserId String
-  title            String
-  description      String           @db.Text
-  type             IncidentType     @default(PRIVACY)
-  severity         IncidentSeverity @default(LOW)
-  status           IncidentStatus   @default(OPEN)
+  id                            String           @id @default(cuid())
+  practiceId                    String
+  reportedByUserId              String
+  title                         String
+  description                   String           @db.Text
+  type                          IncidentType     @default(PRIVACY)
+  severity                      IncidentSeverity @default(LOW)
+  status                        IncidentStatus   @default(OPEN)
   // Breach determination state. null = undetermined (wizard not run yet).
-  isBreach         Boolean?
-  phiInvolved      Boolean          @default(false)
-  affectedCount    Int?
-  discoveredAt     DateTime
-  reportedAt       DateTime         @default(now())
-  resolvedAt       DateTime?
+  isBreach                      Boolean?
+  phiInvolved                   Boolean          @default(false)
+  affectedCount                 Int?
+  discoveredAt                  DateTime
+  reportedAt                    DateTime         @default(now())
+  resolvedAt                    DateTime?
   // HIPAA §164.402 four-factor analysis (1-5 each; 1=low risk → 5=high risk)
-  factor1Score     Int?
-  factor2Score     Int?
-  factor3Score     Int?
-  factor4Score     Int?
-  overallRiskScore Int? // composite 0-100 produced by the breach wizard
-  breachDeterminedAt DateTime?
+  factor1Score                  Int?
+  factor2Score                  Int?
+  factor3Score                  Int?
+  factor4Score                  Int?
+  overallRiskScore              Int? // composite 0-100 produced by the breach wizard
+  breachDeterminedAt            DateTime?
   // HHS Office for Civil Rights notification tracking. ocrNotifiedAt is
   // synonymous with the new INCIDENT_NOTIFIED_HHS event timestamp; the
   // event projection writes here directly so existing readers keep working.
-  ocrNotifyRequired Boolean          @default(false)
-  ocrNotifiedAt     DateTime?
+  ocrNotifyRequired             Boolean          @default(false)
+  ocrNotifiedAt                 DateTime?
   // Granular post-determination notification tracking. Populated by the
   // INCIDENT_NOTIFIED_AFFECTED_INDIVIDUALS / _MEDIA / _STATE_AG events.
   // null = not yet notified. State-overlay derivation rules (e.g.
@@ -472,16 +473,16 @@ model Incident {
   mediaNotifiedAt               DateTime?
   stateAgNotifiedAt             DateTime?
   // OSHA recordable fields — only populated when type=OSHA_RECORDABLE.
-  oshaBodyPart       String?
-  oshaInjuryNature   String?
-  oshaOutcome        String? // DEATH | DAYS_AWAY | RESTRICTED | OTHER_RECORDABLE | FIRST_AID
-  oshaDaysAway       Int?
-  oshaDaysRestricted Int?
+  oshaBodyPart                  String?
+  oshaInjuryNature              String?
+  oshaOutcome                   String? // DEATH | DAYS_AWAY | RESTRICTED | OTHER_RECORDABLE | FIRST_AID
+  oshaDaysAway                  Int?
+  oshaDaysRestricted            Int?
   // State breach-notification tracking — populated once the wizard confirms
   // isBreach=true for a practice with a non-federal state in scope.
-  patientState       String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  patientState                  String?
+  createdAt                     DateTime         @default(now())
+  updatedAt                     DateTime         @updatedAt
 
   practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
 
@@ -557,11 +558,11 @@ enum CredCategory {
 // post-launch feature (tracked in v2-deferred-roadmap.md).
 model CredentialType {
   id                String       @id @default(cuid())
-  code              String       @unique   // "MD_STATE_LICENSE", "DEA_REGISTRATION", etc.
+  code              String       @unique // "MD_STATE_LICENSE", "DEA_REGISTRATION", etc.
   name              String
   category          CredCategory
   description       String?      @db.Text
-  renewalPeriodDays Int?         // typical renewal cycle, used for UI hints
+  renewalPeriodDays Int? // typical renewal cycle, used for UI hints
   sortOrder         Int          @default(0)
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
@@ -578,9 +579,9 @@ model CredentialType {
 model Credential {
   id               String    @id @default(cuid())
   practiceId       String
-  holderId         String?             // PracticeUser.id — null = practice-level credential
+  holderId         String? // PracticeUser.id — null = practice-level credential
   credentialTypeId String
-  title            String              // free text ("Jane Smith · AZ MD License")
+  title            String // free text ("Jane Smith · AZ MD License")
   licenseNumber    String?
   issuingBody      String?
   issueDate        DateTime?
@@ -590,9 +591,9 @@ model Credential {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  practice       Practice        @relation(fields: [practiceId], references: [id], onDelete: Cascade)
-  holder         PracticeUser?   @relation(fields: [holderId], references: [id], onDelete: SetNull)
-  credentialType CredentialType  @relation(fields: [credentialTypeId], references: [id])
+  practice       Practice       @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  holder         PracticeUser?  @relation(fields: [holderId], references: [id], onDelete: SetNull)
+  credentialType CredentialType @relation(fields: [credentialTypeId], references: [id])
 
   @@index([practiceId, retiredAt])
   @@index([practiceId, expiryDate])
@@ -608,21 +609,21 @@ model Credential {
 // vendor sets retiredAt. Editing name/service/processesPhi goes through
 // VENDOR_UPSERTED (same event as create); BAA signing is its own event.
 model Vendor {
-  id             String   @id @default(cuid())
-  practiceId     String
-  name           String
-  type           String?              // "EHR" | "Billing" | "IT" | "Cloud" | "Other" — free-text for flexibility
-  service        String?  @db.Text    // what the vendor provides ("billing clearinghouse")
-  contact        String?              // primary contact person
-  email          String?
-  notes          String?  @db.Text
-  processesPhi   Boolean  @default(false)
-  baaDirection   String?              // PRACTICE_PROVIDED | VENDOR_PROVIDED | PLATFORM_ACKNOWLEDGMENT
-  baaExecutedAt  DateTime?            // null = no BAA on file
-  baaExpiresAt   DateTime?            // null = perpetual / no expiry
-  retiredAt      DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id            String    @id @default(cuid())
+  practiceId    String
+  name          String
+  type          String? // "EHR" | "Billing" | "IT" | "Cloud" | "Other" — free-text for flexibility
+  service       String?   @db.Text // what the vendor provides ("billing clearinghouse")
+  contact       String? // primary contact person
+  email         String?
+  notes         String?   @db.Text
+  processesPhi  Boolean   @default(false)
+  baaDirection  String? // PRACTICE_PROVIDED | VENDOR_PROVIDED | PLATFORM_ACKNOWLEDGMENT
+  baaExecutedAt DateTime? // null = no BAA on file
+  baaExpiresAt  DateTime? // null = perpetual / no expiry
+  retiredAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
 
@@ -637,10 +638,10 @@ model Vendor {
 // Reference data. Seeded from scripts/seed-training.ts; read-only for practices.
 model TrainingCourse {
   id              String   @id @default(cuid())
-  code            String   @unique   // "HIPAA_BASICS" — used in evidence type TRAINING:<code>
+  code            String   @unique // "HIPAA_BASICS" — used in evidence type TRAINING:<code>
   title           String
   description     String?  @db.Text
-  type            String   // "HIPAA" | "OSHA" | etc. — display grouping
+  type            String // "HIPAA" | "OSHA" | etc. — display grouping
   lessonContent   String   @db.Text
   durationMinutes Int?
   passingScore    Int      @default(80)
@@ -667,7 +668,7 @@ model QuizQuestion {
   explanation  String?  @db.Text
   order        Int
 
-  course       TrainingCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course TrainingCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@index([courseId, order])
 }
@@ -679,10 +680,10 @@ model QuizQuestion {
 model TrainingCompletion {
   id             String   @id @default(cuid())
   practiceId     String
-  userId         String   // identity User.id (practiceId + userId → PracticeUser)
+  userId         String // identity User.id (practiceId + userId → PracticeUser)
   courseId       String
   courseVersion  Int
-  score          Int      // 0–100
+  score          Int // 0–100
   passed         Boolean
   completedAt    DateTime @default(now())
   expiresAt      DateTime // completedAt + 365 days at write time
@@ -704,14 +705,14 @@ model TrainingCompletion {
 // rule (`no-direct-projection-mutation`) + code review. Postgres-side enforcement
 // will be added in a follow-up migration after the pattern stabilizes.
 model EventLog {
-  id            String   @id @default(cuid())
-  practiceId    String
-  actorUserId   String?  // null for system-generated events (cron, webhook)
-  type          String   // EventType enum (TS-side); kept as String here for forward-compat
-  schemaVersion Int      @default(1)
-  payload       Json     // typed by Zod schema per (type, schemaVersion)
-  idempotencyKey String? @unique // dedup for retried webhooks/cron
-  createdAt     DateTime @default(now())
+  id             String   @id @default(cuid())
+  practiceId     String
+  actorUserId    String? // null for system-generated events (cron, webhook)
+  type           String // EventType enum (TS-side); kept as String here for forward-compat
+  schemaVersion  Int      @default(1)
+  payload        Json // typed by Zod schema per (type, schemaVersion)
+  idempotencyKey String?  @unique // dedup for retried webhooks/cron
+  createdAt      DateTime @default(now())
 
   practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
   actor    User?    @relation("EventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
@@ -727,26 +728,26 @@ model EventLog {
 
 // A regulatory framework — HIPAA, OSHA, OIG, etc. Adding a new one is an INSERT.
 model RegulatoryFramework {
-  id              String   @id @default(cuid())
-  code            String   @unique // "HIPAA", "OSHA", "OIG", "OSHA_WPV", ...
+  id              String    @id @default(cuid())
+  code            String    @unique // "HIPAA", "OSHA", "OIG", "OSHA_WPV", ...
   name            String
   shortName       String?
-  description     String   @db.Text
-  citation        String?  // "45 CFR Parts 160, 162, 164"
-  jurisdiction    String   @default("federal") // "federal" | "state-XX"
+  description     String    @db.Text
+  citation        String? // "45 CFR Parts 160, 162, 164"
+  jurisdiction    String    @default("federal") // "federal" | "state-XX"
   effectiveAt     DateTime?
   supersededAt    DateTime?
-  weightDefault   Float    @default(0) // share of overall compliance score
-  scoringStrategy String   @default("STANDARD_CHECKLIST") // pluggable per ADR-0004
-  iconKey         String?  // lucide icon name
-  colorKey        String?  // design-system color token
-  sortOrder       Int      @default(0)
-  metadata        Json?    // framework-specific extras
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  weightDefault   Float     @default(0) // share of overall compliance score
+  scoringStrategy String    @default("STANDARD_CHECKLIST") // pluggable per ADR-0004
+  iconKey         String? // lucide icon name
+  colorKey        String? // design-system color token
+  sortOrder       Int       @default(0)
+  metadata        Json? // framework-specific extras
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  requirements         RegulatoryRequirement[]
-  practiceFrameworks   PracticeFramework[]
+  requirements       RegulatoryRequirement[]
+  practiceFrameworks PracticeFramework[]
 
   @@index([jurisdiction])
   @@index([sortOrder])
@@ -755,15 +756,15 @@ model RegulatoryFramework {
 // Per-practice activation of a framework + computed status. Created lazily
 // when a practice's compliance profile activates the framework.
 model PracticeFramework {
-  id          String   @id @default(cuid())
-  practiceId  String
-  frameworkId String
-  enabled     Boolean  @default(true)
-  enabledAt   DateTime @default(now())
-  disabledAt  DateTime?
+  id           String    @id @default(cuid())
+  practiceId   String
+  frameworkId  String
+  enabled      Boolean   @default(true)
+  enabledAt    DateTime  @default(now())
+  disabledAt   DateTime?
   // Cached score (regenerated by event handlers; not source of truth)
-  scoreCache  Float?
-  scoreLabel  String?  // "Compliant" | "Good" | "Needs Work" | "At Risk"
+  scoreCache   Float?
+  scoreLabel   String? // "Compliant" | "Good" | "Needs Work" | "At Risk"
   lastScoredAt DateTime?
 
   practice  Practice            @relation(fields: [practiceId], references: [id], onDelete: Cascade)
@@ -775,25 +776,25 @@ model PracticeFramework {
 
 // One requirement = one row that needs evidence to satisfy.
 model RegulatoryRequirement {
-  id              String   @id @default(cuid())
-  frameworkId     String
-  code            String   // "HIPAA_PRIVACY_NPP", "OSHA_BBP_EXPOSURE_CONTROL"
-  title           String
-  description     String   @db.Text
-  citation        String?
-  severity        String   @default("STANDARD") // STANDARD | CRITICAL | OPTIONAL
-  isOptional      Boolean  @default(false)
+  id                    String   @id @default(cuid())
+  frameworkId           String
+  code                  String // "HIPAA_PRIVACY_NPP", "OSHA_BBP_EXPOSURE_CONTROL"
+  title                 String
+  description           String   @db.Text
+  citation              String?
+  severity              String   @default("STANDARD") // STANDARD | CRITICAL | OPTIONAL
+  isOptional            Boolean  @default(false)
   // Which states this requirement applies to. Empty array = all jurisdictions.
-  jurisdictionFilter String[] @default([])
+  jurisdictionFilter    String[] @default([])
   // Which evidence types satisfy this requirement.
   acceptedEvidenceTypes String[] @default([]) // EvidenceType.code values
-  weight          Float    @default(1) // relative weight within framework
-  sortOrder       Int      @default(0)
-  metadata        Json?    // framework-specific extras (e.g. DEA Schedule, OSHA recordable)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  weight                Float    @default(1) // relative weight within framework
+  sortOrder             Int      @default(0)
+  metadata              Json? // framework-specific extras (e.g. DEA Schedule, OSHA recordable)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
-  framework      RegulatoryFramework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  framework       RegulatoryFramework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
   complianceItems ComplianceItem[]
 
   @@unique([frameworkId, code])
@@ -803,13 +804,13 @@ model RegulatoryRequirement {
 // The kinds of evidence a practice can produce. Maps each to the "My Programs"
 // page that handles producing it.
 model EvidenceType {
-  id           String   @id @default(cuid())
-  code         String   @unique // "POLICY", "TRAINING", "INCIDENT_LOG", "ATTESTATION", "CREDENTIAL", "BAA", "SRA_ANSWER", "DESTRUCTION_LOG", "DRILL_LOG", "INSPECTION"
+  id           String  @id @default(cuid())
+  code         String  @unique // "POLICY", "TRAINING", "INCIDENT_LOG", "ATTESTATION", "CREDENTIAL", "BAA", "SRA_ANSWER", "DESTRUCTION_LOG", "DRILL_LOG", "INSPECTION"
   name         String
-  description  String?  @db.Text
-  programRoute String   // Next.js route, e.g. "/programs/policies"
+  description  String? @db.Text
+  programRoute String // Next.js route, e.g. "/programs/policies"
   iconKey      String?
-  sortOrder    Int      @default(0)
+  sortOrder    Int     @default(0)
 
   @@index([sortOrder])
 }
@@ -818,22 +819,22 @@ model EvidenceType {
 // projected here for fast reads. Replaces v1's PracticePolicy-with-prefixed-titles
 // and per-module checklist tables.
 model ComplianceItem {
-  id            String   @id @default(cuid())
-  practiceId    String
-  requirementId String
-  status        String   @default("NOT_STARTED") // NOT_STARTED | IN_PROGRESS | COMPLIANT | GAP | NOT_APPLICABLE
+  id                String    @id @default(cuid())
+  practiceId        String
+  requirementId     String
+  status            String    @default("NOT_STARTED") // NOT_STARTED | IN_PROGRESS | COMPLIANT | GAP | NOT_APPLICABLE
   // Optional per-item override of the framework-computed status (admin manual override)
-  overrideStatus       String?
-  overrideReason       String?  @db.Text
-  overrideAt           DateTime?
-  overrideByUserId     String?
+  overrideStatus    String?
+  overrideReason    String?   @db.Text
+  overrideAt        DateTime?
+  overrideByUserId  String?
   // Evidence pointers — denormalized for read speed; primary truth is EventLog
-  evidenceCount        Int      @default(0)
-  lastEvidenceAt       DateTime?
+  evidenceCount     Int       @default(0)
+  lastEvidenceAt    DateTime?
   // Cached scoring contribution
-  contributionCache    Float?
-  lastUpdatedAt        DateTime @updatedAt
-  createdAt            DateTime @default(now())
+  contributionCache Float?
+  lastUpdatedAt     DateTime  @updatedAt
+  createdAt         DateTime  @default(now())
 
   practice    Practice              @relation(fields: [practiceId], references: [id], onDelete: Cascade)
   requirement RegulatoryRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
@@ -849,15 +850,15 @@ model ComplianceItem {
 
 // Per-practice score history. Each row = one point on the trend graph.
 model ComplianceScoreSnapshot {
-  id           String   @id @default(cuid())
-  practiceId   String
-  snapshotAt   DateTime @default(now())
-  overallScore Float
-  overallLabel String   // "Compliant" | "Good" | "Needs Work" | "At Risk"
+  id                 String   @id @default(cuid())
+  practiceId         String
+  snapshotAt         DateTime @default(now())
+  overallScore       Float
+  overallLabel       String // "Compliant" | "Good" | "Needs Work" | "At Risk"
   // Per-framework breakdown stored as JSON for flexibility
   frameworkBreakdown Json
   // Why this snapshot was created (event-driven, daily cron, manual recompute)
-  trigger      String   @default("EVENT")
+  trigger            String   @default("EVENT")
 
   practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
 
@@ -870,12 +871,12 @@ model ComplianceScoreSnapshot {
 
 model LlmCall {
   id            String   @id @default(cuid())
-  practiceId    String?  // nullable for system-level calls (e.g. regulatory analyzer)
+  practiceId    String? // nullable for system-level calls (e.g. regulatory analyzer)
   actorUserId   String?
-  promptId      String   // key into the prompt registry
+  promptId      String // key into the prompt registry
   promptVersion Int
   model         String
-  inputHash     String   // sha256 of the redacted input
+  inputHash     String // sha256 of the redacted input
   inputTokens   Int?
   outputTokens  Int?
   latencyMs     Int
@@ -897,15 +898,15 @@ model LlmCall {
 // ────────────────────────────────────────────────────────────────────────────
 
 model Waitlist {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  source       String   @default("marketing") // "marketing", "marketing:AZ", etc.
+  id           String    @id @default(cuid())
+  email        String    @unique
+  source       String    @default("marketing") // "marketing", "marketing:AZ", etc.
   practiceName String?
   state        String?
-  notes        String?  @db.Text
-  invited      Boolean  @default(false)
+  notes        String?   @db.Text
+  invited      Boolean   @default(false)
   invitedAt    DateTime?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
 
   @@index([invited, createdAt])
 }
@@ -920,34 +921,34 @@ model Waitlist {
 // tasks. Per docs/specs/v1-ideas-survey.md §1.2.
 
 model PracticeTrack {
-  practiceId    String   @id
-  templateCode  String   // GENERAL_PRIMARY_CARE | DENTAL | BEHAVIORAL | GENERIC
-  generatedAt   DateTime @default(now())
+  practiceId   String    @id
+  templateCode String // GENERAL_PRIMARY_CARE | DENTAL | BEHAVIORAL | GENERIC
+  generatedAt  DateTime  @default(now())
   // Set when ALL tasks have completedAt non-null. Recomputed on each
   // task flip; nullable so re-opening a task can clear it.
-  completedAt   DateTime?
+  completedAt  DateTime?
 
   practice Practice            @relation(fields: [practiceId], references: [id], onDelete: Cascade)
   tasks    PracticeTrackTask[]
 }
 
 model PracticeTrackTask {
-  id              String   @id @default(cuid())
-  practiceId      String
-  weekTarget      Int      // 1, 2, 4, 8, 12 — target week from track generation
-  sortOrder       Int      @default(0)
-  title           String
-  description     String   @db.Text
+  id                String    @id @default(cuid())
+  practiceId        String
+  weekTarget        Int // 1, 2, 4, 8, 12 — target week from track generation
+  sortOrder         Int       @default(0)
+  title             String
+  description       String    @db.Text
   // Route the user clicks to "do" the task (e.g. /programs/staff for the
   // designate-officer tasks).
-  href            String
+  href              String
   // Optional auto-completion: if set, the task auto-completes when the
   // matching ComplianceItem (by RegulatoryRequirement.code) flips to
   // COMPLIANT. Hooked into rederiveRequirementStatus.
-  requirementCode String?
-  completedAt     DateTime?
+  requirementCode   String?
+  completedAt       DateTime?
   completedByUserId String?
-  createdAt       DateTime @default(now())
+  createdAt         DateTime  @default(now())
 
   practiceTrack PracticeTrack @relation(fields: [practiceId], references: [practiceId], onDelete: Cascade)
 
@@ -965,23 +966,23 @@ model PracticeTrackTask {
 // retention policies are followed (vs. theoretical-only).
 
 model DestructionLog {
-  id              String   @id @default(cuid())
-  practiceId      String
+  id                String   @id @default(cuid())
+  practiceId        String
   // What was destroyed.
-  documentType    String   // MEDICAL_RECORDS | BILLING | HR | EMAIL_BACKUPS | OTHER
-  description     String   @db.Text  // Free-text describing scope (date range, patient cohort, etc.)
-  volumeEstimate  String?  // "12 boxes" / "300 GB" / "47 patient charts"
+  documentType      String // MEDICAL_RECORDS | BILLING | HR | EMAIL_BACKUPS | OTHER
+  description       String   @db.Text // Free-text describing scope (date range, patient cohort, etc.)
+  volumeEstimate    String? // "12 boxes" / "300 GB" / "47 patient charts"
   // How.
-  method          String   // SHREDDING | SECURE_WIPE | DEIDENTIFICATION | INCINERATION | OTHER
+  method            String // SHREDDING | SECURE_WIPE | DEIDENTIFICATION | INCINERATION | OTHER
   // Who.
   performedByUserId String
   witnessedByUserId String?
   // Vendor-issued certificate of destruction URL/path (if external vendor).
-  certificateUrl  String?
+  certificateUrl    String?
   // When the destruction happened (may be backdated).
-  destroyedAt     DateTime
-  notes           String?  @db.Text
-  createdAt       DateTime @default(now())
+  destroyedAt       DateTime
+  notes             String?  @db.Text
+  createdAt         DateTime @default(now())
 
   practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
 
@@ -998,21 +999,21 @@ model DestructionLog {
 // risk analysis.
 
 model TechAsset {
-  id             String   @id @default(cuid())
-  practiceId     String
-  name           String
+  id           String    @id @default(cuid())
+  practiceId   String
+  name         String
   // Asset class. Free-form for flexibility but UI offers a fixed set.
-  assetType      String   // SERVER | LAPTOP | DESKTOP | MOBILE | EMR | NETWORK_DEVICE | CLOUD_SERVICE | OTHER
-  processesPhi   Boolean  @default(false)
+  assetType    String // SERVER | LAPTOP | DESKTOP | MOBILE | EMR | NETWORK_DEVICE | CLOUD_SERVICE | OTHER
+  processesPhi Boolean   @default(false)
   // Encryption posture for at-rest data on this asset.
-  encryption     String   // FULL_DISK | FIELD_LEVEL | NONE | UNKNOWN
-  vendor         String?
-  location       String?  // physical location or hosting region
-  ownerUserId    String?  // staff member responsible
-  notes          String?  @db.Text
-  retiredAt      DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  encryption   String // FULL_DISK | FIELD_LEVEL | NONE | UNKNOWN
+  vendor       String?
+  location     String? // physical location or hosting region
+  ownerUserId  String? // staff member responsible
+  notes        String?   @db.Text
+  retiredAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
 
@@ -1047,16 +1048,16 @@ enum AuditPrepStepStatus {
 // gates which protocols apply; status walks DRAFT → IN_PROGRESS (first
 // step touched) → COMPLETED (packet generated).
 model AuditPrepSession {
-  id              String           @id @default(cuid())
-  practiceId      String
-  mode            AuditPrepMode
-  status          AuditPrepStatus  @default(DRAFT)
-  startedByUserId String
-  startedAt       DateTime         @default(now())
-  completedAt     DateTime?
+  id                String          @id @default(cuid())
+  practiceId        String
+  mode              AuditPrepMode
+  status            AuditPrepStatus @default(DRAFT)
+  startedByUserId   String
+  startedAt         DateTime        @default(now())
+  completedAt       DateTime?
   packetGeneratedAt DateTime?
 
-  practice Practice          @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  practice Practice        @relation(fields: [practiceId], references: [id], onDelete: Cascade)
   steps    AuditPrepStep[]
 
   @@index([practiceId, startedAt])
@@ -1068,16 +1069,16 @@ model AuditPrepSession {
 // `evidenceJson` snapshots the live evidence at completion time so the
 // PDF stays stable even if underlying tables change later.
 model AuditPrepStep {
-  id           String              @id @default(cuid())
-  sessionId    String
-  code         String              // matches ProtocolDef.code
-  title        String              // snapshot at session creation
-  status       AuditPrepStepStatus @default(PENDING)
-  evidenceJson Json?               // structured evidence captured at completion
-  notes        String?             @db.Text
-  completedAt  DateTime?
+  id                String              @id @default(cuid())
+  sessionId         String
+  code              String // matches ProtocolDef.code
+  title             String // snapshot at session creation
+  status            AuditPrepStepStatus @default(PENDING)
+  evidenceJson      Json? // structured evidence captured at completion
+  notes             String?             @db.Text
+  completedAt       DateTime?
   completedByUserId String?
-  createdAt    DateTime            @default(now())
+  createdAt         DateTime            @default(now())
 
   session AuditPrepSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
@@ -1102,20 +1103,20 @@ model AuditPrepStep {
 // new adoptions.
 
 model PolicyTemplate {
-  id           String   @id @default(cuid())
-  code         String   @unique // e.g. HIPAA_RISK_ANALYSIS_POLICY
-  title        String
-  framework    String   // HIPAA | OSHA | GENERAL | DEA — single string,
-                        // matches RegulatoryFramework.code where applicable.
-  description  String   @db.Text
-  bodyMarkdown String   @db.Text
+  id              String   @id @default(cuid())
+  code            String   @unique // e.g. HIPAA_RISK_ANALYSIS_POLICY
+  title           String
+  framework       String // HIPAA | OSHA | GENERAL | DEA — single string,
+  // matches RegulatoryFramework.code where applicable.
+  description     String   @db.Text
+  bodyMarkdown    String   @db.Text
   // State filter (e.g. "MA" for state-specific templates) and specialty
   // filter (e.g. "ALLERGY_IMMUNOLOGY"). Both null = universal template.
   stateFilter     String?
   specialtyFilter String?
-  sortOrder    Int      @default(100)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  sortOrder       Int      @default(100)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@index([framework, sortOrder])
   @@index([stateFilter])
@@ -1137,17 +1138,17 @@ model PolicyTemplate {
 // insurance carriers and HIPAA Security Rule §164.308(a)(5) treat regular
 // phishing simulation as a baseline workforce-awareness control.
 model PhishingDrill {
-  id                String   @id @default(cuid())
-  practiceId        String
-  conductedAt       DateTime
-  vendor            String?  // e.g., "KnowBe4", "Hoxhunt", "Microsoft Attack Simulator", or "Internal"
-  totalRecipients   Int
-  clickedCount      Int      @default(0)
-  reportedCount     Int      @default(0)
-  attachmentUrl     String?  // optional GCS link to vendor PDF report
-  loggedByUserId    String
-  notes             String?  @db.Text
-  createdAt         DateTime @default(now())
+  id              String   @id @default(cuid())
+  practiceId      String
+  conductedAt     DateTime
+  vendor          String? // e.g., "KnowBe4", "Hoxhunt", "Microsoft Attack Simulator", or "Internal"
+  totalRecipients Int
+  clickedCount    Int      @default(0)
+  reportedCount   Int      @default(0)
+  attachmentUrl   String? // optional GCS link to vendor PDF report
+  loggedByUserId  String
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now())
 
   practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
 
@@ -1158,18 +1159,41 @@ model PhishingDrill {
 // + the Security Rule contingency plan standards both treat untested
 // backups as effectively no backups.
 model BackupVerification {
-  id                  String   @id @default(cuid())
-  practiceId          String
-  verifiedAt          DateTime
-  scope               String   // free-form: "EHR", "Files", "Email", "Imaging", etc.
-  success             Boolean
-  restoreTimeMinutes  Int?     // optional — measured RTO from the test
-  loggedByUserId      String
-  notes               String?  @db.Text
-  createdAt           DateTime @default(now())
+  id                 String   @id @default(cuid())
+  practiceId         String
+  verifiedAt         DateTime
+  scope              String // free-form: "EHR", "Files", "Email", "Imaging", etc.
+  success            Boolean
+  restoreTimeMinutes Int? // optional — measured RTO from the test
+  loggedByUserId     String
+  notes              String?  @db.Text
+  createdAt          DateTime @default(now())
 
   practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
 
   @@index([practiceId, verifiedAt])
   @@index([practiceId, success])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Onboarding drip emails — Phase E (docs/specs/onboarding-flow.md § Screen 9)
+// ────────────────────────────────────────────────────────────────────────────
+//
+// One row per (practice, day) drip email sent. The cron runner uses the
+// (practiceId, day) unique constraint as the idempotency guard — second +
+// later runs for the same day are no-ops. day ∈ {1, 3, 5, 7, 10}, measured
+// from trial start (trialEndsAt - 7 days).
+model OnboardingDripSent {
+  id             String   @id @default(cuid())
+  practiceId     String
+  day            Int // 1 | 3 | 5 | 7 | 10
+  recipientEmail String
+  sentAt         DateTime @default(now())
+  emailDelivered Boolean
+  emailReason    String? // reason if delivery failed (Resend error, etc.)
+
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  @@unique([practiceId, day])
+  @@index([sentAt])
 }
