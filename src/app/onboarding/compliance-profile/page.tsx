@@ -56,8 +56,8 @@ export default async function CompliancePreofilePage() {
               specialtyCategory: existing?.specialtyCategory ?? null,
               providerCount: existing?.providerCount ?? null,
             }}
-            redirectTo={"/dashboard" as Route}
-            submitLabel="Continue to dashboard"
+            redirectTo={"/onboarding/first-run" as Route}
+            submitLabel="Continue → First-run setup"
           />
         </CardContent>
       </Card>
