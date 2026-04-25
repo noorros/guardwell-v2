@@ -49,6 +49,7 @@ export default async function DashboardPage() {
 
   const officerRoles: Array<"Privacy Officer" | "Security Officer" | "Compliance Officer"> = [];
   if (pu.isPrivacyOfficer) officerRoles.push("Privacy Officer");
+  if (pu.isSecurityOfficer) officerRoles.push("Security Officer");
   if (pu.isComplianceOfficer) officerRoles.push("Compliance Officer");
 
   return (
