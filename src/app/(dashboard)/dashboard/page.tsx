@@ -9,6 +9,7 @@ import {
   MAJOR_BREACH_THRESHOLD,
 } from "@/components/gw/MajorBreachBanner";
 import { Inbox } from "lucide-react";
+import { FirstRunReminderBanner } from "./FirstRunReminderBanner";
 
 export const metadata = {
   title: "Dashboard · GuardWell",
@@ -22,7 +23,7 @@ export default async function DashboardPage() {
   const pu = await getPracticeUser();
   if (!pu) return null;
 
-  const [eventCount, majorBreach] = await Promise.all([
+  const [eventCount, majorBreach, practiceMeta] = await Promise.all([
     db.eventLog.count({ where: { practiceId: pu.practiceId } }),
     // Surface the most imminent unresolved major breach (500+ individuals).
     // Sorted by soonest discovery so the closest-to-deadline breach wins.
@@ -40,6 +41,10 @@ export default async function DashboardPage() {
         discoveredAt: true,
       },
     }),
+    db.practice.findUniqueOrThrow({
+      where: { id: pu.practiceId },
+      select: { firstRunCompletedAt: true },
+    }),
   ]);
 
   const officerRoles: Array<"Privacy Officer" | "Security Officer" | "Compliance Officer"> = [];
@@ -48,6 +53,7 @@ export default async function DashboardPage() {
 
   return (
     <main className="mx-auto max-w-3xl space-y-6 p-6">
+      {!practiceMeta.firstRunCompletedAt && <FirstRunReminderBanner />}
       {majorBreach && (
         <Link
           href={`/programs/incidents/${majorBreach.id}` as Route}

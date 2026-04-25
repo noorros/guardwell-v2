@@ -1,5 +1,7 @@
 // src/app/(dashboard)/programs/staff/page.tsx
 import { Users } from "lucide-react";
+import Link from "next/link";
+import type { Route } from "next";
 import { db } from "@/lib/db";
 import { getPracticeUser } from "@/lib/rbac";
 import { Breadcrumb } from "@/components/gw/Breadcrumb";
@@ -100,6 +102,19 @@ export default async function StaffPage() {
       <Card>
         <CardContent className="space-y-3 p-6">
           <h2 className="text-sm font-semibold">Invite team members</h2>
+          {canInvite && (
+            <div className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2 text-xs">
+              <span className="text-muted-foreground">
+                Have a list of staff? Invite everyone at once.
+              </span>
+              <Link
+                href={"/programs/staff/bulk-invite" as Route}
+                className="rounded-md border bg-background px-3 py-1.5 font-medium hover:bg-accent"
+              >
+                + Bulk invite
+              </Link>
+            </div>
+          )}
           <InviteMemberForm canInvite={canInvite} />
           {pendingInvitations.length > 0 && (
             <>
