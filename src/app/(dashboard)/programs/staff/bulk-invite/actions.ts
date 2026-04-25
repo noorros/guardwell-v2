@@ -15,7 +15,10 @@ import { renderEmailHtml } from "@/lib/email/template";
 const MAX_BATCH = 200;
 const INVITATION_TTL_DAYS = 7;
 
-export const BulkInviteRowSchema = z.object({
+// Internal schema — not exported because "use server" files can only
+// export async functions per Next.js. The type is fine to export
+// because TypeScript type exports are erased at compile time.
+const BulkInviteRowSchema = z.object({
   firstName: z.string().max(100),
   lastName: z.string().max(100),
   email: z.string().max(200),

@@ -32,11 +32,7 @@ export interface WizardShellProps {
     userId: string;
     displayName: string;
   };
-  privacyTemplate: {
-    code: string;
-    title: string;
-    bodyMarkdown: string;
-  } | null;
+  privacyTemplateBody: string | null;
   hipaaBasicsCourse: HipaaBasicsCourse | null;
 }
 
@@ -108,7 +104,10 @@ export function WizardShell(props: WizardShellProps) {
             <Step1Officers owner={props.owner} onComplete={advance} />
           )}
           {step === "POLICY" && (
-            <Step2Policy template={props.privacyTemplate} onComplete={advance} />
+            <Step2Policy
+              templateBody={props.privacyTemplateBody}
+              onComplete={advance}
+            />
           )}
           {step === "TRAINING" && (
             <Step3Training course={props.hipaaBasicsCourse} onComplete={advance} />

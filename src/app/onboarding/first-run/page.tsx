@@ -55,12 +55,16 @@ export default async function FirstRunPage() {
         ? "TRAINING"
         : "INVITE";
 
-  // Fetch the privacy-policy template body for Step 2 (if not yet adopted).
+  // Optional template body for Step 2 preview. The core
+  // HIPAA_PRIVACY_POLICY code may not have a PolicyTemplate row in
+  // every environment — Step2Policy falls back to a built-in baseline
+  // preview when this is null. Adoption goes through adoptPolicyAction
+  // either way (no PolicyTemplate dependency).
   const privacyTemplate =
     !policyDone
       ? await db.policyTemplate.findUnique({
           where: { code: "HIPAA_PRIVACY_POLICY" },
-          select: { code: true, title: true, bodyMarkdown: true },
+          select: { bodyMarkdown: true },
         })
       : null;
 
@@ -75,7 +79,7 @@ export default async function FirstRunPage() {
           pu.dbUser.email ||
           "You",
       }}
-      privacyTemplate={privacyTemplate}
+      privacyTemplateBody={privacyTemplate?.bodyMarkdown ?? null}
       hipaaBasicsCourse={hipaaBasicsCourse}
     />
   );
