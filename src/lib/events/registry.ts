@@ -301,6 +301,11 @@ export const EVENT_SCHEMAS = {
         .optional(),
       oshaDaysAway: z.number().int().min(0).nullable().optional(),
       oshaDaysRestricted: z.number().int().min(0).nullable().optional(),
+      // 29 CFR §1910.1030 BBP sharps device type (needle / scalpel /
+      // lancet / other). Required for the sharps injury log; the OSHA
+      // 300 log doesn't surface it. Optional in v1 — older events and
+      // non-sharps incidents omit.
+      sharpsDeviceType: z.string().max(200).nullable().optional(),
     }),
   },
   // HIPAA §164.402 four-factor breach determination result. Each factor
