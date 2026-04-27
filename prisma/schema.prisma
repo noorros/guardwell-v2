@@ -135,6 +135,10 @@ model Practice {
   allergyEquipmentChecks  AllergyEquipmentCheck[]
   allergyDrills           AllergyDrill[]
   evidence                Evidence[]
+  deaInventories          DeaInventory[]
+  deaOrders               DeaOrderRecord[]
+  deaDisposals            DeaDisposalRecord[]
+  deaTheftLossReports     DeaTheftLossReport[]
 
   @@index([primaryState])
   @@index([subscriptionStatus])
@@ -516,7 +520,8 @@ model Incident {
   createdAt                     DateTime         @default(now())
   updatedAt                     DateTime         @updatedAt
 
-  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  practice           Practice             @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  deaTheftLossReports DeaTheftLossReport[]
 
   @@index([practiceId, status])
   @@index([practiceId, isBreach])
@@ -583,6 +588,19 @@ enum CredCategory {
   HIPAA_TRAINING
   BACKGROUND_CHECK
   CUSTOM
+}
+
+// DEA controlled-substance schedules per 21 CFR §1308. Schedule I is
+// almost never relevant for healthcare (research-only) but listed for
+// completeness; II–V are the practical tracking surface.
+enum DeaSchedule {
+  CI
+  CII
+  CIIN
+  CIII
+  CIIIN
+  CIV
+  CV
 }
 
 // Reference data. Seeded from scripts/seed-credentials.ts; read-only.
@@ -752,6 +770,144 @@ model EventLog {
   @@index([practiceId, createdAt])
   @@index([practiceId, type, createdAt])
   @@index([type, createdAt])
+}
+
+// =====================================================================
+// DEA Controlled Substances Act recordkeeping (21 CFR Parts 1304, 1311)
+// =====================================================================
+
+// A point-in-time inventory snapshot. Required biennially per 21 CFR
+// §1304.11; many practices conduct monthly perpetual inventories on top.
+// Has many DeaInventoryItem children (one per drug counted).
+model DeaInventory {
+  id              String              @id @default(cuid())
+  practiceId      String
+  asOfDate        DateTime
+  conductedByUserId String
+  witnessUserId   String?
+  notes           String?             @db.Text
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  practice        Practice            @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  items           DeaInventoryItem[]
+
+  @@index([practiceId, asOfDate])
+}
+
+// One drug counted in an inventory. Multiple per inventory.
+model DeaInventoryItem {
+  id          String       @id @default(cuid())
+  inventoryId String
+  drugName    String
+  ndc         String?
+  schedule    DeaSchedule
+  strength    String?
+  quantity    Int
+  unit        String       @default("tablets")
+  createdAt   DateTime     @default(now())
+  inventory   DeaInventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+
+  @@index([inventoryId])
+}
+
+// Receipt of a controlled-substance order (Form 222 paper trail or CSOS
+// electronic order). One row per drug received. Multi-drug Form 222
+// orders (up to 10 line items per federal form) share an `orderBatchId`
+// so the Phase C OrdersTab UI + downstream PDF can group line items
+// back into a single Form 222 view.
+model DeaOrderRecord {
+  id                  String      @id @default(cuid())
+  practiceId          String
+  orderBatchId        String?
+  orderedByUserId     String
+  supplierName        String
+  supplierDeaNumber   String?
+  orderedAt           DateTime
+  receivedAt          DateTime?
+  form222Number       String?
+  drugName            String
+  ndc                 String?
+  schedule            DeaSchedule
+  strength            String?
+  quantity            Int
+  unit                String      @default("tablets")
+  notes               String?     @db.Text
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  practice            Practice    @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  @@index([practiceId, orderedAt])
+  @@index([orderBatchId])
+}
+
+// Disposal of controlled substances to a DEA-registered reverse
+// distributor (or other authorized disposal method). One row per drug.
+// Multi-drug disposals (one reverse-distributor pickup of several
+// drugs) share a `disposalBatchId` so Form 41 PDF generation can render
+// all the surrendered drugs on one filing.
+model DeaDisposalRecord {
+  id                          String      @id @default(cuid())
+  practiceId                  String
+  disposalBatchId             String?
+  disposedByUserId            String
+  witnessUserId               String?
+  reverseDistributorName      String
+  reverseDistributorDeaNumber String?
+  disposalDate                DateTime
+  disposalMethod              String      @default("REVERSE_DISTRIBUTOR") // REVERSE_DISTRIBUTOR | DEA_TAKE_BACK | DEA_DESTRUCTION | OTHER
+  drugName                    String
+  ndc                         String?
+  schedule                    DeaSchedule
+  strength                    String?
+  quantity                    Int
+  unit                        String      @default("tablets")
+  form41Filed                 Boolean     @default(false)
+  notes                       String?     @db.Text
+  createdAt                   DateTime    @default(now())
+  updatedAt                   DateTime    @updatedAt
+  practice                    Practice    @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  @@index([practiceId, disposalDate])
+  @@index([disposalBatchId])
+}
+
+// Theft or loss of controlled substances. Federal: Form 106 must be
+// filed with DEA Field Division within 1 business day of discovery.
+// One row per drug; multi-drug events (a single break-in or shipment
+// loss involving multiple drugs) share a `reportBatchId` so the Form
+// 106 PDF can render the entire event as one filing. `incidentId` is
+// a hard FK to the broader Incident record (set-null on incident
+// delete so the regulatory record survives).
+model DeaTheftLossReport {
+  id                       String      @id @default(cuid())
+  practiceId               String
+  reportBatchId            String?
+  incidentId               String?
+  reportedByUserId         String
+  discoveredAt             DateTime
+  reportedAt               DateTime    @default(now())
+  lossType                 String      // THEFT | LOSS | IN_TRANSIT_LOSS | DESTRUCTION_DURING_THEFT
+  drugName                 String
+  ndc                      String?
+  schedule                 DeaSchedule
+  strength                 String?
+  quantityLost             Int
+  unit                     String      @default("tablets")
+  methodOfDiscovery        String?     @db.Text
+  lawEnforcementNotified   Boolean     @default(false)
+  lawEnforcementAgency     String?
+  lawEnforcementCaseNumber String?
+  deaNotifiedAt            DateTime?
+  form106SubmittedAt       DateTime?
+  notes                    String?     @db.Text
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
+  practice                 Practice    @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  incident                 Incident?   @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+
+  @@index([practiceId, discoveredAt])
+  @@index([reportBatchId])
+  @@index([incidentId])
 }
 
 // ────────────────────────────────────────────────────────────────────────────

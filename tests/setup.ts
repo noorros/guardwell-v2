@@ -23,6 +23,14 @@ afterEach(async () => {
   await db.allergyDrill.deleteMany();
   await db.allergyCompetency.deleteMany();
   await db.allergyQuizAttempt.deleteMany();
+  // DEA models reference Practice (via FK) and PracticeUser (no FK; just
+  // userId scalars). Cascade-on-Practice handles cleanup, but explicit
+  // deletes here keep test setup deterministic.
+  await db.deaInventoryItem.deleteMany();
+  await db.deaInventory.deleteMany();
+  await db.deaOrderRecord.deleteMany();
+  await db.deaDisposalRecord.deleteMany();
+  await db.deaTheftLossReport.deleteMany();
   await db.practiceUser.deleteMany();
   await db.complianceItem.deleteMany();
   await db.practiceFramework.deleteMany();

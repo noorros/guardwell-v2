@@ -31,6 +31,10 @@ export const EVENT_TYPES = [
   "INCIDENT_NOTIFIED_STATE_AG",
   "INCIDENT_BREACH_MEMO_GENERATED",
   "INCIDENT_OSHA_LOG_GENERATED",
+  "DEA_INVENTORY_RECORDED",
+  "DEA_ORDER_RECEIVED",
+  "DEA_DISPOSAL_COMPLETED",
+  "DEA_THEFT_LOSS_REPORTED",
   "INVITATION_ACCEPTED",
   "INVITATION_REVOKED",
   "INVITATION_RESENT",
@@ -544,6 +548,130 @@ export const EVENT_SCHEMAS = {
     1: z.object({
       auditPrepSessionId: z.string().min(1),
       generatedByUserId: z.string().min(1),
+    }),
+  },
+  // ────────────────────────────────────────────────────────────────────
+  // DEA controlled-substance recordkeeping (21 CFR Parts 1304, 1311)
+  // ────────────────────────────────────────────────────────────────────
+  // 21 CFR §1304.11 biennial inventory snapshot. Items list is the
+  // count at the moment of inventory; subsequent dispense/order/disposal
+  // events evolve the on-hand count as a derivation, not as a mutation
+  // of inventory items themselves.
+  DEA_INVENTORY_RECORDED: {
+    1: z.object({
+      inventoryId: z.string().min(1),
+      asOfDate: z.string().datetime(),
+      conductedByUserId: z.string().min(1),
+      witnessUserId: z.string().min(1).nullable().optional(),
+      notes: z.string().max(2000).nullable().optional(),
+      items: z
+        .array(
+          z.object({
+            drugName: z.string().min(1).max(200),
+            ndc: z.string().max(50).nullable().optional(),
+            schedule: z.enum([
+              "CI",
+              "CII",
+              "CIIN",
+              "CIII",
+              "CIIIN",
+              "CIV",
+              "CV",
+            ]),
+            strength: z.string().max(100).nullable().optional(),
+            quantity: z.number().int().min(0),
+            unit: z.string().max(50),
+          }),
+        )
+        .min(1),
+    }),
+  },
+  // Form 222 / CSOS receipt of controlled-substance order. One event per
+  // line item received (a multi-drug Form 222 fires multiple events).
+  DEA_ORDER_RECEIVED: {
+    1: z.object({
+      orderRecordId: z.string().min(1),
+      // Optional grouping key for multi-drug Form 222 orders. All line
+      // items belonging to one order share the same orderBatchId so the
+      // orders tab + Form 222 PDF can group them together.
+      orderBatchId: z.string().min(1).nullable().optional(),
+      orderedByUserId: z.string().min(1),
+      supplierName: z.string().min(1).max(200),
+      supplierDeaNumber: z.string().max(50).nullable().optional(),
+      orderedAt: z.string().datetime(),
+      receivedAt: z.string().datetime().nullable().optional(),
+      form222Number: z.string().max(50).nullable().optional(),
+      drugName: z.string().min(1).max(200),
+      ndc: z.string().max(50).nullable().optional(),
+      schedule: z.enum(["CI", "CII", "CIIN", "CIII", "CIIIN", "CIV", "CV"]),
+      strength: z.string().max(100).nullable().optional(),
+      quantity: z.number().int().min(1),
+      unit: z.string().max(50),
+      notes: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  // Surrender to reverse distributor / DEA take-back / on-site
+  // destruction. One event per drug disposed. Generates Form 41.
+  DEA_DISPOSAL_COMPLETED: {
+    1: z.object({
+      disposalRecordId: z.string().min(1),
+      // Optional grouping key for multi-drug disposals (one reverse-
+      // distributor pickup of several drugs). Form 41 PDF renders all
+      // surrendered drugs under one filing when this key matches.
+      disposalBatchId: z.string().min(1).nullable().optional(),
+      disposedByUserId: z.string().min(1),
+      witnessUserId: z.string().min(1).nullable().optional(),
+      reverseDistributorName: z.string().min(1).max(200),
+      reverseDistributorDeaNumber: z.string().max(50).nullable().optional(),
+      disposalDate: z.string().datetime(),
+      disposalMethod: z.enum([
+        "REVERSE_DISTRIBUTOR",
+        "DEA_TAKE_BACK",
+        "DEA_DESTRUCTION",
+        "OTHER",
+      ]),
+      drugName: z.string().min(1).max(200),
+      ndc: z.string().max(50).nullable().optional(),
+      schedule: z.enum(["CI", "CII", "CIIN", "CIII", "CIIIN", "CIV", "CV"]),
+      strength: z.string().max(100).nullable().optional(),
+      quantity: z.number().int().min(1),
+      unit: z.string().max(50),
+      form41Filed: z.boolean(),
+      notes: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  // Theft or loss event. Federal Form 106 must be filed within 1
+  // business day of discovery. Optional incidentId links to a broader
+  // Incident if the practice already opened a DEA_THEFT_LOSS incident.
+  DEA_THEFT_LOSS_REPORTED: {
+    1: z.object({
+      reportId: z.string().min(1),
+      // Optional grouping key for multi-drug theft/loss events (one
+      // break-in or shipment loss involving several drugs). Form 106 PDF
+      // renders the entire event as one filing when this key matches.
+      reportBatchId: z.string().min(1).nullable().optional(),
+      incidentId: z.string().min(1).nullable().optional(),
+      reportedByUserId: z.string().min(1),
+      discoveredAt: z.string().datetime(),
+      lossType: z.enum([
+        "THEFT",
+        "LOSS",
+        "IN_TRANSIT_LOSS",
+        "DESTRUCTION_DURING_THEFT",
+      ]),
+      drugName: z.string().min(1).max(200),
+      ndc: z.string().max(50).nullable().optional(),
+      schedule: z.enum(["CI", "CII", "CIIN", "CIII", "CIIIN", "CIV", "CV"]),
+      strength: z.string().max(100).nullable().optional(),
+      quantityLost: z.number().int().min(1),
+      unit: z.string().max(50),
+      methodOfDiscovery: z.string().max(2000).nullable().optional(),
+      lawEnforcementNotified: z.boolean(),
+      lawEnforcementAgency: z.string().max(200).nullable().optional(),
+      lawEnforcementCaseNumber: z.string().max(100).nullable().optional(),
+      deaNotifiedAt: z.string().datetime().nullable().optional(),
+      form106SubmittedAt: z.string().datetime().nullable().optional(),
+      notes: z.string().max(2000).nullable().optional(),
     }),
   },
   // Cybersecurity emphasis (2026-04-23) — feeds /programs/cybersecurity
