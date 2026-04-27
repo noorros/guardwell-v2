@@ -5,54 +5,8 @@
 // pre-determination 404, and the cross-tenant 404 guard.
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { inflateSync } from "node:zlib";
 import { db } from "@/lib/db";
-
-// React-PDF emits content streams gzipped via /Filter /FlateDecode and
-// then encodes literal text as PDF hex strings inside Tj/TJ operators
-// (e.g. `[<484950> 100 <4141>] TJ` for "HIPAA"). To verify body text
-// rendered (the metadata Title/Subject strings are stored separately
-// as UTF-16BE), we (1) extract + inflate every FlateDecode stream, then
-// (2) decode every `<…>` hex literal back to ASCII and concatenate.
-function extractInflatedText(pdf: Uint8Array): string {
-  const raw = Buffer.from(pdf).toString("latin1");
-  const decoded: string[] = [];
-  // Find every "stream\n…endstream" block and try to inflate it. Some
-  // streams may not actually be deflated (e.g. /Length 0); inflate
-  // failures are silently skipped.
-  const streamRe =
-    /<<[^>]*\/Filter \/FlateDecode[^>]*>>\s*stream\r?\n([\s\S]*?)\r?\nendstream/g;
-  let m: RegExpExecArray | null;
-  while ((m = streamRe.exec(raw)) !== null) {
-    const streamBody = m[1];
-    if (!streamBody) continue;
-    let inflated: string;
-    try {
-      inflated = inflateSync(Buffer.from(streamBody, "latin1")).toString(
-        "latin1",
-      );
-    } catch {
-      continue;
-    }
-    // Pull out every `<HEXHEXHEX>` hex literal and decode to ASCII.
-    const hexRe = /<([0-9a-fA-F]+)>/g;
-    let h: RegExpExecArray | null;
-    while ((h = hexRe.exec(inflated)) !== null) {
-      const hex = h[1];
-      if (!hex) continue;
-      // Skip non-byte-aligned matches and BOMs (UTF-16 metadata also
-      // appears as hex literals elsewhere; for body text in content
-      // streams these are always paired-hex bytes).
-      if (hex.length % 2 !== 0) continue;
-      let s = "";
-      for (let i = 0; i < hex.length; i += 2) {
-        s += String.fromCharCode(parseInt(hex.slice(i, i + 2), 16));
-      }
-      decoded.push(s);
-    }
-  }
-  return decoded.join("");
-}
+import { extractInflatedText } from "./utils/pdf-text";
 
 vi.mock("@/lib/auth", async () => {
   const actual = await vi.importActual<object>("@/lib/auth");

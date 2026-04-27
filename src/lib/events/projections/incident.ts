@@ -57,6 +57,7 @@ export async function projectIncidentReported(
       oshaOutcome: payload.oshaOutcome ?? null,
       oshaDaysAway: payload.oshaDaysAway ?? null,
       oshaDaysRestricted: payload.oshaDaysRestricted ?? null,
+      sharpsDeviceType: payload.sharpsDeviceType ?? null,
     },
   });
 
@@ -277,5 +278,12 @@ export async function projectIncidentNotifiedStateAg(
 // user generates a breach memo PDF. The EventLog row IS the audit
 // trail — no projection table state to update.
 export async function projectIncidentBreachMemoGenerated(): Promise<void> {
+  // intentional no-op
+}
+
+// OSHA / employee-privacy audit-trail no-op projection: emitted on
+// every Form 300 (annual log) or Form 301 (single-incident) PDF
+// generation. EventLog row IS the audit trail.
+export async function projectIncidentOshaLogGenerated(): Promise<void> {
   // intentional no-op
 }

@@ -505,6 +505,11 @@ model Incident {
   oshaOutcome                   String? // DEATH | DAYS_AWAY | RESTRICTED | OTHER_RECORDABLE | FIRST_AID
   oshaDaysAway                  Int?
   oshaDaysRestricted            Int?
+  // 29 CFR §1910.1030 Bloodborne Pathogens Standard requires a sharps
+  // injury log distinct from the OSHA 300 log. This field captures the
+  // device type (needle / scalpel / lancet / other) so the sharps log
+  // can be filtered out of the broader OSHA 300 view post-launch.
+  sharpsDeviceType              String?
   // State breach-notification tracking — populated once the wizard confirms
   // isBreach=true for a practice with a non-federal state in scope.
   patientState                  String?

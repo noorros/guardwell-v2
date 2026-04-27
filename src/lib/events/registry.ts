@@ -30,6 +30,7 @@ export const EVENT_TYPES = [
   "INCIDENT_NOTIFIED_MEDIA",
   "INCIDENT_NOTIFIED_STATE_AG",
   "INCIDENT_BREACH_MEMO_GENERATED",
+  "INCIDENT_OSHA_LOG_GENERATED",
   "INVITATION_ACCEPTED",
   "INVITATION_REVOKED",
   "INVITATION_RESENT",
@@ -301,6 +302,11 @@ export const EVENT_SCHEMAS = {
         .optional(),
       oshaDaysAway: z.number().int().min(0).nullable().optional(),
       oshaDaysRestricted: z.number().int().min(0).nullable().optional(),
+      // 29 CFR §1910.1030 BBP sharps device type (needle / scalpel /
+      // lancet / other). Required for the sharps injury log; the OSHA
+      // 300 log doesn't surface it. Optional in v1 — older events and
+      // non-sharps incidents omit.
+      sharpsDeviceType: z.string().max(200).nullable().optional(),
     }),
   },
   // HIPAA §164.402 four-factor breach determination result. Each factor
@@ -373,6 +379,20 @@ export const EVENT_SCHEMAS = {
   INCIDENT_BREACH_MEMO_GENERATED: {
     1: z.object({
       incidentId: z.string().min(1),
+      generatedByUserId: z.string().min(1),
+    }),
+  },
+  // OSHA / employee-privacy audit-trail event: an OSHA Form 300 (annual
+  // log) or Form 301 (single-incident report) PDF was generated. These
+  // forms reveal employee identity + injury detail and are confidential
+  // under 29 CFR §1904.35 + many state employment-record laws. Same
+  // best-effort pattern as INCIDENT_BREACH_MEMO_GENERATED — the EventLog
+  // row IS the audit trail; no projection state to update.
+  INCIDENT_OSHA_LOG_GENERATED: {
+    1: z.object({
+      form: z.enum(["300", "301"]),
+      incidentId: z.string().min(1).nullable().optional(),
+      year: z.number().int().min(2000).max(2100).nullable().optional(),
       generatedByUserId: z.string().min(1),
     }),
   },
