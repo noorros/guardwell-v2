@@ -27,6 +27,13 @@ export interface ComplianceProfileFormProps {
     providerCount: number | null;
   };
   redirectTo: Route;
+  /**
+   * Where the "Set this up later" escape-hatch sends the user. The
+   * profile still gets saved (with whatever values are currently in the
+   * form) so the dashboard layout doesn't redirect-loop.
+   * Defaults to /dashboard when omitted.
+   */
+  escapeHatchHref?: Route;
   submitLabel: string;
 }
 
@@ -83,6 +90,7 @@ const TOGGLES: ToggleDef[] = [
 export function ComplianceProfileForm({
   initial,
   redirectTo,
+  escapeHatchHref,
   submitLabel,
 }: ComplianceProfileFormProps) {
   const [toggles, setToggles] = useState({
@@ -101,10 +109,22 @@ export function ComplianceProfileForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [escaping, setEscaping] = useState(false);
   const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSpecialtyChange = (next: Specialty | "") => {
+    setSpecialty(next);
+    // Specialty-aware defaults: dentists are almost always exempt from
+    // MACRA/MIPS (low Medicare Part B volume + not in eligible specialty
+    // list), so untoggle MIPS when DENTAL is picked. User can override.
+    // Allied health — same exemption pattern. Behavioral health varies, so
+    // leave it alone.
+    if (next === "DENTAL" || next === "ALLIED") {
+      setToggles((p) => ({ ...p, subjectToMacraMips: false }));
+    }
+  };
+
+  const submit = (next: Route) => {
     setError(null);
     const providerCountParsed = providerCount
       ? Number.parseInt(providerCount, 10)
@@ -119,11 +139,22 @@ export function ComplianceProfileForm({
               ? providerCountParsed
               : null,
         });
-        router.push(redirectTo);
+        router.push(next);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Save failed");
       }
     });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setEscaping(false);
+    submit(redirectTo);
+  };
+
+  const handleEscape = () => {
+    setEscaping(true);
+    submit(escapeHatchHref ?? ("/dashboard" as Route));
   };
 
   return (
@@ -160,7 +191,7 @@ export function ComplianceProfileForm({
           Primary specialty
           <select
             value={specialty}
-            onChange={(e) => setSpecialty(e.target.value as Specialty | "")}
+            onChange={(e) => handleSpecialtyChange(e.target.value as Specialty | "")}
             className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
           >
             <option value="">Select…</option>
@@ -189,9 +220,17 @@ export function ComplianceProfileForm({
         <p className="text-xs text-[color:var(--gw-color-risk)]">{error}</p>
       )}
 
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={handleEscape}
+          disabled={isPending}
+          className="text-xs text-muted-foreground underline disabled:opacity-50"
+        >
+          {escaping && isPending ? "Saving…" : "Set this up later →"}
+        </button>
         <Button type="submit" size="sm" disabled={isPending}>
-          {isPending ? "Saving…" : submitLabel}
+          {!escaping && isPending ? "Saving…" : submitLabel}
         </Button>
       </div>
     </form>
