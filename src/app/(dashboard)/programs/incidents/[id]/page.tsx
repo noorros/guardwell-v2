@@ -173,6 +173,26 @@ export default async function IncidentDetailPage({ params }: PageProps) {
                 Determined NOT to be a reportable breach.
               </p>
             )}
+            {incident.breachDeterminationMemo && (
+              <div className="mt-3 space-y-1 border-t pt-3">
+                <p className="text-xs font-semibold text-muted-foreground">
+                  Documented analysis
+                </p>
+                <p className="whitespace-pre-wrap text-sm text-foreground">
+                  {incident.breachDeterminationMemo}
+                </p>
+              </div>
+            )}
+            <div className="pt-2">
+              <Link
+                href={`/api/audit/incident-breach-memo/${incident.id}` as Route}
+                className="inline-flex items-center gap-1 rounded-md border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Generate breach memo PDF
+              </Link>
+            </div>
           </CardContent>
         </Card>
       )}
