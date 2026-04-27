@@ -92,8 +92,8 @@ export function buildEvidenceKey(args: {
   entityType: string;
   entityId: string;
   fileName: string;
+  evidenceId: string;
 }): string {
   const sanitized = args.fileName.replace(/[^A-Za-z0-9._-]/g, "_");
-  const cuidPrefix = Math.random().toString(36).slice(2, 12);
-  return `practices/${args.practiceId}/${args.entityType}/${args.entityId}/${cuidPrefix}-${sanitized}`;
+  return `practices/${args.practiceId}/${args.entityType}/${args.entityId}/${args.evidenceId.slice(0, 12)}-${sanitized}`;
 }

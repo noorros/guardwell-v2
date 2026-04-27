@@ -40,6 +40,7 @@ export default async function DocumentRetentionPage() {
       take: 50,
     }),
     db.user.findMany({
+      where: { practiceUsers: { some: { practiceId: pu.practiceId, removedAt: null } } },
       select: { id: true, firstName: true, lastName: true, email: true },
     }),
     db.evidence.groupBy({

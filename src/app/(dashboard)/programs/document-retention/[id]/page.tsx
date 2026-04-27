@@ -13,7 +13,6 @@ import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EvidenceUpload, type EvidenceItem } from "@/components/gw/EvidenceUpload";
-import { deleteEvidenceAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 

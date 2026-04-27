@@ -76,6 +76,7 @@ export async function requestUpload(
     entityType: args.entityType,
     entityId: args.entityId,
     fileName: args.fileName,
+    evidenceId,
   });
 
   const signed = await getSignedUploadUrl(gcsKey, args.mimeType);
@@ -158,6 +159,9 @@ export async function getDownloadUrl(args: {
   });
   if (!ev || ev.practiceId !== args.practiceId) {
     throw new Error("Evidence not found");
+  }
+  if (ev.status === "PENDING") {
+    throw new Error("Upload not yet completed");
   }
   if (ev.status === "DELETED") {
     throw new Error("Evidence has been deleted");

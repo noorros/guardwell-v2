@@ -1405,7 +1405,7 @@ model Evidence {
   // VENDOR, INCIDENT, TECH_ASSET, TRAINING_COMPLETION, OTHER}
   entityType     String
   entityId       String         // FK to parent (loose; not enforced at DB level)
-  uploadedById   String         // PracticeUser.id who triggered upload
+  uploadedById   String?        // PracticeUser.id who triggered upload (nullable: SetNull on hard-delete)
   gcsKey         String         @unique // path in GCS bucket
   fileName       String         // original filename
   mimeType       String         // application/pdf, image/png, etc.
@@ -1416,8 +1416,8 @@ model Evidence {
   deletedAt      DateTime?
   notes          String?        @db.Text
 
-  practice   Practice     @relation(fields: [practiceId], references: [id], onDelete: Cascade)
-  uploadedBy PracticeUser @relation("EvidenceUploadedBy", fields: [uploadedById], references: [id])
+  practice   Practice      @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  uploadedBy PracticeUser? @relation("EvidenceUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
 
   @@index([practiceId, entityType, entityId])
   @@index([practiceId, status])
