@@ -130,7 +130,23 @@ export default async function IncidentDetailPage({ params }: PageProps) {
                 {incident.oshaDaysAway != null && (
                   <li>Days away: {incident.oshaDaysAway}</li>
                 )}
+                {incident.oshaDaysRestricted != null && (
+                  <li>Days restricted: {incident.oshaDaysRestricted}</li>
+                )}
+                {incident.sharpsDeviceType && (
+                  <li>Sharps device: {incident.sharpsDeviceType}</li>
+                )}
               </ul>
+              <div className="mt-3 pt-3 border-t">
+                <Link
+                  href={`/api/audit/osha-301/${incident.id}` as Route}
+                  className="inline-flex items-center gap-1 rounded-md border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Generate OSHA 301 form
+                </Link>
+              </div>
             </div>
           )}
         </CardContent>
