@@ -103,6 +103,7 @@ export async function projectIncidentBreachDetermined(
       isBreach: payload.isBreach,
       affectedCount: payload.affectedCount,
       ocrNotifyRequired: payload.ocrNotifyRequired,
+      breachDeterminationMemo: payload.memoText ?? null,
       breachDeterminedAt: new Date(),
       // Under-investigation once the wizard has run, even if isBreach=false
       // — the investigation happened. Resolution flips status=RESOLVED.
