@@ -10,6 +10,8 @@ export interface AppShellProps {
   practice: { name: string };
   user: { email: string };
   myComplianceItems: MyComplianceItem[];
+  /** Uppercase framework codes the practice has enabled (e.g. ["ALLERGY"]). Used to gate sidebar program entries. */
+  enabledFrameworkCodes?: string[];
   notifications?: {
     unreadCount: number;
     recent: NotificationBellItem[];
@@ -29,6 +31,7 @@ export function AppShell({
   practice,
   user,
   myComplianceItems,
+  enabledFrameworkCodes,
   notifications,
 }: AppShellProps) {
   return (
@@ -37,13 +40,19 @@ export function AppShell({
         practiceName={practice.name}
         userEmail={user.email}
         mobileTrigger={
-          <MobileSidebarTrigger myComplianceItems={myComplianceItems} />
+          <MobileSidebarTrigger
+            myComplianceItems={myComplianceItems}
+            enabledFrameworkCodes={enabledFrameworkCodes}
+          />
         }
         notifications={notifications}
       />
       <div className="flex min-h-0 flex-1">
         <aside className="hidden w-60 shrink-0 overflow-y-auto md:block">
-          <Sidebar myComplianceItems={myComplianceItems} />
+          <Sidebar
+            myComplianceItems={myComplianceItems}
+            enabledFrameworkCodes={enabledFrameworkCodes}
+          />
         </aside>
         <main
           id="main"

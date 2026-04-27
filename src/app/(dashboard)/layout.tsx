@@ -98,6 +98,10 @@ export default async function DashboardLayout({
     assessed: assessedFrameworkIds.has(pf.frameworkId),
   }));
 
+  // All enabled framework codes (uppercase) — passed to AppShell so the
+  // sidebar can conditionally render framework-gated program entries.
+  const enabledFrameworkCodes = practiceFrameworks.map((pf) => pf.framework.code);
+
   const notificationSummary = await getUserNotificationsSummary(pu.userId);
 
   return (
@@ -105,6 +109,7 @@ export default async function DashboardLayout({
       practice={{ name: pu.practice.name }}
       user={{ email: pu.dbUser.email }}
       myComplianceItems={myComplianceItems}
+      enabledFrameworkCodes={enabledFrameworkCodes}
       notifications={notificationSummary}
     >
       {children}

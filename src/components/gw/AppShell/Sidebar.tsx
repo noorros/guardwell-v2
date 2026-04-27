@@ -22,6 +22,7 @@ import {
   Server,
   ClipboardCheck,
   CalendarDays,
+  Syringe,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn, scoreToColorToken, NOT_ASSESSED_COLOR_TOKEN } from "@/lib/utils";
@@ -49,6 +50,12 @@ export interface MyComplianceItem {
 
 export interface SidebarProps {
   myComplianceItems: MyComplianceItem[];
+  /**
+   * Framework codes (uppercase) the practice currently has enabled.
+   * Used to conditionally show program-specific sidebar entries.
+   * e.g. ["HIPAA", "ALLERGY"]
+   */
+  enabledFrameworkCodes?: string[];
   /**
    * Called after a nav click. The responsive wrapper passes a handler that
    * closes the mobile sheet; the desktop sidebar omits it.
@@ -174,10 +181,27 @@ function ProgramLink({
 
 export function Sidebar({
   myComplianceItems,
+  enabledFrameworkCodes = [],
   onNavigate,
   className,
 }: SidebarProps) {
   const pathname = usePathname();
+
+  // Build the programs list, inserting framework-gated entries inline.
+  // Allergy appears after Vendors when the ALLERGY framework is enabled.
+  const programs: ProgramItem[] = [
+    ...PROGRAMS.slice(0, PROGRAMS.findIndex((p) => p.label === "Vendors") + 1),
+    ...(enabledFrameworkCodes.includes("ALLERGY")
+      ? [
+          {
+            label: "Allergy",
+            icon: Syringe,
+            href: "/programs/allergy" as Route,
+          } satisfies ProgramItem,
+        ]
+      : []),
+    ...PROGRAMS.slice(PROGRAMS.findIndex((p) => p.label === "Vendors") + 1),
+  ];
 
   return (
     <nav
@@ -226,7 +250,7 @@ export function Sidebar({
 
       <SectionHeader>My Programs</SectionHeader>
       <ul className="flex flex-col gap-0.5">
-        {PROGRAMS.map((p) => (
+        {programs.map((p) => (
           <li key={p.label}>
             {p.href ? (
               <ProgramLink

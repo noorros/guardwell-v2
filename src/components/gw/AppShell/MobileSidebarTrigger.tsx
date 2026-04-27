@@ -16,6 +16,7 @@ import { Sidebar, type MyComplianceItem } from "./Sidebar";
 
 export interface MobileSidebarTriggerProps {
   myComplianceItems: MyComplianceItem[];
+  enabledFrameworkCodes?: string[];
 }
 
 /**
@@ -25,6 +26,7 @@ export interface MobileSidebarTriggerProps {
  */
 export function MobileSidebarTrigger({
   myComplianceItems,
+  enabledFrameworkCodes,
 }: MobileSidebarTriggerProps) {
   const [open, setOpen] = useState(false);
 
@@ -48,6 +50,7 @@ export function MobileSidebarTrigger({
         </SheetHeader>
         <Sidebar
           myComplianceItems={myComplianceItems}
+          enabledFrameworkCodes={enabledFrameworkCodes}
           onNavigate={() => setOpen(false)}
         />
       </SheetContent>
