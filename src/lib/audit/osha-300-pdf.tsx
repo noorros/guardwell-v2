@@ -153,6 +153,11 @@ export function Osha300Document({ input }: { input: Osha300Input }) {
           Some columns (job title, location of injury) are not stored in
           GuardWell. Hand-write before submission to OSHA.
         </Text>
+        <Text style={s.hint}>
+          The Employee column reflects the user who reported each incident,
+          not necessarily the injured staff member. Verify and hand-correct
+          before filing with OSHA.
+        </Text>
 
         {input.rows.length === 0 ? (
           <Text style={s.emptyState}>

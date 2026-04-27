@@ -280,3 +280,10 @@ export async function projectIncidentNotifiedStateAg(
 export async function projectIncidentBreachMemoGenerated(): Promise<void> {
   // intentional no-op
 }
+
+// OSHA / employee-privacy audit-trail no-op projection: emitted on
+// every Form 300 (annual log) or Form 301 (single-incident) PDF
+// generation. EventLog row IS the audit trail.
+export async function projectIncidentOshaLogGenerated(): Promise<void> {
+  // intentional no-op
+}

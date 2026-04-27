@@ -9,13 +9,16 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { requireUser } from "@/lib/auth";
 import { getPracticeUser } from "@/lib/rbac";
 import { db } from "@/lib/db";
+import { appendEventAndApply } from "@/lib/events";
+import { projectIncidentOshaLogGenerated } from "@/lib/events/projections/incident";
 import { Osha300Document, type Osha300Row } from "@/lib/audit/osha-300-pdf";
 
 export const maxDuration = 120;
 
 export async function GET(req: Request) {
+  let user;
   try {
-    await requireUser();
+    user = await requireUser();
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -98,6 +101,26 @@ export async function GET(req: Request) {
       }}
     />,
   );
+
+  // OSHA / employee-privacy audit trail: every 300 PDF read leaves an
+  // EventLog row. Best-effort same as the 301 route + breach memo.
+  try {
+    await appendEventAndApply(
+      {
+        practiceId: pu.practiceId,
+        actorUserId: user.id,
+        type: "INCIDENT_OSHA_LOG_GENERATED",
+        payload: {
+          form: "300",
+          year,
+          generatedByUserId: user.id,
+        },
+      },
+      async () => projectIncidentOshaLogGenerated(),
+    );
+  } catch (err) {
+    console.error("[osha-300] audit event emit failed", err);
+  }
 
   return new NextResponse(new Uint8Array(pdfBuffer), {
     status: 200,

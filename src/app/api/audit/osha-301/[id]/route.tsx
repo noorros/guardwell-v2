@@ -10,6 +10,8 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { requireUser } from "@/lib/auth";
 import { getPracticeUser } from "@/lib/rbac";
 import { db } from "@/lib/db";
+import { appendEventAndApply } from "@/lib/events";
+import { projectIncidentOshaLogGenerated } from "@/lib/events/projections/incident";
 import { Osha301Document } from "@/lib/audit/osha-301-pdf";
 
 export const maxDuration = 120;
@@ -18,8 +20,9 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  let user;
   try {
-    await requireUser();
+    user = await requireUser();
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -90,6 +93,28 @@ export async function GET(
       }}
     />,
   );
+
+  // OSHA / employee-privacy audit trail: every 301 PDF read leaves an
+  // EventLog row. Best-effort — a failed audit-event write should not
+  // block the legitimate user's access to their own injury data. Same
+  // pattern as INCIDENT_BREACH_MEMO_GENERATED.
+  try {
+    await appendEventAndApply(
+      {
+        practiceId: pu.practiceId,
+        actorUserId: user.id,
+        type: "INCIDENT_OSHA_LOG_GENERATED",
+        payload: {
+          form: "301",
+          incidentId: id,
+          generatedByUserId: user.id,
+        },
+      },
+      async () => projectIncidentOshaLogGenerated(),
+    );
+  } catch (err) {
+    console.error("[osha-301] audit event emit failed", err);
+  }
 
   const slug = incident.title.replace(/[^A-Za-z0-9]/g, "-").slice(0, 60);
   return new NextResponse(new Uint8Array(pdfBuffer), {
