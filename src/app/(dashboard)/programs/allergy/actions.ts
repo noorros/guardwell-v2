@@ -11,6 +11,7 @@ import {
   projectAllergyQuizCompleted,
   projectAllergyFingertipTestPassed,
   projectAllergyMediaFillPassed,
+  recomputeIsFullyQualified,
 } from "@/lib/events/projections/allergyCompetency";
 import { projectAllergyEquipmentCheckLogged } from "@/lib/events/projections/allergyEquipment";
 import { projectAllergyDrillLogged } from "@/lib/events/projections/allergyDrill";
@@ -86,6 +87,41 @@ export async function attestMediaFillTestAction(input: z.infer<typeof MediaFillI
     },
     async (tx) => projectAllergyMediaFillPassed(tx, { practiceId: pu.practiceId, payload }),
   );
+  revalidatePath("/programs/allergy");
+  revalidatePath("/modules/allergy");
+}
+
+const LogCompoundingInput = z.object({
+  practiceUserId: z.string().min(1),
+});
+
+export async function logCompoundingActivityAction(input: z.infer<typeof LogCompoundingInput>) {
+  const { pu } = await requireAdmin();
+  const parsed = LogCompoundingInput.parse(input);
+  const target = await db.practiceUser.findUnique({ where: { id: parsed.practiceUserId } });
+  if (!target || target.practiceId !== pu.practiceId) {
+    throw new Error("Member not found");
+  }
+  const year = new Date().getFullYear();
+  const comp = await db.allergyCompetency.upsert({
+    where: {
+      practiceUserId_year: { practiceUserId: parsed.practiceUserId, year },
+    },
+    create: {
+      practiceId: pu.practiceId,
+      practiceUserId: parsed.practiceUserId,
+      year,
+      lastCompoundedAt: new Date(),
+    },
+    update: {
+      lastCompoundedAt: new Date(),
+    },
+    select: { id: true },
+  });
+  // Recompute qualification status — logging a session may clear inactivity.
+  await db.$transaction(async (tx) => {
+    await recomputeIsFullyQualified(tx, comp.id);
+  });
   revalidatePath("/programs/allergy");
   revalidatePath("/modules/allergy");
 }

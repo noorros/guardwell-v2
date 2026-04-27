@@ -87,6 +87,7 @@ export default async function AllergyProgramPage() {
           fingertipLastPassedAt: c.fingertipLastPassedAt?.toISOString() ?? null,
           mediaFillPassedAt: c.mediaFillPassedAt?.toISOString() ?? null,
           isFullyQualified: c.isFullyQualified,
+          lastCompoundedAt: c.lastCompoundedAt?.toISOString() ?? null,
         }))}
         equipmentChecks={equipmentChecks.map((e) => ({
           id: e.id,
