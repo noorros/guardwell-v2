@@ -18,6 +18,7 @@ import {
   attestFingertipTestAction,
   attestMediaFillTestAction,
   toggleStaffAllergyRequirementAction,
+  logCompoundingActivityAction,
 } from "./actions";
 
 export interface CompetencyTabProps {
@@ -40,6 +41,7 @@ export interface CompetencyTabProps {
     fingertipLastPassedAt: string | null;
     mediaFillPassedAt: string | null;
     isFullyQualified: boolean;
+    lastCompoundedAt: string | null;
   }>;
 }
 
@@ -199,6 +201,22 @@ function fmtDate(iso: string): string {
   return iso.slice(0, 10);
 }
 
+// ── Format ISO date string to "MMM d, yyyy" (e.g. "Apr 3, 2025") ─────────────
+function fmtDateLong(iso: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(new Date(iso));
+}
+
+// ── 6-month inactivity check (183 days, matching USP §21 + v1 logic) ──────────
+const SIX_MONTHS_MS = 183 * 24 * 60 * 60 * 1000;
+function isInactive(lastCompoundedAt: string | null | undefined): boolean {
+  if (!lastCompoundedAt) return false;
+  return Date.now() - new Date(lastCompoundedAt).getTime() >= SIX_MONTHS_MS;
+}
+
 // ── MemberRow ─────────────────────────────────────────────────────────────────
 interface MemberRowProps {
   member: CompetencyTabProps["members"][number];
@@ -211,6 +229,22 @@ interface MemberRowProps {
 function MemberRow({ member, competency, year, isCurrentUser, canManage }: MemberRowProps) {
   const [fingertipOpen, setFingertipOpen] = useState(false);
   const [mediaFillOpen, setMediaFillOpen] = useState(false);
+  const [logSessionPending, startLogSessionTransition] = useTransition();
+  const [logSessionError, setLogSessionError] = useState<string | null>(null);
+
+  const lastCompoundedAt = competency?.lastCompoundedAt ?? null;
+  const inactive = isInactive(lastCompoundedAt);
+
+  function handleLogSession() {
+    setLogSessionError(null);
+    startLogSessionTransition(async () => {
+      try {
+        await logCompoundingActivityAction({ practiceUserId: member.id });
+      } catch (e) {
+        setLogSessionError(e instanceof Error ? e.message : "Failed to log session.");
+      }
+    });
+  }
 
   // Fingertip count display (always show "of 3" — isFullyQualified is source of truth)
   const ftCount = competency?.fingertipPassCount ?? 0;
@@ -344,7 +378,36 @@ function MemberRow({ member, competency, year, isCurrentUser, canManage }: Membe
               Status
             </span>
             <OverallBadge competency={competency} />
+            {inactive && (
+              <Badge variant="destructive" className="mt-1 text-[10px]">
+                Inactive &gt;6mo · re-eval required
+              </Badge>
+            )}
           </div>
+        </div>
+
+        {/* Last compounded date + Log session */}
+        <div className="w-full px-0 sm:w-auto sm:self-center">
+          {lastCompoundedAt && (
+            <p className="text-xs text-muted-foreground">
+              Last compounded: {fmtDateLong(lastCompoundedAt)}
+            </p>
+          )}
+          {canManage && (
+            <div className="mt-1 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleLogSession}
+                disabled={logSessionPending}
+                className="text-xs text-primary underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {logSessionPending ? "Logging…" : "Log session"}
+              </button>
+              {logSessionError && (
+                <span className="text-xs text-destructive">{logSessionError}</span>
+              )}
+            </div>
+          )}
         </div>
       </li>
 

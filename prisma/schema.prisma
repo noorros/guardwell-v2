@@ -355,6 +355,7 @@ enum NotificationType {
   ALLERGY_DRILL_DUE
   ALLERGY_FRIDGE_OVERDUE
   ALLERGY_KIT_EXPIRING
+  ALLERGY_COMPETENCY_DUE
 }
 
 enum NotificationSeverity {

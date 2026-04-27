@@ -42,7 +42,10 @@ async function ensureCompetency(
   return created.id;
 }
 
-async function recomputeIsFullyQualified(
+// 6 months expressed as milliseconds (183 days, matching v1's sixMonthsAgo)
+const SIX_MONTHS_MS = 183 * 24 * 60 * 60 * 1000;
+
+export async function recomputeIsFullyQualified(
   tx: Prisma.TransactionClient,
   competencyId: string,
 ): Promise<void> {
@@ -58,10 +61,20 @@ async function recomputeIsFullyQualified(
     select: { id: true },
   });
   const fingertipNeeded = priorQualified ? 1 : 3;
+
+  // USP §21 inactivity rule: if a compounder has logged at least one
+  // session (lastCompoundedAt is set) but hasn't compounded in 6+ months,
+  // re-evaluation of all 3 components is required.
+  const isInactive =
+    c.lastCompoundedAt !== null &&
+    Date.now() - c.lastCompoundedAt.getTime() >= SIX_MONTHS_MS;
+
   const qualified =
     Boolean(c.quizPassedAt) &&
     c.fingertipPassCount >= fingertipNeeded &&
-    Boolean(c.mediaFillPassedAt);
+    Boolean(c.mediaFillPassedAt) &&
+    !isInactive;
+
   if (qualified !== c.isFullyQualified) {
     await tx.allergyCompetency.update({
       where: { id: competencyId },

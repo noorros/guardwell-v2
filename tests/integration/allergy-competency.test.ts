@@ -13,6 +13,7 @@ import {
   projectAllergyQuizCompleted,
   projectAllergyFingertipTestPassed,
   projectAllergyMediaFillPassed,
+  recomputeIsFullyQualified,
 } from "@/lib/events/projections/allergyCompetency";
 import { randomUUID } from "node:crypto";
 
@@ -238,6 +239,102 @@ describe("Allergy competency lifecycle", () => {
     });
     expect(comp.fingertipPassCount).toBe(1);
     expect(comp.isFullyQualified).toBe(true);
+  });
+
+  it("flips isFullyQualified false when lastCompoundedAt is older than 6 months", async () => {
+    const { owner, ownerPu, compounderPu, practice } = await seed();
+    const year = new Date().getFullYear();
+    const attemptId = randomUUID();
+
+    // First build a fully qualified compounder (all 3 components done).
+    await appendEventAndApply(
+      {
+        practiceId: practice.id,
+        actorUserId: owner.id,
+        type: "ALLERGY_QUIZ_COMPLETED",
+        payload: {
+          attemptId,
+          practiceUserId: compounderPu.id,
+          year,
+          score: 88,
+          passed: true,
+          correctAnswers: 22,
+          totalQuestions: 25,
+          answers: [],
+        },
+      },
+      async (tx) =>
+        projectAllergyQuizCompleted(tx, {
+          practiceId: practice.id,
+          payload: {
+            attemptId,
+            practiceUserId: compounderPu.id,
+            year,
+            score: 88,
+            passed: true,
+            correctAnswers: 22,
+            totalQuestions: 25,
+            answers: [],
+          },
+        }),
+    );
+    for (let i = 0; i < 3; i++) {
+      const payload = {
+        practiceUserId: compounderPu.id,
+        year,
+        attestedByUserId: ownerPu.id,
+        notes: null,
+      };
+      await appendEventAndApply(
+        {
+          practiceId: practice.id,
+          actorUserId: owner.id,
+          type: "ALLERGY_FINGERTIP_TEST_PASSED",
+          payload,
+        },
+        async (tx) =>
+          projectAllergyFingertipTestPassed(tx, { practiceId: practice.id, payload }),
+      );
+    }
+    const mfPayload = {
+      practiceUserId: compounderPu.id,
+      year,
+      attestedByUserId: ownerPu.id,
+      notes: null,
+    };
+    await appendEventAndApply(
+      {
+        practiceId: practice.id,
+        actorUserId: owner.id,
+        type: "ALLERGY_MEDIA_FILL_PASSED",
+        payload: mfPayload,
+      },
+      async (tx) =>
+        projectAllergyMediaFillPassed(tx, { practiceId: practice.id, payload: mfPayload }),
+    );
+
+    // Confirm fully qualified before manipulating lastCompoundedAt.
+    const before = await db.allergyCompetency.findUniqueOrThrow({
+      where: { practiceUserId_year: { practiceUserId: compounderPu.id, year } },
+    });
+    expect(before.isFullyQualified).toBe(true);
+
+    // Backdate lastCompoundedAt to 7 months ago to simulate inactivity.
+    const sevenMonthsAgo = new Date(Date.now() - 213 * 24 * 60 * 60 * 1000);
+    await db.allergyCompetency.update({
+      where: { id: before.id },
+      data: { lastCompoundedAt: sevenMonthsAgo },
+    });
+
+    // Re-run the projection — inactivity should flip isFullyQualified false.
+    await db.$transaction(async (tx) => {
+      await recomputeIsFullyQualified(tx, before.id);
+    });
+
+    const after = await db.allergyCompetency.findUniqueOrThrow({
+      where: { id: before.id },
+    });
+    expect(after.isFullyQualified).toBe(false);
   });
 
   it("is idempotent on duplicate quiz events (same attemptId)", async () => {

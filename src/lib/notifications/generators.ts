@@ -400,6 +400,66 @@ export async function generateAllergyNotifications(
 }
 
 /**
+ * Staff missing current-year allergy competency. Emits ONE proposal per
+ * recipient admin listing unqualified compounders (up to 5 + "and N more"
+ * suffix), matching v1's ALLERGY_COMPETENCY_DUE logic.
+ */
+export async function generateAllergyCompetencyDueNotifications(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  userIds: string[],
+): Promise<NotificationProposal[]> {
+  const enabled = await tx.practiceFramework.findFirst({
+    where: {
+      practiceId,
+      enabled: true,
+      framework: { code: "ALLERGY" },
+    },
+  });
+  if (!enabled) return [];
+
+  const currentYear = new Date().getFullYear();
+
+  const [allStaff, qualifiedCompetencies] = await Promise.all([
+    tx.practiceUser.findMany({
+      where: { practiceId, removedAt: null, requiresAllergyCompetency: true },
+      select: {
+        id: true,
+        user: { select: { firstName: true, lastName: true } },
+      },
+    }),
+    tx.allergyCompetency.findMany({
+      where: { practiceId, year: currentYear, isFullyQualified: true },
+      select: { practiceUserId: true },
+    }),
+  ]);
+
+  const qualifiedIds = new Set(qualifiedCompetencies.map((c) => c.practiceUserId));
+  const unqualified = allStaff.filter((s) => !qualifiedIds.has(s.id));
+
+  if (unqualified.length === 0) return [];
+
+  const names = unqualified
+    .slice(0, 5)
+    .map((s) =>
+      `${s.user?.firstName ?? ""} ${s.user?.lastName ?? ""}`.trim() || "Staff member",
+    );
+  const suffix = unqualified.length > 5 ? ` and ${unqualified.length - 5} more` : "";
+  const body = `The following staff do not have a current-year fully qualified allergy competency: ${names.join(", ")}${suffix}.`;
+
+  return userIds.map((userId) => ({
+    userId,
+    practiceId,
+    type: "ALLERGY_COMPETENCY_DUE" as NotificationType,
+    severity: "WARNING" as NotificationSeverity,
+    title: `${unqualified.length} staff missing ${currentYear} allergy competency`,
+    body,
+    href: "/programs/allergy",
+    entityKey: `allergy-competency-due-${currentYear}`,
+  }));
+}
+
+/**
  * Aggregate all generators for a practice. Order doesn't affect
  * uniqueness (dedup runs on insert), but sorting keeps the digest email
  * body in a predictable order.
@@ -410,12 +470,13 @@ export async function generateAllNotifications(
   userIds: string[],
 ): Promise<NotificationProposal[]> {
   if (userIds.length === 0) return [];
-  const [sra, creds, vendors, incidents, allergy] = await Promise.all([
+  const [sra, creds, vendors, incidents, allergy, allergyCompetency] = await Promise.all([
     generateSraNotifications(tx, practiceId, userIds),
     generateCredentialNotifications(tx, practiceId, userIds),
     generateVendorBaaNotifications(tx, practiceId, userIds),
     generateIncidentNotifications(tx, practiceId, userIds),
     generateAllergyNotifications(tx, practiceId, userIds),
+    generateAllergyCompetencyDueNotifications(tx, practiceId, userIds),
   ]);
-  return [...sra, ...creds, ...vendors, ...incidents, ...allergy];
+  return [...sra, ...creds, ...vendors, ...incidents, ...allergy, ...allergyCompetency];
 }
