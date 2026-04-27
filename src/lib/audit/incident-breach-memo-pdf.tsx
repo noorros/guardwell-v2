@@ -115,7 +115,7 @@ const s = StyleSheet.create({
     color: "#475569",
     lineHeight: 1.4,
   },
-  memoText: {
+  memoBody: {
     fontSize: 10,
     color: "#1E293B",
     lineHeight: 1.5,
@@ -330,7 +330,7 @@ export function IncidentBreachMemoDocument({
         </View>
 
         <Text style={s.sectionTitle}>Documented Analysis</Text>
-        <Text style={s.memoText}>
+        <Text style={s.memoBody}>
           {incident.breachDeterminationMemo ??
             "(No memo recorded with this determination.)"}
         </Text>

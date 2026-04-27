@@ -272,3 +272,10 @@ export async function projectIncidentNotifiedStateAg(
     "INCIDENT:NOTIFIED_STATE_AG",
   );
 }
+
+// HIPAA audit-trail no-op projection: emitted whenever a signed-in
+// user generates a breach memo PDF. The EventLog row IS the audit
+// trail — no projection table state to update.
+export async function projectIncidentBreachMemoGenerated(): Promise<void> {
+  // intentional no-op
+}

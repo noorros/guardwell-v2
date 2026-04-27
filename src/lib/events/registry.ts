@@ -29,6 +29,7 @@ export const EVENT_TYPES = [
   "INCIDENT_NOTIFIED_AFFECTED_INDIVIDUALS",
   "INCIDENT_NOTIFIED_MEDIA",
   "INCIDENT_NOTIFIED_STATE_AG",
+  "INCIDENT_BREACH_MEMO_GENERATED",
   "INVITATION_ACCEPTED",
   "INVITATION_REVOKED",
   "INVITATION_RESENT",
@@ -319,6 +320,10 @@ export const EVENT_SCHEMAS = {
       // HIPAA §164.402 documented memo. Optional in v1 for backward
       // compat with events written before 2026-04-27; UI requires it
       // for new determinations going forward.
+      // NOTE: stricter `.min(40)` validation lives in the
+      // `BreachInput` Zod schema in actions.ts — server actions are
+      // the single source of truth for "substantive memo" enforcement.
+      // Don't relax that without coordinating here.
       memoText: z.string().max(10000).optional(),
     }),
   },
@@ -360,6 +365,15 @@ export const EVENT_SCHEMAS = {
         .string()
         .length(2)
         .regex(/^[A-Z]{2}$/),
+    }),
+  },
+  // HIPAA audit-trail event: a breach memo PDF was generated and
+  // delivered to a signed-in user. PHI-bearing read; the EventLog row
+  // itself IS the audit trail (no projection state to update).
+  INCIDENT_BREACH_MEMO_GENERATED: {
+    1: z.object({
+      incidentId: z.string().min(1),
+      generatedByUserId: z.string().min(1),
     }),
   },
   // Practice compliance profile upsert. Emitted by the onboarding

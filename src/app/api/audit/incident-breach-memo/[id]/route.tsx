@@ -10,6 +10,8 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { requireUser } from "@/lib/auth";
 import { getPracticeUser } from "@/lib/rbac";
 import { db } from "@/lib/db";
+import { appendEventAndApply } from "@/lib/events";
+import { projectIncidentBreachMemoGenerated } from "@/lib/events/projections/incident";
 import { IncidentBreachMemoDocument } from "@/lib/audit/incident-breach-memo-pdf";
 
 export const maxDuration = 120;
@@ -18,8 +20,9 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  let user;
   try {
-    await requireUser();
+    user = await requireUser();
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -108,6 +111,30 @@ export async function GET(
       }}
     />,
   );
+
+  // HIPAA audit trail: every breach memo PDF read leaves an EventLog
+  // row. Best-effort — a failed audit-event write should not block the
+  // legitimate user's access to their own PHI per the access-vs-audit
+  // tradeoff documented in ADR-0001. Same pattern as audit-prep packet.
+  try {
+    await appendEventAndApply(
+      {
+        practiceId: pu.practiceId,
+        actorUserId: user.id,
+        type: "INCIDENT_BREACH_MEMO_GENERATED",
+        payload: {
+          incidentId: id,
+          generatedByUserId: user.id,
+        },
+      },
+      async () => projectIncidentBreachMemoGenerated(),
+    );
+  } catch (err) {
+    console.error(
+      "[incident-breach-memo] audit event emit failed",
+      err,
+    );
+  }
 
   const slug = incident.title.replace(/[^A-Za-z0-9]/g, "-").slice(0, 60);
   return new NextResponse(new Uint8Array(pdfBuffer), {
