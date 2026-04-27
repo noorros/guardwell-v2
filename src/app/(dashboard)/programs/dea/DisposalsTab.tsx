@@ -1,8 +1,12 @@
 "use client";
 
-import { FileText } from "lucide-react";
+import { FileText, CheckCircle2, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SCHEDULE_LABELS, type DeaSchedule } from "@/lib/dea/labels";
+import {
+  SCHEDULE_LABELS,
+  DISPOSAL_METHOD_LABELS,
+  type DeaSchedule,
+} from "@/lib/dea/labels";
 import { NewDisposalForm } from "./NewDisposalForm";
 
 export interface DisposalsTabProps {
@@ -26,6 +30,10 @@ function fmtDate(iso: string): string {
 
 function scheduleLabel(s: string): string {
   return SCHEDULE_LABELS[s as DeaSchedule] ?? s;
+}
+
+function methodLabel(m: string): string {
+  return DISPOSAL_METHOD_LABELS[m] ?? m;
 }
 
 export function DisposalsTab({ canManage, disposals }: DisposalsTabProps) {
@@ -53,6 +61,9 @@ export function DisposalsTab({ canManage, disposals }: DisposalsTabProps) {
                   <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground">
                     Quantity
                   </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground hidden md:table-cell">
+                    Method
+                  </th>
                   <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground">
                     Form 41
                   </th>
@@ -78,16 +89,32 @@ export function DisposalsTab({ canManage, disposals }: DisposalsTabProps) {
                     <td className="px-4 py-2.5 text-right tabular-nums">
                       {d.quantity.toLocaleString("en-US")} {d.unit}
                     </td>
+                    <td className="px-4 py-2.5 text-xs hidden md:table-cell">
+                      {methodLabel(d.disposalMethod)}
+                    </td>
                     <td className="px-4 py-2.5 text-right">
-                      <a
-                        href={`/api/audit/dea-form-41/${d.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                      >
-                        <FileText className="h-3 w-3" aria-hidden="true" />
-                        PDF
-                      </a>
+                      <div className="flex items-center justify-end gap-2">
+                        {d.form41Filed ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[color:var(--gw-color-compliant)]">
+                            <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                            Filed
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
+                            <Clock className="h-3 w-3" aria-hidden="true" />
+                            Pending
+                          </span>
+                        )}
+                        <a
+                          href={`/api/audit/dea-form-41/${d.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                        >
+                          <FileText className="h-3 w-3" aria-hidden="true" />
+                          PDF
+                        </a>
+                      </div>
                     </td>
                   </tr>
                 ))}

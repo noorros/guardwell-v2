@@ -65,7 +65,6 @@ export default async function DeaProgramPage() {
       </header>
       <DeaDashboard
         canManage={pu.role === "OWNER" || pu.role === "ADMIN"}
-        currentUserId={pu.userId}
         inventories={inventories.map((i) => ({
           id: i.id,
           asOfDate: i.asOfDate.toISOString(),

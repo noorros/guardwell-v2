@@ -6,7 +6,6 @@ import { NewInventoryForm } from "./NewInventoryForm";
 
 export interface InventoryTabProps {
   canManage: boolean;
-  currentUserId: string;
   inventories: Array<{
     id: string;
     asOfDate: string;

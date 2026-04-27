@@ -8,7 +8,6 @@ import { DisposalsTab, type DisposalsTabProps } from "./DisposalsTab";
 
 export interface DeaDashboardProps {
   canManage: boolean;
-  currentUserId: string;
   inventories: InventoryTabProps["inventories"];
   orders: OrdersTabProps["orders"];
   disposals: DisposalsTabProps["disposals"];
@@ -38,7 +37,6 @@ export function DeaDashboard(props: DeaDashboardProps) {
       <TabsContent value="inventory" className="pt-4">
         <InventoryTab
           canManage={props.canManage}
-          currentUserId={props.currentUserId}
           inventories={props.inventories}
         />
       </TabsContent>
