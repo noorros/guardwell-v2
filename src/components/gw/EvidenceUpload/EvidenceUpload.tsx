@@ -28,9 +28,12 @@ export interface EvidenceUploadProps {
   initialEvidence?: EvidenceItem[];
   /** Called after each successful upload so the parent can refresh server data. */
   onUploaded?: () => void;
-  /** Whether the current user can delete evidence. */
-  canDelete?: boolean;
-  /** Comma-separated MIME types (e.g. "application/pdf,image/png"). */
+  /**
+   * Whether the current user can manage evidence (upload + delete).
+   * When false, only the evidence list with download links is rendered.
+   */
+  canManage?: boolean;
+  /** Comma-separated MIME types (e.g. "application/pdf,image/*"). */
   accept?: string;
   /** Max file size in MB (default 25). */
   maxSizeMb?: number;
@@ -39,12 +42,27 @@ export interface EvidenceUploadProps {
 const DEFAULT_ACCEPT = ".pdf,.png,.jpg,.jpeg,.heic,.webp";
 const DEFAULT_MAX_MB = 25;
 
+/** Returns true if fileType is permitted by the acceptList pattern string. */
+function mimeMatches(fileType: string, acceptList: string): boolean {
+  if (!acceptList) return true;
+  const patterns = acceptList.split(",").map((s) => s.trim().toLowerCase());
+  const ft = fileType.toLowerCase();
+  return patterns.some((p) => {
+    if (p === ft) return true;
+    if (p.endsWith("/*")) {
+      const prefix = p.slice(0, -2);
+      return ft.startsWith(prefix + "/");
+    }
+    return false;
+  });
+}
+
 export function EvidenceUpload({
   entityType,
   entityId,
   initialEvidence = [],
   onUploaded,
-  canDelete = true,
+  canManage = true,
   accept = DEFAULT_ACCEPT,
   maxSizeMb = DEFAULT_MAX_MB,
 }: EvidenceUploadProps) {
@@ -59,6 +77,12 @@ export function EvidenceUpload({
   const handleFile = async (file: File) => {
     setError(null);
     setDevNotice(null);
+
+    // Client-side mime-type guard (catches drag-drop which bypasses <input accept>)
+    if (file.type && !mimeMatches(file.type, accept)) {
+      setError(`File type not allowed. Accepted: ${accept}`);
+      return;
+    }
 
     // Client-side size guard
     const maxBytes = maxSizeMb * 1024 * 1024;
@@ -175,38 +199,40 @@ export function EvidenceUpload({
 
   return (
     <div className="space-y-3">
-      {/* Drop zone / click to pick */}
-      <div
-        className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border p-6 text-center transition-colors hover:border-primary hover:bg-accent/30"
-        onClick={() => !uploading && inputRef.current?.click()}
-        onDrop={handleDrop}
-        onDragOver={(e) => e.preventDefault()}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") inputRef.current?.click();
-        }}
-        aria-label="Upload file"
-      >
-        <Upload className="mb-2 h-6 w-6 text-muted-foreground" aria-hidden />
-        <p className="text-sm text-muted-foreground">
-          Drop a file here or <span className="text-primary underline">click to browse</span>
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          PDF, PNG, JPG, HEIC or WebP — up to {maxSizeMb} MB
-        </p>
-        <input
-          ref={inputRef}
-          type="file"
-          accept={accept}
-          className="hidden"
-          disabled={uploading}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void handleFile(f);
+      {/* Drop zone / click to pick — only rendered when canManage is true */}
+      {canManage && (
+        <div
+          className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border p-6 text-center transition-colors hover:border-primary hover:bg-accent/30"
+          onClick={() => !uploading && inputRef.current?.click()}
+          onDrop={handleDrop}
+          onDragOver={(e) => e.preventDefault()}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") inputRef.current?.click();
           }}
-        />
-      </div>
+          aria-label="Upload file"
+        >
+          <Upload className="mb-2 h-6 w-6 text-muted-foreground" aria-hidden />
+          <p className="text-sm text-muted-foreground">
+            Drop a file here or <span className="text-primary underline">click to browse</span>
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            PDF, PNG, JPG, HEIC or WebP — up to {maxSizeMb} MB
+          </p>
+          <input
+            ref={inputRef}
+            type="file"
+            accept={accept}
+            className="hidden"
+            disabled={uploading}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void handleFile(f);
+            }}
+          />
+        </div>
+      )}
 
       {/* Upload progress */}
       {uploading && (
@@ -229,7 +255,7 @@ export function EvidenceUpload({
         </p>
       )}
 
-      {/* Evidence list */}
+      {/* Evidence list — download links always available regardless of canManage */}
       {activeItems.length === 0 ? (
         <p className="text-xs text-muted-foreground">
           No files attached yet.
@@ -262,7 +288,7 @@ export function EvidenceUpload({
               >
                 <Download className="h-3.5 w-3.5" />
               </a>
-              {canDelete && (
+              {canManage && (
                 <Button
                   type="button"
                   variant="ghost"

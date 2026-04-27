@@ -168,7 +168,7 @@ export default async function DestructionLogDetailPage({
             entityType="DESTRUCTION_LOG"
             entityId={id}
             initialEvidence={existingEvidence}
-            canDelete={canManage}
+            canManage={canManage}
             onUploaded={undefined}
             // Server action wrapper bound per-item below
           />
