@@ -4,7 +4,15 @@
 // reflecting current data. More reports (BAA roster, credentials list)
 // in follow-up PRs.
 
-import { FileBarChart2, FileDown, GraduationCap, AlertTriangle } from "lucide-react";
+import {
+  FileBarChart2,
+  FileDown,
+  GraduationCap,
+  AlertTriangle,
+  Building2,
+  IdCard,
+  ShieldCheck,
+} from "lucide-react";
 import { getPracticeUser } from "@/lib/rbac";
 import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,6 +51,30 @@ const REPORTS: ReportEntry[] = [
       "All incidents grouped by status (open/under-investigation/resolved/closed) with breach determinations + affected counts. Use for HHS OCR audit response.",
     href: "/api/audit/incident-summary",
     icon: AlertTriangle,
+  },
+  {
+    id: "vendor-baa-register",
+    title: "Vendor + BAA register (PDF)",
+    description:
+      "Every active vendor with service description + BAA execution + expiry status. Splits PHI vs non-PHI vendors. Required for HIPAA §164.502(e) BA contracts evidence.",
+    href: "/api/audit/vendor-baa-register",
+    icon: Building2,
+  },
+  {
+    id: "credentials-register",
+    title: "Credentials register (PDF)",
+    description:
+      "License, DEA, malpractice, and other credentials grouped by holder with expiration warnings. Use for state board renewals, malpractice insurance, CMS site visits.",
+    href: "/api/audit/credentials-register",
+    icon: IdCard,
+  },
+  {
+    id: "pp-attestation",
+    title: "Annual P&P review attestation (PDF)",
+    description:
+      "List of every adopted policy with version + last review date, plus a Privacy Officer signature block. Required for HIPAA §164.530(i)(2) annual policy review.",
+    href: "/api/audit/pp-attestation",
+    icon: ShieldCheck,
   },
 ];
 
