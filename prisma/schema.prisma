@@ -482,6 +482,10 @@ model Incident {
   factor4Score                  Int?
   overallRiskScore              Int? // composite 0-100 produced by the breach wizard
   breachDeterminedAt            DateTime?
+  // HIPAA §164.402 documented breach determination memo. Markdown text
+  // entered by the determiner during the wizard; rendered on the breach
+  // memo PDF audit response.
+  breachDeterminationMemo String? @db.Text
   // HHS Office for Civil Rights notification tracking. ocrNotifiedAt is
   // synonymous with the new INCIDENT_NOTIFIED_HHS event timestamp; the
   // event projection writes here directly so existing readers keep working.
