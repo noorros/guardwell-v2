@@ -13,6 +13,7 @@ import { OIG_DERIVATION_RULES } from "./oig";
 import { DEA_DERIVATION_RULES } from "./dea";
 import { CMS_DERIVATION_RULES } from "./cms";
 import { CLIA_DERIVATION_RULES } from "./clia";
+import { ALLERGY_DERIVATIONS } from "./allergy";
 import type { DerivationRule } from "./hipaa";
 
 export type { DerivationRule, DerivedStatus } from "./hipaa";
@@ -24,4 +25,5 @@ export const DERIVATION_RULES: Record<string, DerivationRule> = {
   ...DEA_DERIVATION_RULES,
   ...CMS_DERIVATION_RULES,
   ...CLIA_DERIVATION_RULES,
+  ...ALLERGY_DERIVATIONS,
 };

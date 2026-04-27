@@ -16,6 +16,11 @@ beforeAll(async () => {
 afterEach(async () => {
   await db.llmCall.deleteMany();
   await db.eventLog.deleteMany();
+  // Allergy module tables reference PracticeUser — must be deleted first.
+  await db.allergyEquipmentCheck.deleteMany();
+  await db.allergyDrill.deleteMany();
+  await db.allergyCompetency.deleteMany();
+  await db.allergyQuizAttempt.deleteMany();
   await db.practiceUser.deleteMany();
   await db.complianceItem.deleteMany();
   await db.practiceFramework.deleteMany();
