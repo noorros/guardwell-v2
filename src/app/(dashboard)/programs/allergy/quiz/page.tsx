@@ -24,7 +24,7 @@ export default async function AllergyQuizPage() {
     },
   });
   if (!framework) {
-    redirect("/programs" as Route);
+    redirect("/dashboard" as Route);
   }
 
   // Fetch active questions ordered by category then displayOrder

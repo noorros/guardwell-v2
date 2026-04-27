@@ -23,7 +23,7 @@ export default async function AllergyProgramPage() {
     },
   });
   if (!framework) {
-    redirect("/programs" as Route);
+    redirect("/dashboard" as Route);
   }
   const year = new Date().getFullYear();
   const [members, competencies, equipmentChecks, drills] = await Promise.all([

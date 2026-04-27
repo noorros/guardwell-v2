@@ -23,6 +23,7 @@ import {
   ClipboardCheck,
   CalendarDays,
   Syringe,
+  Settings,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn, scoreToColorToken, NOT_ASSESSED_COLOR_TOKEN } from "@/lib/utils";
@@ -100,6 +101,10 @@ const AUDIT_ITEMS: ProgramItem[] = [
   { label: "Calendar", icon: CalendarDays, href: "/audit/calendar" as Route },
   { label: "Reports", icon: FileBarChart2, href: "/audit/reports" as Route },
   { label: "Audit Prep", icon: ClipboardCheck, href: "/audit/prep" as Route },
+];
+
+const SETTINGS_ITEMS: ProgramItem[] = [
+  { label: "Practice profile", icon: Settings, href: "/settings/practice" as Route },
 ];
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
@@ -270,6 +275,25 @@ export function Sidebar({
       <SectionHeader>Audit &amp; Insights</SectionHeader>
       <ul className="flex flex-col gap-0.5">
         {AUDIT_ITEMS.map((p) => (
+          <li key={p.label}>
+            {p.href ? (
+              <ProgramLink
+                icon={p.icon}
+                label={p.label}
+                href={p.href}
+                onNavigate={onNavigate}
+                isActive={pathname === p.href}
+              />
+            ) : (
+              <ComingSoonItem {...p} />
+            )}
+          </li>
+        ))}
+      </ul>
+
+      <SectionHeader>Settings</SectionHeader>
+      <ul className="flex flex-col gap-0.5">
+        {SETTINGS_ITEMS.map((p) => (
           <li key={p.label}>
             {p.href ? (
               <ProgramLink
