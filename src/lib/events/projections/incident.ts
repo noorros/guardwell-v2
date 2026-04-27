@@ -103,6 +103,7 @@ export async function projectIncidentBreachDetermined(
       isBreach: payload.isBreach,
       affectedCount: payload.affectedCount,
       ocrNotifyRequired: payload.ocrNotifyRequired,
+      breachDeterminationMemo: payload.memoText ?? null,
       breachDeterminedAt: new Date(),
       // Under-investigation once the wizard has run, even if isBreach=false
       // — the investigation happened. Resolution flips status=RESOLVED.
@@ -270,4 +271,11 @@ export async function projectIncidentNotifiedStateAg(
     practiceId,
     "INCIDENT:NOTIFIED_STATE_AG",
   );
+}
+
+// HIPAA audit-trail no-op projection: emitted whenever a signed-in
+// user generates a breach memo PDF. The EventLog row IS the audit
+// trail — no projection table state to update.
+export async function projectIncidentBreachMemoGenerated(): Promise<void> {
+  // intentional no-op
 }

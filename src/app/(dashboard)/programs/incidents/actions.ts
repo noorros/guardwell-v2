@@ -120,6 +120,10 @@ const BreachInput = z.object({
   factor3Score: z.number().int().min(1).max(5),
   factor4Score: z.number().int().min(1).max(5),
   affectedCount: z.number().int().min(0),
+  // HIPAA §164.402 documented analysis. Required ≥40 chars to ensure a
+  // substantive memo; nullable allowed for the legacy/test path that
+  // doesn't yet pass it. UI enforces non-empty before submit.
+  memoText: z.string().min(40).max(10000).nullable().optional(),
 });
 
 export async function completeBreachDeterminationAction(
@@ -155,6 +159,7 @@ export async function completeBreachDeterminationAction(
     isBreach,
     affectedCount: parsed.affectedCount,
     ocrNotifyRequired,
+    memoText: parsed.memoText ?? undefined,
   };
 
   await appendEventAndApply(

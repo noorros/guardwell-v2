@@ -53,6 +53,7 @@ export function BreachDeterminationWizard({
   const [affectedCount, setAffectedCount] = useState<string>(
     String(defaultAffectedCount),
   );
+  const [memoText, setMemoText] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -74,6 +75,10 @@ export function BreachDeterminationWizard({
       setError("Affected count must be a non-negative integer.");
       return;
     }
+    if (memoText.trim().length < 40) {
+      setError("Documented analysis must be at least 40 characters — describe the PHI, recipient, access, and mitigation.");
+      return;
+    }
     startTransition(async () => {
       try {
         await completeBreachDeterminationAction({
@@ -83,6 +88,7 @@ export function BreachDeterminationWizard({
           factor3Score: scores[3]!,
           factor4Score: scores[4]!,
           affectedCount: parsedCount,
+          memoText,
         });
         router.refresh();
       } catch (err) {
@@ -156,6 +162,25 @@ export function BreachDeterminationWizard({
           />
         </label>
 
+        <label className="block space-y-1 text-xs font-medium text-foreground">
+          Documented analysis (HIPAA §164.402)
+          <span className="mt-1 block text-[11px] font-normal text-muted-foreground">
+            Briefly describe the nature of the PHI involved, the unauthorized
+            recipient, whether PHI was actually viewed/acquired, and the extent
+            risk has been mitigated. This memo is rendered on the breach
+            determination PDF for audit response.
+          </span>
+          <textarea
+            required
+            minLength={40}
+            maxLength={10000}
+            rows={6}
+            value={memoText}
+            onChange={(e) => setMemoText(e.target.value)}
+            className="mt-1 block w-full resize-y rounded-md border bg-background px-2 py-1.5 text-sm"
+          />
+        </label>
+
         {allScored && (
           <div
             className="rounded-md border p-3 text-xs"
@@ -185,7 +210,7 @@ export function BreachDeterminationWizard({
           <Button
             size="sm"
             onClick={handleSubmit}
-            disabled={!allScored || isPending}
+            disabled={!allScored || memoText.trim().length < 40 || isPending}
           >
             {isPending ? "Submitting…" : "Submit determination"}
           </Button>

@@ -25,14 +25,15 @@ This plan is the response. It re-prioritizes work to close compliance-breaking g
 
 ## Where we are right now (2026-04-27 morning)
 
-**Live on prod (rev 00133):**
-- Reports framework + 6 PDFs (PR #135 merged)
+**Live on prod (rev 00135 or later):**
+- Reports framework + 6 PDFs (PR #135 merged 2026-04-27)
 - Bulk CSV import on credentials/vendors/security-assets (PR #135)
 - Allergy module — schema, projections, derivations, UI, quiz, notifications, AllergyExtras (PR #136 merged + prod migrated + seeded)
 - Settings sidebar entry + redirect fixes (PR #137 merged)
-- Allergy inactivity tracking + competency-due notification (PR #138 — schema migrated, awaiting merge)
+- Allergy inactivity tracking + competency-due notification (PR #138 merged 2026-04-27)
+- Document retention file uploads via polymorphic Evidence subsystem (PR #139 merged 2026-04-27 17:43 UTC)
 
-**Test count:** 444 + new inactivity test = 445.
+**Test count:** 452 (445 pre-Evidence + 7 evidence projection tests)
 
 **Pending Noorros operational tasks** unchanged:
 - Resend domain verification (`gwcomp.com` SPF/DKIM/DMARC)
@@ -40,27 +41,15 @@ This plan is the response. It re-prioritizes work to close compliance-breaking g
 - DNS flip plan
 - Stripe webhook verification
 - First-customer test on the live domain
+- **Create `guardwell-v2-evidence` GCS bucket** + IAM + CORS + lifecycle + set `GCS_EVIDENCE_BUCKET` env var on Cloud Run service. Without this, the EvidenceUpload widget shows "GCS not configured" in prod.
 
 ## What's left before launch — the new prioritized sequence
 
 Items 1–10 are the audit-derived priority list. Each ships as one or more PRs.
 
-### 1. Document retention file uploads — CRITICAL · 1–2 days
-**User-flagged blocker.** Real practices receive scanned PDFs and physical destruction certificates from vendors. V2's URL-only `certificateUrl` field forces them to host files externally, which breaks the workflow.
+### 1. Document retention file uploads — ✅ DONE (PR #139)
 
-**Architecture decision:** instead of a one-off file column on `DestructionLog`, build the polymorphic `Evidence` model from the queued Evidence/CEU plan's Tasks 1–2 first. Document retention becomes the first surface to consume it. This unblocks Credentials (chunk 5) and post-launch surfaces (vendors, incidents, tech-assets, allergy drills) on the same infrastructure.
-
-**Scope:**
-- GCS storage helper (`src/lib/storage/gcs.ts`) with dev no-op fallback
-- Polymorphic `Evidence` model keyed on `(entityType, entityId)`
-- `Evidence` event types (UPLOAD_REQUESTED, UPLOAD_CONFIRMED, DOWNLOAD_URL_ISSUED, DELETED)
-- High-level helpers (`src/lib/storage/evidence.ts`)
-- API routes (`/api/evidence/upload`, `/api/evidence/download`, `/api/evidence/[id]`)
-- `<EvidenceUpload>` client component
-- DestructionLog-specific wiring: replace URL field with `<EvidenceUpload entityType="DESTRUCTION_LOG" entityId={...} />`
-- Pre-existing `certificateUrl` field can stay as a fallback for legacy data
-
-**Bucket pre-task for Noorros (out-of-band):** `guardwell-v2-evidence` GCS bucket + IAM + CORS + lifecycle. Storage helper falls back to no-op log mode in dev when `GCS_EVIDENCE_BUCKET` is unset, so this PR can land before the bucket exists; the upload won't actually work in prod until the bucket + env var are configured.
+Polymorphic `Evidence` model + GCS storage helper + DestructionLog as first consumer landed in PR #139 (merged 2026-04-27 17:43 UTC). Foundation for chunks 5/6/7 (credentials evidence, BAA storage, training video upload) is now in place. Awaiting Noorros-side GCS bucket creation in prod for actual uploads to function (dev no-op fallback works without it).
 
 ### 2. Incident breach memo PDF + individual notification tracking — CRITICAL · 2–3 days
 HIPAA §164.402 requires a documented breach decision. OCR audits look for it. V2 schema retains the `breachDeterminationMemo` field but no UI generates one.
