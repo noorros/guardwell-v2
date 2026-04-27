@@ -57,6 +57,7 @@ export async function projectIncidentReported(
       oshaOutcome: payload.oshaOutcome ?? null,
       oshaDaysAway: payload.oshaDaysAway ?? null,
       oshaDaysRestricted: payload.oshaDaysRestricted ?? null,
+      sharpsDeviceType: payload.sharpsDeviceType ?? null,
     },
   });
 
