@@ -32,6 +32,7 @@ const PROFILE_BASELINE = {
   billsMedicaid: false,
   subjectToMacraMips: false,
   sendsAutomatedPatientMessages: false,
+  compoundsAllergens: false,
 } as const;
 
 describe("Compliance Track auto-generation", () => {

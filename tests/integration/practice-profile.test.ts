@@ -69,6 +69,7 @@ describe("PRACTICE_PROFILE_UPDATED projection", () => {
       billsMedicaid: false,
       subjectToMacraMips: false,
       sendsAutomatedPatientMessages: false,
+      compoundsAllergens: false,
     };
 
     await appendEventAndApply(
@@ -124,6 +125,7 @@ describe("PRACTICE_PROFILE_UPDATED projection", () => {
       billsMedicaid: false,
       subjectToMacraMips: false,
       sendsAutomatedPatientMessages: false,
+      compoundsAllergens: false,
     };
     await appendEventAndApply(
       {
@@ -153,6 +155,7 @@ describe("PRACTICE_PROFILE_UPDATED projection", () => {
       billsMedicaid: true,
       subjectToMacraMips: false,
       sendsAutomatedPatientMessages: false,
+      compoundsAllergens: false,
     };
     await appendEventAndApply(
       {
@@ -183,6 +186,7 @@ describe("PRACTICE_PROFILE_UPDATED projection", () => {
       billsMedicaid: true,
       subjectToMacraMips: true,
       sendsAutomatedPatientMessages: true,
+      compoundsAllergens: false,
     };
     await appendEventAndApply(
       {

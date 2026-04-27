@@ -27,6 +27,7 @@ export function computeFrameworkApplicability(
     | "billsMedicaid"
     | "subjectToMacraMips"
     | "sendsAutomatedPatientMessages"
+    | "compoundsAllergens"
   >,
 ): Record<string, boolean> {
   return {
@@ -38,6 +39,7 @@ export function computeFrameworkApplicability(
     CMS: profile.medicareParticipant || profile.billsMedicaid,
     MACRA: profile.subjectToMacraMips,
     TCPA: profile.sendsAutomatedPatientMessages,
+    ALLERGY: profile.compoundsAllergens,
   };
 }
 
@@ -57,6 +59,7 @@ export async function projectPracticeProfileUpdated(
       billsMedicaid: payload.billsMedicaid,
       subjectToMacraMips: payload.subjectToMacraMips,
       sendsAutomatedPatientMessages: payload.sendsAutomatedPatientMessages,
+      compoundsAllergens: payload.compoundsAllergens,
       specialtyCategory: payload.specialtyCategory ?? null,
       providerCount: payload.providerCount ?? null,
     },
@@ -67,6 +70,7 @@ export async function projectPracticeProfileUpdated(
       billsMedicaid: payload.billsMedicaid,
       subjectToMacraMips: payload.subjectToMacraMips,
       sendsAutomatedPatientMessages: payload.sendsAutomatedPatientMessages,
+      compoundsAllergens: payload.compoundsAllergens,
       specialtyCategory: payload.specialtyCategory ?? null,
       providerCount: payload.providerCount ?? null,
     },

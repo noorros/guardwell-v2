@@ -23,6 +23,7 @@ export interface ComplianceProfileFormProps {
     billsMedicaid: boolean;
     subjectToMacraMips: boolean;
     sendsAutomatedPatientMessages: boolean;
+    compoundsAllergens: boolean;
     specialtyCategory: string | null;
     providerCount: number | null;
   };
@@ -85,6 +86,13 @@ const TOGGLES: ToggleDef[] = [
       "You send automated text, voice, or email reminders, appointment confirmations, or marketing to patients.",
     enables: "TCPA",
   },
+  {
+    key: "compoundsAllergens",
+    title: "Compounds allergens / performs allergy testing",
+    description:
+      "Your practice compounds allergy extracts or administers skin-test or immunotherapy injections on-site.",
+    enables: "ALLERGY",
+  },
 ];
 
 export function ComplianceProfileForm({
@@ -100,6 +108,7 @@ export function ComplianceProfileForm({
     billsMedicaid: initial.billsMedicaid,
     subjectToMacraMips: initial.subjectToMacraMips,
     sendsAutomatedPatientMessages: initial.sendsAutomatedPatientMessages,
+    compoundsAllergens: initial.compoundsAllergens,
   });
   const [specialty, setSpecialty] = useState<Specialty | "">(
     (initial.specialtyCategory as Specialty | null) ?? "",

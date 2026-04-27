@@ -15,6 +15,7 @@ const Input = z.object({
   billsMedicaid: z.boolean(),
   subjectToMacraMips: z.boolean(),
   sendsAutomatedPatientMessages: z.boolean(),
+  compoundsAllergens: z.boolean(),
   specialtyCategory: z
     .enum([
       "PRIMARY_CARE",

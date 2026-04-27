@@ -54,6 +54,12 @@ export const EVENT_TYPES = [
   "SUBSCRIPTION_STATUS_CHANGED",
   "PROMO_APPLIED",
   "ONBOARDING_FIRST_RUN_COMPLETED",
+  // Allergy / USP 797 §21 — see docs/plans/2026-04-27-allergy-module.md
+  "ALLERGY_QUIZ_COMPLETED",
+  "ALLERGY_FINGERTIP_TEST_PASSED",
+  "ALLERGY_MEDIA_FILL_PASSED",
+  "ALLERGY_EQUIPMENT_CHECK_LOGGED",
+  "ALLERGY_DRILL_LOGGED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -359,6 +365,7 @@ export const EVENT_SCHEMAS = {
       billsMedicaid: z.boolean(),
       subjectToMacraMips: z.boolean(),
       sendsAutomatedPatientMessages: z.boolean(),
+      compoundsAllergens: z.boolean(),
       specialtyCategory: z
         .enum([
           "PRIMARY_CARE",
@@ -622,6 +629,89 @@ export const EVENT_SCHEMAS = {
       completedByUserId: z.string().min(1),
       stepsCompleted: z.array(z.string().min(1)),
       durationSeconds: z.number().int().min(0),
+    }),
+  },
+  // ALLERGY_QUIZ_COMPLETED — emitted on quiz submission. Carries the
+  // attempt id + score so the projection can update both the attempt row
+  // and (if passed) the AllergyCompetency row for the year.
+  ALLERGY_QUIZ_COMPLETED: {
+    1: z.object({
+      attemptId: z.string().min(1),
+      practiceUserId: z.string().min(1),
+      year: z.number().int().min(2024).max(3000),
+      score: z.number().int().min(0).max(100),
+      passed: z.boolean(),
+      correctAnswers: z.number().int().min(0),
+      totalQuestions: z.number().int().min(1),
+      answers: z.array(
+        z.object({
+          questionId: z.string().min(1),
+          selectedId: z.string().min(1),
+          isCorrect: z.boolean(),
+        }),
+      ),
+    }),
+  },
+  // ALLERGY_FINGERTIP_TEST_PASSED — supervisor attests a passing
+  // gloved-fingertip + thumb sampling. Projection increments
+  // fingertipPassCount on the year's AllergyCompetency (creates row
+  // if missing) and recomputes isFullyQualified.
+  ALLERGY_FINGERTIP_TEST_PASSED: {
+    1: z.object({
+      practiceUserId: z.string().min(1),
+      year: z.number().int().min(2024).max(3000),
+      attestedByUserId: z.string().min(1),
+      notes: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  // ALLERGY_MEDIA_FILL_PASSED — supervisor attests a passing media
+  // fill test (incubated 14 days, no turbidity). Idempotent — the
+  // projection only sets mediaFillPassedAt if currently null OR the
+  // event date is more recent.
+  ALLERGY_MEDIA_FILL_PASSED: {
+    1: z.object({
+      practiceUserId: z.string().min(1),
+      year: z.number().int().min(2024).max(3000),
+      attestedByUserId: z.string().min(1),
+      notes: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  // ALLERGY_EQUIPMENT_CHECK_LOGGED — emergency kit / fridge / supplies
+  // check. Projection writes the AllergyEquipmentCheck row + triggers
+  // rederive of ALLERGY_EMERGENCY_KIT_CURRENT + ALLERGY_REFRIGERATOR_LOG.
+  ALLERGY_EQUIPMENT_CHECK_LOGGED: {
+    1: z.object({
+      equipmentCheckId: z.string().min(1),
+      checkType: z.enum([
+        "EMERGENCY_KIT",
+        "REFRIGERATOR_TEMP",
+        "SKIN_TEST_SUPPLIES",
+      ]),
+      checkedByUserId: z.string().min(1),
+      checkedAt: z.string().datetime(),
+      epiExpiryDate: z.string().datetime().nullable().optional(),
+      epiLotNumber: z.string().max(100).nullable().optional(),
+      allItemsPresent: z.boolean().nullable().optional(),
+      itemsReplaced: z.string().max(2000).nullable().optional(),
+      temperatureC: z.number().min(-20).max(40).nullable().optional(),
+      inRange: z.boolean().nullable().optional(),
+      notes: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  // ALLERGY_DRILL_LOGGED — anaphylaxis emergency drill conducted at
+  // the practice. Projection writes the AllergyDrill row + rederives
+  // ALLERGY_ANNUAL_DRILL.
+  ALLERGY_DRILL_LOGGED: {
+    1: z.object({
+      drillId: z.string().min(1),
+      conductedByUserId: z.string().min(1),
+      conductedAt: z.string().datetime(),
+      scenario: z.string().min(1).max(2000),
+      participantIds: z.array(z.string().min(1)).min(1),
+      durationMinutes: z.number().int().min(0).nullable().optional(),
+      observations: z.string().max(2000).nullable().optional(),
+      correctiveActions: z.string().max(2000).nullable().optional(),
+      nextDrillDue: z.string().datetime().nullable().optional(),
     }),
   },
 } as const;
