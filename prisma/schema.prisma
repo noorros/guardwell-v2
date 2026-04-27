@@ -170,10 +170,12 @@ model PracticeUser {
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   practice    Practice     @relation(fields: [practiceId], references: [id], onDelete: Cascade)
   credentials Credential[]
-  allergyCompetencies   AllergyCompetency[]    @relation("AllergyCompetencyHolder")
-  allergyQuizAttempts   AllergyQuizAttempt[]   @relation("AllergyQuizTaker")
-  allergyEquipmentChecks AllergyEquipmentCheck[] @relation("AllergyCheckPerformedBy")
-  allergyDrillsLed      AllergyDrill[]         @relation("AllergyDrillLedBy")
+  allergyCompetencies        AllergyCompetency[]    @relation("AllergyCompetencyHolder")
+  allergyFingertipAttestations AllergyCompetency[]  @relation("AllergyFingertipAttestor")
+  allergyMediaFillAttestations AllergyCompetency[]  @relation("AllergyMediaFillAttestor")
+  allergyQuizAttempts        AllergyQuizAttempt[]   @relation("AllergyQuizTaker")
+  allergyEquipmentChecks     AllergyEquipmentCheck[] @relation("AllergyCheckPerformedBy")
+  allergyDrillsLed           AllergyDrill[]         @relation("AllergyDrillLedBy")
 
   @@unique([userId, practiceId])
   @@index([practiceId, role])
@@ -329,7 +331,7 @@ model PracticeComplianceProfile {
   // Allergy/immunology specialty practices that compound allergen extracts
   // are subject to USP 797 §21. Toggling true enables the ALLERGY framework
   // via the PRACTICE_PROFILE_UPDATED projection.
-  compoundsAllergens             Boolean @default(false)
+  compoundsAllergens            Boolean  @default(false)
   createdAt                     DateTime @default(now())
   updatedAt                     DateTime @updatedAt
 
@@ -1251,7 +1253,7 @@ model AllergyCompetency {
   // (USP §21: 3 passes required for initial qualification; 1 for annual renewal)
   fingertipPassCount    Int       @default(0)
   fingertipLastPassedAt DateTime?
-  fingertipAttestedById String?   // PracticeUser.id of attesting supervisor
+  fingertipAttestedById String?
   fingertipNotes        String?   @db.Text
   // Component C: media fill test (ALLERGY_MEDIA_FILL_PASSED)
   mediaFillPassedAt     DateTime?
@@ -1263,9 +1265,11 @@ model AllergyCompetency {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
-  practice     Practice            @relation(fields: [practiceId], references: [id], onDelete: Cascade)
-  practiceUser PracticeUser        @relation("AllergyCompetencyHolder", fields: [practiceUserId], references: [id], onDelete: Cascade)
-  passingAttempt AllergyQuizAttempt? @relation("PassingAttempt", fields: [quizAttemptId], references: [id])
+  practice           Practice            @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  practiceUser       PracticeUser        @relation("AllergyCompetencyHolder", fields: [practiceUserId], references: [id], onDelete: Cascade)
+  fingertipAttestor  PracticeUser?       @relation("AllergyFingertipAttestor", fields: [fingertipAttestedById], references: [id], onDelete: SetNull)
+  mediaFillAttestor  PracticeUser?       @relation("AllergyMediaFillAttestor", fields: [mediaFillAttestedById], references: [id], onDelete: SetNull)
+  passingAttempt     AllergyQuizAttempt? @relation("PassingAttempt", fields: [quizAttemptId], references: [id])
 
   @@unique([practiceUserId, year])
   @@index([practiceId, year])
@@ -1326,6 +1330,7 @@ model AllergyQuizAnswer {
 
 /// Equipment check log. checkType discriminator drives which fields are set.
 /// Projected from ALLERGY_EQUIPMENT_CHECK_LOGGED events.
+/// Append-only: rows are never mutated after creation.
 model AllergyEquipmentCheck {
   id              String           @id @default(cuid())
   practiceId      String
@@ -1351,7 +1356,11 @@ model AllergyEquipmentCheck {
 }
 
 /// Anaphylaxis drill log. Annual minimum per practice. Projected from
-/// ALLERGY_DRILL_LOGGED events.
+/// ALLERGY_DRILL_LOGGED events. Append-only: rows are never mutated after creation.
+/// `participantIds` stores PracticeUser.id values without FK enforcement;
+/// resolve names with a separate findMany. Acceptable for typical small
+/// staff sizes; revisit with a join table if drills routinely have 20+
+/// participants or "drills participated in by user X" becomes a hot query.
 model AllergyDrill {
   id                String   @id @default(cuid())
   practiceId        String
