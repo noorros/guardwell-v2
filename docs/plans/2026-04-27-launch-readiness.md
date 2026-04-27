@@ -39,21 +39,42 @@ Things only Noorros can do, listed here for the handoff.
 - **Stripe webhook** — already registered (PR #131 era). Verify still pointing at the correct endpoint after any URL change.
 - **First-customer test** — manual end-to-end with a real Firebase account, real Stripe card (refund after), real domain.
 
-## Sequencing
+## Sequencing (revised 2026-04-27 with Allergy + Evidence/CEU added)
 
-| # | Chunk | Effort | PR target |
+| # | Chunk | Effort | PR / Plan |
 |---|-------|--------|-----------|
-| 1 | Reports framework + 2 reports (training summary, incident summary) | 1 day | ALREADY SHIPPED |
-| 2 | Remaining 3 reports (vendor+BAA, credentials, annual P&P) | 1 day | ✅ this session |
-| 2.5 | **Bulk CSV import/export** — extract generic `<BulkCsvImport>` from `<BulkInviteForm>`, add to /programs/security-assets, /programs/vendors, /programs/credentials. CSV export buttons on the same surfaces. | 2 days | 1-3 PRs |
-| 3 | Asset inventory → SRA wiring | 0.5 day | 1 PR |
-| 4 | Admin dashboard MVP | 2 days | 1-2 PRs |
-| 5 | A11y pass | 2 days | 1-2 PRs |
-| 6 | Security review prep | 2 days | 1 doc + targeted fix PRs |
-| 7 | Performance pass | 1 day | 1-2 PRs |
-| 8 | Operational handoff doc for Noorros | 0.5 day | 1 doc |
+| 1 | Reports framework + initial 2 reports (training summary, incident summary) | 1 day | **Pre-existing on main** (discovered, not built) |
+| 2 | Remaining 3 reports (vendor+BAA, credentials, annual P&P attestation) | 1 day | **PR #135** (open, awaiting merge) |
+| 2.5 | Bulk CSV import + export — generic `<BulkCsvImport>` + tech-assets/vendors/credentials surfaces | 2 days | **PR #135** (same PR as above) |
+| **3** | **Allergy module** — customer-blocking; full v2-faithful port of v1's USP 797 §21 subsystem | **7 days** | [`docs/plans/2026-04-27-allergy-module.md`](2026-04-27-allergy-module.md) |
+| **4** | **Evidence uploads + CEU tracking + renewal reminders** + MA cert seed | **5 days** | [`docs/plans/2026-04-27-evidence-ceu-reminders.md`](2026-04-27-evidence-ceu-reminders.md) |
+| 5 | Asset inventory → SRA wiring | 0.5 day | 1 PR |
+| 6 | Admin dashboard MVP | 2 days | 1-2 PRs |
+| 7 | A11y pass | 2 days | 1-2 PRs |
+| 8 | Security review prep | 2 days | 1 doc + targeted fix PRs |
+| 9 | Performance pass | 1 day | 1-2 PRs |
+| 10 | Operational handoff doc for Noorros | 0.5 day | 1 doc |
 
-**Estimated total:** ~10 days of work. At our current velocity (multiple PRs per session) this is 3-4 sessions.
+**Estimated total:** ~22 days of code remaining. At current velocity (multiple PRs per session, full feature in 1-2 sessions) that's 4-6 working sessions.
+
+**Strict ordering rationale:**
+- Chunks 1-2 are landed/in-flight code that ships customer-visible value with zero risk.
+- Chunk 3 (Allergy) is **customer-blocking** — first customer specifically asked for it. Prioritize over polish.
+- Chunk 4 (Evidence/CEU/Reminders) addresses gaps Noorros surfaced in the credentials surface review. Touches GCS so requires bucket setup before merge.
+- Chunks 5-9 are launch hardening — order is flexible but Asset/SRA wiring is small enough to fit anywhere; admin MVP gates first-customer support; A11y/Security/Perf can run in parallel late.
+- Chunk 10 is the operational handoff Noorros needs to flip the marketing CTAs + DNS.
+
+## Out of scope for v2 launch (consciously deferred)
+
+Per `v2-deferred-roadmap.md` plus this session's confirmations:
+
+- **AI extraction from uploaded evidence** — Phase 5 of the Evidence subsystem. Anthropic call on PDF/image → structured fields → confirm-before-overwrite UX. Skip until customer files exist to evaluate against.
+- Vendor signing workflow / DocuSign-style BAA collection
+- AI-tailored training
+- BYOV (bring your own video)
+- Knowledge base
+- Handbook generator (1 customer ask away from queueing)
+- Assignments (1 multi-staff customer away from queueing)
 
 ## Per-chunk acceptance criteria
 
