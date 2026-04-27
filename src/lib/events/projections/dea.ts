@@ -3,26 +3,25 @@
 // Projections for DEA controlled-substance events. Each projection runs
 // inside the appendEventAndApply transaction; failure rolls back the
 // EventLog write per ADR-0001.
+//
+// Event-shape conventions:
+//   DEA_INVENTORY_RECORDED     — fires once per inventory snapshot;
+//                                payload carries an items[] list
+//                                (parent + children written atomically).
+//   DEA_ORDER_RECEIVED         — fires once per drug. Multi-drug Form 222
+//                                orders share an orderBatchId.
+//   DEA_DISPOSAL_COMPLETED     — fires once per drug. Multi-drug disposals
+//                                share a disposalBatchId (Form 41).
+//   DEA_THEFT_LOSS_REPORTED    — fires once per drug. Multi-drug theft/loss
+//                                events share a reportBatchId (Form 106).
 
 import type { Prisma } from "@prisma/client";
+import type { PayloadFor } from "../registry";
 
-interface InventoryItemPayload {
-  drugName: string;
-  ndc?: string | null;
-  schedule: "CI" | "CII" | "CIIN" | "CIII" | "CIIIN" | "CIV" | "CV";
-  strength?: string | null;
-  quantity: number;
-  unit: string;
-}
-
-interface InventoryRecordedPayload {
-  inventoryId: string;
-  asOfDate: string;
-  conductedByUserId: string;
-  witnessUserId?: string | null;
-  notes?: string | null;
-  items: InventoryItemPayload[];
-}
+type InventoryRecordedPayload = PayloadFor<"DEA_INVENTORY_RECORDED", 1>;
+type OrderReceivedPayload = PayloadFor<"DEA_ORDER_RECEIVED", 1>;
+type DisposalCompletedPayload = PayloadFor<"DEA_DISPOSAL_COMPLETED", 1>;
+type TheftLossReportedPayload = PayloadFor<"DEA_THEFT_LOSS_REPORTED", 1>;
 
 export async function projectDeaInventoryRecorded(
   tx: Prisma.TransactionClient,
@@ -51,23 +50,6 @@ export async function projectDeaInventoryRecorded(
   });
 }
 
-interface OrderReceivedPayload {
-  orderRecordId: string;
-  orderedByUserId: string;
-  supplierName: string;
-  supplierDeaNumber?: string | null;
-  orderedAt: string;
-  receivedAt?: string | null;
-  form222Number?: string | null;
-  drugName: string;
-  ndc?: string | null;
-  schedule: InventoryItemPayload["schedule"];
-  strength?: string | null;
-  quantity: number;
-  unit: string;
-  notes?: string | null;
-}
-
 export async function projectDeaOrderReceived(
   tx: Prisma.TransactionClient,
   args: { practiceId: string; payload: OrderReceivedPayload },
@@ -77,6 +59,7 @@ export async function projectDeaOrderReceived(
     data: {
       id: payload.orderRecordId,
       practiceId,
+      orderBatchId: payload.orderBatchId ?? null,
       orderedByUserId: payload.orderedByUserId,
       supplierName: payload.supplierName,
       supplierDeaNumber: payload.supplierDeaNumber ?? null,
@@ -94,28 +77,6 @@ export async function projectDeaOrderReceived(
   });
 }
 
-interface DisposalCompletedPayload {
-  disposalRecordId: string;
-  disposedByUserId: string;
-  witnessUserId?: string | null;
-  reverseDistributorName: string;
-  reverseDistributorDeaNumber?: string | null;
-  disposalDate: string;
-  disposalMethod:
-    | "REVERSE_DISTRIBUTOR"
-    | "DEA_TAKE_BACK"
-    | "DEA_DESTRUCTION"
-    | "OTHER";
-  drugName: string;
-  ndc?: string | null;
-  schedule: InventoryItemPayload["schedule"];
-  strength?: string | null;
-  quantity: number;
-  unit: string;
-  form41Filed: boolean;
-  notes?: string | null;
-}
-
 export async function projectDeaDisposalCompleted(
   tx: Prisma.TransactionClient,
   args: { practiceId: string; payload: DisposalCompletedPayload },
@@ -125,6 +86,7 @@ export async function projectDeaDisposalCompleted(
     data: {
       id: payload.disposalRecordId,
       practiceId,
+      disposalBatchId: payload.disposalBatchId ?? null,
       disposedByUserId: payload.disposedByUserId,
       witnessUserId: payload.witnessUserId ?? null,
       reverseDistributorName: payload.reverseDistributorName,
@@ -143,27 +105,6 @@ export async function projectDeaDisposalCompleted(
   });
 }
 
-interface TheftLossReportedPayload {
-  reportId: string;
-  incidentId?: string | null;
-  reportedByUserId: string;
-  discoveredAt: string;
-  lossType: "THEFT" | "LOSS" | "IN_TRANSIT_LOSS" | "DESTRUCTION_DURING_THEFT";
-  drugName: string;
-  ndc?: string | null;
-  schedule: InventoryItemPayload["schedule"];
-  strength?: string | null;
-  quantityLost: number;
-  unit: string;
-  methodOfDiscovery?: string | null;
-  lawEnforcementNotified: boolean;
-  lawEnforcementAgency?: string | null;
-  lawEnforcementCaseNumber?: string | null;
-  deaNotifiedAt?: string | null;
-  form106SubmittedAt?: string | null;
-  notes?: string | null;
-}
-
 export async function projectDeaTheftLossReported(
   tx: Prisma.TransactionClient,
   args: { practiceId: string; payload: TheftLossReportedPayload },
@@ -173,6 +114,7 @@ export async function projectDeaTheftLossReported(
     data: {
       id: payload.reportId,
       practiceId,
+      reportBatchId: payload.reportBatchId ?? null,
       incidentId: payload.incidentId ?? null,
       reportedByUserId: payload.reportedByUserId,
       discoveredAt: new Date(payload.discoveredAt),

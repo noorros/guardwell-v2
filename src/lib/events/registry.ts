@@ -591,6 +591,10 @@ export const EVENT_SCHEMAS = {
   DEA_ORDER_RECEIVED: {
     1: z.object({
       orderRecordId: z.string().min(1),
+      // Optional grouping key for multi-drug Form 222 orders. All line
+      // items belonging to one order share the same orderBatchId so the
+      // orders tab + Form 222 PDF can group them together.
+      orderBatchId: z.string().min(1).nullable().optional(),
       orderedByUserId: z.string().min(1),
       supplierName: z.string().min(1).max(200),
       supplierDeaNumber: z.string().max(50).nullable().optional(),
@@ -611,6 +615,10 @@ export const EVENT_SCHEMAS = {
   DEA_DISPOSAL_COMPLETED: {
     1: z.object({
       disposalRecordId: z.string().min(1),
+      // Optional grouping key for multi-drug disposals (one reverse-
+      // distributor pickup of several drugs). Form 41 PDF renders all
+      // surrendered drugs under one filing when this key matches.
+      disposalBatchId: z.string().min(1).nullable().optional(),
       disposedByUserId: z.string().min(1),
       witnessUserId: z.string().min(1).nullable().optional(),
       reverseDistributorName: z.string().min(1).max(200),
@@ -638,6 +646,10 @@ export const EVENT_SCHEMAS = {
   DEA_THEFT_LOSS_REPORTED: {
     1: z.object({
       reportId: z.string().min(1),
+      // Optional grouping key for multi-drug theft/loss events (one
+      // break-in or shipment loss involving several drugs). Form 106 PDF
+      // renders the entire event as one filing when this key matches.
+      reportBatchId: z.string().min(1).nullable().optional(),
       incidentId: z.string().min(1).nullable().optional(),
       reportedByUserId: z.string().min(1),
       discoveredAt: z.string().datetime(),

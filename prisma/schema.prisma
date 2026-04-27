@@ -520,7 +520,8 @@ model Incident {
   createdAt                     DateTime         @default(now())
   updatedAt                     DateTime         @updatedAt
 
-  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  practice           Practice             @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  deaTheftLossReports DeaTheftLossReport[]
 
   @@index([practiceId, status])
   @@index([practiceId, isBreach])
@@ -810,10 +811,14 @@ model DeaInventoryItem {
 }
 
 // Receipt of a controlled-substance order (Form 222 paper trail or CSOS
-// electronic order). One row per drug received.
+// electronic order). One row per drug received. Multi-drug Form 222
+// orders (up to 10 line items per federal form) share an `orderBatchId`
+// so the Phase C OrdersTab UI + downstream PDF can group line items
+// back into a single Form 222 view.
 model DeaOrderRecord {
   id                  String      @id @default(cuid())
   practiceId          String
+  orderBatchId        String?
   orderedByUserId     String
   supplierName        String
   supplierDeaNumber   String?
@@ -832,14 +837,18 @@ model DeaOrderRecord {
   practice            Practice    @relation(fields: [practiceId], references: [id], onDelete: Cascade)
 
   @@index([practiceId, orderedAt])
+  @@index([orderBatchId])
 }
 
 // Disposal of controlled substances to a DEA-registered reverse
 // distributor (or other authorized disposal method). One row per drug.
-// Form 41 PDF generates from this row's data.
+// Multi-drug disposals (one reverse-distributor pickup of several
+// drugs) share a `disposalBatchId` so Form 41 PDF generation can render
+// all the surrendered drugs on one filing.
 model DeaDisposalRecord {
   id                          String      @id @default(cuid())
   practiceId                  String
+  disposalBatchId             String?
   disposedByUserId            String
   witnessUserId               String?
   reverseDistributorName      String
@@ -859,15 +868,20 @@ model DeaDisposalRecord {
   practice                    Practice    @relation(fields: [practiceId], references: [id], onDelete: Cascade)
 
   @@index([practiceId, disposalDate])
+  @@index([disposalBatchId])
 }
 
 // Theft or loss of controlled substances. Federal: Form 106 must be
 // filed with DEA Field Division within 1 business day of discovery.
-// optional incidentId links to the broader Incident if the loss was
-// reported as a DEA_THEFT_LOSS-type incident.
+// One row per drug; multi-drug events (a single break-in or shipment
+// loss involving multiple drugs) share a `reportBatchId` so the Form
+// 106 PDF can render the entire event as one filing. `incidentId` is
+// a hard FK to the broader Incident record (set-null on incident
+// delete so the regulatory record survives).
 model DeaTheftLossReport {
   id                       String      @id @default(cuid())
   practiceId               String
+  reportBatchId            String?
   incidentId               String?
   reportedByUserId         String
   discoveredAt             DateTime
@@ -889,8 +903,10 @@ model DeaTheftLossReport {
   createdAt                DateTime    @default(now())
   updatedAt                DateTime    @updatedAt
   practice                 Practice    @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  incident                 Incident?   @relation(fields: [incidentId], references: [id], onDelete: SetNull)
 
   @@index([practiceId, discoveredAt])
+  @@index([reportBatchId])
   @@index([incidentId])
 }
 
