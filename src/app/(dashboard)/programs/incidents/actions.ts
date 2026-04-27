@@ -58,6 +58,7 @@ const ReportInput = z.object({
   oshaOutcome: OshaOutcomeEnum.nullable().optional(),
   oshaDaysAway: z.number().int().min(0).nullable().optional(),
   oshaDaysRestricted: z.number().int().min(0).nullable().optional(),
+  sharpsDeviceType: z.string().max(200).nullable().optional(),
 });
 
 export interface ReportIncidentResult {
@@ -88,6 +89,7 @@ export async function reportIncidentAction(
     oshaOutcome: parsed.oshaOutcome ?? null,
     oshaDaysAway: parsed.oshaDaysAway ?? null,
     oshaDaysRestricted: parsed.oshaDaysRestricted ?? null,
+    sharpsDeviceType: parsed.sharpsDeviceType ?? null,
   };
 
   await appendEventAndApply(
