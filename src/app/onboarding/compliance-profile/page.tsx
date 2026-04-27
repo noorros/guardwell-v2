@@ -53,6 +53,7 @@ export default async function CompliancePreofilePage() {
               subjectToMacraMips: existing?.subjectToMacraMips ?? true,
               sendsAutomatedPatientMessages:
                 existing?.sendsAutomatedPatientMessages ?? true,
+              compoundsAllergens: existing?.compoundsAllergens ?? false,
               specialtyCategory: existing?.specialtyCategory ?? null,
               providerCount: existing?.providerCount ?? null,
             }}

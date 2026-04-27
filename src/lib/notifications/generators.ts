@@ -268,6 +268,137 @@ export async function generateIncidentNotifications(
   return proposals;
 }
 
+// ---------------------------------------------------------------------------
+// Allergy / USP §21 generators
+// ---------------------------------------------------------------------------
+
+const DRILL_DUE_WINDOW_DAYS = 30;
+const FRIDGE_OVERDUE_DAYS = 30;
+const KIT_EXPIRY_WINDOW_DAYS = 60;
+
+/**
+ * Three notifications for the allergy program:
+ *   - Anaphylaxis drill due (next drill within N days OR overdue)
+ *   - Refrigerator temp log overdue (>30 days since last check)
+ *   - Emergency kit expiring (epi within 60 days)
+ *
+ * No-ops gracefully when the ALLERGY framework is not enabled for the
+ * practice.
+ */
+export async function generateAllergyNotifications(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  userIds: string[],
+): Promise<NotificationProposal[]> {
+  const enabled = await tx.practiceFramework.findFirst({
+    where: {
+      practiceId,
+      enabled: true,
+      framework: { code: "ALLERGY" },
+    },
+  });
+  if (!enabled) return [];
+
+  const proposals: NotificationProposal[] = [];
+
+  // ── Drill due ────────────────────────────────────────────────────────────
+  const lastDrill = await tx.allergyDrill.findFirst({
+    where: { practiceId },
+    orderBy: { conductedAt: "desc" },
+    select: { id: true, nextDrillDue: true },
+  });
+  if (lastDrill?.nextDrillDue) {
+    const daysLeft = daysUntil(lastDrill.nextDrillDue);
+    if (daysLeft !== null && daysLeft <= DRILL_DUE_WINDOW_DAYS) {
+      const severity: NotificationSeverity = daysLeft < 0 ? "CRITICAL" : "WARNING";
+      const title =
+        daysLeft < 0
+          ? "Anaphylaxis drill overdue"
+          : `Anaphylaxis drill due in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`;
+      for (const userId of userIds) {
+        proposals.push({
+          userId,
+          practiceId,
+          type: "ALLERGY_DRILL_DUE",
+          severity,
+          title,
+          body: "Schedule the next anaphylaxis drill at /programs/allergy.",
+          href: "/programs/allergy",
+          entityKey: `allergy-drill-${lastDrill.id}`,
+        });
+      }
+    }
+  } else if (!lastDrill) {
+    for (const userId of userIds) {
+      proposals.push({
+        userId,
+        practiceId,
+        type: "ALLERGY_DRILL_DUE",
+        severity: "WARNING",
+        title: "Anaphylaxis drill not yet on file",
+        body: "Run your first anaphylaxis drill to satisfy USP §21 §21.6.",
+        href: "/programs/allergy",
+        entityKey: "allergy-drill-initial",
+      });
+    }
+  }
+
+  // ── Refrigerator overdue ─────────────────────────────────────────────────
+  const lastFridge = await tx.allergyEquipmentCheck.findFirst({
+    where: { practiceId, checkType: "REFRIGERATOR_TEMP" },
+    orderBy: { checkedAt: "desc" },
+    select: { id: true, checkedAt: true },
+  });
+  if (
+    !lastFridge ||
+    Date.now() - lastFridge.checkedAt.getTime() > FRIDGE_OVERDUE_DAYS * DAY_MS
+  ) {
+    for (const userId of userIds) {
+      proposals.push({
+        userId,
+        practiceId,
+        type: "ALLERGY_FRIDGE_OVERDUE",
+        severity: "CRITICAL",
+        title: "Refrigerator temperature log overdue",
+        body: "Log a temperature reading at /programs/allergy.",
+        href: "/programs/allergy",
+        entityKey: lastFridge ? `fridge-${lastFridge.id}` : "fridge-initial",
+      });
+    }
+  }
+
+  // ── Kit expiring ─────────────────────────────────────────────────────────
+  const lastKit = await tx.allergyEquipmentCheck.findFirst({
+    where: { practiceId, checkType: "EMERGENCY_KIT" },
+    orderBy: { checkedAt: "desc" },
+    select: { id: true, epiExpiryDate: true },
+  });
+  if (lastKit?.epiExpiryDate) {
+    const daysLeft = daysUntil(lastKit.epiExpiryDate);
+    if (daysLeft !== null && daysLeft <= KIT_EXPIRY_WINDOW_DAYS) {
+      const severity: NotificationSeverity = daysLeft < 0 ? "CRITICAL" : "WARNING";
+      const title =
+        daysLeft < 0
+          ? "Epinephrine in the emergency kit has expired"
+          : `Epinephrine expires in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`;
+      for (const userId of userIds) {
+        proposals.push({
+          userId,
+          practiceId,
+          type: "ALLERGY_KIT_EXPIRING",
+          severity,
+          title,
+          body: "Replace the auto-injector at /programs/allergy.",
+          href: "/programs/allergy",
+          entityKey: `allergy-kit-${lastKit.id}`,
+        });
+      }
+    }
+  }
+
+  return proposals;
+}
+
 /**
  * Aggregate all generators for a practice. Order doesn't affect
  * uniqueness (dedup runs on insert), but sorting keeps the digest email
@@ -279,11 +410,12 @@ export async function generateAllNotifications(
   userIds: string[],
 ): Promise<NotificationProposal[]> {
   if (userIds.length === 0) return [];
-  const [sra, creds, vendors, incidents] = await Promise.all([
+  const [sra, creds, vendors, incidents, allergy] = await Promise.all([
     generateSraNotifications(tx, practiceId, userIds),
     generateCredentialNotifications(tx, practiceId, userIds),
     generateVendorBaaNotifications(tx, practiceId, userIds),
     generateIncidentNotifications(tx, practiceId, userIds),
+    generateAllergyNotifications(tx, practiceId, userIds),
   ]);
-  return [...sra, ...creds, ...vendors, ...incidents];
+  return [...sra, ...creds, ...vendors, ...incidents, ...allergy];
 }

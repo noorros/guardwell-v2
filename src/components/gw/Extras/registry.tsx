@@ -25,6 +25,7 @@ import { DeaExtras } from "./DeaExtras";
 import { CliaExtras } from "./CliaExtras";
 import { MacraExtras } from "./MacraExtras";
 import { TcpaExtras } from "./TcpaExtras";
+import { AllergyExtras } from "./AllergyExtras";
 
 export interface ExtrasComponentProps {
   practiceName: string;
@@ -47,4 +48,5 @@ export const EXTRAS_BY_FRAMEWORK_CODE: Record<string, ExtrasComponent> = {
   CLIA: CliaExtras,
   MACRA: MacraExtras,
   TCPA: TcpaExtras,
+  ALLERGY: AllergyExtras,
 };

@@ -130,6 +130,10 @@ model Practice {
   dripSends           OnboardingDripSent[]
   phishingDrills      PhishingDrill[]
   backupVerifications BackupVerification[]
+  allergyCompetencies     AllergyCompetency[]
+  allergyQuizAttempts     AllergyQuizAttempt[]
+  allergyEquipmentChecks  AllergyEquipmentCheck[]
+  allergyDrills           AllergyDrill[]
 
   @@index([primaryState])
   @@index([subscriptionStatus])
@@ -159,10 +163,19 @@ model PracticeUser {
   // attestation. Captured by an officer (no IdP integration in v2 launch
   // scope), not the user themselves, so it counts as evidence.
   mfaEnrolledAt       DateTime?
+  // USP 797 §21 — per-user gate. true = this user compounds allergen
+  // extracts and must complete the annual 3-component competency.
+  requiresAllergyCompetency      Boolean @default(false)
 
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   practice    Practice     @relation(fields: [practiceId], references: [id], onDelete: Cascade)
   credentials Credential[]
+  allergyCompetencies        AllergyCompetency[]    @relation("AllergyCompetencyHolder")
+  allergyFingertipAttestations AllergyCompetency[]  @relation("AllergyFingertipAttestor")
+  allergyMediaFillAttestations AllergyCompetency[]  @relation("AllergyMediaFillAttestor")
+  allergyQuizAttempts        AllergyQuizAttempt[]   @relation("AllergyQuizTaker")
+  allergyEquipmentChecks     AllergyEquipmentCheck[] @relation("AllergyCheckPerformedBy")
+  allergyDrillsLed           AllergyDrill[]         @relation("AllergyDrillLedBy")
 
   @@unique([userId, practiceId])
   @@index([practiceId, role])
@@ -315,6 +328,10 @@ model PracticeComplianceProfile {
   // Descriptive metadata — not gates today but surfaced in reports.
   specialtyCategory             String? // PRIMARY_CARE | SPECIALTY | DENTAL | BEHAVIORAL | ALLIED | OTHER
   providerCount                 Int?
+  // Allergy/immunology specialty practices that compound allergen extracts
+  // are subject to USP 797 §21. Toggling true enables the ALLERGY framework
+  // via the PRACTICE_PROFILE_UPDATED projection.
+  compoundsAllergens            Boolean  @default(false)
   createdAt                     DateTime @default(now())
   updatedAt                     DateTime @updatedAt
 
@@ -335,6 +352,9 @@ enum NotificationType {
   INCIDENT_BREACH_DEADLINE_APPROACHING
   POLICY_STALE
   WELCOME
+  ALLERGY_DRILL_DUE
+  ALLERGY_FRIDGE_OVERDUE
+  ALLERGY_KIT_EXPIRING
 }
 
 enum NotificationSeverity {
@@ -1196,4 +1216,169 @@ model OnboardingDripSent {
 
   @@unique([practiceId, day])
   @@index([sentAt])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Allergy / USP 797 §21 — allergen extract compounding compliance
+// (docs/plans/2026-04-27-allergy-module.md)
+// ────────────────────────────────────────────────────────────────────────────
+
+enum AllergyQuizCategory {
+  ASEPTIC_TECHNIQUE
+  CALCULATIONS
+  LABELING
+  BEYOND_USE_DATES
+  DOCUMENTATION
+  EMERGENCY_RESPONSE
+  STORAGE_STABILITY
+  REGULATIONS
+}
+
+enum AllergyCheckType {
+  EMERGENCY_KIT
+  REFRIGERATOR_TEMP
+  SKIN_TEST_SUPPLIES
+}
+
+/// Per-staff, per-year record of all three USP 797 §21 competency
+/// components. Projected from ALLERGY_QUIZ_COMPLETED +
+/// ALLERGY_FINGERTIP_TEST_PASSED + ALLERGY_MEDIA_FILL_PASSED events.
+/// `isFullyQualified` is recomputed after every projection write.
+model AllergyCompetency {
+  id                    String    @id @default(cuid())
+  practiceId            String
+  practiceUserId        String
+  year                  Int       // calendar year (e.g. 2026)
+  // Component A: written quiz (ALLERGY_QUIZ_COMPLETED with passed=true)
+  quizAttemptId         String?   @unique
+  quizPassedAt          DateTime?
+  // Component B: gloved fingertip + thumb sampling
+  // (USP §21: 3 passes required for initial qualification; 1 for annual renewal)
+  fingertipPassCount    Int       @default(0)
+  fingertipLastPassedAt DateTime?
+  fingertipAttestedById String?
+  fingertipNotes        String?   @db.Text
+  // Component C: media fill test (ALLERGY_MEDIA_FILL_PASSED)
+  mediaFillPassedAt     DateTime?
+  mediaFillAttestedById String?
+  mediaFillNotes        String?   @db.Text
+  // Derived
+  isFullyQualified      Boolean   @default(false)
+  lastCompoundedAt      DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  practice           Practice            @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  practiceUser       PracticeUser        @relation("AllergyCompetencyHolder", fields: [practiceUserId], references: [id], onDelete: Cascade)
+  fingertipAttestor  PracticeUser?       @relation("AllergyFingertipAttestor", fields: [fingertipAttestedById], references: [id], onDelete: SetNull)
+  mediaFillAttestor  PracticeUser?       @relation("AllergyMediaFillAttestor", fields: [mediaFillAttestedById], references: [id], onDelete: SetNull)
+  passingAttempt     AllergyQuizAttempt? @relation("PassingAttempt", fields: [quizAttemptId], references: [id])
+
+  @@unique([practiceUserId, year])
+  @@index([practiceId, year])
+  @@index([practiceId, isFullyQualified])
+}
+
+/// USP 797 §21 quiz question. Static catalog seeded once via
+/// scripts/seed-allergy.ts; not per-practice.
+model AllergyQuizQuestion {
+  id           String              @id @default(cuid())
+  questionText String              @db.Text
+  options      Json                // [{id: "a", text: "..."}, {id: "b", text: "..."}]
+  correctId    String              // matches the id from options
+  explanation  String?             @db.Text
+  category     AllergyQuizCategory
+  isActive     Boolean             @default(true)
+  displayOrder Int                 @default(0)
+  createdAt    DateTime            @default(now())
+
+  answers AllergyQuizAnswer[]
+}
+
+/// One quiz attempt by a staff member. Result event = ALLERGY_QUIZ_COMPLETED.
+model AllergyQuizAttempt {
+  id             String    @id @default(cuid())
+  practiceId     String
+  practiceUserId String
+  year           Int
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+  score          Int?      // 0-100 percentage
+  passed         Boolean?  // true if score >= 80
+  totalQuestions Int       @default(0)
+  correctAnswers Int       @default(0)
+
+  practice          Practice            @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  practiceUser      PracticeUser        @relation("AllergyQuizTaker", fields: [practiceUserId], references: [id], onDelete: Cascade)
+  answers           AllergyQuizAnswer[]
+  passingCompetency AllergyCompetency?  @relation("PassingAttempt")
+
+  @@index([practiceId, practiceUserId, year])
+  @@index([practiceUserId, completedAt])
+}
+
+/// Per-question answer record on a quiz attempt.
+model AllergyQuizAnswer {
+  id         String  @id @default(cuid())
+  attemptId  String
+  questionId String
+  selectedId String
+  isCorrect  Boolean
+
+  attempt  AllergyQuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question AllergyQuizQuestion @relation(fields: [questionId], references: [id])
+
+  @@unique([attemptId, questionId])
+}
+
+/// Equipment check log. checkType discriminator drives which fields are set.
+/// Projected from ALLERGY_EQUIPMENT_CHECK_LOGGED events.
+/// Append-only: rows are never mutated after creation.
+model AllergyEquipmentCheck {
+  id              String           @id @default(cuid())
+  practiceId      String
+  checkedById     String           // PracticeUser.id
+  checkType       AllergyCheckType
+  checkedAt       DateTime         @default(now())
+  // EMERGENCY_KIT
+  epiExpiryDate   DateTime?
+  epiLotNumber    String?
+  allItemsPresent Boolean?
+  itemsReplaced   String?          @db.Text
+  // REFRIGERATOR_TEMP
+  temperatureC    Float?
+  inRange         Boolean?         // acceptable: 2.0–8.0°C
+  // shared
+  notes           String?          @db.Text
+  createdAt       DateTime         @default(now())
+
+  practice  Practice     @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  checkedBy PracticeUser @relation("AllergyCheckPerformedBy", fields: [checkedById], references: [id])
+
+  @@index([practiceId, checkType, checkedAt])
+}
+
+/// Anaphylaxis drill log. Annual minimum per practice. Projected from
+/// ALLERGY_DRILL_LOGGED events. Append-only: rows are never mutated after creation.
+/// `participantIds` stores PracticeUser.id values without FK enforcement;
+/// resolve names with a separate findMany. Acceptable for typical small
+/// staff sizes; revisit with a join table if drills routinely have 20+
+/// participants or "drills participated in by user X" becomes a hot query.
+model AllergyDrill {
+  id                String   @id @default(cuid())
+  practiceId        String
+  conductedById     String   // PracticeUser.id
+  conductedAt       DateTime
+  scenario          String   @db.Text
+  participantIds    String[]            // PracticeUser.id[]
+  durationMinutes   Int?
+  observations      String?  @db.Text
+  correctiveActions String?  @db.Text
+  nextDrillDue      DateTime?
+  createdAt         DateTime @default(now())
+
+  practice    Practice     @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  conductedBy PracticeUser @relation("AllergyDrillLedBy", fields: [conductedById], references: [id])
+
+  @@index([practiceId, conductedAt])
 }

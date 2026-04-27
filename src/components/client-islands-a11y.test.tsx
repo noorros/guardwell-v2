@@ -95,6 +95,7 @@ const COMPLIANCE_PROFILE_INITIAL = {
   billsMedicaid: false,
   subjectToMacraMips: false,
   sendsAutomatedPatientMessages: true,
+  compoundsAllergens: false,
   specialtyCategory: "PRIMARY_CARE",
   providerCount: 3,
 } as const;
@@ -168,6 +169,7 @@ describe("Client island accessibility audit (axe-core)", () => {
             billsMedicaid: false,
             subjectToMacraMips: false,
             sendsAutomatedPatientMessages: false,
+            compoundsAllergens: false,
             specialtyCategory: null,
             providerCount: null,
           }}

@@ -64,6 +64,7 @@ export default async function PracticeSettingsPage() {
                 subjectToMacraMips: profile?.subjectToMacraMips ?? true,
                 sendsAutomatedPatientMessages:
                   profile?.sendsAutomatedPatientMessages ?? true,
+                compoundsAllergens: profile?.compoundsAllergens ?? false,
                 specialtyCategory: profile?.specialtyCategory ?? null,
                 providerCount: profile?.providerCount ?? null,
               }}
