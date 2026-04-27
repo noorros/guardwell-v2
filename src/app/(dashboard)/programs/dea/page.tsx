@@ -23,16 +23,29 @@ export default async function DeaProgramPage() {
   if (!framework) {
     redirect("/dashboard" as Route);
   }
-  // 20 most recent inventories with item counts. Phase B is inventory-only;
-  // Orders / Disposals / Theft & Loss tabs ship in Phase C/D.
-  const inventories = await db.deaInventory.findMany({
-    where: { practiceId: pu.practiceId },
-    orderBy: { asOfDate: "desc" },
-    take: 20,
-    include: {
-      _count: { select: { items: true } },
-    },
-  });
+  // 20 most recent records per tab. Phase C ships Inventory + Orders +
+  // Disposals; the Theft & Loss tab still renders <ComingSoon> until
+  // Phase D.
+  const [inventories, orders, disposals] = await Promise.all([
+    db.deaInventory.findMany({
+      where: { practiceId: pu.practiceId },
+      orderBy: { asOfDate: "desc" },
+      take: 20,
+      include: {
+        _count: { select: { items: true } },
+      },
+    }),
+    db.deaOrderRecord.findMany({
+      where: { practiceId: pu.practiceId },
+      orderBy: { orderedAt: "desc" },
+      take: 20,
+    }),
+    db.deaDisposalRecord.findMany({
+      where: { practiceId: pu.practiceId },
+      orderBy: { disposalDate: "desc" },
+      take: 20,
+    }),
+  ]);
 
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-6">
@@ -52,7 +65,6 @@ export default async function DeaProgramPage() {
       </header>
       <DeaDashboard
         canManage={pu.role === "OWNER" || pu.role === "ADMIN"}
-        currentUserId={pu.userId}
         inventories={inventories.map((i) => ({
           id: i.id,
           asOfDate: i.asOfDate.toISOString(),
@@ -60,6 +72,28 @@ export default async function DeaProgramPage() {
           witnessUserId: i.witnessUserId,
           notes: i.notes,
           itemCount: i._count.items,
+        }))}
+        orders={orders.map((o) => ({
+          id: o.id,
+          orderedAt: o.orderedAt.toISOString(),
+          receivedAt: o.receivedAt ? o.receivedAt.toISOString() : null,
+          supplierName: o.supplierName,
+          form222Number: o.form222Number,
+          drugName: o.drugName,
+          schedule: o.schedule,
+          quantity: o.quantity,
+          unit: o.unit,
+        }))}
+        disposals={disposals.map((d) => ({
+          id: d.id,
+          disposalDate: d.disposalDate.toISOString(),
+          reverseDistributorName: d.reverseDistributorName,
+          disposalMethod: d.disposalMethod,
+          drugName: d.drugName,
+          schedule: d.schedule,
+          quantity: d.quantity,
+          unit: d.unit,
+          form41Filed: d.form41Filed,
         }))}
       />
     </main>
