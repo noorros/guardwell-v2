@@ -134,6 +134,7 @@ model Practice {
   allergyQuizAttempts     AllergyQuizAttempt[]
   allergyEquipmentChecks  AllergyEquipmentCheck[]
   allergyDrills           AllergyDrill[]
+  evidence                Evidence[]
 
   @@index([primaryState])
   @@index([subscriptionStatus])
@@ -170,6 +171,7 @@ model PracticeUser {
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   practice    Practice     @relation(fields: [practiceId], references: [id], onDelete: Cascade)
   credentials Credential[]
+  evidenceUploaded           Evidence[]             @relation("EvidenceUploadedBy")
   allergyCompetencies        AllergyCompetency[]    @relation("AllergyCompetencyHolder")
   allergyFingertipAttestations AllergyCompetency[]  @relation("AllergyFingertipAttestor")
   allergyMediaFillAttestations AllergyCompetency[]  @relation("AllergyMediaFillAttestor")
@@ -1382,4 +1384,41 @@ model AllergyDrill {
   conductedBy PracticeUser @relation("AllergyDrillLedBy", fields: [conductedById], references: [id])
 
   @@index([practiceId, conductedAt])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Evidence / file uploads — polymorphic across credentials, vendors,
+// incidents, destruction logs, etc.
+// (docs/plans/2026-04-27-evidence-ceu-reminders.md)
+// ────────────────────────────────────────────────────────────────────────────
+
+enum EvidenceStatus {
+  PENDING
+  UPLOADED
+  DELETED
+}
+
+model Evidence {
+  id             String         @id @default(cuid())
+  practiceId     String
+  // Polymorphic association — entityType ∈ {DESTRUCTION_LOG, CREDENTIAL,
+  // VENDOR, INCIDENT, TECH_ASSET, TRAINING_COMPLETION, OTHER}
+  entityType     String
+  entityId       String         // FK to parent (loose; not enforced at DB level)
+  uploadedById   String?        // PracticeUser.id who triggered upload (nullable: SetNull on hard-delete)
+  gcsKey         String         @unique // path in GCS bucket
+  fileName       String         // original filename
+  mimeType       String         // application/pdf, image/png, etc.
+  fileSizeBytes  Int
+  status         EvidenceStatus @default(PENDING) // PENDING → UPLOADED → DELETED
+  uploadedAt     DateTime       @default(now())
+  confirmedAt    DateTime?
+  deletedAt      DateTime?
+  notes          String?        @db.Text
+
+  practice   Practice      @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  uploadedBy PracticeUser? @relation("EvidenceUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([practiceId, entityType, entityId])
+  @@index([practiceId, status])
 }

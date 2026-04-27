@@ -1,5 +1,6 @@
 // src/app/(dashboard)/programs/document-retention/page.tsx
-import { Trash2 } from "lucide-react";
+import Link from "next/link";
+import { FileText, Trash2 } from "lucide-react";
 import { db } from "@/lib/db";
 import { getPracticeUser } from "@/lib/rbac";
 import { Breadcrumb } from "@/components/gw/Breadcrumb";
@@ -32,17 +33,30 @@ export default async function DocumentRetentionPage() {
   const pu = await getPracticeUser();
   if (!pu) return null;
 
-  const [logs, performers] = await Promise.all([
+  const [logs, performers, evidenceCounts] = await Promise.all([
     db.destructionLog.findMany({
       where: { practiceId: pu.practiceId },
       orderBy: { destroyedAt: "desc" },
       take: 50,
     }),
     db.user.findMany({
+      where: { practiceUsers: { some: { practiceId: pu.practiceId, removedAt: null } } },
       select: { id: true, firstName: true, lastName: true, email: true },
+    }),
+    db.evidence.groupBy({
+      by: ["entityId"],
+      where: {
+        practiceId: pu.practiceId,
+        entityType: "DESTRUCTION_LOG",
+        status: { not: "DELETED" },
+      },
+      _count: { id: true },
     }),
   ]);
   const userById = new Map(performers.map((u) => [u.id, u]));
+  const evidenceCountById = new Map(
+    evidenceCounts.map((e) => [e.entityId, e._count.id]),
+  );
 
   const cutoff = new Date(Date.now() - RETENTION_WINDOW_MS);
   const recentCount = logs.filter((l) => l.destroyedAt >= cutoff).length;
@@ -118,22 +132,35 @@ export default async function DocumentRetentionPage() {
                         .filter(Boolean)
                         .join(" ")
                     : performer?.email ?? "Unknown";
+                const evCount = evidenceCountById.get(l.id) ?? 0;
                 return (
                   <li
                     key={l.id}
                     className="space-y-1 p-4"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium text-foreground">
+                      <Link
+                        href={`/programs/document-retention/${l.id}`}
+                        className="text-sm font-medium text-foreground hover:underline"
+                      >
                         {l.destroyedAt.toISOString().slice(0, 10)} ·{" "}
                         {DOC_TYPE_LABELS[l.documentType] ?? l.documentType}
-                      </p>
+                      </Link>
                       <Badge variant="secondary" className="text-[10px]">
                         {METHOD_LABELS[l.method] ?? l.method}
                       </Badge>
                       {l.volumeEstimate && (
                         <Badge variant="outline" className="text-[10px]">
                           {l.volumeEstimate}
+                        </Badge>
+                      )}
+                      {evCount > 0 && (
+                        <Badge
+                          variant="outline"
+                          className="gap-1 text-[10px] text-primary"
+                        >
+                          <FileText className="h-2.5 w-2.5" aria-hidden />
+                          {evCount} file{evCount === 1 ? "" : "s"}
                         </Badge>
                       )}
                     </div>
@@ -152,7 +179,7 @@ export default async function DocumentRetentionPage() {
                             rel="noopener noreferrer"
                             className="underline"
                           >
-                            Certificate
+                            Certificate URL
                           </a>
                         </>
                       ) : null}
@@ -162,6 +189,12 @@ export default async function DocumentRetentionPage() {
                         {l.notes}
                       </p>
                     )}
+                    <Link
+                      href={`/programs/document-retention/${l.id}`}
+                      className="text-[10px] text-primary hover:underline"
+                    >
+                      Upload certificate →
+                    </Link>
                   </li>
                 );
               })}
