@@ -316,6 +316,10 @@ export const EVENT_SCHEMAS = {
       isBreach: z.boolean(),
       affectedCount: z.number().int().min(0),
       ocrNotifyRequired: z.boolean(),
+      // HIPAA §164.402 documented memo. Optional in v1 for backward
+      // compat with events written before 2026-04-27; UI requires it
+      // for new determinations going forward.
+      memoText: z.string().max(10000).optional(),
     }),
   },
   INCIDENT_RESOLVED: {
