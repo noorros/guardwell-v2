@@ -1,17 +1,17 @@
-// src/app/api/notifications/digest/run/route.ts
+// src/app/api/cron/onboarding-drip/route.ts
 //
-// POST /api/notifications/digest/run
-// Callable by Cloud Scheduler on a cron schedule. Guarded by a shared
-// secret in the `X-Cron-Secret` header. Without the secret (or when
-// CRON_SECRET is unset on the server) the endpoint 403s so
-// it never runs accidentally.
+// POST /api/cron/onboarding-drip
+// Daily Cloud Scheduler trigger that runs the 5-email onboarding drip per
+// docs/specs/onboarding-flow.md § Phase E. Guarded by an X-Cron-Secret
+// header validated against the `CRON_SECRET` env var (same secret +
+// pattern as /api/notifications/digest/run, so a single Cloud Run
+// secret reference covers every cron in this codebase).
 //
-// Also available for authenticated manual triggers by OWNER/ADMIN via
-// /settings/notifications (follow-up PR) — same handler, different
-// auth path.
+// Without the secret (or when CRON_SECRET is unset on the server) the
+// endpoint 403s so it never runs accidentally.
 
 import { NextResponse } from "next/server";
-import { runNotificationDigest } from "@/lib/notifications/run-digest";
+import { runOnboardingDrip } from "@/lib/onboarding/run-drip";
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const summary = await runNotificationDigest();
+    const summary = await runOnboardingDrip();
     return NextResponse.json({ ok: true, ...summary });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

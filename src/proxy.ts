@@ -20,6 +20,11 @@ const PUBLIC_ROUTES = [
   "/api/auth/sync",
   "/api/stripe/webhook",
   "/api/health",
+  // Cron endpoints — Cloud Scheduler hits these without a Firebase
+  // session. Each route handler enforces its own X-Cron-Secret header
+  // check, which is the actual auth gate.
+  "/api/cron",
+  "/api/notifications/digest/run",
 ];
 
 const TOKEN_COOKIE = "fb-token";
