@@ -1,5 +1,7 @@
 // src/app/(dashboard)/programs/vendors/page.tsx
-import { Building2 } from "lucide-react";
+import Link from "next/link";
+import type { Route } from "next";
+import { Building2, FileUp, FileDown } from "lucide-react";
 import { db } from "@/lib/db";
 import { getPracticeUser } from "@/lib/rbac";
 import { Breadcrumb } from "@/components/gw/Breadcrumb";
@@ -59,6 +61,23 @@ export default async function VendorsPage() {
           )}
         </div>
       </header>
+
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <Link
+          href={"/programs/vendors/bulk-import" as Route}
+          className="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 font-medium hover:bg-accent"
+        >
+          <FileUp className="h-3.5 w-3.5" aria-hidden /> Bulk import (CSV)
+        </Link>
+        {vendors.length > 0 && (
+          <a
+            href="/api/vendors/export"
+            className="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 font-medium hover:bg-accent"
+          >
+            <FileDown className="h-3.5 w-3.5" aria-hidden /> Export CSV
+          </a>
+        )}
+      </div>
 
       <AddVendorForm />
 

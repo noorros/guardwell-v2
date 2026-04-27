@@ -43,8 +43,9 @@ Things only Noorros can do, listed here for the handoff.
 
 | # | Chunk | Effort | PR target |
 |---|-------|--------|-----------|
-| 1 | Reports framework + 2 reports (training summary, incident summary) | 1 day | 1 PR |
-| 2 | Remaining 3 reports (vendor+BAA, credentials, annual P&P) | 1 day | 1 PR |
+| 1 | Reports framework + 2 reports (training summary, incident summary) | 1 day | ALREADY SHIPPED |
+| 2 | Remaining 3 reports (vendor+BAA, credentials, annual P&P) | 1 day | ✅ this session |
+| 2.5 | **Bulk CSV import/export** — extract generic `<BulkCsvImport>` from `<BulkInviteForm>`, add to /programs/security-assets, /programs/vendors, /programs/credentials. CSV export buttons on the same surfaces. | 2 days | 1-3 PRs |
 | 3 | Asset inventory → SRA wiring | 0.5 day | 1 PR |
 | 4 | Admin dashboard MVP | 2 days | 1-2 PRs |
 | 5 | A11y pass | 2 days | 1-2 PRs |

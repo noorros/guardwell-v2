@@ -1,5 +1,7 @@
 // src/app/(dashboard)/programs/security-assets/page.tsx
-import { Server, ShieldAlert } from "lucide-react";
+import Link from "next/link";
+import type { Route } from "next";
+import { Server, ShieldAlert, FileUp, FileDown } from "lucide-react";
 import { db } from "@/lib/db";
 import { getPracticeUser } from "@/lib/rbac";
 import { Breadcrumb } from "@/components/gw/Breadcrumb";
@@ -103,6 +105,23 @@ export default async function SecurityAssetsPage() {
             </p>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <Link
+          href={"/programs/security-assets/bulk-import" as Route}
+          className="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 font-medium hover:bg-accent"
+        >
+          <FileUp className="h-3.5 w-3.5" aria-hidden /> Bulk import (CSV)
+        </Link>
+        {assets.length > 0 && (
+          <a
+            href="/api/security-assets/export"
+            className="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 font-medium hover:bg-accent"
+          >
+            <FileDown className="h-3.5 w-3.5" aria-hidden /> Export CSV
+          </a>
+        )}
       </div>
 
       <AssetForm />
