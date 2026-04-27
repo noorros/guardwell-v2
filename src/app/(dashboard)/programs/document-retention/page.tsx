@@ -1,5 +1,6 @@
 // src/app/(dashboard)/programs/document-retention/page.tsx
 import Link from "next/link";
+import type { Route } from "next";
 import { FileText, Trash2 } from "lucide-react";
 import { db } from "@/lib/db";
 import { getPracticeUser } from "@/lib/rbac";
@@ -140,7 +141,7 @@ export default async function DocumentRetentionPage() {
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
-                        href={`/programs/document-retention/${l.id}`}
+                        href={`/programs/document-retention/${l.id}` as Route}
                         className="text-sm font-medium text-foreground hover:underline"
                       >
                         {l.destroyedAt.toISOString().slice(0, 10)} ·{" "}
@@ -190,7 +191,7 @@ export default async function DocumentRetentionPage() {
                       </p>
                     )}
                     <Link
-                      href={`/programs/document-retention/${l.id}`}
+                      href={`/programs/document-retention/${l.id}` as Route}
                       className="text-[10px] text-primary hover:underline"
                     >
                       Upload certificate →
