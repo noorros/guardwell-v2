@@ -10,6 +10,7 @@ import {
 } from "@/components/gw/MajorBreachBanner";
 import { Inbox } from "lucide-react";
 import { FirstRunReminderBanner } from "./FirstRunReminderBanner";
+import { ComplianceTrackWidget } from "./ComplianceTrackWidget";
 
 export const metadata = {
   title: "Dashboard · GuardWell",
@@ -23,7 +24,13 @@ export default async function DashboardPage() {
   const pu = await getPracticeUser();
   if (!pu) return null;
 
-  const [eventCount, majorBreach, practiceMeta] = await Promise.all([
+  const [
+    eventCount,
+    majorBreach,
+    practiceMeta,
+    totalTrackTasks,
+    completedTrackTasks,
+  ] = await Promise.all([
     db.eventLog.count({ where: { practiceId: pu.practiceId } }),
     // Surface the most imminent unresolved major breach (500+ individuals).
     // Sorted by soonest discovery so the closest-to-deadline breach wins.
@@ -45,6 +52,17 @@ export default async function DashboardPage() {
       where: { id: pu.practiceId },
       select: { firstRunCompletedAt: true },
     }),
+    // Compliance Track progress for the dashboard widget — two cheap
+    // counts (no row data needed for the widget itself).
+    db.practiceTrackTask.count({
+      where: { practiceId: pu.practiceId },
+    }),
+    db.practiceTrackTask.count({
+      where: {
+        practiceId: pu.practiceId,
+        completedAt: { not: null },
+      },
+    }),
   ]);
 
   const officerRoles: Array<"Privacy Officer" | "Security Officer" | "Compliance Officer"> = [];
@@ -55,6 +73,11 @@ export default async function DashboardPage() {
   return (
     <main className="mx-auto max-w-3xl space-y-6 p-6">
       {!practiceMeta.firstRunCompletedAt && <FirstRunReminderBanner />}
+      <ComplianceTrackWidget
+        totalTasks={totalTrackTasks}
+        completedTasks={completedTrackTasks}
+        firstRunCompletedAt={practiceMeta.firstRunCompletedAt}
+      />
       {majorBreach && (
         <Link
           href={`/programs/incidents/${majorBreach.id}` as Route}
