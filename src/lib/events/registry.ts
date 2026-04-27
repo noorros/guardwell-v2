@@ -60,6 +60,11 @@ export const EVENT_TYPES = [
   "ALLERGY_MEDIA_FILL_PASSED",
   "ALLERGY_EQUIPMENT_CHECK_LOGGED",
   "ALLERGY_DRILL_LOGGED",
+  // Evidence / file uploads — polymorphic across credentials, vendors, etc.
+  // see docs/plans/2026-04-27-evidence-ceu-reminders.md
+  "EVIDENCE_UPLOAD_REQUESTED",
+  "EVIDENCE_UPLOAD_CONFIRMED",
+  "EVIDENCE_DELETED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -712,6 +717,35 @@ export const EVENT_SCHEMAS = {
       observations: z.string().max(2000).nullable().optional(),
       correctiveActions: z.string().max(2000).nullable().optional(),
       nextDrillDue: z.string().datetime().nullable().optional(),
+    }),
+  },
+  // ────────────────────────────────────────────────────────────────────
+  // Evidence / file uploads — polymorphic, see Evidence model in schema.prisma
+  // ────────────────────────────────────────────────────────────────────
+  // Client requested a signed upload URL; Evidence row created with PENDING.
+  EVIDENCE_UPLOAD_REQUESTED: {
+    1: z.object({
+      evidenceId: z.string().min(1),
+      entityType: z.string().min(1).max(50),
+      entityId: z.string().min(1),
+      fileName: z.string().min(1).max(500),
+      gcsKey: z.string().min(1).max(1000),
+      mimeType: z.string().min(1).max(200),
+      fileSizeBytes: z.number().int().min(0),
+      uploadedById: z.string().min(1), // PracticeUser.id
+    }),
+  },
+  // Client confirmed the file landed in GCS; status flips to UPLOADED.
+  EVIDENCE_UPLOAD_CONFIRMED: {
+    1: z.object({
+      evidenceId: z.string().min(1),
+    }),
+  },
+  // Soft-delete — status flips to DELETED; GCS lifecycle handles physical removal.
+  EVIDENCE_DELETED: {
+    1: z.object({
+      evidenceId: z.string().min(1),
+      reason: z.string().max(500).optional(),
     }),
   },
 } as const;
