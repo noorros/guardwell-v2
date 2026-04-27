@@ -16,6 +16,14 @@ import { projectAllergyEquipmentCheckLogged } from "@/lib/events/projections/all
 import { projectAllergyDrillLogged } from "@/lib/events/projections/allergyDrill";
 import { db } from "@/lib/db";
 
+// HTML <input type="date"> emits YYYY-MM-DD; the action converts to a
+// full ISO datetime before forwarding to the event registry (which
+// requires z.string().datetime()). This regex catches garbage at the
+// Zod boundary rather than letting it surface later as Invalid Date.
+const dateOnlyString = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD date");
+
 async function requireAdmin() {
   const user = await requireUser();
   const pu = await getPracticeUser();
@@ -157,7 +165,7 @@ export async function submitQuizAttemptAction(
 
 const EquipmentInput = z.object({
   checkType: z.enum(["EMERGENCY_KIT", "REFRIGERATOR_TEMP", "SKIN_TEST_SUPPLIES"]),
-  epiExpiryDate: z.string().nullable().optional(),
+  epiExpiryDate: dateOnlyString.nullable().optional(),
   epiLotNumber: z.string().max(100).nullable().optional(),
   allItemsPresent: z.boolean().nullable().optional(),
   itemsReplaced: z.string().max(2000).nullable().optional(),
@@ -197,13 +205,13 @@ export async function logEquipmentCheckAction(input: z.infer<typeof EquipmentInp
 }
 
 const DrillInput = z.object({
-  conductedAt: z.string().min(1),
+  conductedAt: dateOnlyString,
   scenario: z.string().min(1).max(2000),
   participantIds: z.array(z.string().min(1)).min(1),
   durationMinutes: z.number().int().min(0).nullable().optional(),
   observations: z.string().max(2000).nullable().optional(),
   correctiveActions: z.string().max(2000).nullable().optional(),
-  nextDrillDue: z.string().nullable().optional(),
+  nextDrillDue: dateOnlyString.nullable().optional(),
 });
 
 export async function logDrillAction(input: z.infer<typeof DrillInput>) {
