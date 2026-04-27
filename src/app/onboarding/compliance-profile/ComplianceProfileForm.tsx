@@ -80,18 +80,18 @@ const TOGGLES: ToggleDef[] = [
     enables: "MACRA",
   },
   {
+    key: "compoundsAllergens",
+    title: "Compounds allergen extracts",
+    description:
+      "You mix or dilute allergen extracts on-site for skin testing or immunotherapy. Subject to USP 797 §21.",
+    enables: "ALLERGY",
+  },
+  {
     key: "sendsAutomatedPatientMessages",
     title: "Automated patient communications",
     description:
       "You send automated text, voice, or email reminders, appointment confirmations, or marketing to patients.",
     enables: "TCPA",
-  },
-  {
-    key: "compoundsAllergens",
-    title: "Compounds allergens / performs allergy testing",
-    description:
-      "Your practice compounds allergy extracts or administers skin-test or immunotherapy injections on-site.",
-    enables: "ALLERGY",
   },
 ];
 
