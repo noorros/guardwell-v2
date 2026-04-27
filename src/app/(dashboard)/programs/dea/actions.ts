@@ -1,7 +1,6 @@
 // src/app/(dashboard)/programs/dea/actions.ts
 "use server";
 
-import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
@@ -19,7 +18,16 @@ const ItemSchema = z.object({
 });
 
 const InventoryInput = z.object({
-  asOfDate: z.string().datetime(),
+  // Client-generated cuid/uuid. Server uses this as the idempotency key
+  // so a fast double-click of Submit (which would generate two separate
+  // server-side UUIDs) cannot create two rows for the same submission.
+  inventoryId: z.string().min(1).max(60),
+  asOfDate: z
+    .string()
+    .datetime()
+    .refine((s) => new Date(s).getTime() <= Date.now() + 24 * 60 * 60 * 1000, {
+      message: "as-of date cannot be in the future",
+    }),
   // Phase B accepts a free-text witness label rather than a user picker;
   // wired through to the witnessUserId scalar so future phases can
   // upgrade to a real user-id ref without a schema change.
@@ -34,11 +42,17 @@ export async function recordInventoryAction(
   const user = await requireUser();
   const pu = await getPracticeUser();
   if (!pu) throw new Error("Unauthorized");
+  // Server-side role gate: only OWNER + ADMIN can record a regulatory
+  // inventory snapshot. The InventoryTab UI hides the form for non-admins,
+  // but the action is exposed via "use server" — direct callers must hit
+  // the same gate.
+  if (pu.role !== "OWNER" && pu.role !== "ADMIN") {
+    throw new Error("Forbidden");
+  }
   const parsed = InventoryInput.parse(input);
 
-  const inventoryId = randomUUID();
   const payload = {
-    inventoryId,
+    inventoryId: parsed.inventoryId,
     asOfDate: parsed.asOfDate,
     conductedByUserId: user.id,
     witnessUserId: parsed.witnessUserId ?? null,
@@ -59,10 +73,10 @@ export async function recordInventoryAction(
       actorUserId: user.id,
       type: "DEA_INVENTORY_RECORDED",
       payload,
-      // Deterministic per submission: dedupes retried server-action
-      // calls so the projection's deaInventory.create() never sees a
-      // duplicate ID and 500s on conflict (per Phase A code-review note).
-      idempotencyKey: `dea-inventory-${inventoryId}`,
+      // Deterministic per submission. Dedupes retried server-action
+      // calls AND fast double-clicks (since the client generated the
+      // inventoryId once and reuses it on retry).
+      idempotencyKey: `dea-inventory-${parsed.inventoryId}`,
     },
     async (tx) =>
       projectDeaInventoryRecorded(tx, {
@@ -74,5 +88,5 @@ export async function recordInventoryAction(
   revalidatePath("/programs/dea");
   revalidatePath("/dashboard");
   revalidatePath("/modules/dea");
-  return { inventoryId };
+  return { inventoryId: parsed.inventoryId };
 }

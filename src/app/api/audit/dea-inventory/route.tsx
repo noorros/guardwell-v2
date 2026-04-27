@@ -62,10 +62,19 @@ export async function GET(req: Request) {
       })
     : [];
   const userById = new Map(users.map((u) => [u.id, u]));
-  const formatName = (id: string | null): string | null => {
+  // The conductor is always a real User (server-action enforces it), so a
+  // missing record means the User was hard-deleted — render "Unknown" rather
+  // than leaking the raw cuid into the PDF. The witness field is free text
+  // entered via the Phase B form, so we keep the raw fallback for it.
+  const formatConductorName = (id: string): string => {
+    const u = userById.get(id);
+    if (!u) return "Unknown";
+    return [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email;
+  };
+  const formatWitnessName = (id: string | null): string | null => {
     if (!id) return null;
     const u = userById.get(id);
-    if (!u) return id; // fallback: free-text witness label
+    if (!u) return id; // free-text witness label
     return [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email;
   };
 
@@ -77,8 +86,8 @@ export async function GET(req: Request) {
         generatedAt: new Date(),
         inventory: {
           asOfDate: inventory.asOfDate,
-          conductedByName: formatName(inventory.conductedByUserId),
-          witnessName: formatName(inventory.witnessUserId),
+          conductedByName: formatConductorName(inventory.conductedByUserId),
+          witnessName: formatWitnessName(inventory.witnessUserId),
           notes: inventory.notes,
           items: inventory.items.map((it) => ({
             schedule: it.schedule,

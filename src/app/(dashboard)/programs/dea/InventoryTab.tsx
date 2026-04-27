@@ -28,6 +28,9 @@ const SCHEDULE_LABELS: Record<Schedule, string> = {
 };
 
 interface ItemDraft {
+  // Stable client-side ID so React `key={...}` doesn't reuse DOM nodes
+  // when an item is removed mid-list. Not sent to the server.
+  clientId: string;
   drugName: string;
   ndc: string;
   schedule: Schedule;
@@ -38,6 +41,10 @@ interface ItemDraft {
 
 function emptyItem(): ItemDraft {
   return {
+    clientId:
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2),
     drugName: "",
     ndc: "",
     schedule: "CII",
@@ -129,9 +136,19 @@ function NewInventoryForm() {
       return;
     }
 
+    // Generate the inventoryId client-side so that a fast double-click of
+    // Submit reuses the same ID on retry, dedupes via the server-side
+    // idempotencyKey, and never creates two rows for the same submission.
+    const inventoryId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2) +
+          Date.now().toString(36);
+
     startTransition(async () => {
       try {
         await recordInventoryAction({
+          inventoryId,
           // <input type="date"> emits YYYY-MM-DD; convert to start-of-day ISO.
           asOfDate: new Date(`${asOfDate}T00:00:00Z`).toISOString(),
           witnessUserId: witnessName.trim() || null,
@@ -203,7 +220,7 @@ function NewInventoryForm() {
         </h4>
         {items.map((it, idx) => (
           <div
-            key={idx}
+            key={it.clientId}
             className="rounded-md border bg-background p-3 space-y-3"
           >
             <div className="flex items-center justify-between">
