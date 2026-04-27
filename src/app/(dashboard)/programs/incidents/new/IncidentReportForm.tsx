@@ -44,6 +44,8 @@ export function IncidentReportForm({
   const [oshaInjuryNature, setOshaInjuryNature] = useState("");
   const [oshaOutcome, setOshaOutcome] = useState<string>("");
   const [oshaDaysAway, setOshaDaysAway] = useState("");
+  const [oshaDaysRestricted, setOshaDaysRestricted] = useState<string>("");
+  const [sharpsDeviceType, setSharpsDeviceType] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -86,7 +88,12 @@ export function IncidentReportForm({
           oshaDaysAway: isOsha && oshaDaysAway
             ? Number.parseInt(oshaDaysAway, 10)
             : null,
-          oshaDaysRestricted: null,
+          oshaDaysRestricted: isOsha && oshaDaysRestricted
+            ? Number.parseInt(oshaDaysRestricted, 10)
+            : null,
+          sharpsDeviceType: isOsha && sharpsDeviceType.trim()
+            ? sharpsDeviceType.trim()
+            : null,
         });
         router.push(`/programs/incidents/${res.incidentId}` as Route);
       } catch (err) {
@@ -261,6 +268,30 @@ export function IncidentReportForm({
                       onChange={(e) => setOshaDaysAway(e.target.value)}
                       className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
                     />
+                  </label>
+                  <label className="space-y-1 text-xs font-medium text-foreground">
+                    Days restricted (light duty / restricted work)
+                    <input
+                      type="number"
+                      min={0}
+                      value={oshaDaysRestricted}
+                      onChange={(e) => setOshaDaysRestricted(e.target.value)}
+                      className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                    />
+                  </label>
+                  <label className="space-y-1 text-xs font-medium text-foreground">
+                    Sharps device involved (if any)
+                    <input
+                      type="text"
+                      placeholder="Needle / scalpel / lancet / other"
+                      value={sharpsDeviceType}
+                      onChange={(e) => setSharpsDeviceType(e.target.value)}
+                      maxLength={200}
+                      className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                    />
+                    <span className="block text-[11px] font-normal text-muted-foreground">
+                      Required for the BBP §1910.1030 sharps injury log. Leave blank for non-sharps injuries.
+                    </span>
                   </label>
                 </div>
               </div>
