@@ -76,6 +76,14 @@ const REPORTS: ReportEntry[] = [
     href: "/api/audit/pp-attestation",
     icon: ShieldCheck,
   },
+  {
+    id: "osha-300",
+    title: "OSHA 300 — annual injury & illness log",
+    description:
+      "Log of OSHA-recordable injuries and illnesses for the calendar year (29 CFR §1904).",
+    href: "/api/audit/osha-300",
+    icon: AlertTriangle,
+  },
 ];
 
 export default async function AuditReportsPage() {
