@@ -10,6 +10,8 @@ import { appendEventAndApply } from "@/lib/events";
 import {
   projectCredentialUpserted,
   projectCredentialRemoved,
+  projectCeuActivityLogged,
+  projectCeuActivityRemoved,
 } from "@/lib/events/projections/credential";
 import { db } from "@/lib/db";
 
@@ -277,4 +279,130 @@ export async function removeCredentialAction(input: z.infer<typeof RemoveInput>)
   );
 
   revalidatePath("/programs/credentials");
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// CEU activity log + remove. Both enforce server-side OWNER/ADMIN gate
+// and verify the target credential / activity belongs to this practice.
+// ──────────────────────────────────────────────────────────────────────
+
+const CeuActivityInput = z.object({
+  ceuActivityId: z.string().min(1).max(60),
+  credentialId: z.string().min(1),
+  activityName: z.string().min(1).max(300),
+  provider: z.string().max(200).nullable().optional(),
+  activityDate: z
+    .string()
+    .datetime()
+    .refine(
+      (s) => new Date(s).getTime() <= Date.now() + 24 * 60 * 60 * 1000,
+      { message: "activity date cannot be in the future" },
+    ),
+  hoursAwarded: z.number().min(0).max(1000),
+  category: z.string().max(100).nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+});
+
+export async function logCeuActivityAction(
+  input: z.infer<typeof CeuActivityInput>,
+): Promise<{ ceuActivityId: string }> {
+  const user = await requireUser();
+  const pu = await getPracticeUser();
+  if (!pu) throw new Error("Unauthorized");
+  if (pu.role !== "OWNER" && pu.role !== "ADMIN") {
+    throw new Error("Forbidden");
+  }
+  const parsed = CeuActivityInput.parse(input);
+
+  // Cross-tenant guard: verify the credential belongs to this practice.
+  const credential = await db.credential.findUnique({
+    where: { id: parsed.credentialId },
+    select: { practiceId: true },
+  });
+  if (!credential || credential.practiceId !== pu.practiceId) {
+    throw new Error("Credential not found");
+  }
+
+  const payload = {
+    ceuActivityId: parsed.ceuActivityId,
+    credentialId: parsed.credentialId,
+    activityName: parsed.activityName,
+    provider: parsed.provider ?? null,
+    activityDate: parsed.activityDate,
+    hoursAwarded: parsed.hoursAwarded,
+    category: parsed.category ?? null,
+    certificateEvidenceId: null,
+    notes: parsed.notes ?? null,
+  };
+
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: user.id,
+      type: "CEU_ACTIVITY_LOGGED",
+      payload,
+      idempotencyKey: `ceu-${parsed.ceuActivityId}`,
+    },
+    async (tx) =>
+      projectCeuActivityLogged(tx, {
+        practiceId: pu.practiceId,
+        payload,
+      }),
+  );
+
+  revalidatePath("/programs/credentials");
+  revalidatePath(`/programs/credentials/${parsed.credentialId}`);
+  return { ceuActivityId: parsed.ceuActivityId };
+}
+
+const RemoveCeuInput = z.object({
+  ceuActivityId: z.string().min(1),
+  removedReason: z.string().max(500).nullable().optional(),
+});
+
+export async function removeCeuActivityAction(
+  input: z.infer<typeof RemoveCeuInput>,
+): Promise<void> {
+  const user = await requireUser();
+  const pu = await getPracticeUser();
+  if (!pu) throw new Error("Unauthorized");
+  if (pu.role !== "OWNER" && pu.role !== "ADMIN") {
+    throw new Error("Forbidden");
+  }
+  const parsed = RemoveCeuInput.parse(input);
+
+  // Cross-tenant guard: verify the activity belongs to a credential in this practice.
+  const activity = await db.ceuActivity.findUnique({
+    where: { id: parsed.ceuActivityId },
+    select: { practiceId: true, credentialId: true, retiredAt: true },
+  });
+  if (!activity || activity.practiceId !== pu.practiceId) {
+    throw new Error("CEU activity not found");
+  }
+  if (activity.retiredAt) return;
+
+  const payload = {
+    ceuActivityId: parsed.ceuActivityId,
+    removedReason: parsed.removedReason ?? null,
+  };
+
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: user.id,
+      type: "CEU_ACTIVITY_REMOVED",
+      payload,
+      // Each click is a distinct intent — no dedupe across separate clicks,
+      // but the second click is a no-op due to the retiredAt early-return above.
+      idempotencyKey: `ceu-remove-${parsed.ceuActivityId}-${Date.now()}`,
+    },
+    async (tx) =>
+      projectCeuActivityRemoved(tx, {
+        practiceId: pu.practiceId,
+        payload,
+      }),
+  );
+
+  revalidatePath("/programs/credentials");
+  revalidatePath(`/programs/credentials/${activity.credentialId}`);
 }
