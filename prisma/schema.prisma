@@ -149,6 +149,7 @@ model Practice {
   baaRequests             BaaRequest[]
   baaAcceptanceTokens     BaaAcceptanceToken[]
   macraActivityLogs       MacraActivityLog[]
+  conversationThreads     ConversationThread[]
 
   @@index([primaryState])
   @@index([subscriptionStatus])
@@ -1743,6 +1744,62 @@ model MacraActivityLog {
   practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
 
   @@index([practiceId, attestationYear, activityType])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// AI Concierge — chat thread + messages
+// (docs/plans/2026-04-28-phase-2-concierge-section-g.md PR A1)
+// ────────────────────────────────────────────────────────────────────────────
+
+/// AI Concierge conversation. Top-level container for a chat session.
+/// Projected from CONCIERGE_THREAD_CREATED events. Title may be auto-generated
+/// server-side from the first user message after the message lands.
+///
+/// userId stores User.id with no FK — matches PhishingDrill.loggedByUserId
+/// (line ~1500), BackupVerification.loggedByUserId (line ~1519), and
+/// MacraActivityLog.loggedByUserId (above). User-id integrity is enforced at
+/// the event payload validation layer (Zod min(1)). User deletion is rare;
+/// if it happens, threads remain as historical audit data, which is the
+/// correct behavior for an append-only conversation log.
+///
+/// Append-only at the projection level — only title, lastMessageAt, and
+/// archivedAt mutate after creation.
+model ConversationThread {
+  id            String    @id @default(cuid())
+  practiceId    String
+  userId        String    // User.id (no FK — see model header)
+  title         String?
+  createdAt     DateTime  @default(now())
+  lastMessageAt DateTime  @default(now())
+  archivedAt    DateTime?
+
+  practice Practice              @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  messages ConversationMessage[]
+
+  @@index([practiceId, archivedAt, lastMessageAt])
+  @@index([userId, lastMessageAt])
+}
+
+/// Single message in a Concierge thread. Append-only.
+/// role distinguishes USER / ASSISTANT / TOOL — TOOL rows store the
+/// tool_use input + tool_result output as a serialized JSON `payload`.
+/// inputTokens/outputTokens/costUsd/llmCallId are populated on ASSISTANT
+/// rows for observability (link back to LlmCall for prompt-cache hit-rate).
+model ConversationMessage {
+  id           String   @id @default(cuid())
+  threadId     String
+  role         String   // USER | ASSISTANT | TOOL
+  content      String   @db.Text  // human-readable; for TOOL rows: short summary
+  payload      Json     // raw structured payload (tool input/output, etc.)
+  inputTokens  Int?
+  outputTokens Int?
+  costUsd      Decimal? @db.Decimal(10, 6)
+  llmCallId    String?
+  createdAt    DateTime @default(now())
+
+  thread ConversationThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
 }
 
 // ────────────────────────────────────────────────────────────────────────────
