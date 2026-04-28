@@ -144,6 +144,88 @@ export async function generateCredentialNotifications(
 }
 
 /**
+ * Per-credential renewal reminders — fires CREDENTIAL_RENEWAL_DUE for
+ * each milestone day (default 90/60/30/7) before expiry. Reads the
+ * per-credential CredentialReminderConfig (or uses defaults if no row
+ * exists). Skips credentials that are retired or have no expiry date.
+ *
+ * Each milestone fires exactly once per credential because the entityKey
+ * embeds the milestone day; the (userId, type, entityKey) unique
+ * constraint dedups across digest runs.
+ */
+export async function generateCredentialRenewalNotifications(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  userIds: string[],
+): Promise<NotificationProposal[]> {
+  const credentials = await tx.credential.findMany({
+    where: {
+      practiceId,
+      retiredAt: null,
+      expiryDate: { not: null },
+    },
+    select: {
+      id: true,
+      title: true,
+      expiryDate: true,
+      holderId: true,
+      reminderConfig: {
+        select: { enabled: true, milestoneDays: true },
+      },
+    },
+  });
+
+  const proposals: NotificationProposal[] = [];
+  const DEFAULT_MILESTONES = [90, 60, 30, 7];
+
+  for (const cred of credentials) {
+    if (!cred.expiryDate) continue;
+    const config = cred.reminderConfig;
+    // Default to enabled when no config exists; explicit disable opts out.
+    if (config?.enabled === false) continue;
+    const milestones = config?.milestoneDays?.length
+      ? config.milestoneDays
+      : DEFAULT_MILESTONES;
+
+    const days = daysUntil(cred.expiryDate);
+    if (days === null) continue;
+    if (days < 0) continue; // Already expired — CREDENTIAL_EXPIRING handles past-expiry.
+
+    // Find the milestone day that has been crossed in the last 24h
+    // (days <= milestone but days > milestone - 1). Avoids re-firing
+    // every day until expiry — only the day the threshold flips.
+    const matchedMilestone = milestones.find(
+      (m) => days <= m && days > m - 1,
+    );
+    if (matchedMilestone === undefined) continue;
+
+    const severity: NotificationSeverity =
+      matchedMilestone <= 7
+        ? "CRITICAL"
+        : matchedMilestone <= 30
+          ? "WARNING"
+          : "INFO";
+    const entityKey = `credential:${cred.id}:milestone:${matchedMilestone}`;
+    const title = `${cred.title} — renewal in ${days} day${days === 1 ? "" : "s"}`;
+    const body = `This credential expires ${cred.expiryDate.toISOString().slice(0, 10)}. Plan the renewal now to avoid a compliance gap.`;
+
+    for (const uid of userIds) {
+      proposals.push({
+        userId: uid,
+        practiceId,
+        type: "CREDENTIAL_RENEWAL_DUE" as NotificationType,
+        severity,
+        title,
+        body,
+        href: `/programs/credentials/${cred.id}`,
+        entityKey,
+      });
+    }
+  }
+  return proposals;
+}
+
+/**
  * Vendor BAAs expiring within 60 days. Same shape as credential warnings.
  */
 export async function generateVendorBaaNotifications(
@@ -470,13 +552,30 @@ export async function generateAllNotifications(
   userIds: string[],
 ): Promise<NotificationProposal[]> {
   if (userIds.length === 0) return [];
-  const [sra, creds, vendors, incidents, allergy, allergyCompetency] = await Promise.all([
+  const [
+    sra,
+    creds,
+    credRenewals,
+    vendors,
+    incidents,
+    allergy,
+    allergyCompetency,
+  ] = await Promise.all([
     generateSraNotifications(tx, practiceId, userIds),
     generateCredentialNotifications(tx, practiceId, userIds),
+    generateCredentialRenewalNotifications(tx, practiceId, userIds),
     generateVendorBaaNotifications(tx, practiceId, userIds),
     generateIncidentNotifications(tx, practiceId, userIds),
     generateAllergyNotifications(tx, practiceId, userIds),
     generateAllergyCompetencyDueNotifications(tx, practiceId, userIds),
   ]);
-  return [...sra, ...creds, ...vendors, ...incidents, ...allergy, ...allergyCompetency];
+  return [
+    ...sra,
+    ...creds,
+    ...credRenewals,
+    ...vendors,
+    ...incidents,
+    ...allergy,
+    ...allergyCompetency,
+  ];
 }

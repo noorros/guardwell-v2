@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { GraduationCap, Plus, Trash2 } from "lucide-react";
+import { Bell, GraduationCap, Plus, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,11 @@ import {
   EvidenceUpload,
   type EvidenceItem,
 } from "@/components/gw/EvidenceUpload";
-import { logCeuActivityAction, removeCeuActivityAction } from "../actions";
+import {
+  logCeuActivityAction,
+  removeCeuActivityAction,
+  updateReminderConfigAction,
+} from "../actions";
 
 const FIELD_CLASS =
   "mt-1 block w-full rounded-md border bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -108,6 +112,7 @@ export function CredentialDetail({
   credentialType,
   credential,
   ceuActivities,
+  reminderConfig,
   initialEvidence,
 }: CredentialDetailProps) {
   const showCeuProgress =
@@ -256,6 +261,29 @@ export function CredentialDetail({
           {canManage && (
             <NewCeuActivityForm credentialId={credentialId} />
           )}
+        </CardContent>
+      </Card>
+
+      {/* ── Renewal reminders ────────────────────────────────────────── */}
+      <Card>
+        <CardContent className="space-y-3 p-6">
+          <div className="flex items-start gap-3">
+            <span className="flex h-8 w-8 items-center justify-center rounded-md bg-accent text-accent-foreground">
+              <Bell className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <div className="flex-1">
+              <h2 className="text-sm font-semibold">Renewal reminders</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Days before expiry to send a renewal reminder. Defaults: 90,
+                60, 30, 7.
+              </p>
+            </div>
+          </div>
+          <ReminderConfigForm
+            credentialId={credentialId}
+            reminderConfig={reminderConfig}
+            canManage={canManage}
+          />
         </CardContent>
       </Card>
     </div>
@@ -649,6 +677,170 @@ function NewCeuActivityForm({ credentialId }: { credentialId: string }) {
           }}
         >
           Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── ReminderConfigForm ───────────────────────────────────────────────────────
+
+const DEFAULT_MILESTONES = [90, 60, 30, 7];
+
+function formatMilestones(days: number[]): string {
+  return days.join(", ");
+}
+
+function parseMilestones(input: string): number[] | { error: string } {
+  const parts = input
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  if (parts.length === 0) return [];
+  if (parts.length > 20) {
+    return { error: "At most 20 milestone days." };
+  }
+  const result: number[] = [];
+  for (const p of parts) {
+    const n = Number.parseInt(p, 10);
+    if (!Number.isInteger(n) || n < 0 || n > 365 || `${n}` !== p) {
+      return {
+        error: `Each milestone must be a whole number between 0 and 365 (got "${p}").`,
+      };
+    }
+    result.push(n);
+  }
+  return result;
+}
+
+function ReminderConfigForm({
+  credentialId,
+  reminderConfig,
+  canManage,
+}: {
+  credentialId: string;
+  reminderConfig: CredentialDetailProps["reminderConfig"];
+  canManage: boolean;
+}) {
+  const initialEnabled = reminderConfig?.enabled ?? true;
+  const initialDays = reminderConfig?.milestoneDays?.length
+    ? reminderConfig.milestoneDays
+    : DEFAULT_MILESTONES;
+
+  const [enabled, setEnabled] = useState(initialEnabled);
+  const [daysInput, setDaysInput] = useState(formatMilestones(initialDays));
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  // Read-only view for VIEWER/STAFF.
+  if (!canManage) {
+    return (
+      <dl className="grid gap-2 text-sm sm:grid-cols-2">
+        <div>
+          <dt className="text-xs font-medium text-muted-foreground">Status</dt>
+          <dd className="mt-0.5">
+            {initialEnabled ? "Enabled" : "Disabled"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs font-medium text-muted-foreground">
+            Milestone days
+          </dt>
+          <dd className="mt-0.5 tabular-nums">
+            {initialEnabled
+              ? formatMilestones(initialDays)
+              : "—"}
+          </dd>
+        </div>
+      </dl>
+    );
+  }
+
+  const handleSubmit = () => {
+    setError(null);
+    setSuccess(false);
+
+    const parsed = parseMilestones(daysInput);
+    if (!Array.isArray(parsed)) {
+      setError(parsed.error);
+      return;
+    }
+    if (enabled && parsed.length === 0) {
+      setError("Add at least one milestone day, or disable reminders.");
+      return;
+    }
+
+    const configId = reminderConfig?.id ?? makeUuid();
+
+    startTransition(async () => {
+      try {
+        await updateReminderConfigAction({
+          configId,
+          credentialId,
+          enabled,
+          milestoneDays: parsed,
+        });
+        setSuccess(true);
+      } catch (e) {
+        setError(
+          e instanceof Error ? e.message : "Could not save reminders.",
+        );
+      }
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => {
+            setEnabled(e.target.checked);
+            setSuccess(false);
+          }}
+          disabled={isPending}
+          className="h-4 w-4 rounded border-input"
+        />
+        <span>Email me before this credential expires</span>
+      </label>
+      {enabled && (
+        <div>
+          <label htmlFor="reminder-days" className="text-xs font-medium">
+            Milestone days
+          </label>
+          <input
+            id="reminder-days"
+            type="text"
+            inputMode="numeric"
+            value={daysInput}
+            onChange={(e) => {
+              setDaysInput(e.target.value);
+              setSuccess(false);
+            }}
+            disabled={isPending}
+            placeholder="90, 60, 30, 7"
+            className={FIELD_CLASS}
+          />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Comma-separated whole numbers (0-365). Each day fires once.
+          </p>
+        </div>
+      )}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {success && (
+        <p className="text-xs text-[color:var(--gw-color-compliant)]">
+          Reminder schedule saved.
+        </p>
+      )}
+      <div className="flex items-center gap-2">
+        <Button
+          onClick={handleSubmit}
+          disabled={isPending}
+          size="sm"
+        >
+          {isPending ? "Saving…" : "Save reminders"}
         </Button>
       </div>
     </div>
