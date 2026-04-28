@@ -75,6 +75,12 @@ export const EVENT_TYPES = [
   "EVIDENCE_UPLOAD_REQUESTED",
   "EVIDENCE_UPLOAD_CONFIRMED",
   "EVIDENCE_DELETED",
+  // BAA (Business Associate Agreement) lifecycle — see chunk 6 plan
+  "BAA_DRAFT_UPLOADED",
+  "BAA_SENT_TO_VENDOR",
+  "BAA_ACKNOWLEDGED_BY_VENDOR",
+  "BAA_EXECUTED_BY_VENDOR",
+  "BAA_REJECTED_BY_VENDOR",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -959,6 +965,68 @@ export const EVENT_SCHEMAS = {
     1: z.object({
       evidenceId: z.string().min(1),
       reason: z.string().max(500).optional(),
+    }),
+  },
+  // ────────────────────────────────────────────────────────────────────
+  // BAA (Business Associate Agreement) lifecycle — see chunk 6 plan
+  // ────────────────────────────────────────────────────────────────────
+  // Practice uploaded a BAA draft document via the Evidence subsystem
+  // and created a BaaRequest in DRAFT state.
+  BAA_DRAFT_UPLOADED: {
+    1: z.object({
+      baaRequestId: z.string().min(1),
+      vendorId: z.string().min(1),
+      draftEvidenceId: z.string().min(1).nullable().optional(),
+    }),
+  },
+  // Practice sent the BAA token link to the vendor's email. State moves
+  // DRAFT → SENT. A new BaaAcceptanceToken is generated; older tokens
+  // for this BaaRequest are revoked.
+  BAA_SENT_TO_VENDOR: {
+    1: z.object({
+      baaRequestId: z.string().min(1),
+      tokenId: z.string().min(1),
+      token: z.string().min(1),
+      tokenExpiresAt: z.string().datetime(),
+      recipientEmail: z.string().email(),
+      recipientMessage: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  // Vendor opened the accept-baa/[token] page; state moves SENT →
+  // ACKNOWLEDGED. Idempotent — re-opens are no-ops.
+  BAA_ACKNOWLEDGED_BY_VENDOR: {
+    1: z.object({
+      baaRequestId: z.string().min(1),
+      tokenId: z.string().min(1),
+      acknowledgedAt: z.string().datetime(),
+    }),
+  },
+  // Vendor typed signature + agreed on the accept-baa/[token] page.
+  // State moves ACKNOWLEDGED → EXECUTED. Captures HIPAA §164.504(e)
+  // text e-signature + IP + user agent. Sets Vendor.baaExecutedAt
+  // and (if provided) Vendor.baaExpiresAt as a side effect of the
+  // projection.
+  BAA_EXECUTED_BY_VENDOR: {
+    1: z.object({
+      baaRequestId: z.string().min(1),
+      tokenId: z.string().min(1),
+      executedAt: z.string().datetime(),
+      vendorSignatureName: z.string().min(1).max(200),
+      vendorSignatureIp: z.string().max(45).nullable().optional(), // IPv6 max
+      vendorSignatureUserAgent: z.string().max(1000).nullable().optional(),
+      // Optional expiry — practice can configure when sending; vendor
+      // doesn't change it. Most BAAs are perpetual ("evergreen").
+      expiresAt: z.string().datetime().nullable().optional(),
+    }),
+  },
+  // Vendor declined the BAA. Modeled now for the post-launch UI but
+  // not exposed in v1 forms. State moves ACKNOWLEDGED → REJECTED.
+  BAA_REJECTED_BY_VENDOR: {
+    1: z.object({
+      baaRequestId: z.string().min(1),
+      tokenId: z.string().min(1),
+      rejectedAt: z.string().datetime(),
+      reason: z.string().max(2000).nullable().optional(),
     }),
   },
 } as const;
