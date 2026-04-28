@@ -15,81 +15,51 @@
 
 import type { Prisma } from "@prisma/client";
 import type { DerivationRule, DerivedStatus } from "./hipaa";
+import type { CmsPolicyCode } from "@/lib/compliance/policies";
 import { credentialTypePresentRule } from "./shared";
 
 // 60-day overpayment refund window (42 USC §1320a-7k(d)).
 const SIXTY_DAYS_MS = 60 * 24 * 60 * 60 * 1000;
 
-// ─── CMS_EMERGENCY_PREPAREDNESS ───────────────────────────────────────────
-// 42 CFR §482.15 / §485.68 — written emergency preparedness plan.
-// COMPLIANT when CMS_EMERGENCY_PREPAREDNESS_POLICY is adopted (retiredAt null).
-// Evidence code: "POLICY:CMS_EMERGENCY_PREPAREDNESS_POLICY".
+// ─── Policy-driven rules (factory) ───────────────────────────────────────
+// Mirrors oshaPolicyRule(code) in osha.ts. All three CMS policy rules are
+// structurally identical — the factory removes the duplication.
 
-async function cmsEmergencyPreparednessRule(
-  tx: Prisma.TransactionClient,
-  practiceId: string,
-): Promise<DerivedStatus | null> {
-  const count = await tx.practicePolicy.count({
-    where: {
-      practiceId,
-      policyCode: "CMS_EMERGENCY_PREPAREDNESS_POLICY",
-      retiredAt: null,
-    },
-  });
-  return count >= 1 ? "COMPLIANT" : "GAP";
-}
-
-// ─── CMS_STARK_AKS_COMPLIANCE ─────────────────────────────────────────────
-// 42 USC §1395nn / §1320a-7b — Stark Law + Anti-Kickback Statute.
-// COMPLIANT when CMS_STARK_AKS_COMPLIANCE_POLICY is adopted (retiredAt null).
-// Evidence code: "POLICY:CMS_STARK_AKS_COMPLIANCE_POLICY".
-
-async function cmsStarkAksComplianceRule(
-  tx: Prisma.TransactionClient,
-  practiceId: string,
-): Promise<DerivedStatus | null> {
-  const count = await tx.practicePolicy.count({
-    where: {
-      practiceId,
-      policyCode: "CMS_STARK_AKS_COMPLIANCE_POLICY",
-      retiredAt: null,
-    },
-  });
-  return count >= 1 ? "COMPLIANT" : "GAP";
-}
-
-// ─── CMS_BILLING_COMPLIANCE (stub → policy-driven) ────────────────────────
-// 42 USC §1320a-7a — billing accuracy + documentation sufficiency.
-// Cross-reference with OIG annual review deferred to a later phase; for
-// now this is policy-driven (same pattern as OSHA/DEA policy rules).
-// COMPLIANT when CMS_BILLING_COMPLIANCE_POLICY is adopted (retiredAt null).
-// Evidence code: "POLICY:CMS_BILLING_COMPLIANCE_POLICY".
-
-async function cmsBillingComplianceRule(
-  tx: Prisma.TransactionClient,
-  practiceId: string,
-): Promise<DerivedStatus | null> {
-  const count = await tx.practicePolicy.count({
-    where: {
-      practiceId,
-      policyCode: "CMS_BILLING_COMPLIANCE_POLICY",
-      retiredAt: null,
-    },
-  });
-  return count >= 1 ? "COMPLIANT" : "GAP";
+/**
+ * Generic: is the given CMS policy code currently adopted (not retired)?
+ */
+function cmsPolicyRule(required: CmsPolicyCode): DerivationRule {
+  return async (
+    tx: Prisma.TransactionClient,
+    practiceId: string,
+  ): Promise<DerivedStatus | null> => {
+    const count = await tx.practicePolicy.count({
+      where: { practiceId, policyCode: required, retiredAt: null },
+    });
+    return count > 0 ? "COMPLIANT" : "GAP";
+  };
 }
 
 // ─── CMS_OVERPAYMENT_REFUND ───────────────────────────────────────────────
-// 42 USC §1320a-7k(d) — 60-day overpayment refund.
-// Logic:
-//   1. Find all OVERPAYMENT_REPORTED EventLog rows where identifiedAt is
-//      within the last 60 days ("recent" = still within the refund window).
-//   2. If none → COMPLIANT (no active overpayments to refund).
-//   3. For any recent overpayment: if reportedAt is within 60 days of
-//      identifiedAt → on-time. If reportedAt > identifiedAt + 60 days → overdue.
-//   COMPLIANT if all recent overpayments are on-time; GAP if any are overdue.
-// Evidence code: "OVERPAYMENT:REPORTED".
 
+/**
+ * 42 USC §1320a-7k(d) — 60-day overpayment refund.
+ * Logic:
+ *   1. Find all OVERPAYMENT_REPORTED EventLog rows where identifiedAt is
+ *      within the last 60 days ("recent" = still within the refund window).
+ *   2. If none → COMPLIANT (no active overpayments to refund).
+ *   3. For any recent overpayment: if reportedAt is within 60 days of
+ *      identifiedAt → on-time. If reportedAt > identifiedAt + 60 days → overdue.
+ *   COMPLIANT if all recent overpayments are on-time; GAP if any are overdue.
+ * Evidence code: "EVENT:OVERPAYMENT_REPORTED".
+ *
+ * LIMITATION: this rule cannot detect overpayments identified but never
+ * emitted as OVERPAYMENT_REPORTED events. The practice's UI is responsible
+ * for prompting users to log; if they don't, the rule reports vacuous
+ * COMPLIANT and the manual radio override is the auditor's escape hatch.
+ * A future phase may add an `Overpayment` model row + a "stale identification"
+ * detector to close this gap.
+ */
 async function cmsOverpaymentRefundRule(
   tx: Prisma.TransactionClient,
   practiceId: string,
@@ -149,11 +119,13 @@ export const CMS_DERIVATION_RULES: Record<string, DerivationRule> = {
     "MEDICARE_PROVIDER_ENROLLMENT",
   ),
   // §482.15 / §485.68 — Emergency preparedness plan (policy-driven).
-  CMS_EMERGENCY_PREPAREDNESS: cmsEmergencyPreparednessRule,
+  CMS_EMERGENCY_PREPAREDNESS: cmsPolicyRule("CMS_EMERGENCY_PREPAREDNESS_POLICY"),
   // 42 USC §1395nn / §1320a-7b — Stark Law + AKS compliance (policy-driven).
-  CMS_STARK_AKS_COMPLIANCE: cmsStarkAksComplianceRule,
+  CMS_STARK_AKS_COMPLIANCE: cmsPolicyRule("CMS_STARK_AKS_COMPLIANCE_POLICY"),
   // 42 USC §1320a-7a — Billing compliance (policy-driven stub).
-  CMS_BILLING_COMPLIANCE: cmsBillingComplianceRule,
+  // TODO(phase-11): Add OIG cross-reference — AND no LeieScreening hits in
+  // the last 90 days. Currently policy-driven only.
+  CMS_BILLING_COMPLIANCE: cmsPolicyRule("CMS_BILLING_COMPLIANCE_POLICY"),
   // 42 USC §1320a-7k(d) — 60-day overpayment refund (event-driven).
   CMS_OVERPAYMENT_REFUND: cmsOverpaymentRefundRule,
 };

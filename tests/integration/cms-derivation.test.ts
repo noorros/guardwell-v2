@@ -175,7 +175,7 @@ describe("CMS derivation rules", () => {
     const req = byCode.get("CMS_OVERPAYMENT_REFUND")!;
     // No events emitted — rule should return COMPLIANT (no overpayments to report).
     await db.$transaction(async (tx) => {
-      await rederiveRequirementStatus(tx, practice.id, "OVERPAYMENT:REPORTED");
+      await rederiveRequirementStatus(tx, practice.id, "EVENT:OVERPAYMENT_REPORTED");
     });
     expect(await statusOf(practice.id, req.id)).toBe("COMPLIANT");
   });
@@ -222,6 +222,12 @@ describe("CMS derivation rules", () => {
     // reportedAt = identifiedAt + 65 days (backdated future: the practice
     // self-reports a late refund, e.g. a historical reconciliation entry).
     // reportedAt - identifiedAt = 65 days > 60 days → GAP.
+    //
+    // NOTE: This uses a future timestamp for `reportedAt` (identifiedAt +
+    // 65 days = ~60 days in the future) to exercise the late-reporting
+    // branch without faking system time. If a future schema validator adds
+    // `reportedAt <= now`, this test must switch to vi.useFakeTimers() to
+    // shift the clock instead.
     const identifiedAt = new Date(
       Date.now() - 5 * 24 * 60 * 60 * 1000,
     );
@@ -251,6 +257,46 @@ describe("CMS derivation rules", () => {
     );
 
     expect(await statusOf(practice.id, req.id)).toBe("GAP");
+  });
+
+  it("CMS_OVERPAYMENT_REFUND ancient overpayment is filtered out (vacuous COMPLIANT)", async () => {
+    const { practice, byCode, user } = await seedCms();
+    const req = byCode.get("CMS_OVERPAYMENT_REFUND")!;
+
+    // Identified 90 days ago, reported 88 days ago (2 days after identification,
+    // so technically on-time relative to the 60-day window — but the event is
+    // now > 60 days outside the recent window). The recent-window cutoff is
+    // identifiedAt >= now - 60 days, so this event is filtered out entirely.
+    const identifiedAt = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const reportedAt = new Date(Date.now() - 88 * 24 * 60 * 60 * 1000);
+
+    await appendEventAndApply(
+      {
+        type: "OVERPAYMENT_REPORTED",
+        practiceId: practice.id,
+        actorUserId: user.id,
+        payload: {
+          reportId: randomUUID(),
+          reportedByUserId: user.id,
+          reportedAt: reportedAt.toISOString(),
+          identifiedAt: identifiedAt.toISOString(),
+          estimatedAmount: 500,
+          payorType: "MEDICARE",
+          refundMethod: null,
+          notes: null,
+        },
+      },
+      async (tx) =>
+        projectOverpaymentReported(tx, { practiceId: practice.id }),
+    );
+
+    // Should be COMPLIANT — the ancient event is filtered out by the
+    // 60-day recent-window cutoff in the rule. A refactor that removed
+    // the cutoff would cause this to flip to COMPLIANT for the wrong
+    // reason (reportedAt - identifiedAt = 2 days, well within window),
+    // but if the cutoff was widened/removed it might also expose other
+    // ancient GAP events — this test guards the filter boundary.
+    expect(await statusOf(practice.id, req.id)).toBe("COMPLIANT");
   });
 
   // ── Rule function stubs invoked directly ──────────────────────────────────

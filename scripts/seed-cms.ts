@@ -10,7 +10,7 @@
 //   CMS_EMERGENCY_PREPAREDNESS      ← POLICY:CMS_EMERGENCY_PREPAREDNESS_POLICY
 //   CMS_STARK_AKS_COMPLIANCE        ← POLICY:CMS_STARK_AKS_COMPLIANCE_POLICY
 //   CMS_BILLING_COMPLIANCE          ← POLICY:CMS_BILLING_COMPLIANCE_POLICY
-//   CMS_OVERPAYMENT_REFUND          ← OVERPAYMENT:REPORTED
+//   CMS_OVERPAYMENT_REFUND          ← EVENT:OVERPAYMENT_REPORTED
 
 import { PrismaClient } from "@prisma/client";
 import { config } from "dotenv";
@@ -106,7 +106,7 @@ const CMS_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "Identified Medicare/Medicaid overpayments must be refunded within 60 days of identification or the date any corresponding cost report was due. Practices must have a documented process for identifying, quantifying, and refunding overpayments.",
-    acceptedEvidenceTypes: ["OVERPAYMENT:REPORTED"],
+    acceptedEvidenceTypes: ["EVENT:OVERPAYMENT_REPORTED"],
     sortOrder: 70,
   },
 ];
