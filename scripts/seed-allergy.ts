@@ -96,7 +96,7 @@ const REQUIREMENTS = [
     code: "ALLERGY_EMERGENCY_KIT_CURRENT",
     title: "Emergency kit current (epi unexpired, all items present) within 90 days",
     description:
-      "Epinephrine 1:1000 injectable plus full emergency kit (antihistamine, corticosteroid, airway adjuncts, BP cuff, pulse oximeter) verified unexpired and present within the last 90 days. Derived from an AllergyCheck of type EMERGENCY_KIT recorded within 90 days.",
+      "Epinephrine 1:1000 injectable plus full emergency kit (antihistamine, corticosteroid, airway adjuncts, BP cuff, pulse oximeter) verified unexpired and present within the last 90 days. Derived from an AllergyEquipmentCheck of type EMERGENCY_KIT recorded within 90 days.",
     severity: "CRITICAL",
     weight: 2,
     // projectAllergyEquipmentCheckLogged rederives on this code when checkType=EMERGENCY_KIT.
@@ -107,7 +107,7 @@ const REQUIREMENTS = [
     code: "ALLERGY_REFRIGERATOR_LOG",
     title: "Refrigerator temp log within 30 days, in 2–8°C range",
     description:
-      "Continuous or at-minimum daily refrigerator temperature monitoring with documented records. Most recent log entry within 30 days and no excursions above 8°C or below 2°C. Derived from AllergyCheck of type REFRIGERATOR_TEMP.",
+      "Continuous or at-minimum daily refrigerator temperature monitoring with documented records. Most recent log entry within 30 days and no excursions above 8°C or below 2°C. Derived from AllergyEquipmentCheck of type REFRIGERATOR_TEMP.",
     severity: "HIGH",
     weight: 1,
     // projectAllergyEquipmentCheckLogged rederives on this code when checkType=REFRIGERATOR_TEMP.
@@ -118,7 +118,7 @@ const REQUIREMENTS = [
     code: "ALLERGY_ANNUAL_DRILL",
     title: "Anaphylaxis drill within last 365 days",
     description:
-      "Full office anaphylaxis drill (simulated systemic reaction, epinephrine administration, 911 activation protocol) conducted within the last 365 days with documented attendance + debrief. Published best-practice: twice yearly. Derived from an AllergyCheck of type EMERGENCY_KIT with drill_conducted flag.",
+      "Full office anaphylaxis drill (simulated systemic reaction, epinephrine administration, 911 activation protocol) conducted within the last 365 days with documented attendance + debrief. Published best-practice: twice yearly. Derived from an AllergyDrill record conducted within 365 days.",
     severity: "HIGH",
     weight: 1,
     // projectAllergyDrillLogged rederives on this code.
