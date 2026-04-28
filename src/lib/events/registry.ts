@@ -81,6 +81,10 @@ export const EVENT_TYPES = [
   "BAA_ACKNOWLEDGED_BY_VENDOR",
   "BAA_EXECUTED_BY_VENDOR",
   "BAA_REJECTED_BY_VENDOR",
+  // OSHA poster + PPE attestation — feeds OSHA_REQUIRED_POSTERS + OSHA_PPE
+  // derivation rules (see src/lib/compliance/derivation/osha.ts).
+  "POSTER_ATTESTATION",
+  "PPE_ASSESSMENT_COMPLETED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -1027,6 +1031,30 @@ export const EVENT_SCHEMAS = {
       tokenId: z.string().min(1),
       rejectedAt: z.string().datetime(),
       reason: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  // Annual poster attestation — officer attests that required OSHA + state
+  // workplace posters are posted in a conspicuous location. One attestation
+  // per calendar year satisfies OSHA_REQUIRED_POSTERS (29 CFR §1903.2).
+  POSTER_ATTESTATION: {
+    1: z.object({
+      attestationId: z.string().min(1),
+      attestedByUserId: z.string().min(1),
+      attestedAt: z.string().datetime(),
+      posters: z.array(z.string().min(1)),
+    }),
+  },
+  // PPE hazard assessment completion — officer or safety coordinator records
+  // a completed PPE hazard assessment per 29 CFR §1910.132(d). One
+  // assessment within the last 365 days satisfies OSHA_PPE.
+  PPE_ASSESSMENT_COMPLETED: {
+    1: z.object({
+      assessmentId: z.string().min(1),
+      conductedByUserId: z.string().min(1),
+      conductedAt: z.string().datetime(),
+      hazardsIdentified: z.array(z.string().min(1)),
+      ppeRequired: z.array(z.string().min(1)),
+      notes: z.string().max(2000).nullable(),
     }),
   },
 } as const;
