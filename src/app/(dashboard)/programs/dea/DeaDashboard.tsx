@@ -5,23 +5,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InventoryTab, type InventoryTabProps } from "./InventoryTab";
 import { OrdersTab, type OrdersTabProps } from "./OrdersTab";
 import { DisposalsTab, type DisposalsTabProps } from "./DisposalsTab";
+import { TheftLossTab, type TheftLossTabProps } from "./TheftLossTab";
 
 export interface DeaDashboardProps {
   canManage: boolean;
   inventories: InventoryTabProps["inventories"];
   orders: OrdersTabProps["orders"];
   disposals: DisposalsTabProps["disposals"];
-}
-
-function ComingSoon({ label }: { label: string }) {
-  return (
-    <div className="rounded-lg border bg-muted/30 p-6 text-sm text-muted-foreground">
-      <p className="font-medium text-foreground">{label}</p>
-      <p className="mt-1 text-xs">
-        This tab ships in a follow-up release.
-      </p>
-    </div>
-  );
+  theftLossReports: TheftLossTabProps["reports"];
 }
 
 export function DeaDashboard(props: DeaDashboardProps) {
@@ -50,7 +41,10 @@ export function DeaDashboard(props: DeaDashboardProps) {
         />
       </TabsContent>
       <TabsContent value="theft-loss" className="pt-4">
-        <ComingSoon label="Theft & Loss (Form 106)" />
+        <TheftLossTab
+          canManage={props.canManage}
+          reports={props.theftLossReports}
+        />
       </TabsContent>
     </Tabs>
   );
