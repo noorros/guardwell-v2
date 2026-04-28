@@ -100,7 +100,12 @@ export default async function VendorsPage() {
                 >
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium text-foreground">{v.name}</p>
+                      <Link
+                        href={`/programs/vendors/${v.id}` as Route}
+                        className="text-sm font-medium text-foreground hover:underline"
+                      >
+                        {v.name}
+                      </Link>
                       {v.type && (
                         <Badge variant="secondary" className="text-[10px]">
                           {v.type}
