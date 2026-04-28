@@ -8,6 +8,7 @@
 
 import { useRef, useState } from "react";
 import { Upload } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export interface EvidenceUploaderProps {
   entityType: string;
@@ -48,10 +49,24 @@ export function EvidenceUploader({
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [devNotice, setDevNotice] = useState<string | null>(null);
+  // Holds the evidenceId that has a successful PUT but a failed confirm —
+  // lets the user retry just step 3 instead of re-uploading the whole file.
+  const [pendingConfirmId, setPendingConfirmId] = useState<string | null>(null);
+
+  const runConfirm = async (evidenceId: string): Promise<void> => {
+    const confirmRes = await fetch(`/api/evidence/${evidenceId}/confirm`, {
+      method: "POST",
+    });
+    if (!confirmRes.ok) {
+      const { error: e } = (await confirmRes.json()) as { error?: string };
+      throw new Error(e ?? "Could not confirm upload");
+    }
+  };
 
   const handleFile = async (file: File) => {
     setError(null);
     setDevNotice(null);
+    setPendingConfirmId(null);
 
     if (file.type && !mimeMatches(file.type, accept)) {
       setError(`File type not allowed. Accepted: ${accept}`);
@@ -111,14 +126,15 @@ export function EvidenceUploader({
         setProgress(80);
       }
 
-      // Step 3: confirm
+      // Step 3: confirm. Failure here is the only failure mode where the file
+      // *did* land in GCS — pin the evidenceId so the user can retry confirm
+      // without re-uploading.
       if (init.uploadUrl) {
-        const confirmRes = await fetch(`/api/evidence/${init.evidenceId}/confirm`, {
-          method: "POST",
-        });
-        if (!confirmRes.ok) {
-          const { error: e } = (await confirmRes.json()) as { error?: string };
-          throw new Error(e ?? "Could not confirm upload");
+        try {
+          await runConfirm(init.evidenceId);
+        } catch (confirmErr) {
+          setPendingConfirmId(init.evidenceId);
+          throw confirmErr;
         }
       }
 
@@ -130,6 +146,22 @@ export function EvidenceUploader({
       setUploading(false);
       setProgress(0);
       if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  const handleRetryConfirm = async () => {
+    if (!pendingConfirmId) return;
+    setError(null);
+    setUploading(true);
+    try {
+      await runConfirm(pendingConfirmId);
+      const id = pendingConfirmId;
+      setPendingConfirmId(null);
+      onUploaded(id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Confirm failed");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -205,6 +237,16 @@ export function EvidenceUploader({
         <p className="text-xs text-destructive" role="alert">
           {error}
         </p>
+      )}
+      {pendingConfirmId && !uploading && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void handleRetryConfirm()}
+        >
+          Retry confirm
+        </Button>
       )}
       {devNotice && (
         <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">
