@@ -44,7 +44,13 @@ const OIG_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "Develop and distribute written standards of conduct and written policies and procedures that promote the practice's commitment to compliance and address specific areas of potential fraud and abuse (billing, coding, reasonable-and-necessary services, documentation, improper inducements).",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: [
+      // Element 1 anchors on Standards of Conduct adoption per OIG
+      // guidance text. The other two policy codes flow through Elements
+      // 4 (anonymous reporting) and 6 (discipline) to avoid double-
+      // counting. See oigWrittenPoliciesRule rationale.
+      "POLICY:OIG_STANDARDS_OF_CONDUCT_POLICY",
+    ],
     sortOrder: 10,
   },
   {
@@ -66,7 +72,7 @@ const OIG_REQUIREMENTS: RequirementFixture[] = [
     weight: 1,
     description:
       "Conduct effective training and education programs for practitioners and staff on compliance-program requirements, coding and billing, and federal health-care-program requirements. Training should be at hire, annually, and as-needed upon material changes.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["TRAINING:OIG_COMPLIANCE_TRAINING"],
     sortOrder: 30,
   },
   {
@@ -77,7 +83,7 @@ const OIG_REQUIREMENTS: RequirementFixture[] = [
     weight: 1,
     description:
       "Develop open lines of communication — such as a hotline, anonymous reporting mechanism, or designated contact — between the compliance officer and all practitioners and employees to receive questions, reports of potential misconduct, and feedback.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["POLICY:OIG_ANONYMOUS_REPORTING_POLICY"],
     sortOrder: 40,
   },
   {
@@ -88,7 +94,7 @@ const OIG_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "Conduct appropriate internal monitoring and auditing. At minimum, periodic reviews of coding accuracy, documentation sufficiency, billing practices, and adherence to the practice's written compliance policies.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["EVENT:OIG_ANNUAL_REVIEW_SUBMITTED"],
     sortOrder: 50,
   },
   {
@@ -99,7 +105,9 @@ const OIG_REQUIREMENTS: RequirementFixture[] = [
     weight: 1,
     description:
       "Enforce disciplinary standards through well-publicized guidelines. Sanctions should be applied consistently for failure to comply, misconduct, and failure to report detected misconduct.",
-    acceptedEvidenceTypes: [],
+    // Phase 1: derives from discipline policy alone.
+    // TODO(Phase 11): Extend to also verify LeieScreening cadence is maintained.
+    acceptedEvidenceTypes: ["POLICY:OIG_DISCIPLINE_POLICY"],
     sortOrder: 60,
   },
   {
@@ -110,7 +118,8 @@ const OIG_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "Respond promptly to detected violations through the investigation of allegations and the disclosure of incidents to appropriate government entities. Develop corrective action initiatives to address identified weaknesses.",
-    acceptedEvidenceTypes: [],
+    // OigCorrectiveAction model deferred to Phase 9 — EventLog IS the evidence.
+    acceptedEvidenceTypes: ["EVENT:OIG_CORRECTIVE_ACTION_RESOLVED"],
     sortOrder: 70,
   },
 ];

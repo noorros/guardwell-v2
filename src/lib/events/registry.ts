@@ -95,6 +95,15 @@ export const EVENT_TYPES = [
   // derivation (see src/lib/compliance/derivation/cms.ts).
   // Evidence code: "OVERPAYMENT:REPORTED".
   "OVERPAYMENT_REPORTED",
+  // OIG Element 5 (65 FR 59434) — annual compliance program review submitted.
+  // No model row — EventLog IS the evidence. Feeds OIG_AUDITING_MONITORING
+  // derivation. Evidence code: "EVENT:OIG_ANNUAL_REVIEW_SUBMITTED".
+  "OIG_ANNUAL_REVIEW_SUBMITTED",
+  // OIG Element 7 (65 FR 59434) — corrective action resolved after detected
+  // violation. No model row — EventLog IS the evidence (OigCorrectiveAction
+  // model deferred to Phase 9). Feeds OIG_RESPONSE_VIOLATIONS derivation.
+  // Evidence code: "EVENT:OIG_CORRECTIVE_ACTION_RESOLVED".
+  "OIG_CORRECTIVE_ACTION_RESOLVED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -1096,6 +1105,40 @@ export const EVENT_SCHEMAS = {
       estimatedAmount: z.number().nullable(),
       payorType: z.enum(["MEDICARE", "MEDICAID", "OTHER"]),
       refundMethod: z.string().max(200).nullable(),
+      notes: z.string().max(2000).nullable(),
+    }),
+  },
+  // ────────────────────────────────────────────────────────────────────
+  // OIG compliance program events (65 FR 59434)
+  // ────────────────────────────────────────────────────────────────────
+  // Annual compliance program review per Element 5 (auditing/monitoring).
+  // No model row — EventLog IS the evidence. Evidence code:
+  // "EVENT:OIG_ANNUAL_REVIEW_SUBMITTED". Feeds OIG_AUDITING_MONITORING.
+  OIG_ANNUAL_REVIEW_SUBMITTED: {
+    1: z.object({
+      reviewId: z.string().min(1),
+      submittedByUserId: z.string().min(1),
+      submittedAt: z.string().datetime(),
+      reviewType: z.enum([
+        "CODING_AUDIT",
+        "BILLING_REVIEW",
+        "DOCUMENTATION_AUDIT",
+        "COMPREHENSIVE",
+      ]),
+      notes: z.string().max(2000).nullable(),
+    }),
+  },
+  // Corrective action resolved per Element 7 (response to violations).
+  // No model row — EventLog IS the evidence (OigCorrectiveAction model
+  // deferred to Phase 9). Evidence code: "EVENT:OIG_CORRECTIVE_ACTION_RESOLVED".
+  // Feeds OIG_RESPONSE_VIOLATIONS derivation.
+  OIG_CORRECTIVE_ACTION_RESOLVED: {
+    1: z.object({
+      actionId: z.string().min(1),
+      resolvedByUserId: z.string().min(1),
+      resolvedAt: z.string().datetime(),
+      description: z.string().min(1).max(2000),
+      disclosureEntityCode: z.string().max(100).nullable(),
       notes: z.string().max(2000).nullable(),
     }),
   },

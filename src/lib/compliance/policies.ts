@@ -62,12 +62,29 @@ export const CMS_POLICY_CODES = [
 export type CmsPolicyCode = (typeof CMS_POLICY_CODES)[number];
 
 // ────────────────────────────────────────────────────────────────────────────
+// OIG
+// ────────────────────────────────────────────────────────────────────────────
+
+export const OIG_POLICY_CODES = [
+  "OIG_STANDARDS_OF_CONDUCT_POLICY",
+  "OIG_ANONYMOUS_REPORTING_POLICY",
+  "OIG_DISCIPLINE_POLICY",
+] as const;
+
+export type OigPolicyCode = (typeof OIG_POLICY_CODES)[number];
+
+// ────────────────────────────────────────────────────────────────────────────
 // Union + metadata
 // ────────────────────────────────────────────────────────────────────────────
 
-export type PolicyCode = HipaaPolicyCode | OshaPolicyCode | DeaPolicyCode | CmsPolicyCode;
+export type PolicyCode =
+  | HipaaPolicyCode
+  | OshaPolicyCode
+  | DeaPolicyCode
+  | CmsPolicyCode
+  | OigPolicyCode;
 
-export type PolicyFramework = "HIPAA" | "OSHA" | "DEA" | "CMS";
+export type PolicyFramework = "HIPAA" | "OSHA" | "DEA" | "CMS" | "OIG";
 
 export interface PolicyMetadata {
   code: PolicyCode;
@@ -164,6 +181,28 @@ export const POLICY_METADATA: Record<PolicyCode, PolicyMetadata> = {
     description:
       "Written policy requiring DEA Form 106 filing within one business day of discovering a theft or significant loss, plus law enforcement notification. Satisfies the policy component of DEA_LOSS_REPORTING per 21 CFR §1301.76(b).",
   },
+  // OIG
+  OIG_STANDARDS_OF_CONDUCT_POLICY: {
+    code: "OIG_STANDARDS_OF_CONDUCT_POLICY",
+    framework: "OIG",
+    title: "Standards of Conduct Policy",
+    description:
+      "Written standards of conduct and compliance policies promoting the practice's commitment to lawful billing, coding, documentation, and avoidance of fraud and abuse per OIG Element 1 (65 FR 59434).",
+  },
+  OIG_ANONYMOUS_REPORTING_POLICY: {
+    code: "OIG_ANONYMOUS_REPORTING_POLICY",
+    framework: "OIG",
+    title: "Anonymous Reporting / Compliance Hotline Policy",
+    description:
+      "Written policy establishing an anonymous reporting mechanism (hotline, suggestion box, or designated contact) for workforce members to report potential misconduct without fear of retaliation per OIG Element 4 (65 FR 59434).",
+  },
+  OIG_DISCIPLINE_POLICY: {
+    code: "OIG_DISCIPLINE_POLICY",
+    framework: "OIG",
+    title: "Workforce Discipline Policy",
+    description:
+      "Written disciplinary policy with well-publicized guidelines and consistent sanctions for non-compliance, misconduct, and failure to report detected violations per OIG Element 6 (65 FR 59434).",
+  },
   // CMS
   CMS_EMERGENCY_PREPAREDNESS_POLICY: {
     code: "CMS_EMERGENCY_PREPAREDNESS_POLICY",
@@ -208,4 +247,5 @@ export const ALL_POLICY_CODES: readonly PolicyCode[] = [
   ...OSHA_POLICY_CODES,
   ...DEA_POLICY_CODES,
   ...CMS_POLICY_CODES,
+  ...OIG_POLICY_CODES,
 ];
