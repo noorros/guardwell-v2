@@ -15,6 +15,7 @@ import { projectDeaOrderReceived } from "@/lib/events/projections/dea";
 import { projectDeaTheftLossReported } from "@/lib/events/projections/dea";
 import { projectPolicyAdopted } from "@/lib/events/projections/policyAdopted";
 import { projectEpcsAttestation } from "@/lib/events/projections/epcsAttestation";
+import { DEA_DERIVATION_RULES } from "@/lib/compliance/derivation/dea";
 import { rederiveRequirementStatus } from "@/lib/compliance/derivation/rederive";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -425,5 +426,17 @@ describe("DEA derivation rules", () => {
     });
     // Still NOT_STARTED because the stub returns null.
     expect(await statusOf(practice.id, req.id)).toBe("NOT_STARTED");
+  });
+
+  it("DEA_EMPLOYEE_SCREENING stub function returns null when invoked directly", async () => {
+    // Per code review I2: the rederive-based test above can't reach the
+    // stub function (empty acceptedEvidenceTypes). Invoke the stub
+    // directly so a future regression that accidentally implements
+    // employee screening before Phase 11 is caught.
+    const { practice } = await seedDea();
+    const stub = DEA_DERIVATION_RULES["DEA_EMPLOYEE_SCREENING"];
+    expect(stub).toBeDefined();
+    const result = await db.$transaction(async (tx) => stub!(tx, practice.id));
+    expect(result).toBeNull();
   });
 });
