@@ -3,14 +3,14 @@
 // Seeds the CMS (Medicare/Medicaid) compliance framework — the fifth v2
 // framework after HIPAA, OSHA, OIG, and DEA.
 //
-// Three credential-derived requirements at launch:
+// PR 4 wires 3 additional requirements + 1 policy-driven stub:
 //   CMS_PECOS_ENROLLMENT            ← CREDENTIAL_TYPE:MEDICARE_PECOS_ENROLLMENT
 //   CMS_NPI_REGISTRATION            ← CREDENTIAL_TYPE:NPI_REGISTRATION
 //   CMS_MEDICARE_PROVIDER_ENROLLMENT ← CREDENTIAL_TYPE:MEDICARE_PROVIDER_ENROLLMENT
-//
-// Other four (Emergency Preparedness, Stark/AKS, Billing Compliance,
-// Overpayment Refunds) are manual-override at launch; wire when their
-// operational surfaces ship.
+//   CMS_EMERGENCY_PREPAREDNESS      ← POLICY:CMS_EMERGENCY_PREPAREDNESS_POLICY
+//   CMS_STARK_AKS_COMPLIANCE        ← POLICY:CMS_STARK_AKS_COMPLIANCE_POLICY
+//   CMS_BILLING_COMPLIANCE          ← POLICY:CMS_BILLING_COMPLIANCE_POLICY
+//   CMS_OVERPAYMENT_REFUND          ← EVENT:OVERPAYMENT_REPORTED
 
 import { PrismaClient } from "@prisma/client";
 import { config } from "dotenv";
@@ -73,7 +73,7 @@ const CMS_REQUIREMENTS: RequirementFixture[] = [
     weight: 1,
     description:
       "Written emergency preparedness plan + risk assessment + communication plan + annual training program + two exercises annually (one full-scale if feasible). Applies to 17 CMS-certified provider types; office-based practices not subject but benefit from voluntary alignment.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["POLICY:CMS_EMERGENCY_PREPAREDNESS_POLICY"],
     sortOrder: 40,
   },
   {
@@ -84,7 +84,7 @@ const CMS_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "Annual review of all financial relationships with referring physicians for Stark (physician self-referral) compliance. Safe-harbor analysis for any arrangement potentially implicating the Anti-Kickback Statute. Maintain documented self-disclosure process for identified violations.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["POLICY:CMS_STARK_AKS_COMPLIANCE_POLICY"],
     sortOrder: 50,
   },
   {
@@ -95,7 +95,7 @@ const CMS_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "Claims submitted to Medicare/Medicaid must reflect services actually rendered, be supported by contemporaneous documentation in the medical record, and use correct CPT/HCPCS/ICD-10 coding. Periodic internal coding audits required under OIG guidance.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["POLICY:CMS_BILLING_COMPLIANCE_POLICY"],
     sortOrder: 60,
   },
   {
@@ -106,7 +106,7 @@ const CMS_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "Identified Medicare/Medicaid overpayments must be refunded within 60 days of identification or the date any corresponding cost report was due. Practices must have a documented process for identifying, quantifying, and refunding overpayments.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["EVENT:OVERPAYMENT_REPORTED"],
     sortOrder: 70,
   },
 ];
