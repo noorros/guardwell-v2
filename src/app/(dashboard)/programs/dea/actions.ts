@@ -10,6 +10,7 @@ import {
   projectDeaInventoryRecorded,
   projectDeaOrderReceived,
   projectDeaDisposalCompleted,
+  projectDeaTheftLossReported,
 } from "@/lib/events/projections/dea";
 
 const ItemSchema = z.object({
@@ -266,4 +267,102 @@ export async function recordDisposalAction(
   revalidatePath("/dashboard");
   revalidatePath("/modules/dea");
   return { disposalRecordId: parsed.disposalRecordId };
+}
+
+// ── Theft & Loss ──────────────────────────────────────────────────────────────
+
+const TheftLossInput = z.object({
+  // Client-generated cuid/uuid for idempotency. Same pattern as the
+  // other DEA actions.
+  reportId: z.string().min(1).max(60),
+  // Optional grouping for multi-drug theft/loss events; Phase D ships
+  // single-drug per submission.
+  reportBatchId: z.string().min(1).max(60).nullable().optional(),
+  // Optional link to a broader Incident if the practice already opened
+  // one. Phase D's NewTheftLossForm doesn't expose this — a future
+  // enhancement can wire it from the Incident detail page (Generate
+  // Form 106 CTA).
+  incidentId: z.string().min(1).max(60).nullable().optional(),
+  discoveredAt: z
+    .string()
+    .datetime()
+    .refine((s) => new Date(s).getTime() <= Date.now() + 24 * 60 * 60 * 1000, {
+      message: "discovery date cannot be in the future",
+    }),
+  lossType: z.enum([
+    "THEFT",
+    "LOSS",
+    "IN_TRANSIT_LOSS",
+    "DESTRUCTION_DURING_THEFT",
+  ]),
+  drugName: z.string().min(1).max(200),
+  ndc: z.string().max(50).nullable().optional(),
+  schedule: z.enum(["CI", "CII", "CIIN", "CIII", "CIIIN", "CIV", "CV"]),
+  strength: z.string().max(100).nullable().optional(),
+  quantityLost: z.number().int().min(1),
+  unit: z.string().min(1).max(50),
+  methodOfDiscovery: z.string().max(2000).nullable().optional(),
+  lawEnforcementNotified: z.boolean(),
+  lawEnforcementAgency: z.string().max(200).nullable().optional(),
+  lawEnforcementCaseNumber: z.string().max(100).nullable().optional(),
+  deaNotifiedAt: z.string().datetime().nullable().optional(),
+  form106SubmittedAt: z.string().datetime().nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+});
+
+export async function recordTheftLossAction(
+  input: z.infer<typeof TheftLossInput>,
+): Promise<{ reportId: string }> {
+  const user = await requireUser();
+  const pu = await getPracticeUser();
+  if (!pu) throw new Error("Unauthorized");
+  // Server-side role gate: only OWNER + ADMIN can file a Form 106
+  // theft/loss report. UI hides the form for non-admins, but the action
+  // is still reachable by direct callers.
+  if (pu.role !== "OWNER" && pu.role !== "ADMIN") {
+    throw new Error("Forbidden");
+  }
+  const parsed = TheftLossInput.parse(input);
+
+  const payload = {
+    reportId: parsed.reportId,
+    reportBatchId: parsed.reportBatchId ?? null,
+    incidentId: parsed.incidentId ?? null,
+    reportedByUserId: user.id,
+    discoveredAt: parsed.discoveredAt,
+    lossType: parsed.lossType,
+    drugName: parsed.drugName,
+    ndc: parsed.ndc ?? null,
+    schedule: parsed.schedule,
+    strength: parsed.strength ?? null,
+    quantityLost: parsed.quantityLost,
+    unit: parsed.unit,
+    methodOfDiscovery: parsed.methodOfDiscovery ?? null,
+    lawEnforcementNotified: parsed.lawEnforcementNotified,
+    lawEnforcementAgency: parsed.lawEnforcementAgency ?? null,
+    lawEnforcementCaseNumber: parsed.lawEnforcementCaseNumber ?? null,
+    deaNotifiedAt: parsed.deaNotifiedAt ?? null,
+    form106SubmittedAt: parsed.form106SubmittedAt ?? null,
+    notes: parsed.notes ?? null,
+  };
+
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: user.id,
+      type: "DEA_THEFT_LOSS_REPORTED",
+      payload,
+      idempotencyKey: `dea-theft-loss-${parsed.reportId}`,
+    },
+    async (tx) =>
+      projectDeaTheftLossReported(tx, {
+        practiceId: pu.practiceId,
+        payload,
+      }),
+  );
+
+  revalidatePath("/programs/dea");
+  revalidatePath("/dashboard");
+  revalidatePath("/modules/dea");
+  return { reportId: parsed.reportId };
 }

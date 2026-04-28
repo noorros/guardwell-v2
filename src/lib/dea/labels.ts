@@ -46,3 +46,19 @@ export const DISPOSAL_METHOD_VALUES = [
   "DEA_DESTRUCTION",
   "OTHER",
 ] as const;
+
+export const LOSS_TYPE_LABELS: Record<string, string> = {
+  THEFT: "Theft",
+  LOSS: "Loss",
+  IN_TRANSIT_LOSS: "In-transit loss",
+  DESTRUCTION_DURING_THEFT: "Destruction during theft",
+};
+
+export const LOSS_TYPE_VALUES = [
+  "THEFT",
+  "LOSS",
+  "IN_TRANSIT_LOSS",
+  "DESTRUCTION_DURING_THEFT",
+] as const;
+
+export type DeaLossType = (typeof LOSS_TYPE_VALUES)[number];
