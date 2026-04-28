@@ -1723,10 +1723,12 @@ model AllergyDrill {
 /// activityType partitions the four MIPS performance categories so the
 /// derivation rules can count by category for the attestationYear.
 /// Append-only: rows are never mutated after creation.
-/// loggedByUserId stores User.id (NOT PracticeUser.id) — matches the convention
-/// used by AllergyEquipmentCheck.checkedById (which is PracticeUser.id) being
-/// the exception; here we follow the simpler User-based pattern since the
-/// activityCode field carries the practice-specific context.
+///
+/// loggedByUserId stores User.id with no FK — matches PhishingDrill.loggedByUserId
+/// (line ~1500) and BackupVerification.loggedByUserId (line ~1519). User-id
+/// integrity is enforced at the event payload validation layer (Zod min(1)).
+/// User deletion is rare; if it happens, this row remains as historical audit
+/// data, which is the correct behavior for an append-only log.
 model MacraActivityLog {
   id              String   @id @default(cuid())
   practiceId      String
@@ -1734,7 +1736,7 @@ model MacraActivityLog {
   activityType    String   // QUALITY | IMPROVEMENT | PI | SUBMISSION
   attestationYear Int      // QPP performance year this activity counts toward
   activityName    String
-  loggedByUserId  String   // User.id
+  loggedByUserId  String   // User.id (no FK — see model header)
   notes           String?  @db.Text
   createdAt       DateTime @default(now())
 

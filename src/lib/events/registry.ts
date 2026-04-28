@@ -1163,7 +1163,7 @@ export const EVENT_SCHEMAS = {
       activityType: z.enum(["QUALITY", "IMPROVEMENT", "PI", "SUBMISSION"]),
       attestationYear: z.number().int().min(2017).max(2100),
       activityName: z.string().min(1).max(300),
-      notes: z.string().max(2000).nullable(),
+      notes: z.string().max(2000).nullable().optional(),
     }),
   },
 } as const;

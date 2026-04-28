@@ -22,8 +22,14 @@ export async function projectMacraActivityLogged(
   args: { practiceId: string; payload: Payload },
 ): Promise<void> {
   const { practiceId, payload } = args;
-  await tx.macraActivityLog.create({
-    data: {
+  // Upsert (not create) for idempotent replay. MacraActivityLog rows are
+  // append-only so the payload is immutable; re-projecting the same event
+  // (event-bus retry, manual rerun, projection backfill) is a no-op on
+  // update. Mirrors the policyAdopted upsert pattern.
+  await tx.macraActivityLog.upsert({
+    where: { id: payload.activityId },
+    update: {},
+    create: {
       id: payload.activityId,
       practiceId,
       activityCode: payload.activityCode,
@@ -31,7 +37,7 @@ export async function projectMacraActivityLogged(
       attestationYear: payload.attestationYear,
       activityName: payload.activityName,
       loggedByUserId: payload.loggedByUserId,
-      notes: payload.notes,
+      notes: payload.notes ?? null,
     },
   });
   await rederiveRequirementStatus(tx, practiceId, "MACRA_ACTIVITY:LOGGED");
