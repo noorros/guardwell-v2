@@ -26,6 +26,11 @@ import {
   activityExplainInputSchema,
   activityExplainOutputSchema,
 } from "./prompts/activity-explain";
+import {
+  CONCIERGE_CHAT_SYSTEM,
+  conciergeChatInputSchema,
+  conciergeChatOutputSchema,
+} from "./prompts/concierge-chat";
 
 export interface PromptDef<
   TIn extends z.ZodTypeAny = z.ZodTypeAny,
@@ -81,6 +86,17 @@ export const PROMPTS = {
     toolDescription:
       "Explain a single activity-log event in plain English, anchored to the regulation it satisfies.",
     maxTokens: 1024,
+  },
+  "concierge.chat.v1": {
+    id: "concierge.chat.v1",
+    version: 1,
+    model: "claude-sonnet-4-6",
+    system: CONCIERGE_CHAT_SYSTEM,
+    inputSchema: conciergeChatInputSchema,
+    outputSchema: conciergeChatOutputSchema,
+    toolName: "concierge_chat_v1", // unused by streaming runtime but required by the PromptDef type
+    toolDescription: "Concierge final-output tool (eval-only path).",
+    maxTokens: 4096,
   },
 } as const satisfies Record<string, PromptDef>;
 
