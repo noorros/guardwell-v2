@@ -48,6 +48,7 @@ model User {
   notifications          Notification[]
   notificationPreference NotificationPreference?
   policyAcknowledgments  PolicyAcknowledgment[]
+  trainingCompletions    TrainingCompletion[]
 
   @@index([firebaseUid])
   @@index([email])
@@ -897,6 +898,7 @@ model TrainingCompletion {
 
   practice Practice       @relation(fields: [practiceId], references: [id], onDelete: Cascade)
   course   TrainingCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([practiceId, userId, courseId])
   @@index([practiceId, courseId, passed, expiresAt])

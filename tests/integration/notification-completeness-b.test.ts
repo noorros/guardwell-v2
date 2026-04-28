@@ -260,6 +260,50 @@ describe("generateTrainingEscalationNotifications", () => {
     expect(proposals).toHaveLength(0);
   });
 
+  it("excludes a TRAINING_OVERDUE notification created exactly 14 days ago (boundary — strict less-than)", async () => {
+    // Code uses `createdAt: { lt: cutoff }` where cutoff = now - 14d, so a
+    // row whose createdAt is at-or-after the cutoff must NOT trigger an
+    // escalation. We give the row a 1-second forward buffer so the test is
+    // robust against microsecond drift between Date.now() in seed and
+    // Date.now() in the generator (the generator runs slightly later, so
+    // its cutoff is slightly older — without the buffer the seeded row
+    // would actually be 14d + ε old and ironically pass `lt: cutoff`).
+    const { user: owner, practice } = await seedPracticeWithOwner("train-esc-boundary");
+    const { user: staff } = await seedStaff(practice.id, "Dion", "Boundary");
+    const course = await seedTrainingCourse("Boundary Training");
+    const completion = await db.trainingCompletion.create({
+      data: {
+        practiceId: practice.id,
+        userId: staff.id,
+        courseId: course.id,
+        courseVersion: 1,
+        score: 85,
+        passed: true,
+        completedAt: new Date(Date.now() - (365 + 100) * DAY_MS),
+        expiresAt: new Date(Date.now() - 100 * DAY_MS),
+      },
+    });
+    await db.notification.create({
+      data: {
+        practiceId: practice.id,
+        userId: staff.id,
+        type: "TRAINING_OVERDUE",
+        severity: "INFO",
+        title: "Training overdue: Boundary Training",
+        body: "Boundary overdue training",
+        href: `/training/${course.id}`,
+        entityKey: `training-completion:${completion.id}`,
+        createdAt: new Date(Date.now() - 14 * DAY_MS + 1000),
+      },
+    });
+
+    const proposals = await db.$transaction((tx) =>
+      generateTrainingEscalationNotifications(tx, practice.id, [owner.id, staff.id]),
+    );
+
+    expect(proposals).toHaveLength(0);
+  });
+
   it("targets owners + admins (not the staff member who has the overdue training)", async () => {
     const { user: owner, practice } = await seedPracticeWithOwner("train-esc-recipients");
     const { user: staff } = await seedStaff(practice.id, "Edith", "Wharton");
@@ -508,6 +552,51 @@ describe("generateCredentialEscalationNotifications", () => {
         href: "/programs/credentials",
         entityKey: `credential:${cred.id}:${expiryStr}`,
         createdAt: new Date(Date.now() - 13 * DAY_MS),
+      },
+    });
+
+    const proposals = await db.$transaction((tx) =>
+      generateCredentialEscalationNotifications(tx, practice.id, [owner.id, staff.id]),
+    );
+
+    expect(proposals).toHaveLength(0);
+  });
+
+  it("excludes a CREDENTIAL_EXPIRING notification created exactly 14 days ago (boundary — strict less-than)", async () => {
+    // Code uses `createdAt: { lt: cutoff }` where cutoff = now - 14d, so a
+    // row whose createdAt is at-or-after the cutoff must NOT trigger an
+    // escalation. 1-second forward buffer guards against microsecond drift
+    // between seed-time Date.now() and generator-time Date.now() (see
+    // matching TRAINING boundary test for the full explanation).
+    const { user: owner, practice } = await seedPracticeWithOwner("cred-esc-boundary");
+    const { practiceUser: staffPu, user: staff } = await seedStaff(
+      practice.id,
+      "Kira",
+      "Boundary",
+    );
+    const ctId = await seedCredentialType("MD License Boundary");
+    const expiryDate = new Date(Date.now() + 5 * DAY_MS);
+    const cred = await db.credential.create({
+      data: {
+        practiceId: practice.id,
+        credentialTypeId: ctId,
+        holderId: staffPu.id,
+        title: "Kira MD License",
+        expiryDate,
+      },
+    });
+    const expiryStr = expiryDate.toISOString().slice(0, 10);
+    await db.notification.create({
+      data: {
+        practiceId: practice.id,
+        userId: staff.id,
+        type: "CREDENTIAL_EXPIRING",
+        severity: "WARNING",
+        title: "MD License expires soon",
+        body: "Boundary expiring notification",
+        href: "/programs/credentials",
+        entityKey: `credential:${cred.id}:${expiryStr}`,
+        createdAt: new Date(Date.now() - 14 * DAY_MS + 1000),
       },
     });
 

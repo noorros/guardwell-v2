@@ -687,26 +687,46 @@ export async function generateTrainingOverdueNotifications(
     }
   }
 
+  // Hoisted single fetch of ALL passing completions for this practice,
+  // grouped by (userId, courseId). Avoids an N+1 round-trip per overdue
+  // record when checking for a superseding retake.
+  const allPasses = await tx.trainingCompletion.findMany({
+    where: { practiceId, passed: true },
+    select: {
+      id: true,
+      userId: true,
+      courseId: true,
+      completedAt: true,
+      expiresAt: true,
+    },
+  });
+  const passesByUserCourse = new Map<string, typeof allPasses>();
+  for (const p of allPasses) {
+    const key = `${p.userId}:${p.courseId}`;
+    const list = passesByUserCourse.get(key);
+    if (list) {
+      list.push(p);
+    } else {
+      passesByUserCourse.set(key, [p]);
+    }
+  }
+
   const proposals: NotificationProposal[] = [];
   for (const c of newestByUserCourse.values()) {
-    // A newer passing completion (any expiry) supersedes this overdue
-    // record. We compare by completedAt rather than expiresAt because a
-    // retake might have a different expiry-window; the act of retaking
-    // and passing is what clears the overdue state.
-    const newerPass = await tx.trainingCompletion.findFirst({
-      where: {
-        practiceId,
-        userId: c.userId,
-        courseId: c.courseId,
-        passed: true,
-        completedAt: {
-          gt: new Date(c.expiresAt.getTime() - 365 * DAY_MS),
-        },
-        id: { not: c.id },
-        expiresAt: { gt: c.expiresAt },
-      },
-      select: { id: true },
-    });
+    // A retake that genuinely renewed the training supersedes the overdue
+    // notification. We require BOTH:
+    //   - completedAt > c.expiresAt - 365d (the retake is recent enough)
+    //   - expiresAt > c.expiresAt (the retake actually pushed validity forward)
+    // This avoids treating a retake-with-shorter-validity as a renewal when
+    // the new expiry is still in the past.
+    const candidates = passesByUserCourse.get(`${c.userId}:${c.courseId}`) ?? [];
+    const completedAtCutoff = new Date(c.expiresAt.getTime() - 365 * DAY_MS);
+    const newerPass = candidates.find(
+      (p) =>
+        p.id !== c.id &&
+        p.completedAt > completedAtCutoff &&
+        p.expiresAt > c.expiresAt,
+    );
     if (newerPass) continue;
 
     const expiredOn = c.expiresAt.toISOString().slice(0, 10);
@@ -1008,37 +1028,55 @@ export async function generateTrainingEscalationNotifications(
       expiresAt: true,
       course: { select: { title: true } },
       practice: { select: { id: true } },
+      user: { select: { firstName: true, lastName: true, email: true } },
     },
   });
+
+  // Hoisted single fetch of ALL passing completions for this practice,
+  // grouped by (userId, courseId). Avoids an N+1 round-trip per stale
+  // notification when checking for a superseding retake.
+  const allPasses = await tx.trainingCompletion.findMany({
+    where: { practiceId, passed: true },
+    select: {
+      id: true,
+      userId: true,
+      courseId: true,
+      completedAt: true,
+      expiresAt: true,
+    },
+  });
+  const passesByUserCourse = new Map<string, typeof allPasses>();
+  for (const p of allPasses) {
+    const key = `${p.userId}:${p.courseId}`;
+    const list = passesByUserCourse.get(key);
+    if (list) {
+      list.push(p);
+    } else {
+      passesByUserCourse.set(key, [p]);
+    }
+  }
 
   const proposals: NotificationProposal[] = [];
   for (const c of completions) {
     // Cross-check: still no newer passing completion (otherwise the
-    // original TRAINING_OVERDUE is moot and so is its escalation).
-    const newerPass = await tx.trainingCompletion.findFirst({
-      where: {
-        practiceId,
-        userId: c.userId,
-        courseId: c.courseId,
-        passed: true,
-        completedAt: {
-          gt: new Date(c.expiresAt.getTime() - 365 * DAY_MS),
-        },
-        id: { not: c.id },
-        expiresAt: { gt: c.expiresAt },
-      },
-      select: { id: true },
-    });
+    // original TRAINING_OVERDUE is moot and so is its escalation). Same
+    // supersede semantics as generateTrainingOverdueNotifications — a
+    // retake counts only if both completedAt is recent AND expiresAt
+    // pushed validity forward.
+    const candidates = passesByUserCourse.get(`${c.userId}:${c.courseId}`) ?? [];
+    const completedAtCutoff = new Date(c.expiresAt.getTime() - 365 * DAY_MS);
+    const newerPass = candidates.find(
+      (p) =>
+        p.id !== c.id &&
+        p.completedAt > completedAtCutoff &&
+        p.expiresAt > c.expiresAt,
+    );
     if (newerPass) continue;
 
-    // Lookup staff display name.
-    const staffUser = await tx.user.findUnique({
-      where: { id: c.userId },
-      select: { firstName: true, lastName: true, email: true },
-    });
+    // Staff display name comes from the `user` include (avoids per-row findUnique).
     const staffName =
-      `${staffUser?.firstName ?? ""} ${staffUser?.lastName ?? ""}`.trim() ||
-      staffUser?.email ||
+      `${c.user?.firstName ?? ""} ${c.user?.lastName ?? ""}`.trim() ||
+      c.user?.email ||
       "A staff member";
     const courseTitle = c.course?.title ?? "Required training";
     const entityKey = `training-escalation:${c.id}`;
@@ -1122,7 +1160,11 @@ export async function generateCredentialEscalationNotifications(
     const credentialId = body.slice(0, lastColon);
     const dateStr = body.slice(lastColon + 1);
     if (!credentialId || !dateStr) continue;
-    if (!seen.has(credentialId)) seen.set(credentialId, dateStr);
+    // If multiple stale CREDENTIAL_EXPIRING rows exist for the same
+    // credential with different dates, keep the latest (lex compare on
+    // YYYY-MM-DD is equivalent to chronological compare).
+    const prior = seen.get(credentialId);
+    if (!prior || dateStr > prior) seen.set(credentialId, dateStr);
   }
   if (seen.size === 0) return [];
 
