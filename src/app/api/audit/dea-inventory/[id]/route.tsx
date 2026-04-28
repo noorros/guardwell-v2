@@ -1,25 +1,35 @@
-// src/app/api/audit/dea-inventory/route.tsx
+// src/app/api/audit/dea-inventory/[id]/route.tsx
 //
-// GET /api/audit/dea-inventory?inventoryId={id}
-// Renders a single DEA biennial inventory snapshot PDF (21 CFR §1304.11).
+// GET /api/audit/dea-inventory/[id]
+// Renders a single DEA biennial inventory snapshot PDF (21 CFR
+// §1304.11).
 //
-// Phase B intentionally does NOT emit a post-render audit event; Phase D
-// will add a unified `INCIDENT_OSHA_LOG_GENERATED`-style event type for
-// all 3 DEA PDFs (Inventory + Form 41 + Form 106) at once. DEA inventory
-// data is not PHI in the strict sense, so the deferral is acceptable.
+// Phase D migrated this from a query-param route (?inventoryId=)
+// to a path-param route for project-wide consistency with Form 41,
+// Form 106, Incident Breach Memo, and OSHA 301.
+//
+// Emits a DEA_PDF_GENERATED audit event post-render — best-effort, so
+// a failed audit-event write does not block the legitimate user's
+// access to their own record (per ADR-0001 access-vs-audit tradeoff).
 
 import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { requireUser } from "@/lib/auth";
 import { getPracticeUser } from "@/lib/rbac";
 import { db } from "@/lib/db";
+import { appendEventAndApply } from "@/lib/events";
+import { projectDeaPdfGenerated } from "@/lib/events/projections/dea";
 import { DeaInventoryDocument } from "@/lib/audit/dea-inventory-pdf";
 
 export const maxDuration = 120;
 
-export async function GET(req: Request) {
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  let user;
   try {
-    await requireUser();
+    user = await requireUser();
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -28,17 +38,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const url = new URL(req.url);
-  const inventoryId = url.searchParams.get("inventoryId");
-  if (!inventoryId) {
-    return NextResponse.json(
-      { error: "inventoryId query parameter required" },
-      { status: 400 },
-    );
-  }
-
+  const { id } = await params;
   const inventory = await db.deaInventory.findUnique({
-    where: { id: inventoryId },
+    where: { id },
     include: {
       items: { orderBy: [{ schedule: "asc" }, { drugName: "asc" }] },
     },
@@ -101,6 +103,26 @@ export async function GET(req: Request) {
       }}
     />,
   );
+
+  // DEA audit trail: every Inventory PDF read leaves an EventLog row.
+  // Best-effort same as INCIDENT_BREACH_MEMO_GENERATED + Form 41 + 300.
+  try {
+    await appendEventAndApply(
+      {
+        practiceId: pu.practiceId,
+        actorUserId: user.id,
+        type: "DEA_PDF_GENERATED",
+        payload: {
+          form: "INVENTORY",
+          recordId: id,
+          generatedByUserId: user.id,
+        },
+      },
+      async () => projectDeaPdfGenerated(),
+    );
+  } catch (err) {
+    console.error("[dea-inventory] audit event emit failed", err);
+  }
 
   return new NextResponse(new Uint8Array(pdfBuffer), {
     status: 200,

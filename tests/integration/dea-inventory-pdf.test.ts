@@ -1,8 +1,8 @@
 // tests/integration/dea-inventory-pdf.test.ts
 //
-// Integration tests for GET /api/audit/dea-inventory — DEA biennial
-// controlled-substance inventory PDF. Covers happy path + cross-tenant
-// 404 guard. Pattern mirrors osha-301-pdf.test.ts.
+// Integration tests for GET /api/audit/dea-inventory/[id] — DEA
+// biennial controlled-substance inventory PDF. Covers happy path +
+// cross-tenant 404 guard. Pattern mirrors osha-301-pdf.test.ts.
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { db } from "@/lib/db";
@@ -56,7 +56,7 @@ function signInAs(user: { id: string; email: string; firebaseUid: string }) {
   };
 }
 
-describe("GET /api/audit/dea-inventory", () => {
+describe("GET /api/audit/dea-inventory/[id]", () => {
   it("returns 200 + PDF for a recorded inventory in the user's practice", async () => {
     const { user, practice } = await seedPracticeWithUser(
       "DEA Inventory Test Clinic",
@@ -94,11 +94,10 @@ describe("GET /api/audit/dea-inventory", () => {
       },
     });
 
-    const { GET } = await import("@/app/api/audit/dea-inventory/route");
+    const { GET } = await import("@/app/api/audit/dea-inventory/[id]/route");
     const res = await GET(
-      new Request(
-        `http://localhost/api/audit/dea-inventory?inventoryId=${inventory.id}`,
-      ),
+      new Request(`http://localhost/api/audit/dea-inventory/${inventory.id}`),
+      { params: Promise.resolve({ id: inventory.id }) },
     );
 
     expect(res.status).toBe(200);
@@ -139,11 +138,12 @@ describe("GET /api/audit/dea-inventory", () => {
       },
     });
 
-    const { GET } = await import("@/app/api/audit/dea-inventory/route");
+    const { GET } = await import("@/app/api/audit/dea-inventory/[id]/route");
     const res = await GET(
       new Request(
-        `http://localhost/api/audit/dea-inventory?inventoryId=${otherInventory.id}`,
+        `http://localhost/api/audit/dea-inventory/${otherInventory.id}`,
       ),
+      { params: Promise.resolve({ id: otherInventory.id }) },
     );
 
     expect(res.status).toBe(404);

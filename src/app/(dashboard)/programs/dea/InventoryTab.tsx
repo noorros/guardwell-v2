@@ -76,7 +76,7 @@ export function InventoryTab({
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       <a
-                        href={`/api/audit/dea-inventory?inventoryId=${inv.id}`}
+                        href={`/api/audit/dea-inventory/${inv.id}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
