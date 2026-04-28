@@ -12,6 +12,12 @@ import { rederiveRequirementStatus } from "@/lib/compliance/derivation/rederive"
 
 type UpsertedPayload = PayloadFor<"CREDENTIAL_UPSERTED", 1>;
 type RemovedPayload = PayloadFor<"CREDENTIAL_REMOVED", 1>;
+type CeuLoggedPayload = PayloadFor<"CEU_ACTIVITY_LOGGED", 1>;
+type CeuRemovedPayload = PayloadFor<"CEU_ACTIVITY_REMOVED", 1>;
+type ReminderConfigPayload = PayloadFor<
+  "CREDENTIAL_REMINDER_CONFIG_UPDATED",
+  1
+>;
 
 async function rederiveForCredential(
   tx: Prisma.TransactionClient,
@@ -96,4 +102,61 @@ export async function projectCredentialRemoved(
   });
 
   await rederiveForCredential(tx, practiceId, existing.credentialTypeId);
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// CEU / CME tracking + renewal-reminder configuration
+// ────────────────────────────────────────────────────────────────────────
+
+export async function projectCeuActivityLogged(
+  tx: Prisma.TransactionClient,
+  args: { practiceId: string; payload: CeuLoggedPayload },
+): Promise<void> {
+  const { practiceId, payload } = args;
+  await tx.ceuActivity.create({
+    data: {
+      id: payload.ceuActivityId,
+      practiceId,
+      credentialId: payload.credentialId,
+      activityName: payload.activityName,
+      provider: payload.provider ?? null,
+      activityDate: new Date(payload.activityDate),
+      hoursAwarded: payload.hoursAwarded,
+      category: payload.category ?? null,
+      certificateEvidenceId: payload.certificateEvidenceId ?? null,
+      notes: payload.notes ?? null,
+    },
+  });
+}
+
+export async function projectCeuActivityRemoved(
+  tx: Prisma.TransactionClient,
+  args: { practiceId: string; payload: CeuRemovedPayload },
+): Promise<void> {
+  const { payload } = args;
+  await tx.ceuActivity.update({
+    where: { id: payload.ceuActivityId },
+    data: { retiredAt: new Date() },
+  });
+}
+
+export async function projectCredentialReminderConfigUpdated(
+  tx: Prisma.TransactionClient,
+  args: { practiceId: string; payload: ReminderConfigPayload },
+): Promise<void> {
+  const { practiceId, payload } = args;
+  await tx.credentialReminderConfig.upsert({
+    where: { credentialId: payload.credentialId },
+    create: {
+      id: payload.configId,
+      practiceId,
+      credentialId: payload.credentialId,
+      enabled: payload.enabled,
+      milestoneDays: payload.milestoneDays,
+    },
+    update: {
+      enabled: payload.enabled,
+      milestoneDays: payload.milestoneDays,
+    },
+  });
 }
