@@ -49,6 +49,9 @@ afterEach(async () => {
   // first, then parent BaaRequest rows.
   await db.baaAcceptanceToken.deleteMany();
   await db.baaRequest.deleteMany();
+  // MACRA activity log references Practice (cascade); explicit delete keeps
+  // test setup deterministic (parallels DEA / allergy / CEU patterns above).
+  await db.macraActivityLog.deleteMany();
   await db.practiceUser.deleteMany();
   await db.complianceItem.deleteMany();
   await db.practiceFramework.deleteMany();

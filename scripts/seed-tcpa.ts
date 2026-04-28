@@ -3,10 +3,13 @@
 // Seeds the TCPA (Telephone Consumer Protection Act) compliance framework —
 // the seventh v2 framework after HIPAA, OSHA, OIG, DEA, CMS, and CLIA.
 //
-// Zero derivations at launch. TCPA compliance is consent/opt-out/DNC-driven
-// and requires its own operational surfaces (PatientConsentRecord, DncEntry,
-// opt-out queue) that are deferred from v1 for this launch. All 7
-// requirements are manual-override at launch via /modules/tcpa radios.
+// PR 6 (2026-04-28): Three policy-driven derivation rules wired; four
+// requirements remain manual-only stubs until the TCPA operational surface
+// (PatientConsentRecord, DncEntry, opt-out queue) ships in Phase 9+.
+//
+//   TCPA_WRITTEN_CONSENT_POLICY   ← TCPA_CONSENT_POLICY adopted
+//   TCPA_OPT_OUT_MECHANISM        ← TCPA_OPT_OUT_POLICY adopted
+//   TCPA_DNC_COMPLIANCE           ← TCPA_DNC_COMPLIANCE_POLICY adopted
 //
 // V1 carryover: requirements ported from src/app/(dashboard)/tcpa/page.tsx
 // TCPA_REQUIREMENTS. V1's operational surface (consent records, DNC list,
@@ -41,7 +44,7 @@ const TCPA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "A written policy documenting TCPA consent requirements for all patient communication channels (calls, texts, emails). Policy must distinguish informational (treatment/billing) from marketing messages, define consent collection and revocation procedures, and set record-keeping standards.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["POLICY:TCPA_CONSENT_POLICY"],
     sortOrder: 10,
   },
   {
@@ -52,6 +55,7 @@ const TCPA_REQUIREMENTS: RequirementFixture[] = [
     weight: 2,
     description:
       "Patients provide prior express written consent before receiving any marketing-related calls or texts. Marketing communications require a signed consent disclosure that the patient agrees to receive automated messages identifying who will call and the purpose.",
+    // Manual-only at launch; PatientConsentRecord model deferred to Phase 9+.
     acceptedEvidenceTypes: [],
     sortOrder: 20,
   },
@@ -63,6 +67,7 @@ const TCPA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "Prior express consent (written or verbal) is obtained for informational automated calls and texts (appointment reminders, prescription refills). Collect cell phone numbers with consent at point of data capture.",
+    // Manual-only at launch; PatientConsentRecord model deferred to Phase 9+.
     acceptedEvidenceTypes: [],
     sortOrder: 30,
   },
@@ -74,7 +79,7 @@ const TCPA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "Every automated call/text includes an easy opt-out mechanism. Texts must include 'Reply STOP to opt out' or equivalent. Calls must provide automated opt-out. Process opt-outs within 10 business days and update DNC lists immediately.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["POLICY:TCPA_OPT_OUT_POLICY"],
     sortOrder: 40,
   },
   {
@@ -85,7 +90,7 @@ const TCPA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "Subscribe to the National Do Not Call Registry and scrub marketing call lists against the Registry every 31 days. Maintain an internal DNC list for patients who have opted out of practice communications.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["POLICY:TCPA_DNC_COMPLIANCE_POLICY"],
     sortOrder: 50,
   },
   {
@@ -96,6 +101,7 @@ const TCPA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1,
     description:
       "Patient consent records for calls and texts are maintained and retrievable in the event of a complaint or litigation. Records should show date of consent, method, and specific language used. Retain for the duration of the patient relationship plus 5 years.",
+    // Manual-only at launch; PatientConsentRecord retention check deferred to Phase 9+.
     acceptedEvidenceTypes: [],
     sortOrder: 60,
   },
@@ -107,6 +113,7 @@ const TCPA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1,
     description:
       "Outbound calls to patients are only made between 8 AM and 9 PM local time of the called party. Configure auto-dialers and reminder systems to respect the patient's local time zone. Document the time-zone detection method.",
+    // Manual-only at launch; outbound dialer time-zone enforcement deferred to Phase 9+.
     acceptedEvidenceTypes: [],
     sortOrder: 70,
   },

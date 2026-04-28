@@ -4,10 +4,17 @@
 // completing federal framework coverage (HIPAA · OSHA · OIG · DEA · CMS ·
 // CLIA · TCPA · MACRA).
 //
-// Zero derivations at launch. MACRA/MIPS compliance requires quality-measure
-// tracking, PI data submission, and annual QPP reporting infrastructure that
-// is deferred from v1 for this launch. All 7 requirements are
-// manual-override at launch via /modules/macra radios.
+// PR 6 (2026-04-28): Five activity-log-driven derivation rules + one
+// cross-framework SRA reuse + two manual-only stubs. Logging an activity
+// via /modules/macra now flips the matching ComplianceItem.
+//
+//   MACRA_MIPS_EXEMPTION_VERIFIED      ≥1 QUALITY activity for the year
+//   MACRA_QUALITY_MEASURES             STUB (Phase 9+ — QPP catalog)
+//   MACRA_IMPROVEMENT_ACTIVITIES       ≥2 IMPROVEMENT activities for the year
+//   MACRA_PROMOTING_INTEROPERABILITY   ≥1 PI activity for the year
+//   MACRA_SECURITY_RISK_ANALYSIS       cross-framework — completed HIPAA SRA
+//   MACRA_CERTIFIED_EHR_TECHNOLOGY     STUB (Phase 9+ — TechAsset CEHRT)
+//   MACRA_ANNUAL_DATA_SUBMISSION       ≥1 SUBMISSION activity for the year
 //
 // V1 carryover: v1's MACRA module has 30 Improvement Activities + 6
 // Promoting Interoperability measures + exemption assessment — collapsed
@@ -43,7 +50,7 @@ const MACRA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1,
     description:
       "Verify the practice's MIPS eligibility status annually. Practices are exempt if they meet any single low-volume criterion: ≤$90K Medicare Part B charges, ≤200 beneficiaries, OR ≤200 covered professional services in the performance year. Document determination on the QPP Participation Status tool.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["MACRA_ACTIVITY:LOGGED"],
     sortOrder: 10,
   },
   {
@@ -54,6 +61,7 @@ const MACRA_REQUIREMENTS: RequirementFixture[] = [
     weight: 2,
     description:
       "Report on at least 6 quality measures (including at least one outcome or high-priority measure) for the performance year. Measures collected and submitted via QPP-approved method (CQM, eCQM, registry, QCDR, or administrative claims). Quality is the largest MIPS performance-category weight (default 30%).",
+    // Manual-only at launch; QPP measure catalog integration deferred to Phase 9+.
     acceptedEvidenceTypes: [],
     sortOrder: 20,
   },
@@ -65,7 +73,7 @@ const MACRA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "Attest to improvement activities totaling at least 40 points. High-weighted activities count as 20 points; medium-weighted as 10. Small practices (≤15 clinicians) and practices in rural/HPSA areas count activities at 2x. Minimum 90 continuous days per activity.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["MACRA_ACTIVITY:LOGGED"],
     sortOrder: 30,
   },
   {
@@ -76,7 +84,7 @@ const MACRA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "Report PI measures: e-Prescribing, Health Information Exchange (HIE), Provide Patient Access, Support Electronic Referral Loops, and Public Health/Clinical Data Exchange (including Immunization Registry). Security Risk Analysis is required as a yes/no gate. Minimum 180-day reporting period.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["MACRA_ACTIVITY:LOGGED"],
     sortOrder: 40,
   },
   {
@@ -87,7 +95,8 @@ const MACRA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "Conduct or review a Security Risk Analysis (SRA) in accordance with HIPAA requirements during the MIPS performance period. SRA is a required yes/no attestation in the PI category — no SRA = automatic zero in PI. Cross-checks with HIPAA_SRA; completing the HIPAA SRA also satisfies this.",
-    acceptedEvidenceTypes: [],
+    // Cross-framework: completing the HIPAA SRA also satisfies this MIPS PI gate.
+    acceptedEvidenceTypes: ["SRA_COMPLETED"],
     sortOrder: 50,
   },
   {
@@ -98,6 +107,7 @@ const MACRA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1,
     description:
       "Use EHR technology certified to the 2015 Edition Cures Update (or later) ONC criteria for the entire performance year. CEHRT is required for PI category reporting. Document certification number from the ONC CHPL for audit defensibility.",
+    // Manual-only at launch; TechAsset CEHRT certification tracking deferred to Phase 9+.
     acceptedEvidenceTypes: [],
     sortOrder: 60,
   },
@@ -109,7 +119,7 @@ const MACRA_REQUIREMENTS: RequirementFixture[] = [
     weight: 2,
     description:
       "Submit MIPS data for the performance year via the Quality Payment Program portal by March 31 of the following year. Late submissions lose MIPS payment adjustment credit. Maintain proof of submission (confirmation email + submission report).",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["MACRA_ACTIVITY:LOGGED"],
     sortOrder: 70,
   },
 ];
