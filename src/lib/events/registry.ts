@@ -20,6 +20,9 @@ export const EVENT_TYPES = [
   "VENDOR_REMOVED",
   "CREDENTIAL_UPSERTED",
   "CREDENTIAL_REMOVED",
+  "CEU_ACTIVITY_LOGGED",
+  "CEU_ACTIVITY_REMOVED",
+  "CREDENTIAL_REMINDER_CONFIG_UPDATED",
   "SRA_COMPLETED",
   "SRA_DRAFT_SAVED",
   "INCIDENT_REPORTED",
@@ -231,6 +234,38 @@ export const EVENT_SCHEMAS = {
   CREDENTIAL_REMOVED: {
     1: z.object({
       credentialId: z.string().min(1),
+    }),
+  },
+  // Continuing-education activity logged against a credential. Counts
+  // toward CredentialType.ceuRequirementHours within the renewal window.
+  CEU_ACTIVITY_LOGGED: {
+    1: z.object({
+      ceuActivityId: z.string().min(1),
+      credentialId: z.string().min(1),
+      activityName: z.string().min(1).max(300),
+      provider: z.string().max(200).nullable().optional(),
+      activityDate: z.string().datetime(),
+      hoursAwarded: z.number().min(0).max(1000),
+      category: z.string().max(100).nullable().optional(),
+      certificateEvidenceId: z.string().min(1).nullable().optional(),
+      notes: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  // Soft-delete of a CEU activity (sets retiredAt).
+  CEU_ACTIVITY_REMOVED: {
+    1: z.object({
+      ceuActivityId: z.string().min(1),
+      removedReason: z.string().max(500).nullable().optional(),
+    }),
+  },
+  // Per-credential renewal-reminder schedule. Upserts the
+  // CredentialReminderConfig row.
+  CREDENTIAL_REMINDER_CONFIG_UPDATED: {
+    1: z.object({
+      configId: z.string().min(1),
+      credentialId: z.string().min(1),
+      enabled: z.boolean(),
+      milestoneDays: z.array(z.number().int().min(0).max(365)).max(20),
     }),
   },
   SRA_COMPLETED: {
