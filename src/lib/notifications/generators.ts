@@ -924,6 +924,268 @@ export async function generateOshaPostingReminderNotifications(
   }));
 }
 
+// ---------------------------------------------------------------------------
+// Phase B — notification-scan escalation generators (chunk 8 launch readiness)
+// ---------------------------------------------------------------------------
+//
+// New "scan-then-cross-check" pattern:
+//
+// Every other generator in this file scans a domain table (Credential,
+// PracticePolicy, Incident, …) for "needs an alert" rows. The two
+// escalation generators below scan the `Notification` table itself for
+// rows that meet the "old + still unread" criteria, then cross-check the
+// underlying domain record to confirm the original concern is still
+// actionable (e.g. the credential hasn't been renewed, the training
+// hasn't been retaken). When both conditions hold, they emit a manager-
+// targeted escalation.
+//
+// EntityKey convention: keyed on the SOURCE DOMAIN RECORD
+// (`training-escalation:{completionId}`, `credential-escalation:{credentialId}`),
+// NOT on the source notification's id. This keeps dedup sane — one
+// escalation per overdue thing, not one per overdue notification — and
+// survives the case where multiple TRAINING_OVERDUE rows exist for the
+// same completion across digest runs.
+
+const ESCALATION_THRESHOLD_DAYS = 14;
+
+/**
+ * Staff hasn't completed overdue training after 14 days → escalate to
+ * managers. Source: TRAINING_OVERDUE notifications older than 14 days
+ * that the staff member hasn't read. Cross-check: the underlying
+ * TrainingCompletion still has no newer passing completion (same
+ * supersede logic as generateTrainingOverdueNotifications). EntityKey is
+ * `training-escalation:{completionId}` — keyed on the completion, not
+ * the source notification, so a single overdue completion produces one
+ * escalation regardless of how many source TRAINING_OVERDUE rows exist.
+ */
+export async function generateTrainingEscalationNotifications(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  // Owner/admin-only — see comment on generatePolicyReviewDueNotifications.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  userIds: string[],
+): Promise<NotificationProposal[]> {
+  const adminIds = await ownerAdminUserIds(tx, practiceId);
+  if (adminIds.length === 0) return [];
+
+  const cutoff = new Date(Date.now() - ESCALATION_THRESHOLD_DAYS * DAY_MS);
+
+  // Source query: stale unread TRAINING_OVERDUE notifications.
+  const stale = await tx.notification.findMany({
+    where: {
+      practiceId,
+      type: "TRAINING_OVERDUE",
+      createdAt: { lt: cutoff },
+      readAt: null,
+    },
+    select: { id: true, entityKey: true },
+  });
+  if (stale.length === 0) return [];
+
+  // EntityKey from generateTrainingOverdueNotifications is
+  // `training-completion:{completionId}` — extract the completion id.
+  // Dedup on completionId here so a single overdue completion produces
+  // exactly one escalation even if multiple TRAINING_OVERDUE rows
+  // happen to share it across users.
+  const completionIds = new Set<string>();
+  for (const n of stale) {
+    if (!n.entityKey) continue;
+    const prefix = "training-completion:";
+    if (!n.entityKey.startsWith(prefix)) continue;
+    completionIds.add(n.entityKey.slice(prefix.length));
+  }
+  if (completionIds.size === 0) return [];
+
+  const completions = await tx.trainingCompletion.findMany({
+    where: {
+      id: { in: Array.from(completionIds) },
+      practiceId,
+    },
+    select: {
+      id: true,
+      userId: true,
+      courseId: true,
+      expiresAt: true,
+      course: { select: { title: true } },
+      practice: { select: { id: true } },
+    },
+  });
+
+  const proposals: NotificationProposal[] = [];
+  for (const c of completions) {
+    // Cross-check: still no newer passing completion (otherwise the
+    // original TRAINING_OVERDUE is moot and so is its escalation).
+    const newerPass = await tx.trainingCompletion.findFirst({
+      where: {
+        practiceId,
+        userId: c.userId,
+        courseId: c.courseId,
+        passed: true,
+        completedAt: {
+          gt: new Date(c.expiresAt.getTime() - 365 * DAY_MS),
+        },
+        id: { not: c.id },
+        expiresAt: { gt: c.expiresAt },
+      },
+      select: { id: true },
+    });
+    if (newerPass) continue;
+
+    // Lookup staff display name.
+    const staffUser = await tx.user.findUnique({
+      where: { id: c.userId },
+      select: { firstName: true, lastName: true, email: true },
+    });
+    const staffName =
+      `${staffUser?.firstName ?? ""} ${staffUser?.lastName ?? ""}`.trim() ||
+      staffUser?.email ||
+      "A staff member";
+    const courseTitle = c.course?.title ?? "Required training";
+    const entityKey = `training-escalation:${c.id}`;
+    const title = `Staff training overdue: ${staffName} — ${courseTitle}`;
+    const body = `${staffName} has had overdue training for ${ESCALATION_THRESHOLD_DAYS}+ days with no completion. Follow up directly.`;
+
+    for (const uid of adminIds) {
+      proposals.push({
+        userId: uid,
+        practiceId,
+        type: "TRAINING_ESCALATION" as NotificationType,
+        severity: "WARNING" as NotificationSeverity,
+        title,
+        body,
+        href: `/training/staff/${c.userId}`,
+        entityKey,
+      });
+    }
+  }
+  return proposals;
+}
+
+/**
+ * A CREDENTIAL_EXPIRING notification has gone unaddressed for 14+ days →
+ * escalate to managers. Same scan-then-cross-check pattern as
+ * generateTrainingEscalationNotifications (see comment block above).
+ *
+ * Source notification entityKey scheme (from generateCredentialNotifications):
+ * `credential:{credentialId}:{YYYY-MM-DD}`. Parse the credentialId out
+ * and re-confirm the credential is still active (`retiredAt IS NULL`)
+ * AND its expiryDate hasn't been pushed past the original date — i.e.
+ * the credential wasn't renewed in place. EntityKey is
+ * `credential-escalation:{credentialId}` so a renewal (which assigns a
+ * new credential id elsewhere) starts a fresh dedup window.
+ *
+ * Note: this generator only escalates CREDENTIAL_EXPIRING. CMS_ENROLLMENT_EXPIRING
+ * and CREDENTIAL_RENEWAL_DUE use different entityKey shapes
+ * (`cms-enrollment:{id}:milestone:{N}`, `credential:{id}:milestone:{N}`)
+ * and would need separate escalation generators if we wanted parity —
+ * filed as a follow-up after launch.
+ */
+export async function generateCredentialEscalationNotifications(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  // Owner/admin-only — see comment on generatePolicyReviewDueNotifications.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  userIds: string[],
+): Promise<NotificationProposal[]> {
+  const adminIds = await ownerAdminUserIds(tx, practiceId);
+  if (adminIds.length === 0) return [];
+
+  const cutoff = new Date(Date.now() - ESCALATION_THRESHOLD_DAYS * DAY_MS);
+
+  const stale = await tx.notification.findMany({
+    where: {
+      practiceId,
+      type: "CREDENTIAL_EXPIRING",
+      createdAt: { lt: cutoff },
+      readAt: null,
+    },
+    select: { id: true, entityKey: true },
+  });
+  if (stale.length === 0) return [];
+
+  // EntityKey scheme from generateCredentialNotifications:
+  // `credential:{credentialId}:{YYYY-MM-DD}`. Strip the prefix, drop the
+  // trailing date segment.
+  const seen = new Map<string, string>(); // credentialId -> original ISO date string
+  for (const n of stale) {
+    if (!n.entityKey) continue;
+    const prefix = "credential:";
+    if (!n.entityKey.startsWith(prefix)) continue;
+    const body = n.entityKey.slice(prefix.length);
+    // Skip credential-renewal-due rows that share the `credential:` prefix
+    // but use `credential:{id}:milestone:{N}`. Those are a different
+    // notification type and shouldn't surface here, but the type filter
+    // above already gates that — extra defense.
+    if (body.includes(":milestone:")) continue;
+    const lastColon = body.lastIndexOf(":");
+    if (lastColon < 0) continue;
+    const credentialId = body.slice(0, lastColon);
+    const dateStr = body.slice(lastColon + 1);
+    if (!credentialId || !dateStr) continue;
+    if (!seen.has(credentialId)) seen.set(credentialId, dateStr);
+  }
+  if (seen.size === 0) return [];
+
+  const credentials = await tx.credential.findMany({
+    where: {
+      id: { in: Array.from(seen.keys()) },
+      practiceId,
+      retiredAt: null,
+    },
+    select: {
+      id: true,
+      title: true,
+      expiryDate: true,
+      holderId: true,
+      credentialType: { select: { name: true, code: true } },
+      holder: {
+        select: {
+          user: { select: { firstName: true, lastName: true, email: true } },
+        },
+      },
+    },
+  });
+
+  const proposals: NotificationProposal[] = [];
+  for (const cred of credentials) {
+    if (!cred.expiryDate) continue;
+    // Cross-check: credential is unrenewed if its expiryDate hasn't been
+    // pushed past the date that fired the original notification. (A
+    // renewal-in-place bumps expiryDate forward; a fresh credential gets
+    // a new id and won't match `seen` anyway.)
+    const originalDateStr = seen.get(cred.id);
+    if (!originalDateStr) continue;
+    const currentDateStr = cred.expiryDate.toISOString().slice(0, 10);
+    if (currentDateStr !== originalDateStr) continue; // renewed in place
+
+    const holderName =
+      `${cred.holder?.user?.firstName ?? ""} ${cred.holder?.user?.lastName ?? ""}`.trim() ||
+      cred.holder?.user?.email ||
+      cred.title ||
+      "Unassigned credential";
+    const credentialTypeName =
+      cred.credentialType?.name ?? cred.title ?? "Credential";
+    const expiryStr = cred.expiryDate.toISOString().slice(0, 10);
+    const entityKey = `credential-escalation:${cred.id}`;
+    const title = `Credential expiring without action: ${holderName} — ${credentialTypeName}`;
+    const body = `${holderName}'s ${credentialTypeName} expiring on ${expiryStr} hasn't been addressed for ${ESCALATION_THRESHOLD_DAYS} days. Renew or follow up.`;
+
+    for (const uid of adminIds) {
+      proposals.push({
+        userId: uid,
+        practiceId,
+        type: "CREDENTIAL_ESCALATION" as NotificationType,
+        severity: "WARNING" as NotificationSeverity,
+        title,
+        body,
+        href: `/credentials/${cred.id}`,
+        entityKey,
+      });
+    }
+  }
+  return proposals;
+}
+
 /**
  * Aggregate all generators for a practice. Order doesn't affect
  * uniqueness (dedup runs on insert), but sorting keeps the digest email
@@ -939,12 +1201,14 @@ export async function generateAllNotifications(
     sra,
     creds,
     credRenewals,
+    credEscalation,
     cmsEnrollment,
     vendors,
     incidents,
     breachDeadline,
     policies,
     training,
+    trainingEscalation,
     osha,
     allergy,
     allergyCompetency,
@@ -952,12 +1216,14 @@ export async function generateAllNotifications(
     generateSraNotifications(tx, practiceId, userIds),
     generateCredentialNotifications(tx, practiceId, userIds),
     generateCredentialRenewalNotifications(tx, practiceId, userIds),
+    generateCredentialEscalationNotifications(tx, practiceId, userIds),
     generateCmsEnrollmentNotifications(tx, practiceId, userIds),
     generateVendorBaaNotifications(tx, practiceId, userIds),
     generateIncidentNotifications(tx, practiceId, userIds),
     generateBreachDeterminationDeadlineNotifications(tx, practiceId, userIds),
     generatePolicyReviewDueNotifications(tx, practiceId, userIds),
     generateTrainingOverdueNotifications(tx, practiceId, userIds),
+    generateTrainingEscalationNotifications(tx, practiceId, userIds),
     generateOshaPostingReminderNotifications(tx, practiceId, userIds),
     generateAllergyNotifications(tx, practiceId, userIds),
     generateAllergyCompetencyDueNotifications(tx, practiceId, userIds),
@@ -966,12 +1232,14 @@ export async function generateAllNotifications(
     ...sra,
     ...creds,
     ...credRenewals,
+    ...credEscalation,
     ...cmsEnrollment,
     ...vendors,
     ...incidents,
     ...breachDeadline,
     ...policies,
     ...training,
+    ...trainingEscalation,
     ...osha,
     ...allergy,
     ...allergyCompetency,
