@@ -4,11 +4,19 @@
 // Seeds 1 RegulatoryFramework + 9 RegulatoryRequirements + 44 AllergyQuizQuestions
 // from _v1-allergy-quiz-export.json (if present).
 //
+// PR 7 (2026-04-28): wires acceptedEvidenceTypes for the 4 derived
+// requirements (ALLERGY_COMPETENCY, ALLERGY_EMERGENCY_KIT_CURRENT,
+// ALLERGY_REFRIGERATOR_LOG, ALLERGY_ANNUAL_DRILL) and adds the
+// backfillFrameworkDerivations call so existing AllergyCompetency /
+// AllergyEquipmentCheck / AllergyDrill rows flip ComplianceItems on
+// re-seed without waiting for the next event.
+//
 // Usage:
 //   npx tsx scripts/seed-allergy.ts
 
 import { PrismaClient } from "@prisma/client";
 import { config } from "dotenv";
+import { backfillFrameworkDerivations } from "./lib/backfill-derivations";
 
 config({ path: ".env" });
 
@@ -67,6 +75,11 @@ const REQUIREMENTS = [
     sortOrder: 50,
   },
   // --- Derived requirements (4) — see src/lib/compliance/derivation/allergy.ts ---
+  // Evidence codes here are the literal routing keys the allergy projections
+  // pass to rederiveRequirementStatus. They are not namespaced (no POLICY: /
+  // EVENT: prefix) because the derivation rules query the AllergyCompetency
+  // and AllergyEquipmentCheck and AllergyDrill models directly — the code is
+  // purely a routing key for rederive lookup.
   {
     code: "ALLERGY_COMPETENCY",
     title: "Annual 3-component competency for every compounder (USP §21.3)",
@@ -74,7 +87,9 @@ const REQUIREMENTS = [
       "Every active compounder must complete all three components annually: (A) written knowledge assessment, (B) gloved fingertip + thumb sampling on TSA plates (no growth), and (C) media fill test (TSB incubated 14 days, no turbidity). Initial qualification requires 3 passes on component B. Inactive ≥6 months requires full re-evaluation. Derived from AllergyCompetency.isFullyQualified.",
     severity: "CRITICAL",
     weight: 2,
-    acceptedEvidenceTypes: [],
+    // projectAllergyQuizCompleted + projectAllergyFingertipTestPassed +
+    // projectAllergyMediaFillPassed all rederive on this code.
+    acceptedEvidenceTypes: ["ALLERGY_COMPETENCY"],
     sortOrder: 60,
   },
   {
@@ -84,7 +99,8 @@ const REQUIREMENTS = [
       "Epinephrine 1:1000 injectable plus full emergency kit (antihistamine, corticosteroid, airway adjuncts, BP cuff, pulse oximeter) verified unexpired and present within the last 90 days. Derived from an AllergyCheck of type EMERGENCY_KIT recorded within 90 days.",
     severity: "CRITICAL",
     weight: 2,
-    acceptedEvidenceTypes: [],
+    // projectAllergyEquipmentCheckLogged rederives on this code when checkType=EMERGENCY_KIT.
+    acceptedEvidenceTypes: ["ALLERGY_EMERGENCY_KIT_CURRENT"],
     sortOrder: 70,
   },
   {
@@ -94,7 +110,8 @@ const REQUIREMENTS = [
       "Continuous or at-minimum daily refrigerator temperature monitoring with documented records. Most recent log entry within 30 days and no excursions above 8°C or below 2°C. Derived from AllergyCheck of type REFRIGERATOR_TEMP.",
     severity: "HIGH",
     weight: 1,
-    acceptedEvidenceTypes: [],
+    // projectAllergyEquipmentCheckLogged rederives on this code when checkType=REFRIGERATOR_TEMP.
+    acceptedEvidenceTypes: ["ALLERGY_REFRIGERATOR_LOG"],
     sortOrder: 80,
   },
   {
@@ -104,7 +121,8 @@ const REQUIREMENTS = [
       "Full office anaphylaxis drill (simulated systemic reaction, epinephrine administration, 911 activation protocol) conducted within the last 365 days with documented attendance + debrief. Published best-practice: twice yearly. Derived from an AllergyCheck of type EMERGENCY_KIT with drill_conducted flag.",
     severity: "HIGH",
     weight: 1,
-    acceptedEvidenceTypes: [],
+    // projectAllergyDrillLogged rederives on this code.
+    acceptedEvidenceTypes: ["ALLERGY_ANNUAL_DRILL"],
     sortOrder: 90,
   },
 ];
@@ -212,6 +230,12 @@ async function main() {
       throw err;
     }
   }
+
+  // 4. Backfill ComplianceItem rows for any AllergyCompetency /
+  //    AllergyEquipmentCheck / AllergyDrill data that pre-dates the
+  //    acceptedEvidenceTypes wiring. Safe to re-run: the rederive helper
+  //    has no-op + USER-override guards.
+  await backfillFrameworkDerivations(db, "ALLERGY");
 }
 
 main()
