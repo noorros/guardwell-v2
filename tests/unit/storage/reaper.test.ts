@@ -58,6 +58,12 @@ describe("runReaper", () => {
   });
 
   it("counts GCS errors separately (does not abort remaining rows)", async () => {
+    // The reaper's error path calls console.error. We mock it so the
+    // test output stays clean — without this, CI would surface a real
+    // "[evidence-reaper] GCS delete failed..." line that looks like a
+    // failure at first glance but is the deliberate test signal.
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
     const staleDate = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000);
     mockFindMany.mockResolvedValueOnce([
       { id: "ev-1", gcsKey: "key-1", deletedAt: staleDate },
@@ -73,5 +79,8 @@ describe("runReaper", () => {
     // Row ev-2 was still deleted even though ev-1's GCS delete failed
     expect(result.purged).toBe(2);  // both DB rows deleted
     expect(result.errors).toBe(1);  // one GCS error logged
+    expect(consoleSpy).toHaveBeenCalledOnce();
+
+    consoleSpy.mockRestore();
   });
 });
