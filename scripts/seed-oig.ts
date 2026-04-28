@@ -45,9 +45,11 @@ const OIG_REQUIREMENTS: RequirementFixture[] = [
     description:
       "Develop and distribute written standards of conduct and written policies and procedures that promote the practice's commitment to compliance and address specific areas of potential fraud and abuse (billing, coding, reasonable-and-necessary services, documentation, improper inducements).",
     acceptedEvidenceTypes: [
+      // Element 1 anchors on Standards of Conduct adoption per OIG
+      // guidance text. The other two policy codes flow through Elements
+      // 4 (anonymous reporting) and 6 (discipline) to avoid double-
+      // counting. See oigWrittenPoliciesRule rationale.
       "POLICY:OIG_STANDARDS_OF_CONDUCT_POLICY",
-      "POLICY:OIG_ANONYMOUS_REPORTING_POLICY",
-      "POLICY:OIG_DISCIPLINE_POLICY",
     ],
     sortOrder: 10,
   },

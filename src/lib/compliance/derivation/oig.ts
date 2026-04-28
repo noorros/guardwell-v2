@@ -22,14 +22,6 @@ import { courseCompletionThresholdRule } from "./shared";
 // 12-month window for auditing / monitoring.
 const YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
-// The three OIG policy codes that together satisfy Element 1. At least 2 of
-// these must be adopted (not retired) for OIG_WRITTEN_POLICIES to be COMPLIANT.
-const OIG_POLICY_SET: readonly OigPolicyCode[] = [
-  "OIG_STANDARDS_OF_CONDUCT_POLICY",
-  "OIG_ANONYMOUS_REPORTING_POLICY",
-  "OIG_DISCIPLINE_POLICY",
-] as const;
-
 // ─── Factory for single-policy OIG rules ────────────────────────────────────
 
 /**
@@ -52,24 +44,16 @@ function oigPolicyRule(required: OigPolicyCode): DerivationRule {
 
 /**
  * 65 FR 59434 Element 1 — Written policies and standards of conduct.
- * COMPLIANT if ≥2 of the 3 OIG policy codes are currently adopted.
- * Evidence codes: POLICY:OIG_STANDARDS_OF_CONDUCT_POLICY,
- *                 POLICY:OIG_ANONYMOUS_REPORTING_POLICY,
- *                 POLICY:OIG_DISCIPLINE_POLICY
+ *
+ * Anchored on `OIG_STANDARDS_OF_CONDUCT_POLICY` adoption per the OIG
+ * guidance text (Element 1's primary requirement is a written standards-of-
+ * conduct document). The other two OIG policy codes (anonymous reporting +
+ * discipline) gate Elements 4 and 6 respectively, so requiring them here
+ * would double-count.
+ *
+ * Evidence code: POLICY:OIG_STANDARDS_OF_CONDUCT_POLICY
  */
-export async function oigWrittenPoliciesRule(
-  tx: Prisma.TransactionClient,
-  practiceId: string,
-): Promise<DerivedStatus | null> {
-  const count = await tx.practicePolicy.count({
-    where: {
-      practiceId,
-      policyCode: { in: OIG_POLICY_SET as unknown as string[] },
-      retiredAt: null,
-    },
-  });
-  return count >= 2 ? "COMPLIANT" : "GAP";
-}
+const oigWrittenPoliciesRule = oigPolicyRule("OIG_STANDARDS_OF_CONDUCT_POLICY");
 
 // ─── OIG Element 2 ─ Compliance officer ──────────────────────────────────────
 
@@ -157,20 +141,26 @@ export async function oigEnforcementDisciplineRule(
 /**
  * 65 FR 59434 Element 7 — Prompt response to detected violations.
  * COMPLIANT if at least one OIG_CORRECTIVE_ACTION_RESOLVED EventLog row exists
- * for this practice (any resolved corrective action demonstrates an active
- * response program is in place).
+ * within the last 24 months. The 24-month window matches the Element 5
+ * (auditing & monitoring) freshness intent — both are "active program"
+ * checks. A practice that resolved one CAP in 2020 should not stay COMPLIANT
+ * forever; the program needs to be demonstrated currently active.
  * Evidence code: EVENT:OIG_CORRECTIVE_ACTION_RESOLVED
  * Note: OigCorrectiveAction model deferred to Phase 9 (OQ-1). The EventLog
  * row IS the evidence for now.
  */
+const TWO_YEARS_MS = 2 * 365 * 24 * 60 * 60 * 1000;
+
 export async function oigResponseViolationsRule(
   tx: Prisma.TransactionClient,
   practiceId: string,
 ): Promise<DerivedStatus | null> {
+  const cutoff = new Date(Date.now() - TWO_YEARS_MS);
   const count = await tx.eventLog.count({
     where: {
       practiceId,
       type: "OIG_CORRECTIVE_ACTION_RESOLVED",
+      createdAt: { gte: cutoff },
     },
   });
   return count >= 1 ? "COMPLIANT" : "GAP";

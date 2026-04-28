@@ -104,27 +104,31 @@ describe("OIG derivation rules", () => {
       user.id,
       "OIG_STANDARDS_OF_CONDUCT_POLICY",
     );
-    await adoptPolicy(
-      practice.id,
-      user.id,
-      "OIG_ANONYMOUS_REPORTING_POLICY",
-    );
 
+    // Element 1 anchors on Standards of Conduct alone (the anonymous
+    // reporting + discipline policies gate Elements 4 and 6 to avoid
+    // double-counting). One policy adoption is sufficient.
     expect(await statusOf(practice.id, req.id)).toBe("COMPLIANT");
   });
 
-  it("Adopting only 1 OIG policy leaves OIG_WRITTEN_POLICIES as GAP", async () => {
+  it("OIG_WRITTEN_POLICIES stays NOT_STARTED when only non-anchor OIG policies are adopted", async () => {
     const { user, practice, byCode } = await seedOig();
     const req = byCode.get("OIG_WRITTEN_POLICIES")!;
     expect(req).toBeDefined();
 
+    // Element 1's acceptedEvidenceTypes contains only
+    // POLICY:OIG_STANDARDS_OF_CONDUCT_POLICY. Adopting the discipline
+    // policy fires rederive for Element 6 but does NOT trigger an
+    // Element 1 rederive — so Element 1 stays NOT_STARTED until the
+    // anchor policy is adopted. This is correct evidence-driven
+    // behavior: rederive only fires when matching evidence arrives.
     await adoptPolicy(
       practice.id,
       user.id,
-      "OIG_STANDARDS_OF_CONDUCT_POLICY",
+      "OIG_DISCIPLINE_POLICY",
     );
 
-    expect(await statusOf(practice.id, req.id)).toBe("GAP");
+    expect(await statusOf(practice.id, req.id)).toBe("NOT_STARTED");
   });
 
   it("OIG_ANNUAL_REVIEW_SUBMITTED within last 12 months flips OIG_AUDITING_MONITORING to COMPLIANT", async () => {
