@@ -48,7 +48,6 @@ const ALLOWED_MIME_BY_ENTITY_TYPE: Record<string, Set<string>> = {
 };
 
 function isAllowedMime(entityType: string, mimeType: string): boolean {
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const allowed =
     ALLOWED_MIME_BY_ENTITY_TYPE[entityType] ??
     ALLOWED_MIME_BY_ENTITY_TYPE["DEFAULT"]!;
@@ -122,7 +121,6 @@ export async function requestUpload(
 ): Promise<RequestUploadResult> {
   // Validate content-type against per-entityType allowlist
   if (!isAllowedMime(args.entityType, args.mimeType)) {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const allowed =
       ALLOWED_MIME_BY_ENTITY_TYPE[args.entityType] ??
       ALLOWED_MIME_BY_ENTITY_TYPE["DEFAULT"]!;
