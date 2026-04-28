@@ -4,6 +4,7 @@
 import { useState, useTransition } from "react";
 import { RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { syncTrackFromEvidenceAction } from "./actions";
 
 export function SyncButton() {
@@ -34,10 +35,11 @@ export function SyncButton() {
         size="sm"
         onClick={onClick}
         disabled={pending}
+        aria-busy={pending}
         aria-label="Sync track from current compliance state"
       >
         <RefreshCcw
-          className={`h-3.5 w-3.5 ${pending ? "animate-spin" : ""}`}
+          className={cn("h-3.5 w-3.5", pending && "animate-spin")}
           aria-hidden="true"
         />
         <span className="ml-1.5">{pending ? "Syncing…" : "Sync"}</span>
