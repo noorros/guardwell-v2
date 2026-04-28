@@ -11,6 +11,7 @@ import { ScoreRing } from "@/components/gw/ScoreRing";
 import { EmptyState } from "@/components/gw/EmptyState";
 import { generateTrackIfMissing } from "@/lib/events/projections/track";
 import { TrackTaskRow } from "./TrackTaskRow";
+import { SyncButton } from "./SyncButton";
 
 export const metadata = { title: "Get started · My Programs" };
 export const dynamic = "force-dynamic";
@@ -96,6 +97,9 @@ export default async function TrackPage() {
             tick off when the underlying compliance work happens; the rest
             need an explicit Mark done click.
           </p>
+          <div className="pt-1">
+            <SyncButton />
+          </div>
         </div>
         <ScoreRing score={pct} size={64} strokeWidth={7} assessed />
       </header>

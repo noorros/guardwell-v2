@@ -11,6 +11,7 @@ import {
   projectTrackTaskCompleted,
   projectTrackTaskReopened,
 } from "@/lib/events/projections/track";
+import { syncTrackTasksFromEvidence } from "./sync-internals";
 
 const TaskInput = z.object({
   trackTaskId: z.string().min(1),
@@ -87,4 +88,22 @@ export async function reopenTrackTaskAction(
       }),
   );
   revalidatePath("/programs/track");
+}
+
+export async function syncTrackFromEvidenceAction(): Promise<{
+  closed: number;
+}> {
+  const user = await requireUser();
+  const pu = await getPracticeUser();
+  if (!pu) throw new Error("Unauthorized");
+  // RBAC: any authenticated practice member can sync. No write to
+  // shared state beyond the practice's own tasks; idempotent.
+  void user;
+
+  const result = await syncTrackTasksFromEvidence(pu.practiceId);
+  if (result.closed > 0) {
+    revalidatePath("/programs/track");
+    revalidatePath("/dashboard");
+  }
+  return result;
 }
