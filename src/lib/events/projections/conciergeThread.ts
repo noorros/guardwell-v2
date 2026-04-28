@@ -49,6 +49,9 @@ export async function projectConciergeMessageUserSent(
       threadId: payload.threadId,
       role: "USER",
       content: payload.content,
+      // USER rows duplicate content into payload for forward-compat with
+      // future client metadata fields — attachments, tone preferences, etc.
+      // Keeping `payload Json` non-nullable matches ASSISTANT/TOOL rows.
       payload: { content: payload.content } as Prisma.InputJsonValue,
     },
   });

@@ -1762,6 +1762,10 @@ model MacraActivityLog {
 /// if it happens, threads remain as historical audit data, which is the
 /// correct behavior for an append-only conversation log.
 ///
+/// Note: `Practice.deletedAt` (soft-delete) does NOT cascade to threads —
+/// soft-deleted practices keep their threads as historical audit data. A hard
+/// delete via `practice.delete()` cascades through the FK.
+///
 /// Append-only at the projection level — only title, lastMessageAt, and
 /// archivedAt mutate after creation.
 model ConversationThread {
@@ -1776,8 +1780,10 @@ model ConversationThread {
   practice Practice              @relation(fields: [practiceId], references: [id], onDelete: Cascade)
   messages ConversationMessage[]
 
-  @@index([practiceId, archivedAt, lastMessageAt])
-  @@index([userId, lastMessageAt])
+  // 2-col index: filtering archivedAt IS NULL between practiceId and lastMessageAt
+  // would break Postgres's leftmost-prefix sort; planner range-scans + filters
+  // the rare archived rows in memory. (userId index dropped — speculative.)
+  @@index([practiceId, lastMessageAt])
 }
 
 /// Single message in a Concierge thread. Append-only.
