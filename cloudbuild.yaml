@@ -22,7 +22,11 @@ steps:
         echo "Starting cloud-sql-proxy..."
         cloud-sql-proxy guardwell-prod:us-central1:guardwell-v2-db --port 5434 &
         PROXY_PID=$!
-        sleep 5
+        # Wait up to 30s for the proxy to bind :5434 (replaces a fragile sleep).
+        for i in $(seq 1 30); do
+          (echo > /dev/tcp/localhost/5434) >/dev/null 2>&1 && break
+          sleep 1
+        done
 
         echo "Installing dependencies + running prisma db push..."
         cd /workspace
