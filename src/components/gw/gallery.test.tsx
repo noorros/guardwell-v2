@@ -18,6 +18,8 @@ import { stories as PracticeIdentityCardStories } from "./PracticeIdentityCard/P
 import { stories as DeadlineWarningStories } from "./DeadlineWarning/DeadlineWarning.stories";
 import { stories as MajorBreachBannerStories } from "./MajorBreachBanner/MajorBreachBanner.stories";
 import { stories as AiAssistDrawerStories } from "./AiAssistDrawer/AiAssistDrawer.stories";
+import { stories as EvidenceUploaderStories } from "./EvidenceUploader/EvidenceUploader.stories";
+import { stories as EvidenceListStories } from "./EvidenceList/EvidenceList.stories";
 
 const ALL = {
   EmptyState: EmptyStateStories,
@@ -31,6 +33,8 @@ const ALL = {
   DeadlineWarning: DeadlineWarningStories,
   MajorBreachBanner: MajorBreachBannerStories,
   AiAssistDrawer: AiAssistDrawerStories,
+  EvidenceUploader: EvidenceUploaderStories,
+  EvidenceList: EvidenceListStories,
 } as const;
 
 describe("gw/ accessibility audit (axe-core)", () => {
