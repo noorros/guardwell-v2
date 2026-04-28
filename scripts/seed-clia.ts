@@ -55,6 +55,11 @@ const CLIA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "A qualified Laboratory Director must be designated in writing and meet CLIA personnel qualifications for the certificate level. Certificate of Waiver: any licensed provider may direct. Non-waived: director must meet specific education + experience requirements.",
+    // TODO(Phase 9+): Add LAB_DIRECTOR to OFFICER_ROLES enum + new
+    // PracticeUser.isLabDirector boolean column (additive schema migration)
+    // and wire ["OFFICER_DESIGNATION:LAB_DIRECTOR"] here. Deferred to keep
+    // PR 7 scoped to seed-level cleanup; CLIA personnel qualifications are
+    // verified manually at launch via the /modules/clia radio.
     acceptedEvidenceTypes: [],
     sortOrder: 20,
   },
@@ -110,6 +115,10 @@ const CLIA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1,
     description:
       "Document initial and annual competency for each staff member on each test performed. Training must cover specimen collection, procedure, quality control, result interpretation, and reporting. Maintain dated, signed training records.",
+    // TODO(Phase 4): Seed a CLIA_LAB_BASICS training course in seed-training.ts,
+    // then wire ["TRAINING:CLIA_LAB_BASICS"] here so the existing
+    // courseCompletionThresholdRule pattern (see oig.ts OIG_TRAINING_EDUCATION)
+    // can flip this requirement automatically.
     acceptedEvidenceTypes: [],
     sortOrder: 70,
   },
