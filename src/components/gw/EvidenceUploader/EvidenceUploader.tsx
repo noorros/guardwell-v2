@@ -163,7 +163,13 @@ export function EvidenceUploader({
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") inputRef.current?.click();
+          if (e.key === "Enter" || e.key === " ") {
+            // Space would otherwise scroll the page before opening the
+            // picker; Enter is harmless to preventDefault but kept paired
+            // for symmetry.
+            e.preventDefault();
+            if (!uploading) inputRef.current?.click();
+          }
         }}
         aria-label="Upload file"
         aria-disabled={uploading}
