@@ -38,12 +38,24 @@ export const OSHA_POLICY_CODES = [
 export type OshaPolicyCode = (typeof OSHA_POLICY_CODES)[number];
 
 // ────────────────────────────────────────────────────────────────────────────
+// DEA
+// ────────────────────────────────────────────────────────────────────────────
+
+export const DEA_POLICY_CODES = [
+  "DEA_SECURE_STORAGE_POLICY",
+  "DEA_PRESCRIPTION_SECURITY_POLICY",
+  "DEA_LOSS_REPORTING_POLICY",
+] as const;
+
+export type DeaPolicyCode = (typeof DEA_POLICY_CODES)[number];
+
+// ────────────────────────────────────────────────────────────────────────────
 // Union + metadata
 // ────────────────────────────────────────────────────────────────────────────
 
-export type PolicyCode = HipaaPolicyCode | OshaPolicyCode;
+export type PolicyCode = HipaaPolicyCode | OshaPolicyCode | DeaPolicyCode;
 
-export type PolicyFramework = "HIPAA" | "OSHA";
+export type PolicyFramework = "HIPAA" | "OSHA" | "DEA";
 
 export interface PolicyMetadata {
   code: PolicyCode;
@@ -118,6 +130,28 @@ export const POLICY_METADATA: Record<PolicyCode, PolicyMetadata> = {
     description:
       "Written EAP covering evacuation, exit routes, fire prevention, reporting emergencies, and employee training. Satisfies OSHA §1910.38.",
   },
+  // DEA
+  DEA_SECURE_STORAGE_POLICY: {
+    code: "DEA_SECURE_STORAGE_POLICY",
+    framework: "DEA",
+    title: "Controlled Substance Secure Storage Policy",
+    description:
+      "Written policy establishing locked, substantially constructed storage (safe or cabinet) for all Schedule II–V controlled substances per 21 CFR §1301.75. Satisfies DEA_STORAGE.",
+  },
+  DEA_PRESCRIPTION_SECURITY_POLICY: {
+    code: "DEA_PRESCRIPTION_SECURITY_POLICY",
+    framework: "DEA",
+    title: "Prescription Security Policy",
+    description:
+      "Written policy covering tamper-resistant prescription pads and/or EPCS (Electronic Prescribing for Controlled Substances) with two-factor auth and audit trail per 21 CFR §1311. Satisfies the policy component of DEA_PRESCRIPTION_SECURITY.",
+  },
+  DEA_LOSS_REPORTING_POLICY: {
+    code: "DEA_LOSS_REPORTING_POLICY",
+    framework: "DEA",
+    title: "Controlled Substance Theft/Loss Reporting Policy",
+    description:
+      "Written policy requiring DEA Form 106 filing within one business day of discovering a theft or significant loss, plus law enforcement notification. Satisfies the policy component of DEA_LOSS_REPORTING per 21 CFR §1301.76(b).",
+  },
 };
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -138,4 +172,5 @@ export const evidenceCodeForPolicy = (code: PolicyCode) =>
 export const ALL_POLICY_CODES: readonly PolicyCode[] = [
   ...HIPAA_POLICY_CODES,
   ...OSHA_POLICY_CODES,
+  ...DEA_POLICY_CODES,
 ];

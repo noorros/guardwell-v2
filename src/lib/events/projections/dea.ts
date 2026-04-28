@@ -17,6 +17,7 @@
 
 import type { Prisma } from "@prisma/client";
 import type { PayloadFor } from "../registry";
+import { rederiveRequirementStatus } from "@/lib/compliance/derivation/rederive";
 
 type InventoryRecordedPayload = PayloadFor<"DEA_INVENTORY_RECORDED", 1>;
 type OrderReceivedPayload = PayloadFor<"DEA_ORDER_RECEIVED", 1>;
@@ -48,6 +49,9 @@ export async function projectDeaInventoryRecorded(
       },
     },
   });
+  // Rederive DEA_INVENTORY (biennial) and DEA_RECORDS (composite audit trail).
+  await rederiveRequirementStatus(tx, practiceId, "DEA_INVENTORY:RECORDED");
+  await rederiveRequirementStatus(tx, practiceId, "DEA_RECORDS:ACTIVITY");
 }
 
 export async function projectDeaOrderReceived(
@@ -75,6 +79,8 @@ export async function projectDeaOrderReceived(
       notes: payload.notes ?? null,
     },
   });
+  // Rederive DEA_RECORDS (composite audit trail) on every order received.
+  await rederiveRequirementStatus(tx, practiceId, "DEA_RECORDS:ACTIVITY");
 }
 
 export async function projectDeaDisposalCompleted(
@@ -103,6 +109,9 @@ export async function projectDeaDisposalCompleted(
       notes: payload.notes ?? null,
     },
   });
+  // Rederive DEA_DISPOSAL and DEA_RECORDS on every disposal completed.
+  await rederiveRequirementStatus(tx, practiceId, "DEA_DISPOSAL:COMPLETED");
+  await rederiveRequirementStatus(tx, practiceId, "DEA_RECORDS:ACTIVITY");
 }
 
 export async function projectDeaTheftLossReported(
@@ -138,6 +147,8 @@ export async function projectDeaTheftLossReported(
       notes: payload.notes ?? null,
     },
   });
+  // Rederive DEA_LOSS_REPORTING on every theft/loss report (filed or not).
+  await rederiveRequirementStatus(tx, practiceId, "DEA_THEFT_LOSS:REPORTED");
 }
 
 // DEA PDF audit-trail event — emitted on every DEA PDF read (Inventory,

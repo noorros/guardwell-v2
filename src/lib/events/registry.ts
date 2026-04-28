@@ -85,6 +85,11 @@ export const EVENT_TYPES = [
   // derivation rules (see src/lib/compliance/derivation/osha.ts).
   "POSTER_ATTESTATION",
   "PPE_ASSESSMENT_COMPLETED",
+  // DEA EPCS attestation — officer attests that EPCS (Electronic Prescribing
+  // for Controlled Substances, 21 CFR §1311) is active with two-factor auth
+  // + audit trail. No model row — EventLog IS the evidence. Feeds
+  // DEA_PRESCRIPTION_SECURITY derivation (see src/lib/compliance/derivation/dea.ts).
+  "EPCS_ATTESTATION",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -1055,6 +1060,22 @@ export const EVENT_SCHEMAS = {
       hazardsIdentified: z.array(z.string().min(1)),
       ppeRequired: z.array(z.string().min(1)),
       notes: z.string().max(2000).nullable(),
+    }),
+  },
+  // DEA EPCS attestation — officer attests that Electronic Prescribing for
+  // Controlled Substances (21 CFR §1311) is active with two-factor auth +
+  // audit trail. One attestation within the last 365 days satisfies the EPCS
+  // component of DEA_PRESCRIPTION_SECURITY.
+  // Naming convention: EVENT: prefix (no associated model row — EventLog IS
+  // the evidence). Evidence code: "EVENT:EPCS_ATTESTATION".
+  EPCS_ATTESTATION: {
+    1: z.object({
+      attestationId: z.string().min(1),
+      attestedByUserId: z.string().min(1),
+      attestedAt: z.string().datetime(),
+      epcsVendor: z.string().max(200).nullable(),
+      twoFactorEnabled: z.boolean(),
+      auditTrailConfirmed: z.boolean(),
     }),
   },
 } as const;
