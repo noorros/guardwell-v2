@@ -44,6 +44,11 @@ afterEach(async () => {
   // PracticeUser (no FK). Explicit deletes keep test setup deterministic.
   await db.ceuActivity.deleteMany();
   await db.credentialReminderConfig.deleteMany();
+  // BAA tables reference Vendor (cascade) + Evidence (SetNull) +
+  // Practice (cascade). Explicit deletes are safety-belt; child tokens
+  // first, then parent BaaRequest rows.
+  await db.baaAcceptanceToken.deleteMany();
+  await db.baaRequest.deleteMany();
   await db.practiceUser.deleteMany();
   await db.complianceItem.deleteMany();
   await db.practiceFramework.deleteMany();
