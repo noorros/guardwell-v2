@@ -1,8 +1,8 @@
 // src/lib/storage/evidence.ts
 //
 // High-level evidence helpers used by the API routes + server actions.
-// Keeps file validation, signed-URL issuance, and event-emission in one
-// place so per-surface upload UIs are thin wrappers.
+// Keeps file validation, signed-URL issuance, quota check, and
+// event-emission in one place so per-surface upload UIs are thin wrappers.
 
 import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
@@ -19,21 +19,80 @@ import {
   getSignedUploadUrl,
 } from "./gcs";
 
-const ALLOWED_MIME = new Set([
-  "application/pdf",
-  "image/png",
-  "image/jpeg",
-  "image/heic",
-  "image/heif",
-  "image/webp",
-]);
+// ── Default quota ────────────────────────────────────────────────────────────
+// 5 GB expressed in bytes. Overridable via env var at deploy time; further
+// overridable per-practice via Practice.storageQuotaBytes.
+const DEFAULT_QUOTA_BYTES = 5 * 1024 * 1024 * 1024; // 5 GB
 
-const MAX_BYTES = 25 * 1024 * 1024; // 25 MB
+function getDefaultQuota(): bigint {
+  const env = process.env.PRACTICE_STORAGE_QUOTA_BYTES;
+  if (env) {
+    const n = parseInt(env, 10);
+    if (!isNaN(n) && n > 0) return BigInt(n);
+  }
+  return BigInt(DEFAULT_QUOTA_BYTES);
+}
+
+// ── Content-type allowlist by entityType ─────────────────────────────────────
+// Phase 4 (BYOV training videos) will add TRAINING_VIDEO → video/mp4.
+// Phase 9 (Document Hub) will add DOCUMENT → application/pdf only.
+const ALLOWED_MIME_BY_ENTITY_TYPE: Record<string, Set<string>> = {
+  CREDENTIAL:          new Set(["application/pdf", "image/png", "image/jpeg", "image/heic", "image/heif", "image/webp"]),
+  DESTRUCTION_LOG:     new Set(["application/pdf", "image/png", "image/jpeg"]),
+  INCIDENT:            new Set(["application/pdf", "image/png", "image/jpeg"]),
+  VENDOR:              new Set(["application/pdf", "image/png", "image/jpeg"]),
+  TECH_ASSET:          new Set(["application/pdf", "image/png", "image/jpeg"]),
+  TRAINING_COMPLETION: new Set(["application/pdf", "image/png", "image/jpeg"]),
+  // Default — used when entityType is not listed above.
+  DEFAULT:             new Set(["application/pdf"]),
+};
+
+function isAllowedMime(entityType: string, mimeType: string): boolean {
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const allowed =
+    ALLOWED_MIME_BY_ENTITY_TYPE[entityType] ??
+    ALLOWED_MIME_BY_ENTITY_TYPE["DEFAULT"]!;
+  return allowed.has(mimeType);
+}
+
+const MAX_BYTES = 25 * 1024 * 1024; // 25 MB per file
+
+// ── Quota check (pure, exported for tests) ───────────────────────────────────
+export type QuotaCheckResult =
+  | { ok: true }
+  | { ok: false; message: string };
+
+/**
+ * Pure quota check. `usedBytes` = bytes already stored; `limitBytes` = cap.
+ * Exported so it can be unit-tested without a DB.
+ */
+export function checkQuota(usedBytes: bigint | number, limitBytes: bigint | number): QuotaCheckResult {
+  const used = BigInt(usedBytes);
+  const limit = BigInt(limitBytes);
+  if (used < limit) return { ok: true };
+
+  const limitGb = Math.round(Number(limit) / (1024 * 1024 * 1024));
+  return {
+    ok: false,
+    message: `Storage quota exceeded — this practice has used its ${limitGb} GB evidence storage quota. Delete older files to free space, or contact support to raise the limit.`,
+  };
+}
+
+/** Sum fileSizeBytes for all non-deleted Evidence rows in a practice. */
+async function getPracticeStorageUsed(practiceId: string): Promise<bigint> {
+  const result = await db.evidence.aggregate({
+    where: { practiceId, status: { not: "DELETED" } },
+    _sum: { fileSizeBytes: true },
+  });
+  return BigInt(result._sum.fileSizeBytes ?? 0);
+}
+
+// ── Upload ────────────────────────────────────────────────────────────────────
 
 export interface RequestUploadArgs {
   practiceId: string;
   practiceUserId: string; // PracticeUser.id (not User.id)
-  actorUserId: string; // User.id — for event log actorUserId
+  actorUserId: string;    // User.id — for event log actorUserId
   entityType: string;
   entityId: string;
   fileName: string;
@@ -50,24 +109,47 @@ export interface RequestUploadResult {
 }
 
 /**
- * Step 1 of 3: validates the file metadata, builds the GCS key, issues a
- * 5-minute signed PUT URL, emits EVIDENCE_UPLOAD_REQUESTED (creates the
- * Evidence row with status=PENDING), and returns the signed URL to the client.
+ * Step 1 of 3: validates the file metadata, checks quota, builds the GCS key,
+ * issues a 15-minute signed PUT URL, emits EVIDENCE_UPLOAD_REQUESTED (creates
+ * the Evidence row with status=PENDING), and returns the signed URL to the client.
  *
  * In dev (GCS_EVIDENCE_BUCKET unset) the signed URL is null — the client
- * should skip the PUT and call requestUpload with uploadUrl:null, then jump
- * directly to confirmUpload so the row still gets created for UI testing.
+ * should skip the PUT and call confirmUpload so the row still gets created
+ * for UI testing.
  */
 export async function requestUpload(
   args: RequestUploadArgs,
 ): Promise<RequestUploadResult> {
-  if (!ALLOWED_MIME.has(args.mimeType)) {
-    throw new Error(`Unsupported file type: ${args.mimeType}`);
+  // Validate content-type against per-entityType allowlist
+  if (!isAllowedMime(args.entityType, args.mimeType)) {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const allowed =
+      ALLOWED_MIME_BY_ENTITY_TYPE[args.entityType] ??
+      ALLOWED_MIME_BY_ENTITY_TYPE["DEFAULT"]!;
+    throw new Error(
+      `File type "${args.mimeType}" is not allowed for ${args.entityType}. Accepted: ${[...allowed].join(", ")}`,
+    );
   }
+
   if (args.fileSizeBytes > MAX_BYTES) {
     throw new Error(
-      `File too large: ${args.fileSizeBytes} bytes (max ${MAX_BYTES})`,
+      `File too large: ${args.fileSizeBytes} bytes (max ${MAX_BYTES / 1024 / 1024} MB)`,
     );
+  }
+
+  // Quota check — look up per-practice limit (Practice.storageQuotaBytes || env default)
+  const practice = await db.practice.findUnique({
+    where: { id: args.practiceId },
+    select: { storageQuotaBytes: true },
+  });
+  const limit: bigint =
+    practice?.storageQuotaBytes != null
+      ? BigInt(practice.storageQuotaBytes)
+      : getDefaultQuota();
+  const used = await getPracticeStorageUsed(args.practiceId);
+  const quotaResult = checkQuota(used + BigInt(args.fileSizeBytes), limit);
+  if (!quotaResult.ok) {
+    throw new Error(quotaResult.message);
   }
 
   const evidenceId = randomUUID();
@@ -110,7 +192,7 @@ export async function requestUpload(
     evidenceId,
     gcsKey,
     uploadUrl: signed.url,
-    expiresInSec: 300,
+    expiresInSec: 900, // 15 minutes
     reason: signed.reason,
   };
 }
@@ -173,7 +255,8 @@ export async function getDownloadUrl(args: {
 
 /**
  * Soft-delete: flips status to DELETED + best-effort deletes the GCS object.
- * GCS lifecycle policy provides a safety net if the object delete fails.
+ * GCS lifecycle policy (30-day hard-delete) provides a safety net if the
+ * object delete fails. The reaper cron also sweeps after 30 days.
  */
 export async function softDelete(args: {
   practiceId: string;
@@ -209,6 +292,6 @@ export async function softDelete(args: {
       }),
   );
 
-  // Best-effort GCS delete; lifecycle rule cleans up if this fails.
+  // Best-effort GCS delete; lifecycle rule + reaper cron clean up if this fails.
   await deleteFile(ev.gcsKey).catch(() => {});
 }
