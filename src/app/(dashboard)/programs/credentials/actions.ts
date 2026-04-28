@@ -12,6 +12,7 @@ import {
   projectCredentialRemoved,
   projectCeuActivityLogged,
   projectCeuActivityRemoved,
+  projectCredentialReminderConfigUpdated,
 } from "@/lib/events/projections/credential";
 import { db } from "@/lib/db";
 
@@ -405,4 +406,65 @@ export async function removeCeuActivityAction(
 
   revalidatePath("/programs/credentials");
   revalidatePath(`/programs/credentials/${activity.credentialId}`);
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Renewal reminder config — per-credential opt-in/opt-out + custom
+// milestone schedule. Server-side OWNER/ADMIN gate + cross-tenant guard.
+// ──────────────────────────────────────────────────────────────────────
+
+const ReminderConfigInput = z.object({
+  configId: z.string().min(1).max(60),
+  credentialId: z.string().min(1),
+  enabled: z.boolean(),
+  milestoneDays: z.array(z.number().int().min(0).max(365)).max(20),
+});
+
+export async function updateReminderConfigAction(
+  input: z.infer<typeof ReminderConfigInput>,
+): Promise<{ configId: string }> {
+  const user = await requireUser();
+  const pu = await getPracticeUser();
+  if (!pu) throw new Error("Unauthorized");
+  if (pu.role !== "OWNER" && pu.role !== "ADMIN") {
+    throw new Error("Forbidden");
+  }
+  const parsed = ReminderConfigInput.parse(input);
+
+  // Cross-tenant guard: verify the credential belongs to this practice.
+  const credential = await db.credential.findUnique({
+    where: { id: parsed.credentialId },
+    select: { practiceId: true },
+  });
+  if (!credential || credential.practiceId !== pu.practiceId) {
+    throw new Error("Credential not found");
+  }
+
+  const payload = {
+    configId: parsed.configId,
+    credentialId: parsed.credentialId,
+    enabled: parsed.enabled,
+    milestoneDays: parsed.milestoneDays,
+  };
+
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: user.id,
+      type: "CREDENTIAL_REMINDER_CONFIG_UPDATED",
+      payload,
+      // Each form submission is a distinct intent. The projection upserts,
+      // so re-emit is safe.
+      idempotencyKey: `cred-reminder-${parsed.configId}-${Date.now()}`,
+    },
+    async (tx) =>
+      projectCredentialReminderConfigUpdated(tx, {
+        practiceId: pu.practiceId,
+        payload,
+      }),
+  );
+
+  revalidatePath("/programs/credentials");
+  revalidatePath(`/programs/credentials/${parsed.credentialId}`);
+  return { configId: parsed.configId };
 }
