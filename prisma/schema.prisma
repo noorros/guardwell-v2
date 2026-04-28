@@ -139,6 +139,8 @@ model Practice {
   deaOrders               DeaOrderRecord[]
   deaDisposals            DeaDisposalRecord[]
   deaTheftLossReports     DeaTheftLossReport[]
+  ceuActivities           CeuActivity[]
+  credentialReminders     CredentialReminderConfig[]
 
   @@index([primaryState])
   @@index([subscriptionStatus])
@@ -352,6 +354,7 @@ enum NotificationType {
   SRA_DUE
   TRAINING_EXPIRING
   CREDENTIAL_EXPIRING
+  CREDENTIAL_RENEWAL_DUE
   VENDOR_BAA_EXPIRING
   INCIDENT_OPEN
   INCIDENT_BREACH_UNRESOLVED
@@ -617,6 +620,17 @@ model CredentialType {
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
+  // CEU/CME tracking. When set, the credential surface shows a
+  // continuing-education progress bar and reminders. Hours = total CEU
+  // required per renewal window; window-months = e.g. 24 for biennial.
+  ceuRequirementHours        Int?
+  ceuRequirementWindowMonths Int?
+  // When true, credentials of this type default to requiring an
+  // attached scan (license PDF, board cert, etc.) before flipping the
+  // CREDENTIAL_TYPE:* derivation rule to COMPLIANT. Per-credential
+  // override possible later via Credential.requiresEvidence (post-launch).
+  requiresEvidenceByDefault  Boolean @default(false)
+
   credentials Credential[]
 
   @@index([category, sortOrder])
@@ -645,9 +659,64 @@ model Credential {
   holder         PracticeUser?  @relation(fields: [holderId], references: [id], onDelete: SetNull)
   credentialType CredentialType @relation(fields: [credentialTypeId], references: [id])
 
+  ceuActivities  CeuActivity[]
+  reminderConfig CredentialReminderConfig?
+
   @@index([practiceId, retiredAt])
   @@index([practiceId, expiryDate])
   @@index([practiceId, holderId])
+}
+
+// =====================================================================
+// CEU / CME tracking + renewal reminders
+// =====================================================================
+
+// One row per continuing-education activity logged against a credential.
+// Counts toward CredentialType.ceuRequirementHours within the renewal
+// window. Append-only at the application layer; mutations go through
+// appendEventAndApply per ADR-0001.
+model CeuActivity {
+  id           String      @id @default(cuid())
+  practiceId   String
+  credentialId String
+  activityName String
+  provider     String?
+  activityDate DateTime
+  hoursAwarded Float
+  category     String?     // free-text (e.g. "Pharmacology", "Ethics") — gated post-launch
+  certificateEvidenceId String? // optional FK to Evidence (PR #139)
+  notes        String?     @db.Text
+  retiredAt    DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  practice            Practice   @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  credential          Credential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+  certificateEvidence Evidence?  @relation(fields: [certificateEvidenceId], references: [id], onDelete: SetNull)
+
+  @@index([practiceId, credentialId, activityDate])
+  @@index([credentialId, retiredAt])
+}
+
+// Per-credential opt-in renewal reminder schedule. Default schedule
+// (90/60/30/7 days before expiry) is applied to all expiring credentials
+// unless an explicit row overrides it. NotificationType.CREDENTIAL_RENEWAL_DUE
+// fires for each milestone day in the schedule.
+model CredentialReminderConfig {
+  id           String   @id @default(cuid())
+  practiceId   String
+  credentialId String   @unique
+  enabled      Boolean  @default(true)
+  // JSON-encoded list of days-before-expiry, e.g. [90, 60, 30, 7].
+  // Stored as Int[] for queryability.
+  milestoneDays Int[]   @default([90, 60, 30, 7])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  practice   Practice   @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  credential Credential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+
+  @@index([practiceId])
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1583,6 +1652,8 @@ model Evidence {
 
   practice   Practice      @relation(fields: [practiceId], references: [id], onDelete: Cascade)
   uploadedBy PracticeUser? @relation("EvidenceUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  ceuActivities CeuActivity[]
 
   @@index([practiceId, entityType, entityId])
   @@index([practiceId, status])

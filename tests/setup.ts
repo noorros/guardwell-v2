@@ -31,6 +31,10 @@ afterEach(async () => {
   await db.deaOrderRecord.deleteMany();
   await db.deaDisposalRecord.deleteMany();
   await db.deaTheftLossReport.deleteMany();
+  // CEU + reminder configs reference Credential (cascade) and
+  // PracticeUser (no FK). Explicit deletes keep test setup deterministic.
+  await db.ceuActivity.deleteMany();
+  await db.credentialReminderConfig.deleteMany();
   await db.practiceUser.deleteMany();
   await db.complianceItem.deleteMany();
   await db.practiceFramework.deleteMany();
