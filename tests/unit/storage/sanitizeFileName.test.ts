@@ -34,4 +34,10 @@ describe("sanitizeFileName", () => {
     const result = sanitizeFileName("!!@@##");
     expect(result.length).toBeGreaterThan(0);
   });
+
+  it("falls back to 'file' for inputs that reduce to dots only", () => {
+    expect(sanitizeFileName(".")).toBe("file");
+    expect(sanitizeFileName("...")).toBe("file");
+    expect(sanitizeFileName(".....")).toBe("file");
+  });
 });

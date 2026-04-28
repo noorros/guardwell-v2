@@ -1,14 +1,49 @@
 // tests/unit/storage/contentTypeAllowlist.test.ts
 //
-// Validates that requestUpload throws on disallowed MIME types without
-// needing a real DB (we check the thrown error message in dev no-op mode).
+// Tests for the per-entityType MIME allowlist. The pure isAllowedMime
+// helper covers the truth table; the requestUpload-based tests confirm
+// the rejection error is correctly surfaced from the high-level entry
+// point.
 import { describe, it, expect } from "vitest";
-import { requestUpload } from "@/lib/storage/evidence";
+import { isAllowedMime, requestUpload } from "@/lib/storage/evidence";
 
-// In CI (no DB), requestUpload throws for bad content types BEFORE
-// touching the DB — we can catch those errors here.
-describe("content-type allowlist in requestUpload", () => {
-  it("throws for video/mp4 on a CREDENTIAL entityType", async () => {
+describe("isAllowedMime (pure helper)", () => {
+  it("accepts application/pdf for any known entityType", () => {
+    expect(isAllowedMime("CREDENTIAL", "application/pdf")).toBe(true);
+    expect(isAllowedMime("INCIDENT", "application/pdf")).toBe(true);
+    expect(isAllowedMime("DESTRUCTION_LOG", "application/pdf")).toBe(true);
+  });
+
+  it("accepts HEIC photo evidence on entityTypes that take photo evidence", () => {
+    expect(isAllowedMime("CREDENTIAL", "image/heic")).toBe(true);
+    expect(isAllowedMime("INCIDENT", "image/heic")).toBe(true);
+    expect(isAllowedMime("DESTRUCTION_LOG", "image/heic")).toBe(true);
+    expect(isAllowedMime("VENDOR", "image/heic")).toBe(true);
+    expect(isAllowedMime("TECH_ASSET", "image/heic")).toBe(true);
+    expect(isAllowedMime("TRAINING_COMPLETION", "image/heic")).toBe(true);
+  });
+
+  it("rejects video/mp4 on every entityType seeded today (BYOV is Phase 4)", () => {
+    expect(isAllowedMime("CREDENTIAL", "video/mp4")).toBe(false);
+    expect(isAllowedMime("DESTRUCTION_LOG", "video/mp4")).toBe(false);
+    expect(isAllowedMime("INCIDENT", "video/mp4")).toBe(false);
+    expect(isAllowedMime("VENDOR", "video/mp4")).toBe(false);
+  });
+
+  it("rejects text/csv on every known entityType (no spreadsheet uploads)", () => {
+    expect(isAllowedMime("CREDENTIAL", "text/csv")).toBe(false);
+    expect(isAllowedMime("DESTRUCTION_LOG", "text/csv")).toBe(false);
+  });
+
+  it("falls back to DEFAULT (application/pdf only) for unknown entityType", () => {
+    expect(isAllowedMime("UNKNOWN_FUTURE_TYPE", "application/pdf")).toBe(true);
+    expect(isAllowedMime("UNKNOWN_FUTURE_TYPE", "image/png")).toBe(false);
+    expect(isAllowedMime("UNKNOWN_FUTURE_TYPE", "video/mp4")).toBe(false);
+  });
+});
+
+describe("requestUpload content-type rejection", () => {
+  it("throws a descriptive error for video/mp4 on a CREDENTIAL entityType", async () => {
     await expect(
       requestUpload({
         practiceId: "test-practice",
@@ -38,7 +73,7 @@ describe("content-type allowlist in requestUpload", () => {
     ).rejects.toThrow(/text\/csv.*is not allowed/i);
   });
 
-  it("throws for unknown entityType with non-PDF mime type", async () => {
+  it("throws for image/png on an unknown entityType (DEFAULT only allows pdf)", async () => {
     await expect(
       requestUpload({
         practiceId: "test-practice",
@@ -51,26 +86,5 @@ describe("content-type allowlist in requestUpload", () => {
         fileSizeBytes: 2048,
       }),
     ).rejects.toThrow(/image\/png.*is not allowed/i);
-  });
-
-  it("does NOT throw content-type error for application/pdf on unknown entityType", async () => {
-    // application/pdf passes the allowlist check for any entityType (DEFAULT fallback).
-    // The call will throw for a different reason (no DB in unit test context)
-    // but NOT for content-type validation.
-    try {
-      await requestUpload({
-        practiceId: "test-practice",
-        practiceUserId: "test-pu",
-        actorUserId: "test-user",
-        entityType: "UNKNOWN_FUTURE_TYPE",
-        entityId: "x-2",
-        fileName: "doc.pdf",
-        mimeType: "application/pdf",
-        fileSizeBytes: 2048,
-      });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      expect(msg).not.toMatch(/is not allowed/i);
-    }
   });
 });

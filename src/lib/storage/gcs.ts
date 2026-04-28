@@ -48,8 +48,10 @@ export function sanitizeFileName(raw: string): string {
   // Trim to 255 chars
   name = name.slice(0, 255);
 
-  // Guarantee non-empty
-  return name.length > 0 ? name : "file";
+  // Guarantee a non-empty, non-dots-only name (a key ending in ".." or
+  // "." is not unsafe but reads as nonsense to humans inspecting GCS).
+  if (name.length === 0 || /^\.+$/.test(name)) return "file";
+  return name;
 }
 
 /**

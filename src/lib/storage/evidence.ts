@@ -27,8 +27,10 @@ const DEFAULT_QUOTA_BYTES = 5 * 1024 * 1024 * 1024; // 5 GB
 function getDefaultQuota(): bigint {
   const env = process.env.PRACTICE_STORAGE_QUOTA_BYTES;
   if (env) {
-    const n = parseInt(env, 10);
-    if (!isNaN(n) && n > 0) return BigInt(n);
+    const n = Number(env);
+    if (Number.isFinite(n) && n > 0 && Number.isInteger(n)) {
+      return BigInt(n);
+    }
   }
   return BigInt(DEFAULT_QUOTA_BYTES);
 }
@@ -38,16 +40,16 @@ function getDefaultQuota(): bigint {
 // Phase 9 (Document Hub) will add DOCUMENT → application/pdf only.
 const ALLOWED_MIME_BY_ENTITY_TYPE: Record<string, Set<string>> = {
   CREDENTIAL:          new Set(["application/pdf", "image/png", "image/jpeg", "image/heic", "image/heif", "image/webp"]),
-  DESTRUCTION_LOG:     new Set(["application/pdf", "image/png", "image/jpeg"]),
-  INCIDENT:            new Set(["application/pdf", "image/png", "image/jpeg"]),
-  VENDOR:              new Set(["application/pdf", "image/png", "image/jpeg"]),
-  TECH_ASSET:          new Set(["application/pdf", "image/png", "image/jpeg"]),
-  TRAINING_COMPLETION: new Set(["application/pdf", "image/png", "image/jpeg"]),
-  // Default — used when entityType is not listed above.
+  DESTRUCTION_LOG:     new Set(["application/pdf", "image/png", "image/jpeg", "image/heic", "image/heif", "image/webp"]),
+  INCIDENT:            new Set(["application/pdf", "image/png", "image/jpeg", "image/heic", "image/heif", "image/webp"]),
+  VENDOR:              new Set(["application/pdf", "image/png", "image/jpeg", "image/heic", "image/heif", "image/webp"]),
+  TECH_ASSET:          new Set(["application/pdf", "image/png", "image/jpeg", "image/heic", "image/heif", "image/webp"]),
+  TRAINING_COMPLETION: new Set(["application/pdf", "image/png", "image/jpeg", "image/heic", "image/heif", "image/webp"]),
+  // Default — used when entityType is not listed above. Conservative.
   DEFAULT:             new Set(["application/pdf"]),
 };
 
-function isAllowedMime(entityType: string, mimeType: string): boolean {
+export function isAllowedMime(entityType: string, mimeType: string): boolean {
   const allowed =
     ALLOWED_MIME_BY_ENTITY_TYPE[entityType] ??
     ALLOWED_MIME_BY_ENTITY_TYPE["DEFAULT"]!;
