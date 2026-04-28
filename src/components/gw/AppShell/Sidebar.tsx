@@ -23,6 +23,7 @@ import {
   ClipboardCheck,
   CalendarDays,
   Syringe,
+  Pill,
   Settings,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -193,7 +194,8 @@ export function Sidebar({
   const pathname = usePathname();
 
   // Build the programs list, inserting framework-gated entries inline.
-  // Allergy appears after Vendors when the ALLERGY framework is enabled.
+  // Allergy + DEA appear after Vendors when their respective frameworks
+  // are enabled. DEA sits after Allergy when both are present.
   const programs: ProgramItem[] = [
     ...PROGRAMS.slice(0, PROGRAMS.findIndex((p) => p.label === "Vendors") + 1),
     ...(enabledFrameworkCodes.includes("ALLERGY")
@@ -202,6 +204,15 @@ export function Sidebar({
             label: "Allergy",
             icon: Syringe,
             href: "/programs/allergy" as Route,
+          } satisfies ProgramItem,
+        ]
+      : []),
+    ...(enabledFrameworkCodes.includes("DEA")
+      ? [
+          {
+            label: "DEA",
+            icon: Pill,
+            href: "/programs/dea" as Route,
           } satisfies ProgramItem,
         ]
       : []),
