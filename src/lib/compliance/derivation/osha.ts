@@ -68,6 +68,11 @@ export async function oshaRequiredPostersRule(
   tx: Prisma.TransactionClient,
   practiceId: string,
 ): Promise<DerivedStatus | null> {
+  // Cloud Run prod runs in UTC, so getFullYear() + new Date(year, 0, 1)
+  // resolves to YYYY-01-01T00:00:00Z by design. Local-dev runs in the
+  // developer's TZ — internally consistent with the year extraction, so
+  // the cutoff still falls on local Jan 1, just translated to UTC at
+  // query time. Acceptable drift; OSHA posting is calendar-year scoped.
   const jan1 = new Date(new Date().getFullYear(), 0, 1);
   const count = await tx.eventLog.count({
     where: {
