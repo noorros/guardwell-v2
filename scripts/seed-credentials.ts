@@ -36,6 +36,12 @@ interface CredentialTypeFixture {
     | "CUSTOM";
   description: string | null;
   renewalPeriodDays: number | null;
+  // Optional CEU/CME fields (chunk 5 Phase A). Leave undefined for types
+  // whose CEU defaults aren't yet known — customer demand will surface
+  // the right values post-launch.
+  ceuRequirementHours?: number | null;
+  ceuRequirementWindowMonths?: number | null;
+  requiresEvidenceByDefault?: boolean;
 }
 
 const CATEGORY_ORDER: CredentialTypeFixture["category"][] = [
@@ -53,14 +59,34 @@ const CATEGORY_ORDER: CredentialTypeFixture["category"][] = [
   "CUSTOM",
 ];
 
+// Additional fixtures injected at runtime — kept here (vs the v1 JSON
+// export) so we can attach CEU/evidence metadata without touching the
+// frozen v1 export. Add new types here when customer demand surfaces.
+// Other categories (CLINICAL_LICENSE renewals, etc.) can be filled in
+// post-launch once the CEU UI ships.
+const EXTRA_FIXTURES: CredentialTypeFixture[] = [
+  {
+    code: "MEDICAL_ASSISTANT_CERT",
+    name: "Certified Medical Assistant (CMA)",
+    category: "BOARD_CERTIFICATION",
+    description:
+      "AAMA / AMT / NCMA / NHA certification with 30 hours CEU per 5 years.",
+    renewalPeriodDays: 5 * 365,
+    ceuRequirementHours: 30,
+    ceuRequirementWindowMonths: 60,
+    requiresEvidenceByDefault: true,
+  },
+];
+
 async function main() {
   const fixturePath = path.resolve(
     __dirname,
     "_v1-credential-types-export.json",
   );
-  const fixtures: CredentialTypeFixture[] = JSON.parse(
+  const v1Fixtures: CredentialTypeFixture[] = JSON.parse(
     readFileSync(fixturePath, "utf8"),
   );
+  const fixtures: CredentialTypeFixture[] = [...v1Fixtures, ...EXTRA_FIXTURES];
 
   let upserted = 0;
   for (const f of fixtures) {
@@ -74,6 +100,9 @@ async function main() {
         description: f.description,
         renewalPeriodDays: f.renewalPeriodDays,
         sortOrder,
+        ceuRequirementHours: f.ceuRequirementHours ?? null,
+        ceuRequirementWindowMonths: f.ceuRequirementWindowMonths ?? null,
+        requiresEvidenceByDefault: f.requiresEvidenceByDefault ?? false,
       },
       create: {
         code: f.code,
@@ -82,6 +111,9 @@ async function main() {
         description: f.description,
         renewalPeriodDays: f.renewalPeriodDays,
         sortOrder,
+        ceuRequirementHours: f.ceuRequirementHours ?? null,
+        ceuRequirementWindowMonths: f.ceuRequirementWindowMonths ?? null,
+        requiresEvidenceByDefault: f.requiresEvidenceByDefault ?? false,
       },
     });
     upserted += 1;
