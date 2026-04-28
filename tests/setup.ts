@@ -6,6 +6,15 @@ config({ path: ".env" });
 // escape hatch defined in src/lib/ai/rateLimit.ts.
 process.env.UPSTASH_DISABLE = "1";
 
+// Force the Resend client into no-op mode for every test. `.env` carries
+// a real RESEND_API_KEY for dev workflows; without this guard, every
+// integration test that exercises an email path (invitations, bulk
+// invites, onboarding drip, critical-breach alert, notification digest,
+// credential renewal reminders) would burn live Resend quota and ship
+// real emails to seeded test addresses. src/lib/email/send.ts:30-49
+// returns a no-op success when RESEND_API_KEY is empty.
+delete process.env.RESEND_API_KEY;
+
 import { afterEach, beforeAll } from "vitest";
 import { db } from "@/lib/db";
 
