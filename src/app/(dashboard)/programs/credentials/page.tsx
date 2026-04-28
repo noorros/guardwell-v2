@@ -152,9 +152,12 @@ export default async function CredentialsPage() {
                     {list.map((c) => (
                       <li
                         key={c.id}
-                        className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+                        className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between hover:bg-muted/30 transition-colors"
                       >
-                        <div className="min-w-0 flex-1 space-y-1">
+                        <Link
+                          href={`/programs/credentials/${c.id}` as Route}
+                          className="min-w-0 flex-1 space-y-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                        >
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="text-sm font-medium text-foreground">
                               {c.title}
@@ -177,7 +180,7 @@ export default async function CredentialsPage() {
                               {c.notes}
                             </p>
                           )}
-                        </div>
+                        </Link>
                         <CredentialActions credentialId={c.id} />
                       </li>
                     ))}
