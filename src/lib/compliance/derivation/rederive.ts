@@ -27,6 +27,7 @@
 import type { Prisma } from "@prisma/client";
 import { DERIVATION_RULES } from "./index";
 import { recomputeFrameworkScore } from "@/lib/events/projections/frameworkScore";
+import { autoCompleteTrackTasks } from "@/lib/events/projections/track";
 import {
   getPracticeJurisdictions,
   jurisdictionRequirementFilter,
@@ -141,7 +142,9 @@ export async function rederiveRequirementStatus(
 
     // Auto-complete any Compliance Track task whose requirementCode
     // matches and is still open. Skips on non-COMPLIANT flips so a
-    // COMPLIANT → GAP transition doesn't reopen finished work.
+    // COMPLIANT → GAP transition doesn't reopen finished work. The
+    // close-loop itself (event emit + task update + maybe-mark-complete)
+    // is shared via autoCompleteTrackTasks.
     if (derivedStatus === "COMPLIANT") {
       const matchingTasks = await tx.practiceTrackTask.findMany({
         where: {
@@ -151,40 +154,11 @@ export async function rederiveRequirementStatus(
         },
         select: { id: true },
       });
-      if (matchingTasks.length > 0) {
-        for (const t of matchingTasks) {
-          await tx.eventLog.create({
-            data: {
-              practiceId,
-              actorUserId: null,
-              type: "TRACK_TASK_COMPLETED",
-              schemaVersion: 1,
-              payload: {
-                trackTaskId: t.id,
-                completedByUserId: null,
-                reason: "DERIVED",
-              },
-            },
-          });
-          await tx.practiceTrackTask.update({
-            where: { id: t.id },
-            data: {
-              completedAt: new Date(),
-              completedByUserId: null,
-            },
-          });
-        }
-        // If that closed every remaining open task, mark the track complete.
-        const remaining = await tx.practiceTrackTask.count({
-          where: { practiceId, completedAt: null },
-        });
-        if (remaining === 0) {
-          await tx.practiceTrack.update({
-            where: { practiceId },
-            data: { completedAt: new Date() },
-          });
-        }
-      }
+      await autoCompleteTrackTasks(
+        tx,
+        practiceId,
+        matchingTasks.map((t) => t.id),
+      );
     }
 
     rederived += 1;

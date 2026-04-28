@@ -6,6 +6,7 @@
 // noise. The wrapping action layer handles auth.
 
 import { db } from "@/lib/db";
+import { autoCompleteTrackTasks } from "@/lib/events/projections/track";
 
 export async function syncTrackTasksFromEvidence(
   practiceId: string,
@@ -45,36 +46,11 @@ export async function syncTrackTasksFromEvidence(
     );
     if (tasksToClose.length === 0) return { closed: 0 };
 
-    for (const t of tasksToClose) {
-      await tx.eventLog.create({
-        data: {
-          practiceId,
-          actorUserId: null,
-          type: "TRACK_TASK_COMPLETED",
-          schemaVersion: 1,
-          payload: {
-            trackTaskId: t.id,
-            completedByUserId: null,
-            reason: "DERIVED",
-          },
-        },
-      });
-      await tx.practiceTrackTask.update({
-        where: { id: t.id },
-        data: { completedAt: new Date(), completedByUserId: null },
-      });
-    }
-
-    const remaining = await tx.practiceTrackTask.count({
-      where: { practiceId, completedAt: null },
-    });
-    if (remaining === 0) {
-      await tx.practiceTrack.update({
-        where: { practiceId },
-        data: { completedAt: new Date() },
-      });
-    }
-
+    await autoCompleteTrackTasks(
+      tx,
+      practiceId,
+      tasksToClose.map((t) => t.id),
+    );
     return { closed: tasksToClose.length };
   });
 }

@@ -83,10 +83,9 @@ export async function projectTrackTaskReopened(
 }
 
 // Backfill pass: any task whose requirementCode matches an existing
-// COMPLIANT ComplianceItem on this practice is closed immediately,
-// emitting TRACK_TASK_COMPLETED with reason="DERIVED". Same shape as
-// the forward rederive auto-complete in rederiveRequirementStatus —
-// see src/lib/compliance/derivation/rederive.ts:142-188.
+// COMPLIANT ComplianceItem on this practice is closed immediately. The
+// task-set discovery is bespoke here (we have the template task list in
+// hand); the close-loop itself is shared via autoCompleteTrackTasks.
 async function backfillCompliantTasks(
   tx: Prisma.TransactionClient,
   practiceId: string,
@@ -120,7 +119,32 @@ async function backfillCompliantTasks(
     select: { id: true },
   });
 
-  for (const t of tasksToBackfill) {
+  await autoCompleteTrackTasks(
+    tx,
+    practiceId,
+    tasksToBackfill.map((t) => t.id),
+  );
+}
+
+// Shared close-loop for derivation-driven auto-completion. Each caller
+// computes its own set of task IDs (discovery differs by site — track
+// generation has the template in hand, the manual Sync button queries
+// open coded tasks, the rederive hook scopes to a single requirement),
+// then delegates the byte-identical "emit TRACK_TASK_COMPLETED, update
+// completedAt, maybe-mark-track-complete" loop here. Keeping it in one
+// place means future event-payload changes (e.g. analytics metadata)
+// are a single edit, not three.
+//
+// No-op when taskIds is empty — callers don't need to guard at the call
+// site, and we skip maybeMarkTrackComplete when nothing closed (the
+// track's completion state can't have changed).
+export async function autoCompleteTrackTasks(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  taskIds: string[],
+): Promise<void> {
+  if (taskIds.length === 0) return;
+  for (const id of taskIds) {
     await tx.eventLog.create({
       data: {
         practiceId,
@@ -128,21 +152,20 @@ async function backfillCompliantTasks(
         type: "TRACK_TASK_COMPLETED",
         schemaVersion: 1,
         payload: {
-          trackTaskId: t.id,
+          trackTaskId: id,
           completedByUserId: null,
           reason: "DERIVED",
         },
       },
     });
     await tx.practiceTrackTask.update({
-      where: { id: t.id },
+      where: { id },
       data: {
         completedAt: new Date(),
         completedByUserId: null,
       },
     });
   }
-
   await maybeMarkTrackComplete(tx, practiceId);
 }
 
