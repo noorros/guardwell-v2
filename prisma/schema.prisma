@@ -141,6 +141,8 @@ model Practice {
   deaTheftLossReports     DeaTheftLossReport[]
   ceuActivities           CeuActivity[]
   credentialReminders     CredentialReminderConfig[]
+  baaRequests             BaaRequest[]
+  baaAcceptanceTokens     BaaAcceptanceToken[]
 
   @@index([primaryState])
   @@index([subscriptionStatus])
@@ -466,6 +468,16 @@ enum IncidentStatus {
   CLOSED
 }
 
+enum BaaStatus {
+  DRAFT       // Practice has uploaded the draft document; no token sent yet
+  SENT        // Practice has emailed the vendor a token-protected accept link
+  ACKNOWLEDGED // Vendor has opened the accept link (token validated)
+  EXECUTED    // Vendor typed signature + agreed; BAA is fully executed
+  REJECTED    // Vendor declined the BAA (post-launch v2 feature; modeled now)
+  EXPIRED     // baaExpiresAt has passed
+  SUPERSEDED  // Replaced by a newer BAA version (post-launch)
+}
+
 model Incident {
   id                            String           @id @default(cuid())
   practiceId                    String
@@ -744,10 +756,78 @@ model Vendor {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  practice    Practice     @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  baaRequests BaaRequest[]
 
   @@index([practiceId, retiredAt])
   @@index([practiceId, processesPhi, baaExpiresAt])
+}
+
+// BAA (Business Associate Agreement) lifecycle. One row per BAA cycle
+// per vendor. v1 launch supports a single active BAA per vendor; future
+// version history (replaces / supersedes) is a post-launch enhancement.
+model BaaRequest {
+  id                       String    @id @default(cuid())
+  practiceId               String
+  vendorId                 String
+  status                   BaaStatus @default(DRAFT)
+  // Optional FK to the Evidence row holding the BAA document. Set when
+  // the practice uploads the draft via the Evidence subsystem.
+  draftEvidenceId          String?   @unique
+  // Recipient email at send time (snapshot of vendor.email at that
+  // moment, since vendor.email may change later).
+  recipientEmail           String?
+  // Optional message included in the email body (custom note from the
+  // practice to the vendor).
+  recipientMessage         String?   @db.Text
+  // Timestamps for state transitions.
+  draftUploadedAt          DateTime?
+  sentAt                   DateTime?
+  acknowledgedAt           DateTime?
+  executedAt               DateTime?
+  rejectedAt               DateTime?
+  expiresAt                DateTime?
+  // Vendor signature data captured at execution time. Per HHS guidance,
+  // text e-signature + IP + user-agent + timestamp is sufficient for
+  // HIPAA §164.504(e). DocuSign integration is post-launch.
+  vendorSignatureName      String?
+  vendorSignatureIp        String?
+  vendorSignatureUserAgent String?   @db.Text
+  // Optional rejection reason (only set when status=REJECTED).
+  rejectionReason          String?   @db.Text
+  // Soft retire (e.g., when a newer BAA version supersedes this one).
+  retiredAt                DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  practice         Practice             @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  vendor           Vendor               @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  draftEvidence    Evidence?            @relation(fields: [draftEvidenceId], references: [id], onDelete: SetNull)
+  acceptanceTokens BaaAcceptanceToken[]
+
+  @@index([practiceId, status])
+  @@index([practiceId, vendorId, retiredAt])
+  @@index([vendorId, status])
+}
+
+// Token-protected accept link for the public vendor-accept page. One
+// active token per BaaRequest at any given time; resending the BAA
+// invalidates prior tokens (sets `revokedAt`).
+model BaaAcceptanceToken {
+  id           String    @id @default(cuid())
+  practiceId   String
+  baaRequestId String
+  token        String    @unique
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  practice   Practice   @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  baaRequest BaaRequest @relation(fields: [baaRequestId], references: [id], onDelete: Cascade)
+
+  @@index([baaRequestId, revokedAt, consumedAt])
+  @@index([expiresAt])
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1654,6 +1734,7 @@ model Evidence {
   uploadedBy PracticeUser? @relation("EvidenceUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
 
   ceuActivities CeuActivity[]
+  baaRequests   BaaRequest[]
 
   @@index([practiceId, entityType, entityId])
   @@index([practiceId, status])
