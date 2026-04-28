@@ -103,7 +103,7 @@ const OSHA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1,
     description:
       "OSHA Job Safety & Health \"It's the Law\" poster in a conspicuous location. State Workers' Compensation poster. State-specific postings (minimum wage, FMLA, etc.) where applicable.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["EVENT:POSTER_ATTESTATION"],
     sortOrder: 60,
   },
   {
@@ -114,7 +114,7 @@ const OSHA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1,
     description:
       "Hazard assessment identifying required PPE, employer-provided PPE at no cost to employees, training on proper use, and documentation of both assessment and training.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["EVENT:PPE_ASSESSMENT_COMPLETED"],
     sortOrder: 70,
   },
   {
@@ -125,7 +125,11 @@ const OSHA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1,
     description:
       "Furnish a workplace free from recognized hazards that are likely to cause death or serious physical harm. Used by OSHA where no specific standard applies (workplace violence, ergonomics, heat stress, etc.).",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: [
+      "POLICY:OSHA_BBP_EXPOSURE_CONTROL_PLAN",
+      "POLICY:OSHA_HAZCOM_PROGRAM",
+      "POLICY:OSHA_EMERGENCY_ACTION_PLAN",
+    ],
     sortOrder: 80,
   },
 ];

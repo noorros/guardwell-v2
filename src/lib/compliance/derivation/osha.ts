@@ -58,6 +58,92 @@ async function osha300LogRule(
   return count >= 1 ? "COMPLIANT" : "GAP";
 }
 
+/**
+ * 29 CFR §1903.2 — Required workplace posters.
+ * COMPLIANT when at least one POSTER_ATTESTATION EventLog row exists for
+ * this practice with createdAt >= Jan 1 of the current calendar year.
+ * Officers must re-attest each year to confirm posters are still displayed.
+ */
+export async function oshaRequiredPostersRule(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<DerivedStatus | null> {
+  // Cloud Run prod runs in UTC, so getFullYear() + new Date(year, 0, 1)
+  // resolves to YYYY-01-01T00:00:00Z by design. Local-dev runs in the
+  // developer's TZ — internally consistent with the year extraction, so
+  // the cutoff still falls on local Jan 1, just translated to UTC at
+  // query time. Acceptable drift; OSHA posting is calendar-year scoped.
+  const jan1 = new Date(new Date().getFullYear(), 0, 1);
+  const count = await tx.eventLog.count({
+    where: {
+      practiceId,
+      type: "POSTER_ATTESTATION",
+      createdAt: { gte: jan1 },
+    },
+  });
+  return count >= 1 ? "COMPLIANT" : "GAP";
+}
+
+/**
+ * 29 CFR §1910.132 — Personal Protective Equipment program.
+ * COMPLIANT when at least one PPE_ASSESSMENT_COMPLETED EventLog row exists
+ * for this practice within the last 365 days.
+ */
+export async function oshaPpeRule(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<DerivedStatus | null> {
+  const cutoff = new Date(Date.now() - YEAR_MS);
+  const count = await tx.eventLog.count({
+    where: {
+      practiceId,
+      type: "PPE_ASSESSMENT_COMPLETED",
+      createdAt: { gte: cutoff },
+    },
+  });
+  return count >= 1 ? "COMPLIANT" : "GAP";
+}
+
+/**
+ * OSH Act §5(a)(1) — General Duty Clause.
+ * Composite rule: satisfied when (a) all three core hazard-control policies
+ * are adopted (BBP ECP + HazCom + EAP) AND (b) at least one risk assessment
+ * has been completed (completedAt IS NOT NULL, isDraft=false).
+ *
+ * Rationale: the General Duty Clause is satisfied by demonstrating that
+ * recognized hazards were identified (SRA) and core control programs are
+ * in place (the three policies). The SRA check reuses PracticeSraAssessment
+ * directly — no new event type needed.
+ */
+export async function oshaGeneralDutyRule(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<DerivedStatus | null> {
+  // Step 1: all three core hazard-control policies must be adopted.
+  const policiesOk =
+    (await tx.practicePolicy.count({
+      where: {
+        practiceId,
+        policyCode: { in: ["OSHA_BBP_EXPOSURE_CONTROL_PLAN", "OSHA_HAZCOM_PROGRAM", "OSHA_EMERGENCY_ACTION_PLAN"] },
+        retiredAt: null,
+      },
+    })) === 3;
+
+  if (!policiesOk) return "GAP";
+
+  // Step 2: at least one completed risk assessment.
+  const hasSra =
+    (await tx.practiceSraAssessment.count({
+      where: {
+        practiceId,
+        completedAt: { not: null },
+        isDraft: false,
+      },
+    })) > 0;
+
+  return hasSra ? "COMPLIANT" : "GAP";
+}
+
 export const OSHA_DERIVATION_RULES: Record<string, DerivationRule> = {
   // §1910.1030(c) — Exposure Control Plan is the core written document.
   OSHA_BBP_EXPOSURE_CONTROL: oshaPolicyRule("OSHA_BBP_EXPOSURE_CONTROL_PLAN"),
@@ -73,4 +159,10 @@ export const OSHA_DERIVATION_RULES: Record<string, DerivationRule> = {
   OSHA_EMERGENCY_ACTION_PLAN: oshaPolicyRule("OSHA_EMERGENCY_ACTION_PLAN"),
   // §1904.7 — OSHA 300 Log + 300A Summary.
   OSHA_300_LOG: osha300LogRule,
+  // §1903.2 — Required workplace posters (annual attestation).
+  OSHA_REQUIRED_POSTERS: oshaRequiredPostersRule,
+  // §1910.132 — PPE hazard assessment (within last 365 days).
+  OSHA_PPE: oshaPpeRule,
+  // OSH Act §5(a)(1) — General Duty Clause composite.
+  OSHA_GENERAL_DUTY: oshaGeneralDutyRule,
 };
