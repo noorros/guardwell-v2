@@ -148,6 +148,7 @@ model Practice {
   credentialReminders     CredentialReminderConfig[]
   baaRequests             BaaRequest[]
   baaAcceptanceTokens     BaaAcceptanceToken[]
+  macraActivityLogs       MacraActivityLog[]
 
   @@index([primaryState])
   @@index([subscriptionStatus])
@@ -1711,6 +1712,35 @@ model AllergyDrill {
   conductedBy PracticeUser @relation("AllergyDrillLedBy", fields: [conductedById], references: [id])
 
   @@index([practiceId, conductedAt])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// MACRA / MIPS — activity log for the four MIPS performance categories
+// (docs/plans/2026-04-28-phase-1-derivation-completeness.md PR 6)
+// ────────────────────────────────────────────────────────────────────────────
+
+/// MACRA / MIPS activity log entry. Projected from MACRA_ACTIVITY_LOGGED events.
+/// activityType partitions the four MIPS performance categories so the
+/// derivation rules can count by category for the attestationYear.
+/// Append-only: rows are never mutated after creation.
+/// loggedByUserId stores User.id (NOT PracticeUser.id) — matches the convention
+/// used by AllergyEquipmentCheck.checkedById (which is PracticeUser.id) being
+/// the exception; here we follow the simpler User-based pattern since the
+/// activityCode field carries the practice-specific context.
+model MacraActivityLog {
+  id              String   @id @default(cuid())
+  practiceId      String
+  activityCode    String   // e.g. IA_BMH_9 (Improvement Activity catalog code)
+  activityType    String   // QUALITY | IMPROVEMENT | PI | SUBMISSION
+  attestationYear Int      // QPP performance year this activity counts toward
+  activityName    String
+  loggedByUserId  String   // User.id
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now())
+
+  practice Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+
+  @@index([practiceId, attestationYear, activityType])
 }
 
 // ────────────────────────────────────────────────────────────────────────────

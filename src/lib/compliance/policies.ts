@@ -74,6 +74,18 @@ export const OIG_POLICY_CODES = [
 export type OigPolicyCode = (typeof OIG_POLICY_CODES)[number];
 
 // ────────────────────────────────────────────────────────────────────────────
+// TCPA
+// ────────────────────────────────────────────────────────────────────────────
+
+export const TCPA_POLICY_CODES = [
+  "TCPA_CONSENT_POLICY",
+  "TCPA_OPT_OUT_POLICY",
+  "TCPA_DNC_COMPLIANCE_POLICY",
+] as const;
+
+export type TcpaPolicyCode = (typeof TCPA_POLICY_CODES)[number];
+
+// ────────────────────────────────────────────────────────────────────────────
 // Union + metadata
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -82,9 +94,10 @@ export type PolicyCode =
   | OshaPolicyCode
   | DeaPolicyCode
   | CmsPolicyCode
-  | OigPolicyCode;
+  | OigPolicyCode
+  | TcpaPolicyCode;
 
-export type PolicyFramework = "HIPAA" | "OSHA" | "DEA" | "CMS" | "OIG";
+export type PolicyFramework = "HIPAA" | "OSHA" | "DEA" | "CMS" | "OIG" | "TCPA";
 
 export interface PolicyMetadata {
   code: PolicyCode;
@@ -225,6 +238,28 @@ export const POLICY_METADATA: Record<PolicyCode, PolicyMetadata> = {
     description:
       "Written policy ensuring claims submitted to Medicare/Medicaid reflect services actually rendered, supported by contemporaneous documentation, with correct CPT/HCPCS/ICD-10 coding and periodic internal audits per 42 USC §1320a-7a. Satisfies CMS_BILLING_COMPLIANCE.",
   },
+  // TCPA
+  TCPA_CONSENT_POLICY: {
+    code: "TCPA_CONSENT_POLICY",
+    framework: "TCPA",
+    title: "TCPA Patient Consent Policy",
+    description:
+      "Written policy distinguishing informational (treatment/billing) from marketing communications, defining consent collection and revocation procedures, and setting record-keeping standards per 47 USC §227 / 47 CFR §64.1200. Satisfies TCPA_WRITTEN_CONSENT_POLICY.",
+  },
+  TCPA_OPT_OUT_POLICY: {
+    code: "TCPA_OPT_OUT_POLICY",
+    framework: "TCPA",
+    title: "TCPA Opt-Out Mechanism Policy",
+    description:
+      "Written policy ensuring every automated call/text includes an opt-out mechanism (texts: 'Reply STOP', calls: automated opt-out) and that opt-outs are processed within 10 business days per 47 CFR §64.1200(a)(10). Satisfies TCPA_OPT_OUT_MECHANISM.",
+  },
+  TCPA_DNC_COMPLIANCE_POLICY: {
+    code: "TCPA_DNC_COMPLIANCE_POLICY",
+    framework: "TCPA",
+    title: "Do Not Call Registry Compliance Policy",
+    description:
+      "Written policy requiring National DNC Registry subscription and 31-day list scrub cadence for marketing calls, plus internal DNC list maintenance for opt-outs per 47 CFR §64.1200(c). Satisfies TCPA_DNC_COMPLIANCE.",
+  },
 };
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -248,4 +283,5 @@ export const ALL_POLICY_CODES: readonly PolicyCode[] = [
   ...DEA_POLICY_CODES,
   ...CMS_POLICY_CODES,
   ...OIG_POLICY_CODES,
+  ...TCPA_POLICY_CODES,
 ];

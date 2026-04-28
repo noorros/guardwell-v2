@@ -104,6 +104,12 @@ export const EVENT_TYPES = [
   // model deferred to Phase 9). Feeds OIG_RESPONSE_VIOLATIONS derivation.
   // Evidence code: "EVENT:OIG_CORRECTIVE_ACTION_RESOLVED".
   "OIG_CORRECTIVE_ACTION_RESOLVED",
+  // MACRA / MIPS activity log entry — quality measure, improvement activity,
+  // promoting interoperability, or annual QPP submission. Projection writes
+  // a MacraActivityLog row + rederives the matching MACRA requirement.
+  // Evidence code: "MACRA_ACTIVITY:LOGGED" (model-row-backed; the
+  // MacraActivityLog row IS the evidence).
+  "MACRA_ACTIVITY_LOGGED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -1139,6 +1145,24 @@ export const EVENT_SCHEMAS = {
       resolvedAt: z.string().datetime(),
       description: z.string().min(1).max(2000),
       disclosureEntityCode: z.string().max(100).nullable(),
+      notes: z.string().max(2000).nullable(),
+    }),
+  },
+  // MACRA / MIPS activity log entry — captured by /modules/macra log forms.
+  // activityType partitions the MIPS performance categories so derivation
+  // rules can count by category (e.g. ≥2 IMPROVEMENT activities for the
+  // attestationYear satisfies MACRA_IMPROVEMENT_ACTIVITIES).
+  // attestationYear is the QPP performance year (calendar year) the
+  // activity counts toward — separate from createdAt so a 2025 activity
+  // logged in early 2026 still credits 2025.
+  MACRA_ACTIVITY_LOGGED: {
+    1: z.object({
+      activityId: z.string().min(1),
+      loggedByUserId: z.string().min(1),
+      activityCode: z.string().min(1).max(100),
+      activityType: z.enum(["QUALITY", "IMPROVEMENT", "PI", "SUBMISSION"]),
+      attestationYear: z.number().int().min(2017).max(2100),
+      activityName: z.string().min(1).max(300),
       notes: z.string().max(2000).nullable(),
     }),
   },
