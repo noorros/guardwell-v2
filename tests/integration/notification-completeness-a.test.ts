@@ -481,7 +481,7 @@ describe("generateCmsEnrollmentNotifications", () => {
 // -------------------------------------------------------------------------
 
 describe("generateBreachDeterminationDeadlineNotifications", () => {
-  it("emits proposal when discovered 51 days ago, isBreach=true, no determination yet", async () => {
+  it("emits proposal when discovered 51 days ago and breach-determination wizard hasn't run", async () => {
     const { user, practice } = await seedPracticeWithOwner("breach-51d");
     const incident = await db.incident.create({
       data: {
@@ -491,9 +491,10 @@ describe("generateBreachDeterminationDeadlineNotifications", () => {
         description: "Laptop with PHI taken from office",
         type: "PRIVACY",
         severity: "HIGH",
-        status: "UNDER_INVESTIGATION",
-        isBreach: true,
-        affectedCount: 50,
+        status: "OPEN",
+        // isBreach: null = wizard hasn't run yet. Setting any value here would
+        // be unrealistic — projection wires both isBreach and breachDeterminedAt
+        // atomically when the wizard runs.
         phiInvolved: true,
         discoveredAt: new Date(Date.now() - 51 * DAY_MS),
       },
@@ -514,7 +515,7 @@ describe("generateBreachDeterminationDeadlineNotifications", () => {
     expect(p.title).toContain("9 days");
   });
 
-  it("emits nothing when breachDeterminedAt is set", async () => {
+  it("emits nothing once the determination wizard has run (isBreach + breachDeterminedAt set)", async () => {
     const { user, practice } = await seedPracticeWithOwner("breach-determined");
     await db.incident.create({
       data: {
@@ -525,6 +526,7 @@ describe("generateBreachDeterminationDeadlineNotifications", () => {
         type: "PRIVACY",
         severity: "HIGH",
         status: "UNDER_INVESTIGATION",
+        // Wizard ran: isBreach + breachDeterminedAt set atomically.
         isBreach: true,
         affectedCount: 50,
         phiInvolved: true,
@@ -546,13 +548,11 @@ describe("generateBreachDeterminationDeadlineNotifications", () => {
       data: {
         practiceId: practice.id,
         reportedByUserId: user.id,
-        title: "Recent breach",
-        description: "Plenty of time left",
+        title: "Recent incident",
+        description: "Plenty of time left, wizard not yet run",
         type: "PRIVACY",
         severity: "MEDIUM",
-        status: "UNDER_INVESTIGATION",
-        isBreach: true,
-        affectedCount: 10,
+        status: "OPEN",
         phiInvolved: true,
         discoveredAt: new Date(Date.now() - 30 * DAY_MS),
       },
@@ -571,13 +571,11 @@ describe("generateBreachDeterminationDeadlineNotifications", () => {
       data: {
         practiceId: practice.id,
         reportedByUserId: user.id,
-        title: "Long-stale breach",
-        description: "Past the reminder window",
+        title: "Long-stale incident",
+        description: "Past the reminder window, wizard never ran",
         type: "PRIVACY",
         severity: "MEDIUM",
-        status: "UNDER_INVESTIGATION",
-        isBreach: true,
-        affectedCount: 10,
+        status: "OPEN",
         phiInvolved: true,
         discoveredAt: new Date(Date.now() - 65 * DAY_MS),
       },
@@ -590,20 +588,22 @@ describe("generateBreachDeterminationDeadlineNotifications", () => {
     expect(proposals).toHaveLength(0);
   });
 
-  it("emits nothing when isBreach=false / not a breach", async () => {
+  it("emits nothing when wizard determined not a breach (isBreach=false)", async () => {
     const { user, practice } = await seedPracticeWithOwner("breach-not-breach");
     await db.incident.create({
       data: {
         practiceId: practice.id,
         reportedByUserId: user.id,
         title: "Not a breach",
-        description: "Investigation cleared",
+        description: "Wizard ran, determined no breach",
         type: "PRIVACY",
         severity: "LOW",
         status: "UNDER_INVESTIGATION",
+        // Wizard ran: isBreach=false set together with breachDeterminedAt.
         isBreach: false,
         phiInvolved: true,
         discoveredAt: new Date(Date.now() - 51 * DAY_MS),
+        breachDeterminedAt: new Date(Date.now() - 2 * DAY_MS),
       },
     });
 

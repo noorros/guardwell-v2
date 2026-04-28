@@ -801,11 +801,14 @@ export async function generateCmsEnrollmentNotifications(
 /**
  * HIPAA's 60-day breach-determination window is closing — fire when the
  * window has 10 or fewer days left (discoveredAt is between 50 and 60
- * days ago). Recipients are owners + admins. WARNING severity to surface
- * urgency. NOTE: the spec also mentioned the incident's `assigneeId`,
- * but the schema doesn't currently carry an assignee field on Incident;
- * owners + admins is the launch coverage and will be revisited if/when
- * assignment ships.
+ * days ago) AND the breach-determination wizard hasn't run yet. The
+ * wizard atomically sets `isBreach` and `breachDeterminedAt` (see
+ * src/lib/events/projections/incident.ts), so `isBreach: null` is the
+ * "wizard not run" state — that's what this reminder targets. Recipients
+ * are owners + admins. WARNING severity to surface urgency. NOTE: the
+ * spec also mentioned the incident's `assigneeId`, but the schema
+ * doesn't currently carry an assignee field on Incident; owners + admins
+ * is the launch coverage and will be revisited if/when assignment ships.
  */
 export async function generateBreachDeterminationDeadlineNotifications(
   tx: Prisma.TransactionClient,
@@ -824,8 +827,10 @@ export async function generateBreachDeterminationDeadlineNotifications(
   const incidents = await tx.incident.findMany({
     where: {
       practiceId,
-      isBreach: true,
-      breachDeterminedAt: null,
+      // isBreach: null = breach-determination wizard hasn't run yet.
+      // Once the wizard runs it sets isBreach=true|false AND breachDeterminedAt
+      // atomically, exiting this reminder's target state.
+      isBreach: null,
       resolvedAt: null,
       // discoveredAt > 60 days ago AND < 50 days ago = inside the window
       discoveredAt: { gt: windowStart, lt: windowEnd },
