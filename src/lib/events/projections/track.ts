@@ -48,6 +48,72 @@ export async function projectTrackGenerated(
       },
     });
   }
+
+  // Backfill pass: any task whose requirementCode matches an existing
+  // COMPLIANT ComplianceItem on this practice is closed immediately,
+  // emitting TRACK_TASK_COMPLETED with reason="DERIVED". Same shape as
+  // the forward rederive auto-complete in rederiveRequirementStatus —
+  // see src/lib/compliance/derivation/rederive.ts:142-188.
+  const codedTasks = tasks
+    .map((t) => t.requirementCode)
+    .filter((code): code is string => code != null);
+  if (codedTasks.length === 0) return;
+
+  const compliantRequirementCodes = await tx.regulatoryRequirement.findMany({
+    where: {
+      code: { in: codedTasks },
+      complianceItems: {
+        some: { practiceId: args.practiceId, status: "COMPLIANT" },
+      },
+    },
+    select: { code: true },
+  });
+  if (compliantRequirementCodes.length === 0) return;
+
+  const compliantCodeSet = new Set(
+    compliantRequirementCodes.map((r) => r.code),
+  );
+  const tasksToBackfill = await tx.practiceTrackTask.findMany({
+    where: {
+      practiceId: args.practiceId,
+      requirementCode: { in: [...compliantCodeSet] },
+      completedAt: null,
+    },
+    select: { id: true },
+  });
+
+  for (const t of tasksToBackfill) {
+    await tx.eventLog.create({
+      data: {
+        practiceId: args.practiceId,
+        actorUserId: null,
+        type: "TRACK_TASK_COMPLETED",
+        schemaVersion: 1,
+        payload: {
+          trackTaskId: t.id,
+          completedByUserId: null,
+          reason: "DERIVED",
+        },
+      },
+    });
+    await tx.practiceTrackTask.update({
+      where: { id: t.id },
+      data: {
+        completedAt: new Date(),
+        completedByUserId: null,
+      },
+    });
+  }
+
+  const remaining = await tx.practiceTrackTask.count({
+    where: { practiceId: args.practiceId, completedAt: null },
+  });
+  if (remaining === 0) {
+    await tx.practiceTrack.update({
+      where: { practiceId: args.practiceId },
+      data: { completedAt: new Date() },
+    });
+  }
 }
 
 export async function projectTrackTaskCompleted(
