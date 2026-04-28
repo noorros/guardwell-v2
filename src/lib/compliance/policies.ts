@@ -50,12 +50,24 @@ export const DEA_POLICY_CODES = [
 export type DeaPolicyCode = (typeof DEA_POLICY_CODES)[number];
 
 // ────────────────────────────────────────────────────────────────────────────
+// CMS
+// ────────────────────────────────────────────────────────────────────────────
+
+export const CMS_POLICY_CODES = [
+  "CMS_EMERGENCY_PREPAREDNESS_POLICY",
+  "CMS_STARK_AKS_COMPLIANCE_POLICY",
+  "CMS_BILLING_COMPLIANCE_POLICY",
+] as const;
+
+export type CmsPolicyCode = (typeof CMS_POLICY_CODES)[number];
+
+// ────────────────────────────────────────────────────────────────────────────
 // Union + metadata
 // ────────────────────────────────────────────────────────────────────────────
 
-export type PolicyCode = HipaaPolicyCode | OshaPolicyCode | DeaPolicyCode;
+export type PolicyCode = HipaaPolicyCode | OshaPolicyCode | DeaPolicyCode | CmsPolicyCode;
 
-export type PolicyFramework = "HIPAA" | "OSHA" | "DEA";
+export type PolicyFramework = "HIPAA" | "OSHA" | "DEA" | "CMS";
 
 export interface PolicyMetadata {
   code: PolicyCode;
@@ -152,6 +164,28 @@ export const POLICY_METADATA: Record<PolicyCode, PolicyMetadata> = {
     description:
       "Written policy requiring DEA Form 106 filing within one business day of discovering a theft or significant loss, plus law enforcement notification. Satisfies the policy component of DEA_LOSS_REPORTING per 21 CFR §1301.76(b).",
   },
+  // CMS
+  CMS_EMERGENCY_PREPAREDNESS_POLICY: {
+    code: "CMS_EMERGENCY_PREPAREDNESS_POLICY",
+    framework: "CMS",
+    title: "Emergency Preparedness Plan",
+    description:
+      "Written emergency preparedness plan including risk assessment, communication plan, policies and procedures, and training program per 42 CFR §482.15 / §485.68. Satisfies CMS_EMERGENCY_PREPAREDNESS.",
+  },
+  CMS_STARK_AKS_COMPLIANCE_POLICY: {
+    code: "CMS_STARK_AKS_COMPLIANCE_POLICY",
+    framework: "CMS",
+    title: "Stark Law & Anti-Kickback Statute Compliance Policy",
+    description:
+      "Written policy covering annual review of physician financial relationships for Stark Law compliance and Anti-Kickback Statute safe-harbor analysis per 42 USC §1395nn / §1320a-7b. Satisfies CMS_STARK_AKS_COMPLIANCE.",
+  },
+  CMS_BILLING_COMPLIANCE_POLICY: {
+    code: "CMS_BILLING_COMPLIANCE_POLICY",
+    framework: "CMS",
+    title: "Billing Accuracy & Documentation Policy",
+    description:
+      "Written policy ensuring claims submitted to Medicare/Medicaid reflect services actually rendered, supported by contemporaneous documentation, with correct CPT/HCPCS/ICD-10 coding and periodic internal audits per 42 USC §1320a-7a. Satisfies CMS_BILLING_COMPLIANCE.",
+  },
 };
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -173,4 +207,5 @@ export const ALL_POLICY_CODES: readonly PolicyCode[] = [
   ...HIPAA_POLICY_CODES,
   ...OSHA_POLICY_CODES,
   ...DEA_POLICY_CODES,
+  ...CMS_POLICY_CODES,
 ];

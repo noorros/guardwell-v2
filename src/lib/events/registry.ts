@@ -90,6 +90,11 @@ export const EVENT_TYPES = [
   // + audit trail. No model row — EventLog IS the evidence. Feeds
   // DEA_PRESCRIPTION_SECURITY derivation (see src/lib/compliance/derivation/dea.ts).
   "EPCS_ATTESTATION",
+  // CMS overpayment identified and reported per 42 USC §1320a-7k(d).
+  // No model row — EventLog IS the evidence. Feeds CMS_OVERPAYMENT_REFUND
+  // derivation (see src/lib/compliance/derivation/cms.ts).
+  // Evidence code: "OVERPAYMENT:REPORTED".
+  "OVERPAYMENT_REPORTED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -1076,6 +1081,22 @@ export const EVENT_SCHEMAS = {
       epcsVendor: z.string().max(200).nullable(),
       twoFactorEnabled: z.boolean(),
       auditTrailConfirmed: z.boolean(),
+    }),
+  },
+  // CMS overpayment identified per 42 USC §1320a-7k(d). The 60-day refund
+  // clock starts at identifiedAt; reportedAt is when the practice logged
+  // the event. No model row — EventLog IS the evidence. Evidence code:
+  // "OVERPAYMENT:REPORTED". Feeds CMS_OVERPAYMENT_REFUND derivation.
+  OVERPAYMENT_REPORTED: {
+    1: z.object({
+      reportId: z.string().min(1),
+      reportedByUserId: z.string().min(1),
+      reportedAt: z.string().datetime(),
+      identifiedAt: z.string().datetime(),
+      estimatedAmount: z.number().nullable(),
+      payorType: z.enum(["MEDICARE", "MEDICAID", "OTHER"]),
+      refundMethod: z.string().max(200).nullable(),
+      notes: z.string().max(2000).nullable(),
     }),
   },
 } as const;
