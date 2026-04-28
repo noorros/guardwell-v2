@@ -17,6 +17,8 @@ const PROJECTION_TABLES = new Set([
   "notification",
   "notificationPreference",
   "practiceComplianceProfile",
+  "conversationThread",
+  "conversationMessage",
 ]);
 
 const MUTATING_METHODS = new Set([

@@ -110,6 +110,22 @@ export const EVENT_TYPES = [
   // Evidence code: "MACRA_ACTIVITY:LOGGED" (model-row-backed; the
   // MacraActivityLog row IS the evidence).
   "MACRA_ACTIVITY_LOGGED",
+  // ────────────────────────────────────────────────────────────────────
+  // AI Concierge — chat thread + message lifecycle
+  // (docs/plans/2026-04-28-phase-2-concierge-section-g.md PR A1)
+  // ────────────────────────────────────────────────────────────────────
+  // Concierge thread created. Projection writes a ConversationThread row.
+  "CONCIERGE_THREAD_CREATED",
+  // User message sent in a Concierge thread. Projection writes a
+  // ConversationMessage row (role=USER) + bumps thread.lastMessageAt.
+  "CONCIERGE_MESSAGE_USER_SENT",
+  // Assistant message produced by the Concierge LLM. Projection writes a
+  // ConversationMessage row (role=ASSISTANT) carrying tokens/cost/llmCallId
+  // for observability + bumps thread.lastMessageAt.
+  "CONCIERGE_MESSAGE_ASSISTANT_PRODUCED",
+  // Tool invocation inside a Concierge turn. Projection writes a
+  // ConversationMessage row (role=TOOL) with the full input/output payload.
+  "CONCIERGE_TOOL_INVOKED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -1164,6 +1180,65 @@ export const EVENT_SCHEMAS = {
       attestationYear: z.number().int().min(2017).max(2100),
       activityName: z.string().min(1).max(300),
       notes: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  // ────────────────────────────────────────────────────────────────────
+  // AI Concierge — see docs/plans/2026-04-28-phase-2-concierge-section-g.md
+  // ────────────────────────────────────────────────────────────────────
+  // Concierge thread created. title is server-derived from the first user
+  // message after the message lands; null at creation time is normal.
+  CONCIERGE_THREAD_CREATED: {
+    1: z.object({
+      threadId: z.string().min(1),
+      userId: z.string().min(1),
+      title: z.string().max(200).nullable().optional(),
+    }),
+  },
+  // User message sent in a Concierge thread. Content cap of 10k chars
+  // mirrors the breach-memo cap and is generous for a chat turn.
+  CONCIERGE_MESSAGE_USER_SENT: {
+    1: z.object({
+      messageId: z.string().min(1),
+      threadId: z.string().min(1),
+      content: z.string().min(1).max(10000),
+    }),
+  },
+  // Assistant message produced by the Concierge LLM. Carries the token
+  // counts + cost the streaming primitive computed; costUsd may be null
+  // if the price metadata for the model isn't loaded. stopReason mirrors
+  // the Anthropic SDK enum.
+  CONCIERGE_MESSAGE_ASSISTANT_PRODUCED: {
+    1: z.object({
+      messageId: z.string().min(1),
+      threadId: z.string().min(1),
+      content: z.string(),
+      inputTokens: z.number().int().min(0),
+      outputTokens: z.number().int().min(0),
+      costUsd: z.number().min(0).nullable().optional(),
+      llmCallId: z.string().min(1),
+      model: z.string().min(1).max(100),
+      stopReason: z.enum([
+        "end_turn",
+        "max_tokens",
+        "tool_use",
+        "stop_sequence",
+      ]),
+    }),
+  },
+  // Tool invocation inside a Concierge turn. toolInput / toolOutput are
+  // typed as z.unknown() because the shape varies per tool; the
+  // ConversationMessage.payload column captures the raw JSON for
+  // post-hoc inspection. error is null on success.
+  CONCIERGE_TOOL_INVOKED: {
+    1: z.object({
+      toolInvocationId: z.string().min(1),
+      threadId: z.string().min(1),
+      messageId: z.string().min(1),
+      toolName: z.string().min(1).max(200),
+      toolInput: z.unknown(),
+      toolOutput: z.unknown(),
+      latencyMs: z.number().int().min(0),
+      error: z.string().max(2000).nullable().optional(),
     }),
   },
 } as const;
