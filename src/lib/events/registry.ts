@@ -35,6 +35,7 @@ export const EVENT_TYPES = [
   "DEA_ORDER_RECEIVED",
   "DEA_DISPOSAL_COMPLETED",
   "DEA_THEFT_LOSS_REPORTED",
+  "DEA_PDF_GENERATED",
   "INVITATION_ACCEPTED",
   "INVITATION_REVOKED",
   "INVITATION_RESENT",
@@ -672,6 +673,17 @@ export const EVENT_SCHEMAS = {
       deaNotifiedAt: z.string().datetime().nullable().optional(),
       form106SubmittedAt: z.string().datetime().nullable().optional(),
       notes: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  // DEA audit-trail event: every DEA PDF read (Inventory, Form 41, Form
+  // 106) leaves an EventLog row. Same best-effort pattern as
+  // INCIDENT_BREACH_MEMO_GENERATED + INCIDENT_OSHA_LOG_GENERATED — the
+  // EventLog row IS the audit trail; no projection state to update.
+  DEA_PDF_GENERATED: {
+    1: z.object({
+      form: z.enum(["INVENTORY", "FORM_41", "FORM_106"]),
+      recordId: z.string().min(1),
+      generatedByUserId: z.string().min(1),
     }),
   },
   // Cybersecurity emphasis (2026-04-23) — feeds /programs/cybersecurity

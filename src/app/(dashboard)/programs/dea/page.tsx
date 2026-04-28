@@ -23,10 +23,9 @@ export default async function DeaProgramPage() {
   if (!framework) {
     redirect("/dashboard" as Route);
   }
-  // 20 most recent records per tab. Phase C ships Inventory + Orders +
-  // Disposals; the Theft & Loss tab still renders <ComingSoon> until
-  // Phase D.
-  const [inventories, orders, disposals] = await Promise.all([
+  // 20 most recent records per tab. All 4 tabs (Inventory, Orders,
+  // Disposals, Theft & Loss) are wired in Phase D.
+  const [inventories, orders, disposals, theftLossReports] = await Promise.all([
     db.deaInventory.findMany({
       where: { practiceId: pu.practiceId },
       orderBy: { asOfDate: "desc" },
@@ -43,6 +42,11 @@ export default async function DeaProgramPage() {
     db.deaDisposalRecord.findMany({
       where: { practiceId: pu.practiceId },
       orderBy: { disposalDate: "desc" },
+      take: 20,
+    }),
+    db.deaTheftLossReport.findMany({
+      where: { practiceId: pu.practiceId },
+      orderBy: { discoveredAt: "desc" },
       take: 20,
     }),
   ]);
@@ -94,6 +98,18 @@ export default async function DeaProgramPage() {
           quantity: d.quantity,
           unit: d.unit,
           form41Filed: d.form41Filed,
+        }))}
+        theftLossReports={theftLossReports.map((r) => ({
+          id: r.id,
+          discoveredAt: r.discoveredAt.toISOString(),
+          lossType: r.lossType,
+          drugName: r.drugName,
+          schedule: r.schedule,
+          quantityLost: r.quantityLost,
+          unit: r.unit,
+          form106SubmittedAt: r.form106SubmittedAt
+            ? r.form106SubmittedAt.toISOString()
+            : null,
         }))}
       />
     </main>

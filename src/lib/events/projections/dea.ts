@@ -139,3 +139,11 @@ export async function projectDeaTheftLossReported(
     },
   });
 }
+
+// DEA PDF audit-trail event — emitted on every DEA PDF read (Inventory,
+// Form 41, Form 106). EventLog row IS the audit trail; no projection
+// state to update. Same shape as projectIncidentBreachMemoGenerated and
+// projectIncidentOshaLogGenerated.
+export async function projectDeaPdfGenerated(): Promise<void> {
+  // intentional no-op
+}

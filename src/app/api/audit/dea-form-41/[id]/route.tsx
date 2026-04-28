@@ -9,15 +9,17 @@
 // dispose one drug at a time. A future post-launch route would group
 // every disposal sharing a `disposalBatchId` into one Form 41.
 //
-// Phase C also intentionally does NOT emit a post-render audit event;
-// Phase D will add a unified `INCIDENT_OSHA_LOG_GENERATED`-style event
-// type for all DEA PDFs (Inventory + Form 41 + Form 106) at once.
+// Phase D adds a DEA_PDF_GENERATED audit-trail event emitted post-
+// render (best-effort, so a failed audit-event write does not block
+// the legitimate user's access per ADR-0001).
 
 import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { requireUser } from "@/lib/auth";
 import { getPracticeUser } from "@/lib/rbac";
 import { db } from "@/lib/db";
+import { appendEventAndApply } from "@/lib/events";
+import { projectDeaPdfGenerated } from "@/lib/events/projections/dea";
 import { DeaForm41Document } from "@/lib/audit/dea-form-41-pdf";
 
 export const maxDuration = 120;
@@ -26,8 +28,9 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  let user;
   try {
-    await requireUser();
+    user = await requireUser();
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -105,6 +108,26 @@ export async function GET(
       }}
     />,
   );
+
+  // DEA audit trail: every Form 41 PDF read leaves an EventLog row.
+  // Best-effort same as INCIDENT_BREACH_MEMO_GENERATED + 300 + 301.
+  try {
+    await appendEventAndApply(
+      {
+        practiceId: pu.practiceId,
+        actorUserId: user.id,
+        type: "DEA_PDF_GENERATED",
+        payload: {
+          form: "FORM_41",
+          recordId: id,
+          generatedByUserId: user.id,
+        },
+      },
+      async () => projectDeaPdfGenerated(),
+    );
+  } catch (err) {
+    console.error("[dea-form-41] audit event emit failed", err);
+  }
 
   return new NextResponse(new Uint8Array(pdfBuffer), {
     status: 200,
