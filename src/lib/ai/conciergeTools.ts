@@ -12,6 +12,7 @@
 
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { computeOverallScore } from "@/lib/compliance/overallScore";
 
 export interface ToolHandler {
   name: string;
@@ -27,11 +28,23 @@ export interface ToolHandler {
   handle(args: { practiceId: string; input: unknown }): Promise<unknown>;
 }
 
+// .strict() rejects extra keys — Concierge tools that take no input must receive {} exactly.
 const EMPTY_INPUT_SCHEMA = z.object({}).strict();
 const EMPTY_INPUT_SCHEMA_JSON = {
   type: "object" as const,
   properties: {},
   additionalProperties: false,
+};
+
+// Sort order for list_credentials so the rows most needing attention show
+// up first (and survive the 100-row cap). EXPIRED is most urgent;
+// NO_EXPIRY rows have no deadline so they're least actionable.
+type CredentialStatus = "EXPIRED" | "EXPIRING_SOON" | "ACTIVE" | "NO_EXPIRY";
+const STATUS_PRIORITY: Record<CredentialStatus, number> = {
+  EXPIRED: 0,
+  EXPIRING_SOON: 1,
+  ACTIVE: 2,
+  NO_EXPIRY: 3,
 };
 
 export const TOOL_REGISTRY: Record<string, ToolHandler> = {
@@ -118,6 +131,8 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
     inputSchema: EMPTY_INPUT_SCHEMA,
     inputSchemaJson: EMPTY_INPUT_SCHEMA_JSON,
     async handle({ practiceId }) {
+      // take: 101 + slice(0, 100) is the standard pattern for detecting
+      // truncation without a false-positive when row count == cap.
       const rows = await db.practicePolicy.findMany({
         where: { practiceId, retiredAt: null },
         select: {
@@ -127,9 +142,11 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
           lastReviewedAt: true,
         },
         orderBy: { adoptedAt: "desc" },
-        take: 100,
+        take: 101,
       });
-      return { policies: rows, _truncated: rows.length === 100 };
+      const truncated = rows.length > 100;
+      const slice = rows.slice(0, 100);
+      return { policies: slice, _truncated: truncated };
     },
   },
 
@@ -166,6 +183,7 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
     inputSchemaJson: EMPTY_INPUT_SCHEMA_JSON,
     async handle({ practiceId }) {
       // SCHEMA NOTE: Vendor uses `retiredAt` (not `removedAt`).
+      // take: 101 + slice(0, 100) — see list_policies for rationale.
       const rows = await db.vendor.findMany({
         where: { practiceId, retiredAt: null },
         select: {
@@ -176,9 +194,11 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
           baaExpiresAt: true,
         },
         orderBy: { name: "asc" },
-        take: 100,
+        take: 101,
       });
-      return { vendors: rows, _truncated: rows.length === 100 };
+      const truncated = rows.length > 100;
+      const slice = rows.slice(0, 100);
+      return { vendors: slice, _truncated: truncated };
     },
   },
 
@@ -190,20 +210,28 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
     async handle({ practiceId }) {
       // SCHEMA NOTE: Credential has no `status` column — derive from expiryDate.
       // Credential.credentialTypeId is an FK; resolve to .code via include.
+      //
+      // Fetch all rows (no DB-side cap), derive status, sort by
+      // STATUS_PRIORITY so the most actionable rows surface first
+      // (EXPIRED → EXPIRING_SOON → ACTIVE → NO_EXPIRY), then slice to 100.
+      // Sorting client-side avoids the Postgres NULLS LAST default silently
+      // clipping NO_EXPIRY rows when a practice has >100 credentials.
+      // Performance: typical practice has <50 credentials; even 500 rows
+      // are a single fast query, then in-memory sort.
       const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
       const now = Date.now();
       const rows = await db.credential.findMany({
         where: { practiceId, retiredAt: null },
         include: { credentialType: { select: { code: true } } },
-        orderBy: { expiryDate: "asc" },
-        take: 100,
       });
-      const credentials = rows.map((c) => {
+      const allCredentials = rows.map((c) => {
         let status: "ACTIVE" | "EXPIRING_SOON" | "EXPIRED" | "NO_EXPIRY" = "NO_EXPIRY";
         if (c.expiryDate) {
           const t = c.expiryDate.getTime();
           if (t < now) status = "EXPIRED";
-          else if (t - now < NINETY_DAYS_MS) status = "EXPIRING_SOON";
+          // <= so a credential expiring exactly on the 90-day mark is
+          // EXPIRING_SOON (the actionable warning), not ACTIVE.
+          else if (t - now <= NINETY_DAYS_MS) status = "EXPIRING_SOON";
           else status = "ACTIVE";
         }
         return {
@@ -214,7 +242,12 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
           status,
         };
       });
-      return { credentials, _truncated: rows.length === 100 };
+      allCredentials.sort(
+        (a, b) => STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status],
+      );
+      const truncated = allCredentials.length > 100;
+      const slice = allCredentials.slice(0, 100);
+      return { credentials: slice, _truncated: truncated };
     },
   },
 
@@ -248,18 +281,19 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
   get_dashboard_snapshot: {
     name: "get_dashboard_snapshot",
     description:
-      "Get the practice's overall compliance snapshot (score, framework count, open incidents, expiring credentials).",
+      "Get the practice's overall compliance snapshot — overall score (compliant requirements / total applicable, jurisdiction-filtered), enrolled framework count, open incident count, and credentials expiring within the next 90 days.",
     inputSchema: EMPTY_INPUT_SCHEMA,
     inputSchemaJson: EMPTY_INPUT_SCHEMA_JSON,
     async handle({ practiceId }) {
+      // Score is computed via computeOverallScore() — the same helper the
+      // /audit/overview dashboard uses — so the Concierge's number always
+      // matches what the user sees in the UI.
       const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
       const now = new Date();
       const ninetyDayCutoff = new Date(now.getTime() + NINETY_DAYS_MS);
-      const [frameworks, openIncidents, expiringCredentials] = await Promise.all([
-        db.practiceFramework.findMany({
-          where: { practiceId, enabled: true },
-          select: { scoreCache: true },
-        }),
+      const [overall, frameworkCount, openIncidents, expiringCredentials] = await Promise.all([
+        computeOverallScore(practiceId),
+        db.practiceFramework.count({ where: { practiceId, enabled: true } }),
         // SCHEMA NOTE: Incident.resolvedAt = null is the "open" signal.
         db.incident.count({ where: { practiceId, resolvedAt: null } }),
         db.credential.count({
@@ -270,15 +304,9 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
           },
         }),
       ]);
-      const overallScore =
-        frameworks.length > 0
-          ? Math.round(
-              frameworks.reduce((acc, f) => acc + (f.scoreCache ?? 0), 0) / frameworks.length,
-            )
-          : 0;
       return {
-        overallScore,
-        frameworkCount: frameworks.length,
+        overallScore: overall.score,
+        frameworkCount,
         openIncidentCount: openIncidents,
         expiringCredentialsCount: expiringCredentials,
       };

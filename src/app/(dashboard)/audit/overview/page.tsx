@@ -30,6 +30,7 @@ import {
   getPracticeJurisdictions,
   jurisdictionRequirementFilter,
 } from "@/lib/compliance/jurisdictions";
+import { computeOverallScore } from "@/lib/compliance/overallScore";
 import { formatEventForActivityLog } from "@/lib/audit/format-event";
 import { ActivityTimestamp } from "../activity/ActivityTimestamp";
 
@@ -188,7 +189,9 @@ export default async function AuditOverviewPage() {
 
   const applicableIdSet = new Set(applicableRequirements.map((r) => r.id));
   // Aggregate totals filtered by the practice's jurisdictions so the
-  // denominator matches what /modules/[code] shows.
+  // denominator matches what /modules/[code] shows. The actual score
+  // computation is delegated to computeOverallScore() below — the
+  // canonical helper shared with the AI Concierge's get_dashboard_snapshot.
   const totalApplicable = applicableRequirements.length;
   const compliantApplicable: number = allComplianceItems.filter(
     (ci) => ci.status === "COMPLIANT" && applicableIdSet.has(ci.requirementId),
@@ -234,10 +237,7 @@ export default async function AuditOverviewPage() {
   const gapApplicable = allComplianceItems.filter(
     (ci) => ci.status === "GAP" && applicableIdSet.has(ci.requirementId),
   ).length;
-  const overallScore =
-    totalApplicable === 0
-      ? 0
-      : Math.round((compliantApplicable / totalApplicable) * 100);
+  const { score: overallScore } = await computeOverallScore(pu.practiceId);
   const isAssessed = allComplianceItems.length > 0;
 
   // Critical gaps — highest-severity requirements currently at GAP.

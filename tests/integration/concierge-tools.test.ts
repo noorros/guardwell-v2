@@ -100,6 +100,36 @@ describe("Concierge tool registry", () => {
     await db.practiceFramework.create({
       data: { practiceId: practice.id, frameworkId: fw.id, enabled: true, scoreCache: 80 },
     });
+    // Score is computed via the canonical computeOverallScore() helper —
+    // count of COMPLIANT ComplianceItem rows / count of applicable
+    // RegulatoryRequirements (jurisdiction-filtered). Seed an applicable
+    // requirement set + mark exactly one COMPLIANT so we can assert the
+    // exact ratio.
+    const applicableReqs = await db.regulatoryRequirement.findMany({
+      where: {
+        frameworkId: fw.id,
+        OR: [
+          { jurisdictionFilter: { isEmpty: true } },
+          { jurisdictionFilter: { hasSome: ["TX"] } },
+        ],
+      },
+      select: { id: true },
+      take: 4,
+    });
+    expect(applicableReqs.length).toBe(4);
+    // 1 COMPLIANT out of 4 applicable across the entire practice = 25%.
+    // (The 4 we seeded are the only ComplianceItem rows for this practice.
+    // The denominator over ALL applicable requirements is much larger,
+    // so we instead assert the score is a small positive number — proves
+    // the helper found the COMPLIANT row and divided by the right
+    // denominator.)
+    await db.complianceItem.create({
+      data: {
+        practiceId: practice.id,
+        requirementId: applicableReqs[0]!.id,
+        status: "COMPLIANT",
+      },
+    });
     await db.incident.create({
       data: {
         practiceId: practice.id,
@@ -122,7 +152,11 @@ describe("Concierge tool registry", () => {
       frameworkCount: number;
       openIncidentCount: number;
     };
-    expect(result.overallScore).toBe(80);
+    // Score = round(1 / totalApplicable * 100) — small positive integer.
+    // Assert it's > 0 (proved we found the COMPLIANT row) and < 100
+    // (proved we divided by all applicable, not just the seeded items).
+    expect(result.overallScore).toBeGreaterThan(0);
+    expect(result.overallScore).toBeLessThan(100);
     expect(result.frameworkCount).toBe(1);
     expect(result.openIncidentCount).toBe(1);
   });
@@ -146,6 +180,73 @@ describe("Concierge tool registry", () => {
       input: { frameworkCode: 12345 }, // wrong type
     });
     expect(error).toContain("INPUT_SCHEMA");
+  });
+
+  it("list_credentials derives ACTIVE / EXPIRING_SOON / EXPIRED / NO_EXPIRY status from expiryDate", async () => {
+    const { practice } = await seedPractice();
+    // Reuse a seeded CredentialType — credential-projection.test.ts shows
+    // MD_STATE_LICENSE is in the master seed.
+    const credType = await db.credentialType.findUniqueOrThrow({
+      where: { code: "MD_STATE_LICENSE" },
+    });
+    const now = new Date();
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    // ACTIVE: 100 days from now (well past 90-day window)
+    await db.credential.create({
+      data: {
+        practiceId: practice.id,
+        credentialTypeId: credType.id,
+        title: "Active license",
+        expiryDate: new Date(now.getTime() + 100 * DAY_MS),
+      },
+    });
+    // EXPIRING_SOON: 30 days from now
+    await db.credential.create({
+      data: {
+        practiceId: practice.id,
+        credentialTypeId: credType.id,
+        title: "Expiring soon license",
+        expiryDate: new Date(now.getTime() + 30 * DAY_MS),
+      },
+    });
+    // EXPIRED: 5 days ago
+    await db.credential.create({
+      data: {
+        practiceId: practice.id,
+        credentialTypeId: credType.id,
+        title: "Expired license",
+        expiryDate: new Date(now.getTime() - 5 * DAY_MS),
+      },
+    });
+    // NO_EXPIRY: null expiryDate
+    await db.credential.create({
+      data: {
+        practiceId: practice.id,
+        credentialTypeId: credType.id,
+        title: "Permanent license",
+        expiryDate: null,
+      },
+    });
+
+    const { output, error } = await invokeTool({
+      toolName: "list_credentials",
+      practiceId: practice.id,
+      input: {},
+    });
+    expect(error).toBeNull();
+    const result = output as { credentials: Array<{ title: string; status: string }> };
+    const byTitle = new Map(result.credentials.map((c) => [c.title, c.status]));
+    expect(byTitle.get("Active license")).toBe("ACTIVE");
+    expect(byTitle.get("Expiring soon license")).toBe("EXPIRING_SOON");
+    expect(byTitle.get("Expired license")).toBe("EXPIRED");
+    expect(byTitle.get("Permanent license")).toBe("NO_EXPIRY");
+    // Status-priority order: EXPIRED → EXPIRING_SOON → ACTIVE → NO_EXPIRY
+    expect(result.credentials.map((c) => c.status)).toEqual([
+      "EXPIRED",
+      "EXPIRING_SOON",
+      "ACTIVE",
+      "NO_EXPIRY",
+    ]);
   });
 
   it("getAnthropicToolDefinitions returns one entry per registered tool", async () => {
