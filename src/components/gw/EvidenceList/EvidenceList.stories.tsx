@@ -40,7 +40,7 @@ export const stories = {
   ),
   SingleFile: (
     <EvidenceList
-      items={[SAMPLE[0]]}
+      items={SAMPLE.slice(0, 1)}
       canDelete={true}
       onDeleted={() => {}}
     />

@@ -55,7 +55,8 @@ describe("<EvidenceList>", () => {
     const onDeleted = vi.fn();
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: true });
     render(<EvidenceList items={ITEMS} canDelete={true} onDeleted={onDeleted} />);
-    const [firstDeleteBtn] = screen.getAllByRole("button", { name: /delete/i });
+    const deleteBtns = screen.getAllByRole("button", { name: /delete/i });
+    const firstDeleteBtn = deleteBtns[0]!;
     fireEvent.click(firstDeleteBtn);
     await vi.waitFor(() => expect(onDeleted).toHaveBeenCalledWith("ev-1"));
   });
@@ -67,7 +68,14 @@ describe("<EvidenceList>", () => {
 
   it("shows PENDING badge for PENDING items", () => {
     const pending: EvidenceListItem[] = [
-      { ...ITEMS[0], id: "ev-p", status: "PENDING" },
+      {
+        id: "ev-p",
+        fileName: "license.pdf",
+        mimeType: "application/pdf",
+        fileSizeBytes: 98304,
+        uploadedAt: "2026-04-20T10:00:00Z",
+        status: "PENDING",
+      },
     ];
     render(<EvidenceList items={pending} canDelete={false} onDeleted={vi.fn()} />);
     expect(screen.getByText(/pending/i)).toBeInTheDocument();

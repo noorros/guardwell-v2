@@ -20,6 +20,8 @@ import { stories as PracticeIdentityCardStories } from "@/components/gw/Practice
 import { stories as DeadlineWarningStories } from "@/components/gw/DeadlineWarning/DeadlineWarning.stories";
 import { stories as MajorBreachBannerStories } from "@/components/gw/MajorBreachBanner/MajorBreachBanner.stories";
 import { stories as AiAssistDrawerStories } from "@/components/gw/AiAssistDrawer/AiAssistDrawer.stories";
+import { stories as EvidenceUploaderStories } from "@/components/gw/EvidenceUploader/EvidenceUploader.stories";
+import { stories as EvidenceListStories } from "@/components/gw/EvidenceList/EvidenceList.stories";
 
 // NB: metadata export isn't allowed on a "use client" page. The gallery
 // is internal-only (behind auth) so skipping a custom <title> is fine —
@@ -42,6 +44,8 @@ const BLOCKS: StoryBlock[] = [
   { name: "DeadlineWarning", stories: DeadlineWarningStories },
   { name: "MajorBreachBanner", stories: MajorBreachBannerStories },
   { name: "AiAssistDrawer", stories: AiAssistDrawerStories },
+  { name: "EvidenceUploader", stories: EvidenceUploaderStories },
+  { name: "EvidenceList", stories: EvidenceListStories },
 ];
 
 export default function DesignSystemGalleryPage() {
