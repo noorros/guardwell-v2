@@ -51,7 +51,7 @@ const DEA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "Conduct a complete inventory of all controlled substances every 2 years from the date of the initial inventory. Record must include date, time of day, name/form/strength/quantity of each controlled substance. Retain for 2 years minimum.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["DEA_INVENTORY:RECORDED"],
     sortOrder: 20,
   },
   {
@@ -62,7 +62,7 @@ const DEA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "Maintain records of every controlled-substance dispensing or administration: patient name, date, drug name, strength, form, quantity, and the prescriber. Schedule II records stored separately. Retain all records for at least 2 years.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["DEA_RECORDS:ACTIVITY"],
     sortOrder: 30,
   },
   {
@@ -73,7 +73,7 @@ const DEA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "Schedule II–V controlled substances must be stored in a securely locked, substantially constructed cabinet or safe. Practitioner offices typically use a steel safe or locked cabinet; larger inventories require increased-security vaults.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["POLICY:DEA_SECURE_STORAGE_POLICY"],
     sortOrder: 40,
   },
   {
@@ -84,7 +84,10 @@ const DEA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1,
     description:
       "Prescription pads stored securely; tamper-resistant prescriptions for Medicaid (CMS) and most state Schedule II–V rules; or equivalent electronic prescribing (EPCS) with two-factor authentication and an audit trail.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: [
+      "POLICY:DEA_PRESCRIPTION_SECURITY_POLICY",
+      "EVENT:EPCS_ATTESTATION",
+    ],
     sortOrder: 50,
   },
   {
@@ -95,6 +98,7 @@ const DEA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1,
     description:
       "Question each applicant for positions giving access to controlled substances about conviction for a felony relating to controlled substances and unauthorized use of drugs. Document the response in the personnel file.",
+    // Stub — Phase 11 will wire LeieScreening once the model lands.
     acceptedEvidenceTypes: [],
     sortOrder: 60,
   },
@@ -106,7 +110,10 @@ const DEA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1.5,
     description:
       "Upon discovery of a theft or significant loss of controlled substances, notify the DEA Field Division in writing within one business day using DEA Form 106. Also notify local law enforcement and, where required, state regulators.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: [
+      "POLICY:DEA_LOSS_REPORTING_POLICY",
+      "DEA_THEFT_LOSS:REPORTED",
+    ],
     sortOrder: 70,
   },
   {
@@ -117,7 +124,7 @@ const DEA_REQUIREMENTS: RequirementFixture[] = [
     weight: 1,
     description:
       "Dispose of expired, unused, or returned controlled substances only via authorized methods: transfer to a reverse distributor, DEA-authorized take-back event, or on-site destruction with two witnesses and DEA Form 41 documentation.",
-    acceptedEvidenceTypes: [],
+    acceptedEvidenceTypes: ["DEA_DISPOSAL:COMPLETED"],
     sortOrder: 80,
   },
 ];
