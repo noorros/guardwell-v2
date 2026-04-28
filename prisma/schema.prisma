@@ -107,6 +107,10 @@ model Practice {
   // null = wizard not finished (top-of-dashboard re-prompt fires).
   firstRunCompletedAt  DateTime?
 
+  // Per-practice GCS evidence storage quota in bytes.
+  // null = use default (PRACTICE_STORAGE_QUOTA_BYTES env var or 5 GB).
+  storageQuotaBytes BigInt?
+
   practiceUsers       PracticeUser[]
   practicePolicies    PracticePolicy[]
   trainingCompletions TrainingCompletion[]
