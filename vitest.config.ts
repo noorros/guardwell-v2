@@ -33,12 +33,12 @@ export default defineConfig({
           setupFiles: ["./tests/setup-jsdom.ts"],
           include: [
             "src/components/**/*.test.{ts,tsx}",
-            "src/app/**/*.test.{ts,tsx}",
+            "src/app/**/*.test.tsx",
             // Next.js route-group dirs use parentheses — list any such
             // app-level test directories explicitly as a fallback so
             // vitest's glob engine always finds them regardless of OS
             // parenthesis-handling quirks.
-            "src/app/(dashboard)/**/*.test.{ts,tsx}",
+            "src/app/(dashboard)/**/*.test.tsx",
           ],
           globals: false,
         },

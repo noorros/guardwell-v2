@@ -7,20 +7,16 @@
 
 import { db } from "@/lib/db";
 
-export interface SyncResult {
-  closed: number;
-}
-
 export async function syncTrackTasksFromEvidence(
   practiceId: string,
-): Promise<SyncResult> {
-  const track = await db.practiceTrack.findUnique({
-    where: { practiceId },
-    select: { practiceId: true },
-  });
-  if (!track) return { closed: 0 };
-
+): Promise<{ closed: number }> {
   return await db.$transaction(async (tx) => {
+    const track = await tx.practiceTrack.findUnique({
+      where: { practiceId },
+      select: { practiceId: true },
+    });
+    if (!track) return { closed: 0 };
+
     const openCodedTasks = await tx.practiceTrackTask.findMany({
       where: {
         practiceId,
