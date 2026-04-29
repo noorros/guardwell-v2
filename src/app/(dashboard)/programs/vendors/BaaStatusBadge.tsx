@@ -1,25 +1,9 @@
 // src/app/(dashboard)/programs/vendors/BaaStatusBadge.tsx
 "use client";
 
-import { useSyncExternalStore } from "react";
 import { Badge } from "@/components/ui/badge";
-
-const SSR_FMT = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "medium",
-  timeZone: "UTC",
-});
-const noopSubscribe = () => () => {};
-
-function useLocalDate(iso: string): string {
-  return useSyncExternalStore(
-    noopSubscribe,
-    () =>
-      new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
-        new Date(iso),
-      ),
-    () => SSR_FMT.format(new Date(iso)),
-  );
-}
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDateLong } from "@/lib/audit/format";
 
 export interface BaaStatusBadgeProps {
   processesPhi: boolean;
@@ -32,8 +16,13 @@ export function BaaStatusBadge({
   baaExecutedAt,
   baaExpiresAt,
 }: BaaStatusBadgeProps) {
-  const executedDate = useLocalDate(baaExecutedAt ?? "1970-01-01T00:00:00Z");
-  const expiresDate = useLocalDate(baaExpiresAt ?? "1970-01-01T00:00:00Z");
+  const tz = usePracticeTimezone();
+  const executedDate = baaExecutedAt
+    ? formatPracticeDateLong(new Date(baaExecutedAt), tz)
+    : "";
+  const expiresDate = baaExpiresAt
+    ? formatPracticeDateLong(new Date(baaExpiresAt), tz)
+    : "";
 
   if (!processesPhi) {
     return (

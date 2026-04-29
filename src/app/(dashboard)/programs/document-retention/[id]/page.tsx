@@ -13,6 +13,7 @@ import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EvidenceUpload, type EvidenceItem } from "@/components/gw/EvidenceUpload";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ export default async function DestructionLogDetailPage({
   const { id } = await params;
   const pu = await getPracticeUser();
   if (!pu) return null;
+  const tz = pu.practice.timezone ?? "UTC";
 
   const [log, evidence] = await Promise.all([
     db.destructionLog.findFirst({
@@ -85,7 +87,7 @@ export default async function DestructionLogDetailPage({
         items={[
           { label: "My Programs", href: "/programs" },
           { label: "Document retention", href: "/programs/document-retention" },
-          { label: log.destroyedAt.toISOString().slice(0, 10) },
+          { label: formatPracticeDate(log.destroyedAt, tz) },
         ]}
       />
 
@@ -96,7 +98,7 @@ export default async function DestructionLogDetailPage({
         <div className="flex-1 space-y-1">
           <h1 className="text-xl font-semibold tracking-tight">
             Destruction event —{" "}
-            {log.destroyedAt.toISOString().slice(0, 10)}
+            {formatPracticeDate(log.destroyedAt, tz)}
           </h1>
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">

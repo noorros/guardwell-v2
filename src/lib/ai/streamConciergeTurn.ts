@@ -79,6 +79,7 @@ export interface StreamConciergeTurnArgs {
     name: string;
     primaryState: string;
     providerCount: string | null;
+    timezone?: string | null;
   };
   threadId: string;
   actorUserId: string;
@@ -479,6 +480,7 @@ export async function* streamConciergeTurn(
       const { output, error, latencyMs } = await invokeTool({
         toolName: call.name,
         practiceId: args.practiceId,
+        practiceTimezone: args.practice.timezone ?? "UTC",
         input: call.input,
       });
 

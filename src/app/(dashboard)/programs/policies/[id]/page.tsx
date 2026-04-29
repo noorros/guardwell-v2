@@ -18,6 +18,7 @@ import { getRequiredCourseCodesForPolicy } from "@/lib/compliance/policy-prereqs
 import { requireUser } from "@/lib/auth";
 import { PolicyEditor } from "./PolicyEditor";
 import { AcknowledgeForm } from "./AcknowledgeForm";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ export default async function PolicyDetailPage({
   const { id } = await params;
   const pu = await getPracticeUser();
   if (!pu) return null;
+  const tz = pu.practice.timezone ?? "UTC";
   const user = await requireUser();
 
   const policy = await db.practicePolicy.findUnique({
@@ -128,11 +130,11 @@ export default async function PolicyDetailPage({
               v{policy.version}
             </Badge>
             <Badge variant="outline" className="text-[10px]">
-              Adopted {policy.adoptedAt.toISOString().slice(0, 10)}
+              Adopted {formatPracticeDate(policy.adoptedAt, tz)}
             </Badge>
             {policy.lastReviewedAt && (
               <Badge variant="outline" className="text-[10px]">
-                Last reviewed {policy.lastReviewedAt.toISOString().slice(0, 10)}
+                Last reviewed {formatPracticeDate(policy.lastReviewedAt, tz)}
               </Badge>
             )}
             {reviewLabel && (

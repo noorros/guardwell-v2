@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export const dynamic = "force-dynamic";
 
@@ -149,7 +150,7 @@ export default async function AdminPracticesPage({
                       {p._count.practiceUsers} user
                       {p._count.practiceUsers === 1 ? "" : "s"} ·{" "}
                       {p._count.events} events · created{" "}
-                      {p.createdAt.toISOString().slice(0, 10)}
+                      {formatPracticeDate(p.createdAt, p.timezone ?? "UTC")}
                     </p>
                   </div>
                   <Button asChild size="sm" variant="outline">

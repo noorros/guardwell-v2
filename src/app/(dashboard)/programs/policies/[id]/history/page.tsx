@@ -16,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { POLICY_METADATA } from "@/lib/compliance/policies";
 import { diffLines } from "@/lib/policy/diff";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export default async function PolicyHistoryPage({
   const sp = (await searchParams) ?? {};
   const pu = await getPracticeUser();
   if (!pu) return null;
+  const tz = pu.practice.timezone ?? "UTC";
 
   const policy = await db.practicePolicy.findUnique({
     where: { id },
@@ -249,7 +251,7 @@ export default async function PolicyHistoryPage({
                         </Badge>
                       )}
                       <span className="text-muted-foreground">
-                        {v.savedAt.toISOString().slice(0, 10)} ·{" "}
+                        {formatPracticeDate(v.savedAt, tz)} ·{" "}
                         {(v.content?.length ?? 0).toLocaleString()} chars
                       </span>
                     </div>

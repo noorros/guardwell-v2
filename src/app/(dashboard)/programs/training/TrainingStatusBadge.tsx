@@ -1,25 +1,9 @@
 // src/app/(dashboard)/programs/training/TrainingStatusBadge.tsx
 "use client";
 
-import { useSyncExternalStore } from "react";
 import { Badge } from "@/components/ui/badge";
-
-const SSR_FMT = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "medium",
-  timeZone: "UTC",
-});
-const noopSubscribe = () => () => {};
-
-function useLocalDate(iso: string): string {
-  return useSyncExternalStore(
-    noopSubscribe,
-    () =>
-      new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
-        new Date(iso),
-      ),
-    () => SSR_FMT.format(new Date(iso)),
-  );
-}
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDateLong } from "@/lib/audit/format";
 
 export interface TrainingStatusBadgeProps {
   latest: {
@@ -31,11 +15,15 @@ export interface TrainingStatusBadgeProps {
 }
 
 export function TrainingStatusBadge({ latest }: TrainingStatusBadgeProps) {
-  const completedIso =
-    latest && (typeof latest.completedAt === "string"
-      ? latest.completedAt
-      : latest.completedAt.toISOString());
-  const formattedCompleted = useLocalDate(completedIso ?? "1970-01-01T00:00:00Z");
+  const tz = usePracticeTimezone();
+  const completedDate = latest
+    ? typeof latest.completedAt === "string"
+      ? new Date(latest.completedAt)
+      : latest.completedAt
+    : null;
+  const formattedCompleted = completedDate
+    ? formatPracticeDateLong(completedDate, tz)
+    : "";
   const expired = latest ? new Date(latest.expiresAt) <= new Date() : false;
 
   if (!latest) {

@@ -13,6 +13,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { computeOverallScore } from "@/lib/compliance/overallScore";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export interface ToolHandler {
   name: string;
@@ -25,7 +26,7 @@ export interface ToolHandler {
     required?: string[];
     additionalProperties?: boolean;
   };
-  handle(args: { practiceId: string; input: unknown }): Promise<unknown>;
+  handle(args: { practiceId: string; practiceTimezone: string; input: unknown }): Promise<unknown>;
 }
 
 // .strict() rejects extra keys — Concierge tools that take no input must receive {} exactly.
@@ -207,7 +208,7 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
     description: "List Credential rows (licenses, registrations, certifications) with derived status.",
     inputSchema: EMPTY_INPUT_SCHEMA,
     inputSchemaJson: EMPTY_INPUT_SCHEMA_JSON,
-    async handle({ practiceId }) {
+    async handle({ practiceId, practiceTimezone }) {
       // SCHEMA NOTE: Credential has no `status` column — derive from expiryDate.
       // Credential.credentialTypeId is an FK; resolve to .code via include.
       //
@@ -238,7 +239,9 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
           credentialTypeCode: c.credentialType.code,
           holderId: c.holderId,
           title: c.title,
-          expiryDate: c.expiryDate,
+          expiryDate: c.expiryDate
+            ? formatPracticeDate(c.expiryDate, practiceTimezone)
+            : null,
           status,
         };
       });
@@ -329,6 +332,7 @@ export function getAnthropicToolDefinitions(): Array<{
 export async function invokeTool(args: {
   toolName: string;
   practiceId: string;
+  practiceTimezone?: string;
   input: unknown;
 }): Promise<{
   output: unknown;
@@ -351,6 +355,7 @@ export async function invokeTool(args: {
   try {
     const output = await handler.handle({
       practiceId: args.practiceId,
+      practiceTimezone: args.practiceTimezone ?? "UTC",
       input: parsed.data,
     });
     return { output, error: null, latencyMs: Date.now() - started };

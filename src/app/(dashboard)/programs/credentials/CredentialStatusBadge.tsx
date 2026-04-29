@@ -1,25 +1,9 @@
 // src/app/(dashboard)/programs/credentials/CredentialStatusBadge.tsx
 "use client";
 
-import { useSyncExternalStore } from "react";
 import { Badge } from "@/components/ui/badge";
-
-const SSR_FMT = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "medium",
-  timeZone: "UTC",
-});
-const noopSubscribe = () => () => {};
-
-function useLocalDate(iso: string): string {
-  return useSyncExternalStore(
-    noopSubscribe,
-    () =>
-      new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
-        new Date(iso),
-      ),
-    () => SSR_FMT.format(new Date(iso)),
-  );
-}
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDateLong } from "@/lib/audit/format";
 
 export type CredentialStatus =
   | "NO_EXPIRY"
@@ -36,7 +20,10 @@ export function CredentialStatusBadge({
   status,
   expiryDate,
 }: CredentialStatusBadgeProps) {
-  const formatted = useLocalDate(expiryDate ?? "1970-01-01T00:00:00Z");
+  const tz = usePracticeTimezone();
+  const formatted = expiryDate
+    ? formatPracticeDateLong(new Date(expiryDate), tz)
+    : "";
 
   if (status === "NO_EXPIRY") {
     return (

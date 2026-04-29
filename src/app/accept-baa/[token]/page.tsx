@@ -14,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { appendEventAndApply } from "@/lib/events";
 import { projectBaaAcknowledgedByVendor } from "@/lib/events/projections/baa";
 import { AcceptBaaForm } from "./AcceptBaaForm";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Review BAA · GuardWell" };
@@ -48,6 +49,7 @@ export default async function AcceptBaaPage({ params }: PageProps) {
   if (!tokenRow) notFound();
 
   // Status guards — render different states.
+  // eslint-disable-next-line react-hooks/purity -- Server component.
   const now = Date.now();
   const expired = tokenRow.expiresAt.getTime() < now;
   const consumed = !!tokenRow.consumedAt;
@@ -198,7 +200,7 @@ function SuccessState({
           <h1 className="text-xl font-semibold">BAA executed</h1>
           <p className="text-sm text-muted-foreground">
             {vendorName} signed this BAA with {practiceName} on{" "}
-            {executedAt?.toISOString().slice(0, 10) ?? "—"}.
+            {executedAt ? formatPracticeDate(executedAt, "UTC") : "—"}.
           </p>
           {signatureName ? (
             <p className="text-xs text-muted-foreground">

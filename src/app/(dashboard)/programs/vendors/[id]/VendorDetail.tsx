@@ -20,6 +20,8 @@ import {
   sendBaaAction,
   resendBaaAction,
 } from "./actions";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDate, formatPracticeDateTime } from "@/lib/audit/format";
 
 const FIELD_CLASS =
   "mt-1 block w-full rounded-md border bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -81,17 +83,6 @@ export interface VendorDetailProps {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function fmtDate(iso: string | null): string {
-  if (!iso) return "—";
-  return iso.slice(0, 10);
-}
-
-function fmtDateTime(iso: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return `${d.toISOString().slice(0, 10)} ${d.toISOString().slice(11, 16)} UTC`;
-}
 
 function makeUuid(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -290,6 +281,7 @@ function ActiveBaaCard({
   request: BaaRequestRow;
   canManage: boolean;
 }) {
+  const tz = usePracticeTimezone();
   return (
     <div className="space-y-4 rounded-lg border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -299,7 +291,7 @@ function ActiveBaaCard({
             <p className="text-[11px] text-muted-foreground">
               Sent to {request.recipientEmail}
               {request.activeToken
-                ? ` · expires ${fmtDate(request.activeToken.expiresAt)}`
+                ? ` · expires ${formatPracticeDate(new Date(request.activeToken.expiresAt), tz)}`
                 : null}
             </p>
           )}
@@ -357,7 +349,7 @@ function ActiveBaaCard({
         <div className="space-y-3 border-t pt-4">
           {request.activeToken ? (
             <p className="text-xs text-muted-foreground">
-              Active token expires {fmtDateTime(request.activeToken.expiresAt)}.
+              Active token expires {formatPracticeDateTime(new Date(request.activeToken.expiresAt), tz)}.
             </p>
           ) : (
             <p className="text-xs text-muted-foreground">
@@ -581,6 +573,7 @@ function SendBaaForm({
 // ── BaaTimeline ──────────────────────────────────────────────────────────────
 
 function BaaTimeline({ request }: { request: BaaRequestRow }) {
+  const tz = usePracticeTimezone();
   const steps = useMemo(() => {
     const out: {
       label: string;
@@ -667,7 +660,7 @@ function BaaTimeline({ request }: { request: BaaRequestRow }) {
             </p>
             {step.timestamp && (
               <p className="text-[11px] text-muted-foreground tabular-nums">
-                {fmtDateTime(step.timestamp)}
+                {formatPracticeDateTime(new Date(step.timestamp), tz)}
               </p>
             )}
             {step.label === "Executed by vendor" &&
@@ -692,21 +685,22 @@ function BaaTimeline({ request }: { request: BaaRequestRow }) {
 // ── PastBaaRow ───────────────────────────────────────────────────────────────
 
 function PastBaaRow({ request }: { request: BaaRequestRow }) {
+  const tz = usePracticeTimezone();
   const summary = (() => {
     if (request.status === "EXECUTED") {
-      return `Executed ${fmtDate(request.executedAt)}${
+      return `Executed ${request.executedAt ? formatPracticeDate(new Date(request.executedAt), tz) : "—"}${
         request.vendorSignatureName
           ? ` · signed by ${request.vendorSignatureName}`
           : ""
       }`;
     }
     if (request.status === "REJECTED") {
-      return `Rejected ${fmtDate(request.rejectedAt)}${
+      return `Rejected ${request.rejectedAt ? formatPracticeDate(new Date(request.rejectedAt), tz) : "—"}${
         request.rejectionReason ? ` — ${request.rejectionReason}` : ""
       }`;
     }
     if (request.status === "EXPIRED") {
-      return `Expired ${fmtDate(request.expiresAt)}`;
+      return `Expired ${request.expiresAt ? formatPracticeDate(new Date(request.expiresAt), tz) : "—"}`;
     }
     if (request.status === "SUPERSEDED") {
       return `Superseded by a newer BAA`;
@@ -719,8 +713,8 @@ function PastBaaRow({ request }: { request: BaaRequestRow }) {
       <div className="min-w-0 flex-1 space-y-0.5">
         <p className="font-medium">{summary}</p>
         <p className="text-[11px] text-muted-foreground tabular-nums">
-          Created {fmtDate(request.draftUploadedAt)}
-          {request.sentAt ? ` · sent ${fmtDate(request.sentAt)}` : ""}
+          Created {request.draftUploadedAt ? formatPracticeDate(new Date(request.draftUploadedAt), tz) : "—"}
+          {request.sentAt ? ` · sent ${formatPracticeDate(new Date(request.sentAt), tz)}` : ""}
         </p>
       </div>
       <Badge variant="outline" className="text-[10px] uppercase">

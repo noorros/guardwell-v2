@@ -16,6 +16,7 @@ import {
 import { BreachDeterminationWizard } from "./BreachDeterminationWizard";
 import { NotificationLog } from "./NotificationLog";
 import { ResolveButton } from "./ResolveButton";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -40,6 +41,7 @@ export default async function IncidentDetailPage({ params }: PageProps) {
   const { id } = await params;
   const pu = await getPracticeUser();
   if (!pu) return null;
+  const tz = pu.practice.timezone ?? "UTC";
 
   const incident = await db.incident.findUnique({ where: { id } });
   if (!incident || incident.practiceId !== pu.practiceId) notFound();
@@ -89,11 +91,11 @@ export default async function IncidentDetailPage({ params }: PageProps) {
           </div>
           <p className="text-[11px] text-muted-foreground">
             Discovered{" "}
-            {incident.discoveredAt.toISOString().slice(0, 10)}
+            {formatPracticeDate(incident.discoveredAt, tz)}
             {incident.resolvedAt ? (
               <>
                 {" "}· Resolved{" "}
-                {incident.resolvedAt.toISOString().slice(0, 10)}
+                {formatPracticeDate(incident.resolvedAt, tz)}
               </>
             ) : null}
           </p>
