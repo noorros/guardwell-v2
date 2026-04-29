@@ -22,6 +22,7 @@ import {
   StyleSheet,
 } from "@react-pdf/renderer";
 import { SCHEDULE_LABELS, LOSS_TYPE_LABELS } from "@/lib/dea/labels";
+import { formatPracticeDate, formatPracticeDateTime } from "@/lib/audit/format";
 
 const s = StyleSheet.create({
   page: {
@@ -114,6 +115,7 @@ export interface DeaForm106ItemRow {
 export interface DeaForm106Input {
   practiceName: string;
   practiceState: string;
+  practiceTimezone: string;
   generatedAt: Date;
   report: {
     discoveredAt: Date;
@@ -128,14 +130,6 @@ export interface DeaForm106Input {
     notes: string | null;
     items: DeaForm106ItemRow[];
   };
-}
-
-function formatDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-function formatDateTime(d: Date): string {
-  return d.toISOString().replace("T", " ").slice(0, 16) + " UTC";
 }
 
 function dash(value: string | null | undefined): string {
@@ -158,7 +152,7 @@ export function DeaForm106Document({
   const { report } = input;
   return (
     <Document
-      title={`DEA Form 106 — Theft/Loss ${formatDate(report.discoveredAt)}`}
+      title={`DEA Form 106 — Theft/Loss ${formatPracticeDate(report.discoveredAt, input.practiceTimezone)}`}
       author="GuardWell"
       subject="DEA Form 106 — Report of Theft or Loss of Controlled Substances (21 CFR §1301.74(c))"
     >
@@ -199,7 +193,7 @@ export function DeaForm106Document({
         <Text style={s.sectionTitle}>Event details</Text>
         <View style={s.metaRow}>
           <Text style={s.metaLabel}>Date discovered</Text>
-          <Text style={s.metaValue}>{formatDate(report.discoveredAt)}</Text>
+          <Text style={s.metaValue}>{formatPracticeDate(report.discoveredAt, input.practiceTimezone)}</Text>
         </View>
         <View style={s.metaRow}>
           <Text style={s.metaLabel}>Loss type</Text>
@@ -261,14 +255,14 @@ export function DeaForm106Document({
         <View style={s.metaRow}>
           <Text style={s.metaLabel}>DEA notified at</Text>
           <Text style={s.metaValue}>
-            {report.deaNotifiedAt ? formatDate(report.deaNotifiedAt) : "Pending"}
+            {report.deaNotifiedAt ? formatPracticeDate(report.deaNotifiedAt, input.practiceTimezone) : "Pending"}
           </Text>
         </View>
         <View style={s.metaRow}>
           <Text style={s.metaLabel}>Form 106 submitted at</Text>
           <Text style={s.metaValue}>
             {report.form106SubmittedAt
-              ? formatDate(report.form106SubmittedAt)
+              ? formatPracticeDate(report.form106SubmittedAt, input.practiceTimezone)
               : "Pending"}
           </Text>
         </View>
@@ -297,7 +291,7 @@ export function DeaForm106Document({
 
         {/* 7. Footer */}
         <Text style={s.footer} fixed>
-          Generated {formatDateTime(input.generatedAt)} · GuardWell · Confidential
+          Generated {formatPracticeDateTime(input.generatedAt, input.practiceTimezone)} · GuardWell · Confidential
         </Text>
       </Page>
     </Document>

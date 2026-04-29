@@ -95,6 +95,7 @@ export async function GET(req: Request) {
       input={{
         practiceName: pu.practice.name,
         practiceState: pu.practice.primaryState,
+        practiceTimezone: pu.practice.timezone ?? "UTC",
         year,
         generatedAt: new Date(),
         rows,

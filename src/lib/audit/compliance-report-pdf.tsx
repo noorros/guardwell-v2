@@ -16,6 +16,7 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 // ── Styles ─────────────────────────────────────────────────────────────
 
@@ -149,6 +150,7 @@ export interface ComplianceReportInput {
     primaryState: string;
     operatingStates: string[];
   };
+  practiceTimezone: string;
   generatedAt: Date;
   generatedByEmail: string;
   overallScore: number;
@@ -198,6 +200,7 @@ const e = React.createElement;
 export function ComplianceReportDocument(props: ComplianceReportInput) {
   const {
     practice,
+    practiceTimezone,
     generatedAt,
     generatedByEmail,
     overallScore,
@@ -211,7 +214,7 @@ export function ComplianceReportDocument(props: ComplianceReportInput) {
     incidents,
   } = props;
 
-  const generatedLabel = generatedAt.toISOString().slice(0, 10);
+  const generatedLabel = formatPracticeDate(generatedAt, practiceTimezone);
   const watermarkText = `Generated ${generatedLabel} by ${generatedByEmail}`;
 
   return e(
@@ -335,7 +338,7 @@ export function ComplianceReportDocument(props: ComplianceReportInput) {
         ? e(
             Text,
             { style: s.itemText },
-            `Most recent SRA completed ${sra.completedAt.toISOString().slice(0, 10)}. ${
+            `Most recent SRA completed ${formatPracticeDate(sra.completedAt, practiceTimezone)}. ${
               sra.overallScore ?? 0
             }% addressed (${sra.addressedCount ?? 0} of ${sra.totalCount ?? 0} safeguards).`,
           )
@@ -386,7 +389,7 @@ export function ComplianceReportDocument(props: ComplianceReportInput) {
                 e(
                   Text,
                   { style: s.itemCitation },
-                  `Discovered ${inc.discoveredAt.toISOString().slice(0, 10)}`,
+                  `Discovered ${formatPracticeDate(inc.discoveredAt, practiceTimezone)}`,
                 ),
               ),
             ),

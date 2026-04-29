@@ -15,6 +15,7 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 const s = StyleSheet.create({
   page: {
@@ -82,6 +83,7 @@ const OUTCOME_LABELS: Record<string, string> = {
 export interface Osha301Input {
   practiceName: string;
   practiceState: string;
+  practiceTimezone: string;
   generatedAt: Date;
   incident: {
     title: string;
@@ -95,10 +97,6 @@ export interface Osha301Input {
     sharpsDeviceType: string | null;
   };
   reportedByName: string | null;
-}
-
-function formatDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
 }
 
 function blank(value: string | null | undefined): string {
@@ -174,7 +172,7 @@ export function Osha301Document({ input }: { input: Osha301Input }) {
         <Text style={s.sectionTitle}>3. Incident Description</Text>
         <View style={s.metaRow}>
           <Text style={s.metaLabel}>Date of injury</Text>
-          <Text style={s.metaValue}>{formatDate(incident.discoveredAt)}</Text>
+          <Text style={s.metaValue}>{formatPracticeDate(incident.discoveredAt, input.practiceTimezone)}</Text>
         </View>
         <View style={s.metaRow}>
           <Text style={s.metaLabel}>Title</Text>
@@ -232,7 +230,7 @@ export function Osha301Document({ input }: { input: Osha301Input }) {
         </View>
 
         <Text style={s.footer} fixed>
-          Generated {formatDate(input.generatedAt)} · OSHA Form 301 · GuardWell
+          Generated {formatPracticeDate(input.generatedAt, input.practiceTimezone)} · OSHA Form 301 · GuardWell
         </Text>
       </Page>
     </Document>

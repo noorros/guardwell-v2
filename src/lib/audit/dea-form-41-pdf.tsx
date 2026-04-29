@@ -26,6 +26,7 @@ import {
   SCHEDULE_LABELS,
   DISPOSAL_METHOD_LABELS,
 } from "@/lib/dea/labels";
+import { formatPracticeDate, formatPracticeDateTime } from "@/lib/audit/format";
 
 const s = StyleSheet.create({
   page: {
@@ -118,6 +119,7 @@ export interface DeaForm41ItemRow {
 export interface DeaForm41Input {
   practiceName: string;
   practiceState: string;
+  practiceTimezone: string;
   generatedAt: Date;
   disposal: {
     disposalDate: Date;
@@ -130,14 +132,6 @@ export interface DeaForm41Input {
     notes: string | null;
     items: DeaForm41ItemRow[];
   };
-}
-
-function formatDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-function formatDateTime(d: Date): string {
-  return d.toISOString().replace("T", " ").slice(0, 16) + " UTC";
 }
 
 function dash(value: string | null | undefined): string {
@@ -160,7 +154,7 @@ export function DeaForm41Document({
   const { disposal } = input;
   return (
     <Document
-      title={`DEA Form 41 — Drugs Surrendered ${formatDate(disposal.disposalDate)}`}
+      title={`DEA Form 41 — Drugs Surrendered ${formatPracticeDate(disposal.disposalDate, input.practiceTimezone)}`}
       author="GuardWell"
       subject="DEA Form 41 — Registrant Inventory of Drugs Surrendered (21 CFR §1317)"
     >
@@ -226,7 +220,7 @@ export function DeaForm41Document({
         <Text style={s.sectionTitle}>Disposal</Text>
         <View style={s.metaRow}>
           <Text style={s.metaLabel}>Disposal date</Text>
-          <Text style={s.metaValue}>{formatDate(disposal.disposalDate)}</Text>
+          <Text style={s.metaValue}>{formatPracticeDate(disposal.disposalDate, input.practiceTimezone)}</Text>
         </View>
         <View style={s.metaRow}>
           <Text style={s.metaLabel}>Disposal method</Text>
@@ -284,7 +278,7 @@ export function DeaForm41Document({
 
         {/* 7. Footer */}
         <Text style={s.footer} fixed>
-          Generated {formatDateTime(input.generatedAt)} · GuardWell · Confidential
+          Generated {formatPracticeDateTime(input.generatedAt, input.practiceTimezone)} · GuardWell · Confidential
         </Text>
       </Page>
     </Document>

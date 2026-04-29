@@ -7,6 +7,7 @@
 
 import React from "react";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 const s = StyleSheet.create({
   page: {
@@ -75,6 +76,7 @@ export interface PacketSectionInput {
 export interface AuditPrepPacketInput {
   practiceName: string;
   practiceState: string;
+  practiceTimezone: string;
   mode: string;
   startedAt: Date;
   generatedAt: Date;
@@ -99,10 +101,10 @@ export function AuditPrepPacketDocument({
           {input.practiceState}
         </Text>
         <Text style={s.meta}>
-          Started {input.startedAt.toISOString().slice(0, 10)}
+          Started {formatPracticeDate(input.startedAt, input.practiceTimezone)}
         </Text>
         <Text style={s.meta}>
-          Generated {input.generatedAt.toISOString().slice(0, 10)}
+          Generated {formatPracticeDate(input.generatedAt, input.practiceTimezone)}
         </Text>
         <Text style={s.meta}>{input.sections.length} sections</Text>
         <Text style={s.footer} fixed>

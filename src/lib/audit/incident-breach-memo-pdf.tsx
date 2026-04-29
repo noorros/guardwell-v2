@@ -13,6 +13,7 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import { formatPracticeDate, formatPracticeDateTime } from "@/lib/audit/format";
 
 const s = StyleSheet.create({
   page: {
@@ -182,6 +183,7 @@ export interface BreachMemoNotification {
 export interface BreachMemoInput {
   practiceName: string;
   practiceState: string;
+  practiceTimezone: string;
   generatedAt: Date;
   incident: {
     title: string;
@@ -214,13 +216,6 @@ const TYPE_LABELS: Record<string, string> = {
   TCPA_COMPLAINT: "TCPA complaint",
 };
 
-function formatDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-function formatDateTime(d: Date): string {
-  return d.toISOString().replace("T", " ").slice(0, 16) + " UTC";
-}
 
 export function IncidentBreachMemoDocument({
   input,
@@ -252,12 +247,12 @@ export function IncidentBreachMemoDocument({
         <Text style={s.sectionTitle}>Incident Summary</Text>
         <View style={s.metaRow}>
           <Text style={s.metaLabel}>Discovered</Text>
-          <Text style={s.metaValue}>{formatDate(incident.discoveredAt)}</Text>
+          <Text style={s.metaValue}>{formatPracticeDate(incident.discoveredAt, input.practiceTimezone)}</Text>
         </View>
         <View style={s.metaRow}>
           <Text style={s.metaLabel}>Determination recorded</Text>
           <Text style={s.metaValue}>
-            {formatDate(incident.breachDeterminedAt)}
+            {formatPracticeDate(incident.breachDeterminedAt, input.practiceTimezone)}
           </Text>
         </View>
         <View style={s.metaRow}>
@@ -340,25 +335,29 @@ export function IncidentBreachMemoDocument({
           label="HHS Office for Civil Rights"
           notifiedAt={notifications.ocrNotifiedAt}
           required={incident.isBreach && incident.ocrNotifyRequired}
+          timezone={input.practiceTimezone}
         />
         <NotifRow
           label="Affected individuals"
           notifiedAt={notifications.affectedIndividualsNotifiedAt}
           required={incident.isBreach}
+          timezone={input.practiceTimezone}
         />
         <NotifRow
           label="Media (≥500 affected)"
           notifiedAt={notifications.mediaNotifiedAt}
           required={incident.isBreach && isMajor}
+          timezone={input.practiceTimezone}
         />
         <NotifRow
           label="State Attorney General"
           notifiedAt={notifications.stateAgNotifiedAt}
           required={incident.isBreach}
+          timezone={input.practiceTimezone}
         />
 
         <Text style={s.footer} fixed>
-          Generated {formatDateTime(input.generatedAt)} · GuardWell · Confidential
+          Generated {formatPracticeDateTime(input.generatedAt, input.practiceTimezone)} · GuardWell · Confidential
         </Text>
       </Page>
     </Document>
@@ -369,13 +368,15 @@ function NotifRow({
   label,
   notifiedAt,
   required,
+  timezone,
 }: {
   label: string;
   notifiedAt: Date | null;
   required: boolean;
+  timezone: string;
 }) {
   const value = notifiedAt
-    ? `Notified ${formatDate(notifiedAt)}`
+    ? `Notified ${formatPracticeDate(notifiedAt, timezone)}`
     : required
       ? "Not yet notified"
       : "Not required";

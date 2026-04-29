@@ -15,6 +15,7 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 const s = StyleSheet.create({
   page: {
@@ -105,14 +106,12 @@ export interface Osha300Row {
 export interface Osha300Input {
   practiceName: string;
   practiceState: string;
+  practiceTimezone: string;
   year: number;
   generatedAt: Date;
   rows: Osha300Row[];
 }
 
-function formatDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
 
 export function Osha300Document({ input }: { input: Osha300Input }) {
   const totals = input.rows.reduce(
@@ -178,7 +177,7 @@ export function Osha300Document({ input }: { input: Osha300Input }) {
             {input.rows.map((r, i) => (
               <View key={i} style={s.row}>
                 <Text style={s.cellCase}>{r.caseNumber}</Text>
-                <Text style={s.cellDate}>{formatDate(r.injuryDate)}</Text>
+                <Text style={s.cellDate}>{formatPracticeDate(r.injuryDate, input.practiceTimezone)}</Text>
                 <Text style={s.cellEmployee}>{r.employeeName ?? "—"}</Text>
                 <Text style={s.cellTitle}> </Text>
                 <Text style={[s.cellInjury, s.cellWrap]}>
@@ -217,7 +216,7 @@ export function Osha300Document({ input }: { input: Osha300Input }) {
         )}
 
         <Text style={s.footer} fixed>
-          Generated {formatDate(input.generatedAt)} · OSHA Form 300 · GuardWell
+          Generated {formatPracticeDate(input.generatedAt, input.practiceTimezone)} · OSHA Form 300 · GuardWell
         </Text>
       </Page>
     </Document>

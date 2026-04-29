@@ -13,6 +13,7 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 const s = StyleSheet.create({
   page: {
@@ -93,6 +94,7 @@ export interface CredentialRow {
 export interface CredentialsRegisterInput {
   practiceName: string;
   practiceState: string;
+  practiceTimezone: string;
   generatedAt: Date;
   credentials: CredentialRow[];
 }
@@ -147,7 +149,7 @@ export function CredentialsRegisterDocument({
           {input.practiceName} · {input.practiceState}
         </Text>
         <Text style={s.meta}>
-          Generated {input.generatedAt.toISOString().slice(0, 10)} ·{" "}
+          Generated {formatPracticeDate(input.generatedAt, input.practiceTimezone)} ·{" "}
           {input.credentials.length} credential
           {input.credentials.length === 1 ? "" : "s"}
         </Text>
@@ -180,7 +182,7 @@ export function CredentialsRegisterDocument({
                   <Text style={s.cellIssuer}>{c.issuingBody ?? "—"}</Text>
                   <Text style={[s.cellExpires, status.style]}>
                     {c.expiryDate
-                      ? `${c.expiryDate.toISOString().slice(0, 10)} · ${status.label}`
+                      ? `${formatPracticeDate(c.expiryDate, input.practiceTimezone)} · ${status.label}`
                       : status.label}
                   </Text>
                 </View>
