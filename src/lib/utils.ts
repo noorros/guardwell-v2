@@ -32,3 +32,22 @@ export function scoreToColorToken(score: number): string {
  *  distinct from scoreToColorToken so the threshold pipeline stays pure. */
 export const NOT_ASSESSED_LABEL = "Not assessed" as const;
 export const NOT_ASSESSED_COLOR_TOKEN = "var(--gw-color-setup)";
+
+/**
+ * Compute up to 2-letter initials for the avatar.
+ * Prefers display name (first letter of first 2 parts).
+ * Falls back to first 2 letters of the email local-part.
+ * Returns "??" for empty input.
+ */
+export function computeUserInitials(email: string, displayName?: string): string {
+  if (displayName && displayName.trim().length > 0) {
+    const parts = displayName.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
+    }
+    return parts[0]!.slice(0, 2).toUpperCase();
+  }
+  if (!email) return "??";
+  const local = email.split("@")[0] ?? "";
+  return local.slice(0, 2).toUpperCase() || "??";
+}
