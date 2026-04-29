@@ -20,6 +20,13 @@ export async function GET() {
   if (!pu) {
     return NextResponse.json({ error: "No practice" }, { status: 401 });
   }
+  // Audit C-3: the export bundles every active credential's license number,
+  // holder email, issuing body, and free-text notes. VIEWER/STAFF roles
+  // are read-only program participants (consultants, part-time staff)
+  // and should not exfiltrate the full credentials register.
+  if (pu.role !== "OWNER" && pu.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const credentials = await db.credential.findMany({
     where: { practiceId: pu.practiceId, retiredAt: null },

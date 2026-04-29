@@ -43,6 +43,17 @@ const FingertipInput = z.object({
 export async function attestFingertipTestAction(input: z.infer<typeof FingertipInput>) {
   const { user, pu } = await requireAdmin();
   const parsed = FingertipInput.parse(input);
+  // Audit C-2: per-target tenant check. Without it, an OWNER of
+  // Practice A could attest a fingertip pass against Practice B's
+  // compounder via a forged practiceUserId. Mirrors the equivalent
+  // check in logCompoundingActivityAction (line 102) and
+  // toggleStaffAllergyRequirementAction (line 138).
+  const target = await db.practiceUser.findUnique({
+    where: { id: parsed.practiceUserId },
+  });
+  if (!target || target.practiceId !== pu.practiceId) {
+    throw new Error("Member not found");
+  }
   const year = new Date().getFullYear();
   const payload = {
     practiceUserId: parsed.practiceUserId,
@@ -71,6 +82,13 @@ const MediaFillInput = z.object({
 export async function attestMediaFillTestAction(input: z.infer<typeof MediaFillInput>) {
   const { user, pu } = await requireAdmin();
   const parsed = MediaFillInput.parse(input);
+  // Audit C-2: per-target tenant check (same rationale as fingertip).
+  const target = await db.practiceUser.findUnique({
+    where: { id: parsed.practiceUserId },
+  });
+  if (!target || target.practiceId !== pu.practiceId) {
+    throw new Error("Member not found");
+  }
   const year = new Date().getFullYear();
   const payload = {
     practiceUserId: parsed.practiceUserId,

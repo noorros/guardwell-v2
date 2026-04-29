@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
-import { getPracticeUser } from "@/lib/rbac";
+import { getPracticeUser, requireRole } from "@/lib/rbac";
 import { appendEventAndApply } from "@/lib/events";
 import {
   projectCredentialUpserted,
@@ -60,8 +60,10 @@ async function verifyCredentialInPractice(credentialId: string, practiceId: stri
 
 export async function addCredentialAction(input: z.infer<typeof AddInput>) {
   const user = await requireUser();
-  const pu = await getPracticeUser();
-  if (!pu) throw new Error("Unauthorized");
+  // Audit C-2: only OWNER/ADMIN can mutate credentials. Adding a fake
+  // credential flips DEA / CLIA / CMS framework rules to COMPLIANT and
+  // can falsely inflate framework score.
+  const pu = await requireRole("ADMIN");
   const parsed = AddInput.parse(input);
 
   if (parsed.holderId) {
@@ -259,8 +261,10 @@ export async function bulkImportCredentialsAction(input: {
 
 export async function removeCredentialAction(input: z.infer<typeof RemoveInput>) {
   const user = await requireUser();
-  const pu = await getPracticeUser();
-  if (!pu) throw new Error("Unauthorized");
+  // Audit C-2: only OWNER/ADMIN can mutate credentials. Soft-deleting
+  // the practice's only legitimate DEA/CLIA/CMS credential drops the
+  // framework score — data corruption from a low-privilege user.
+  const pu = await requireRole("ADMIN");
   const parsed = RemoveInput.parse(input);
   const existing = await verifyCredentialInPractice(parsed.credentialId, pu.practiceId);
   if (existing.retiredAt) return;
