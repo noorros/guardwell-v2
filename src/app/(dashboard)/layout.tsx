@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getPracticeUser } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/gw/AppShell";
+import { ConciergeTrigger } from "@/components/gw/ConciergeDrawer/ConciergeTrigger";
 import { getUserNotificationsSummary } from "@/lib/notifications/get-user-notifications";
 
 export default async function DashboardLayout({
@@ -105,14 +106,20 @@ export default async function DashboardLayout({
   const notificationSummary = await getUserNotificationsSummary(pu.userId);
 
   return (
-    <AppShell
-      practice={{ name: pu.practice.name }}
-      user={{ email: pu.dbUser.email }}
-      myComplianceItems={myComplianceItems}
-      enabledFrameworkCodes={enabledFrameworkCodes}
-      notifications={notificationSummary}
-    >
-      {children}
-    </AppShell>
+    <>
+      <AppShell
+        practice={{ name: pu.practice.name }}
+        user={{ email: pu.dbUser.email }}
+        myComplianceItems={myComplianceItems}
+        enabledFrameworkCodes={enabledFrameworkCodes}
+        notifications={notificationSummary}
+      >
+        {children}
+      </AppShell>
+      {/* Floating bottom-right Concierge launcher + cmd+/ shortcut. The
+       *  trigger is fixed-position so DOM placement here doesn't affect
+       *  layout. Lazy-mounts the drawer on first open. */}
+      <ConciergeTrigger />
+    </>
   );
 }
