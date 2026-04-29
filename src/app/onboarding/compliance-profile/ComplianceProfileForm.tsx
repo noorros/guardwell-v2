@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { Button } from "@/components/ui/button";
 import { SpecialtyCombobox } from "@/components/gw/SpecialtyCombobox";
+import { StateMultiSelect } from "@/components/gw/StateMultiSelect";
 import { deriveSpecialtyCategory } from "@/lib/specialties";
 import { saveComplianceProfileAction } from "./actions";
 
@@ -26,6 +27,8 @@ export interface ComplianceProfileFormProps {
      */
     specialty: string | null;
     providerCount: number | null;
+    operatingStates: string[];
+    primaryState: string;
   };
   redirectTo: Route;
   /**
@@ -123,6 +126,9 @@ export function ComplianceProfileForm({
   const [providerCount, setProviderCount] = useState<string>(
     initial.providerCount != null ? String(initial.providerCount) : "",
   );
+  const [operatingStates, setOperatingStates] = useState<string[]>(
+    initial.operatingStates ?? [],
+  );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [escaping, setEscaping] = useState(false);
@@ -155,6 +161,7 @@ export function ComplianceProfileForm({
             providerCountParsed != null && !Number.isNaN(providerCountParsed)
               ? providerCountParsed
               : null,
+          operatingStates,
         });
         router.push(next);
       } catch (err) {
@@ -201,6 +208,21 @@ export function ComplianceProfileForm({
             </span>
           </label>
         ))}
+      </section>
+
+      <section className="space-y-2">
+        <label className="text-xs font-medium text-foreground">
+          Additional states
+        </label>
+        <p className="text-xs text-muted-foreground">
+          States besides {initial.primaryState} where this practice operates.
+          Used for state-specific compliance overlays.
+        </p>
+        <StateMultiSelect
+          selectedStates={operatingStates}
+          excludeStates={[initial.primaryState]}
+          onChange={setOperatingStates}
+        />
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2">

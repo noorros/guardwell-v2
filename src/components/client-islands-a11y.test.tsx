@@ -116,9 +116,11 @@ const COMPLIANCE_PROFILE_INITIAL = {
   subjectToMacraMips: false,
   sendsAutomatedPatientMessages: true,
   compoundsAllergens: false,
-  specialty: "Family Medicine",
-  providerCount: 3,
-} as const;
+  specialty: "Family Medicine" as string | null,
+  providerCount: 3 as number | null,
+  operatingStates: [] as string[],
+  primaryState: "AZ",
+};
 
 describe("Client island accessibility audit (axe-core)", () => {
   describe("<NotificationBell>", () => {
@@ -192,6 +194,8 @@ describe("Client island accessibility audit (axe-core)", () => {
             compoundsAllergens: false,
             specialty: null,
             providerCount: null,
+            operatingStates: [],
+            primaryState: "AZ",
           }}
           redirectTo={"/dashboard" as never}
           submitLabel="Save"
