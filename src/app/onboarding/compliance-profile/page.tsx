@@ -12,6 +12,7 @@ import { db } from "@/lib/db";
 import { getPracticeUser } from "@/lib/rbac";
 import { Card, CardContent } from "@/components/ui/card";
 import { ComplianceProfileForm } from "./ComplianceProfileForm";
+import type { PracticeProfileInput } from "@/components/gw/PracticeProfileForm/types";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Compliance profile · Onboarding" };
@@ -24,11 +25,34 @@ export default async function ComplianceProfilePage() {
     db.practiceComplianceProfile.findUnique({
       where: { practiceId: pu.practiceId },
     }),
-    db.practice.findUnique({
-      where: { id: pu.practiceId },
-      select: { specialty: true, operatingStates: true, primaryState: true },
-    }),
+    db.practice.findUniqueOrThrow({ where: { id: pu.practiceId } }),
   ]);
+
+  const profile: PracticeProfileInput = {
+    name: practice.name,
+    npiNumber: practice.npiNumber,
+    entityType:
+      (practice.entityType as "COVERED_ENTITY" | "BUSINESS_ASSOCIATE") ??
+      "COVERED_ENTITY",
+    primaryState: practice.primaryState,
+    operatingStates: practice.operatingStates ?? [],
+    addressStreet: practice.addressStreet,
+    addressSuite: practice.addressSuite,
+    addressCity: practice.addressCity,
+    addressZip: practice.addressZip,
+    // Bridge: existing rows may have specialty=null but a legacy bucket
+    // value in PracticeComplianceProfile.specialtyCategory. The combobox
+    // shows "Select specialty…" until the user picks. After
+    // scripts/backfill-practice-specialty.ts runs, all rows have
+    // Practice.specialty set.
+    specialty: practice.specialty,
+    providerCount:
+      (practice.providerCount as PracticeProfileInput["providerCount"]) ??
+      "SOLO",
+    ehrSystem: practice.ehrSystem,
+    staffHeadcount: practice.staffHeadcount,
+    phone: practice.phone,
+  };
 
   return (
     <main className="mx-auto flex min-h-screen max-w-xl items-start p-6">
@@ -60,15 +84,7 @@ export default async function ComplianceProfilePage() {
               sendsAutomatedPatientMessages:
                 existing?.sendsAutomatedPatientMessages ?? true,
               compoundsAllergens: existing?.compoundsAllergens ?? false,
-              // Bridge: existing rows may have specialty=null but a legacy
-              // bucket value in PracticeComplianceProfile.specialtyCategory.
-              // The combobox will show "Select specialty…" in that case
-              // until the user picks. After scripts/backfill-practice-
-              // specialty.ts runs, all rows have Practice.specialty set.
-              specialty: practice?.specialty ?? null,
-              providerCount: existing?.providerCount ?? null,
-              operatingStates: practice?.operatingStates ?? [],
-              primaryState: practice?.primaryState ?? "",
+              profile,
             }}
             redirectTo={"/onboarding/first-run" as Route}
             submitLabel="Continue → First-run setup"

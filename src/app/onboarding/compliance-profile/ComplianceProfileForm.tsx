@@ -1,13 +1,16 @@
 // src/app/onboarding/compliance-profile/ComplianceProfileForm.tsx
+//
+// Onboarding step 2 wrapper. Combines the 7 framework toggles (CLIA /
+// DEA / CMS / MACRA / ALLERGY / TCPA) with the unified
+// <PracticeProfileForm> (mode="onboarding"), which renders the Identity
+// / Location / Practice sections and owns the primary submit button.
 "use client";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
-import { Button } from "@/components/ui/button";
-import { SpecialtyCombobox } from "@/components/gw/SpecialtyCombobox";
-import { StateMultiSelect } from "@/components/gw/StateMultiSelect";
-import { deriveSpecialtyCategory } from "@/lib/specialties";
+import { PracticeProfileForm } from "@/components/gw/PracticeProfileForm";
+import type { PracticeProfileInput } from "@/components/gw/PracticeProfileForm/types";
 import { saveComplianceProfileAction } from "./actions";
 
 export interface ComplianceProfileFormProps {
@@ -19,16 +22,7 @@ export interface ComplianceProfileFormProps {
     subjectToMacraMips: boolean;
     sendsAutomatedPatientMessages: boolean;
     compoundsAllergens: boolean;
-    /**
-     * Specific specialty value (e.g. "Family Medicine"). The legacy
-     * 6-bucket category is derived from this via deriveSpecialtyCategory.
-     * Existing rows that pre-date this field will have null until the
-     * user picks a specific.
-     */
-    specialty: string | null;
-    providerCount: number | null;
-    operatingStates: string[];
-    primaryState: string;
+    profile: PracticeProfileInput;
   };
   redirectTo: Route;
   /**
@@ -122,67 +116,76 @@ export function ComplianceProfileForm({
     sendsAutomatedPatientMessages: initial.sendsAutomatedPatientMessages,
     compoundsAllergens: initial.compoundsAllergens,
   });
-  const [specialty, setSpecialty] = useState<string>(initial.specialty ?? "");
-  const [providerCount, setProviderCount] = useState<string>(
-    initial.providerCount != null ? String(initial.providerCount) : "",
+  const [profileSnapshot, setProfileSnapshot] = useState<PracticeProfileInput>(
+    initial.profile,
   );
-  const [operatingStates, setOperatingStates] = useState<string[]>(
-    initial.operatingStates ?? [],
-  );
+  const [escaping, startEscape] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-  const [escaping, setEscaping] = useState(false);
   const router = useRouter();
 
-  const handleSpecialtyChange = (next: string) => {
-    setSpecialty(next);
-    // Specialty-aware defaults: dentists are almost always exempt from
-    // MACRA/MIPS (low Medicare Part B volume + not in eligible specialty
-    // list), so untoggle MIPS when DENTAL is picked. User can override.
-    // Allied health — same exemption pattern. Behavioral health varies, so
-    // leave it alone.
-    const bucket = deriveSpecialtyCategory(next);
-    if (bucket === "DENTAL" || bucket === "ALLIED") {
-      setToggles((p) => ({ ...p, subjectToMacraMips: false }));
+  const updateToggle = (key: keyof typeof toggles, next: boolean) => {
+    setToggles((prev) => ({ ...prev, [key]: next }));
+  };
+
+  const onSubmitProfile = async (
+    next: PracticeProfileInput,
+  ): Promise<{ ok: boolean; error?: string }> => {
+    setError(null);
+    setProfileSnapshot(next);
+    try {
+      await saveComplianceProfileAction({
+        ...toggles,
+        name: next.name,
+        npiNumber: next.npiNumber,
+        entityType: next.entityType,
+        primaryState: next.primaryState,
+        operatingStates: next.operatingStates,
+        addressStreet: next.addressStreet,
+        addressSuite: next.addressSuite,
+        addressCity: next.addressCity,
+        addressZip: next.addressZip,
+        specialty: next.specialty,
+        providerCount: next.providerCount,
+        ehrSystem: next.ehrSystem,
+      });
+      router.push(redirectTo);
+      return { ok: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Save failed";
+      setError(message);
+      return { ok: false, error: message };
     }
   };
 
-  const submit = (next: Route) => {
+  const handleEscape = () => {
     setError(null);
-    const providerCountParsed = providerCount
-      ? Number.parseInt(providerCount, 10)
-      : null;
-    startTransition(async () => {
+    const next = profileSnapshot;
+    startEscape(async () => {
       try {
         await saveComplianceProfileAction({
           ...toggles,
-          specialty: specialty || null,
-          providerCount:
-            providerCountParsed != null && !Number.isNaN(providerCountParsed)
-              ? providerCountParsed
-              : null,
-          operatingStates,
+          name: next.name,
+          npiNumber: next.npiNumber,
+          entityType: next.entityType,
+          primaryState: next.primaryState,
+          operatingStates: next.operatingStates,
+          addressStreet: next.addressStreet,
+          addressSuite: next.addressSuite,
+          addressCity: next.addressCity,
+          addressZip: next.addressZip,
+          specialty: next.specialty,
+          providerCount: next.providerCount,
+          ehrSystem: next.ehrSystem,
         });
-        router.push(next);
+        router.push(escapeHatchHref ?? ("/dashboard" as Route));
       } catch (err) {
         setError(err instanceof Error ? err.message : "Save failed");
       }
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setEscaping(false);
-    submit(redirectTo);
-  };
-
-  const handleEscape = () => {
-    setEscaping(true);
-    submit(escapeHatchHref ?? ("/dashboard" as Route));
-  };
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <div className="space-y-5">
       <section className="space-y-3">
         {TOGGLES.map((t) => (
           <label
@@ -192,9 +195,7 @@ export function ComplianceProfileForm({
             <input
               type="checkbox"
               checked={toggles[t.key]}
-              onChange={(e) =>
-                setToggles((p) => ({ ...p, [t.key]: e.target.checked }))
-              }
+              onChange={(e) => updateToggle(t.key, e.target.checked)}
               className="mt-0.5 h-4 w-4"
             />
             <span className="flex-1">
@@ -210,60 +211,29 @@ export function ComplianceProfileForm({
         ))}
       </section>
 
-      <section className="space-y-2">
-        <label className="text-xs font-medium text-foreground">
-          Additional states
-        </label>
-        <p className="text-xs text-muted-foreground">
-          States besides {initial.primaryState} where this practice operates.
-          Used for state-specific compliance overlays.
-        </p>
-        <StateMultiSelect
-          selectedStates={operatingStates}
-          excludeStates={[initial.primaryState]}
-          onChange={setOperatingStates}
-        />
-      </section>
-
-      <section className="grid gap-3 sm:grid-cols-2">
-        <label className="space-y-1 text-xs font-medium text-foreground">
-          Primary specialty
-          <SpecialtyCombobox
-            value={specialty}
-            onChange={handleSpecialtyChange}
-            className="mt-1"
-          />
-        </label>
-        <label className="space-y-1 text-xs font-medium text-foreground">
-          Providers
-          <input
-            type="number"
-            min={0}
-            value={providerCount}
-            onChange={(e) => setProviderCount(e.target.value)}
-            placeholder="e.g. 3"
-            className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-          />
-        </label>
-      </section>
-
       {error && (
-        <p className="text-xs text-[color:var(--gw-color-risk)]">{error}</p>
+        <p className="text-xs text-[color:var(--gw-color-risk)]" role="alert">
+          {error}
+        </p>
       )}
 
-      <div className="flex items-center justify-between gap-2">
+      <PracticeProfileForm
+        mode="onboarding"
+        initial={initial.profile}
+        onSubmit={onSubmitProfile}
+        submitLabel={submitLabel}
+      />
+
+      <div className="flex justify-start">
         <button
           type="button"
           onClick={handleEscape}
-          disabled={isPending}
+          disabled={escaping}
           className="text-xs text-muted-foreground underline disabled:opacity-50"
         >
-          {escaping && isPending ? "Saving…" : "Set this up later →"}
+          {escaping ? "Saving…" : "Set this up later →"}
         </button>
-        <Button type="submit" size="sm" disabled={isPending}>
-          {!escaping && isPending ? "Saving…" : submitLabel}
-        </Button>
       </div>
-    </form>
+    </div>
   );
 }
