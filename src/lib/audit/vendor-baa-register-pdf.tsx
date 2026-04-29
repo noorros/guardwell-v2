@@ -13,6 +13,7 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 const s = StyleSheet.create({
   page: {
@@ -93,6 +94,7 @@ export interface VendorRow {
 export interface VendorBaaRegisterInput {
   practiceName: string;
   practiceState: string;
+  practiceTimezone: string;
   generatedAt: Date;
   vendors: VendorRow[];
 }
@@ -151,7 +153,7 @@ export function VendorBaaRegisterDocument({
           {input.practiceName} · {input.practiceState}
         </Text>
         <Text style={s.meta}>
-          Generated {input.generatedAt.toISOString().slice(0, 10)} ·{" "}
+          Generated {formatPracticeDate(input.generatedAt, input.practiceTimezone)} ·{" "}
           {input.vendors.length} vendor{input.vendors.length === 1 ? "" : "s"} ·{" "}
           {phiVendors.length} processes PHI
         </Text>
@@ -163,7 +165,7 @@ export function VendorBaaRegisterDocument({
         {phiVendors.length > 0 ? (
           <>
             <Text style={s.sectionTitle}>PHI vendors — BAA required</Text>
-            <SectionTable rows={phiVendors} now={now} />
+            <SectionTable rows={phiVendors} now={now} timezone={input.practiceTimezone} />
           </>
         ) : (
           <>
@@ -178,7 +180,7 @@ export function VendorBaaRegisterDocument({
         {otherVendors.length > 0 && (
           <>
             <Text style={s.sectionTitle}>Non-PHI vendors</Text>
-            <SectionTable rows={otherVendors} now={now} />
+            <SectionTable rows={otherVendors} now={now} timezone={input.practiceTimezone} />
           </>
         )}
 
@@ -197,7 +199,7 @@ export function VendorBaaRegisterDocument({
   );
 }
 
-function SectionTable({ rows, now }: { rows: VendorRow[]; now: number }) {
+function SectionTable({ rows, now, timezone }: { rows: VendorRow[]; now: number; timezone: string }) {
   return (
     <View>
       <View style={s.rowHeader}>
@@ -217,7 +219,7 @@ function SectionTable({ rows, now }: { rows: VendorRow[]; now: number }) {
             <Text style={s.cellService}>{v.service ?? "—"}</Text>
             <Text style={s.cellBaa}>
               {v.baaExecutedAt
-                ? v.baaExecutedAt.toISOString().slice(0, 10)
+                ? formatPracticeDate(v.baaExecutedAt, timezone)
                 : "—"}
             </Text>
             <Text style={[s.cellExpires, status.style]}>{status.label}</Text>

@@ -12,6 +12,7 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 const s = StyleSheet.create({
   page: {
@@ -103,6 +104,7 @@ export interface IncidentRow {
 export interface IncidentSummaryInput {
   practiceName: string;
   practiceState: string;
+  practiceTimezone: string;
   generatedAt: Date;
   incidents: IncidentRow[];
 }
@@ -133,7 +135,7 @@ export function IncidentSummaryDocument({
           {input.practiceName} · {input.practiceState}
         </Text>
         <Text style={s.meta}>
-          Generated {input.generatedAt.toISOString().slice(0, 10)} ·{" "}
+          Generated {formatPracticeDate(input.generatedAt, input.practiceTimezone)} ·{" "}
           {input.incidents.length} total incident
           {input.incidents.length === 1 ? "" : "s"}
         </Text>
@@ -148,21 +150,21 @@ export function IncidentSummaryDocument({
         {open.length > 0 && (
           <>
             <Text style={s.sectionTitle}>Open + Under investigation</Text>
-            <SectionTable rows={open} />
+            <SectionTable rows={open} timezone={input.practiceTimezone} />
           </>
         )}
 
         {resolved.length > 0 && (
           <>
             <Text style={s.sectionTitle}>Resolved</Text>
-            <SectionTable rows={resolved} />
+            <SectionTable rows={resolved} timezone={input.practiceTimezone} />
           </>
         )}
 
         {closed.length > 0 && (
           <>
             <Text style={s.sectionTitle}>Closed</Text>
-            <SectionTable rows={closed} />
+            <SectionTable rows={closed} timezone={input.practiceTimezone} />
           </>
         )}
 
@@ -180,7 +182,7 @@ export function IncidentSummaryDocument({
   );
 }
 
-function SectionTable({ rows }: { rows: IncidentRow[] }) {
+function SectionTable({ rows, timezone }: { rows: IncidentRow[]; timezone: string }) {
   return (
     <View>
       <View style={s.rowHeader}>
@@ -211,14 +213,14 @@ function SectionTable({ rows }: { rows: IncidentRow[] }) {
             <Text style={s.cellType}>{r.type.replace(/_/g, " ")}</Text>
             <Text style={s.cellSeverity}>{r.severity}</Text>
             <Text style={s.cellDiscovered}>
-              {r.discoveredAt.toISOString().slice(0, 10)}
+              {formatPracticeDate(r.discoveredAt, timezone)}
             </Text>
             <Text style={[s.cellBreach, breachStyle]}>{breachLabel}</Text>
             <Text style={s.cellAffected}>
               {r.affectedCount === null ? "—" : r.affectedCount.toLocaleString("en-US")}
             </Text>
             <Text style={s.cellResolved}>
-              {r.resolvedAt ? r.resolvedAt.toISOString().slice(0, 10) : "—"}
+              {r.resolvedAt ? formatPracticeDate(r.resolvedAt, timezone) : "—"}
             </Text>
           </View>
         );

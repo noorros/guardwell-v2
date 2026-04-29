@@ -14,6 +14,7 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 const s = StyleSheet.create({
   page: {
@@ -138,6 +139,7 @@ export interface PolicyRow {
 export interface PpAttestationInput {
   practiceName: string;
   practiceState: string;
+  practiceTimezone: string;
   generatedAt: Date;
   privacyOfficerName: string | null;
   policies: PolicyRow[];
@@ -175,7 +177,7 @@ export function PpAttestationDocument({ input }: { input: PpAttestationInput }) 
           {input.practiceName} · {input.practiceState}
         </Text>
         <Text style={s.meta}>
-          Generated {input.generatedAt.toISOString().slice(0, 10)} ·{" "}
+          Generated {formatPracticeDate(input.generatedAt, input.practiceTimezone)} ·{" "}
           {input.policies.length} adopted polic
           {input.policies.length === 1 ? "y" : "ies"} · {overdue} overdue
         </Text>
@@ -213,7 +215,7 @@ export function PpAttestationDocument({ input }: { input: PpAttestationInput }) 
                   <Text style={s.cellPolicy}>{p.policyTitle}</Text>
                   <Text style={s.cellVersion}>v{p.version}</Text>
                   <Text style={s.cellReviewed}>
-                    {reviewed.toISOString().slice(0, 10)}
+                    {formatPracticeDate(reviewed, input.practiceTimezone)}
                   </Text>
                   <Text style={[s.cellStatus, status.style]}>{status.label}</Text>
                 </View>

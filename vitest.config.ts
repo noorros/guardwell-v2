@@ -18,6 +18,7 @@ export default defineConfig({
           setupFiles: ["./tests/setup.ts"],
           include: [
             "tests/**/*.test.ts",
+            "tests/**/*.test.tsx",
             "src/lib/**/*.test.ts",
             "scripts/__tests__/**/*.test.ts",
           ],

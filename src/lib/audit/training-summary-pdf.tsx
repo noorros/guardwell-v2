@@ -12,6 +12,7 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 const s = StyleSheet.create({
   page: {
@@ -101,6 +102,7 @@ export interface TrainingCompletionRow {
 export interface TrainingSummaryInput {
   practiceName: string;
   practiceState: string;
+  practiceTimezone: string;
   generatedAt: Date;
   totalStaff: number;
   completions: TrainingCompletionRow[];
@@ -135,7 +137,7 @@ export function TrainingSummaryDocument({ input }: { input: TrainingSummaryInput
         <Text style={s.title}>Training Summary</Text>
         <Text style={s.subtitle}>{input.practiceName} · {input.practiceState}</Text>
         <Text style={s.meta}>
-          Generated {input.generatedAt.toISOString().slice(0, 10)} · {input.totalStaff} active staff member{input.totalStaff === 1 ? "" : "s"}
+          Generated {formatPracticeDate(input.generatedAt, input.practiceTimezone)} · {input.totalStaff} active staff member{input.totalStaff === 1 ? "" : "s"}
         </Text>
         <Text style={s.meta}>
           Active completions: {current.length} current · {expiringSoon.length} expiring within 60 days · {expired.length} expired
@@ -144,21 +146,21 @@ export function TrainingSummaryDocument({ input }: { input: TrainingSummaryInput
         {expired.length > 0 && (
           <>
             <Text style={s.sectionTitle}>Expired (action required)</Text>
-            <SectionTable rows={expired} statusStyle={s.expired} statusLabel="Expired" />
+            <SectionTable rows={expired} statusStyle={s.expired} statusLabel="Expired" timezone={input.practiceTimezone} />
           </>
         )}
 
         {expiringSoon.length > 0 && (
           <>
             <Text style={s.sectionTitle}>Expiring within 60 days</Text>
-            <SectionTable rows={expiringSoon} statusStyle={s.expiringSoon} statusLabel="Due soon" />
+            <SectionTable rows={expiringSoon} statusStyle={s.expiringSoon} statusLabel="Due soon" timezone={input.practiceTimezone} />
           </>
         )}
 
         {current.length > 0 && (
           <>
             <Text style={s.sectionTitle}>Current</Text>
-            <SectionTable rows={current} statusStyle={s.current} statusLabel="Current" />
+            <SectionTable rows={current} statusStyle={s.current} statusLabel="Current" timezone={input.practiceTimezone} />
           </>
         )}
 
@@ -180,10 +182,12 @@ function SectionTable({
   rows,
   statusStyle,
   statusLabel,
+  timezone,
 }: {
   rows: TrainingCompletionRow[];
   statusStyle: { color: string };
   statusLabel: string;
+  timezone: string;
 }) {
   return (
     <View>
@@ -200,11 +204,11 @@ function SectionTable({
           </Text>
           <Text style={s.cellCourse}>{r.courseTitle}</Text>
           <Text style={s.cellCompleted}>
-            {r.completedAt.toISOString().slice(0, 10)}{" "}
+            {formatPracticeDate(r.completedAt, timezone)}{" "}
             {r.passed ? `(${r.score}%)` : "(failed)"}
           </Text>
           <Text style={[s.cellExpires, statusStyle]}>
-            {r.expiresAt.toISOString().slice(0, 10)} · {statusLabel}
+            {formatPracticeDate(r.expiresAt, timezone)} · {statusLabel}
           </Text>
         </View>
       ))}
