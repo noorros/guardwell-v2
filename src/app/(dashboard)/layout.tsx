@@ -24,21 +24,26 @@ export default async function DashboardLayout({
   const pu = await getPracticeUser();
   if (!pu) redirect("/onboarding/create-practice");
 
+  // Single fetch for all Practice metadata we need in this layout.
+  // Hoisted before the role gate so we only make one DB round-trip regardless
+  // of role. STAFF/VIEWER pay the cost of fetching subscriptionStatus they
+  // don't use, but it's a single extra column on the same row — negligible.
+  const practiceMeta = await db.practice.findUniqueOrThrow({
+    where: { id: pu.practiceId },
+    select: { subscriptionStatus: true, timezone: true },
+  });
+
   // Subscription gate (Phase C). INCOMPLETE = sign-up done but no
   // Stripe Checkout completed yet → bounce to /sign-up/payment.
   // PAST_DUE / CANCELED → bounce to /account/locked.
   // TRIALING / ACTIVE → fall through to compliance-profile + dashboard.
   if (pu.role === "OWNER" || pu.role === "ADMIN") {
-    const sub = await db.practice.findUniqueOrThrow({
-      where: { id: pu.practiceId },
-      select: { subscriptionStatus: true },
-    });
-    if (sub.subscriptionStatus === "INCOMPLETE") {
+    if (practiceMeta.subscriptionStatus === "INCOMPLETE") {
       redirect("/sign-up/payment" as Route);
     }
     if (
-      sub.subscriptionStatus === "PAST_DUE" ||
-      sub.subscriptionStatus === "CANCELED"
+      practiceMeta.subscriptionStatus === "PAST_DUE" ||
+      practiceMeta.subscriptionStatus === "CANCELED"
     ) {
       redirect("/account/locked" as Route);
     }
@@ -56,10 +61,7 @@ export default async function DashboardLayout({
     if (!profile) redirect("/onboarding/compliance-profile" as Route);
   }
 
-  const { timezone: practiceTimezone } = await db.practice.findUniqueOrThrow({
-    where: { id: pu.practiceId },
-    select: { timezone: true },
-  });
+  const practiceTimezone = practiceMeta.timezone;
 
   // Enabled frameworks only — the practice's "My Compliance" list. Ordered by
   // the framework-level sortOrder so HIPAA/OSHA/OIG stay at the top regardless

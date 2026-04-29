@@ -64,6 +64,8 @@ describe("formatPracticeDateLong", () => {
 describe("formatPracticeDateTime", () => {
   it("renders date + 24h time + zone abbr", () => {
     const out = formatPracticeDateTime(new Date("2026-04-29T15:42:00Z"), "America/Phoenix");
+    // Different Node ICU builds emit "MST" or "GMT-7" for America/Phoenix
+    // — accept both so the test isn't brittle to a future ICU bump.
     expect(out).toMatch(/^2026-04-29 08:42 (MST|GMT-7)$/);
   });
 });

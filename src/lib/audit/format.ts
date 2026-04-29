@@ -11,11 +11,52 @@ const DATE_FALLBACK_TZ = "UTC";
 
 const validTzCache = new Map<string, boolean>();
 
+// Process-global Intl.DateTimeFormat cache keyed by "${zone}::${kind}".
+// Bounded by (supported zones × 3 kinds) ≈ 30 entries for our supported list.
+// Eliminates repeated ICU object construction on the notification-digest hot path.
+const dtfCache = new Map<string, Intl.DateTimeFormat>();
+
+function getDtf(zone: string, kind: "date" | "long" | "datetime"): Intl.DateTimeFormat {
+  const key = `${zone}::${kind}`;
+  const hit = dtfCache.get(key);
+  if (hit) return hit;
+  let dtf: Intl.DateTimeFormat;
+  if (kind === "date") {
+    dtf = new Intl.DateTimeFormat("en-CA", {
+      timeZone: zone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+  } else if (kind === "long") {
+    dtf = new Intl.DateTimeFormat("en-US", {
+      timeZone: zone,
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } else {
+    dtf = new Intl.DateTimeFormat("en-CA", {
+      timeZone: zone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZoneName: "short",
+    });
+  }
+  dtfCache.set(key, dtf);
+  return dtf;
+}
+
 /**
  * Returns true when `tz` is a valid IANA zone accepted by V8/Intl.
- * Cached per process for hot-path call sites (notifications + PDF rows).
+ * Accepts null/undefined (returns false). Cached per process for hot-path
+ * call sites (notifications + PDF rows).
  */
-export function isValidTimezone(tz: string): boolean {
+export function isValidTimezone(tz: string | null | undefined): boolean {
   if (!tz) return false;
   const cached = validTzCache.get(tz);
   if (cached !== undefined) return cached;
@@ -45,12 +86,7 @@ export function formatPracticeDate(
   tz: string | null | undefined,
 ): string {
   const zone = resolveTimezone(tz);
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: zone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
+  return getDtf(zone, "date").format(date);
 }
 
 /**
@@ -62,12 +98,7 @@ export function formatPracticeDateLong(
   tz: string | null | undefined,
 ): string {
   const zone = resolveTimezone(tz);
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: zone,
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  }).format(date);
+  return getDtf(zone, "long").format(date);
 }
 
 /**
@@ -79,16 +110,7 @@ export function formatPracticeDateTime(
   tz: string | null | undefined,
 ): string {
   const zone = resolveTimezone(tz);
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: zone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZoneName: "short",
-  }).formatToParts(date);
+  const parts = getDtf(zone, "datetime").formatToParts(date);
 
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
   const datePart = `${get("year")}-${get("month")}-${get("day")}`;
