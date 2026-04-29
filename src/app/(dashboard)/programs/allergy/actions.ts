@@ -151,30 +151,57 @@ const QuizSubmitInput = z.object({
   answers: z.array(z.object({ questionId: z.string().min(1), selectedId: z.string().min(1) })),
 });
 
+export type QuizReviewItem = {
+  questionId: string;
+  selectedId: string;
+  isCorrect: boolean;
+  correctOptionId: string;
+  explanation: string | null;
+};
+
+export type SubmitQuizAttemptResult = {
+  score: number;
+  passed: boolean;
+  reviewItems: QuizReviewItem[];
+};
+
 export async function submitQuizAttemptAction(
   input: z.infer<typeof QuizSubmitInput>,
-): Promise<{ score: number; passed: boolean }> {
+): Promise<SubmitQuizAttemptResult> {
   const user = await requireUser();
   const pu = await getPracticeUser();
   if (!pu) throw new Error("Unauthorized");
   const parsed = QuizSubmitInput.parse(input);
 
+  // Fetch correctId + explanation server-side. These fields are NEVER
+  // shipped to the client before submission — see C-3 (2026-04-29 audit)
+  // and src/lib/allergy/quiz-client.ts for the page-side gate.
   const questions = await db.allergyQuizQuestion.findMany({
     where: { id: { in: parsed.answers.map((a) => a.questionId) } },
-    select: { id: true, correctId: true },
+    select: { id: true, correctId: true, explanation: true },
   });
-  const correctMap = new Map(questions.map((q) => [q.id, q.correctId]));
+  const questionMap = new Map(questions.map((q) => [q.id, q]));
   let correct = 0;
-  const annotated = parsed.answers.map((a) => {
-    const isCorrect = correctMap.get(a.questionId) === a.selectedId;
+  const reviewItems: QuizReviewItem[] = parsed.answers.map((a) => {
+    const q = questionMap.get(a.questionId);
+    const isCorrect = q?.correctId === a.selectedId;
     if (isCorrect) correct += 1;
-    return { questionId: a.questionId, selectedId: a.selectedId, isCorrect };
+    return {
+      questionId: a.questionId,
+      selectedId: a.selectedId,
+      isCorrect,
+      correctOptionId: q?.correctId ?? "",
+      explanation: q?.explanation ?? null,
+    };
   });
   const total = parsed.answers.length;
   const score = total === 0 ? 0 : Math.round((correct / total) * 100);
   const passed = score >= 80;
   const year = new Date().getFullYear();
 
+  // The event-payload `answers` field stays minimal (no correctOptionId /
+  // explanation) — the EventLog records what the user submitted, not the
+  // answer key. The reviewItems return is for the immediate client UI.
   const payload = {
     attemptId: parsed.attemptId,
     practiceUserId: pu.id,
@@ -183,7 +210,11 @@ export async function submitQuizAttemptAction(
     passed,
     correctAnswers: correct,
     totalQuestions: total,
-    answers: annotated,
+    answers: reviewItems.map((r) => ({
+      questionId: r.questionId,
+      selectedId: r.selectedId,
+      isCorrect: r.isCorrect,
+    })),
   };
   await appendEventAndApply(
     {
@@ -196,7 +227,7 @@ export async function submitQuizAttemptAction(
   );
   revalidatePath("/programs/allergy");
   revalidatePath("/modules/allergy");
-  return { score, passed };
+  return { score, passed, reviewItems };
 }
 
 const EquipmentInput = z.object({
