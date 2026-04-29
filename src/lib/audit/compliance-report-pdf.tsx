@@ -232,6 +232,7 @@ export function ComplianceReportDocument(props: ComplianceReportInput) {
           { key: "js", style: s.coverMeta },
           `Jurisdictions: ${jurisdictions.join(", ")}`,
         ),
+        // Intentional UTC: the cover-page timestamp is full RFC-822 for document authenticity; do NOT migrate to formatPracticeDate.
         e(
           Text,
           { key: "gd", style: s.coverMeta },

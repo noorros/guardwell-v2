@@ -251,6 +251,7 @@ export function IncidentBreachMemoDocument({
         </View>
         <View style={s.metaRow}>
           <Text style={s.metaLabel}>Determination recorded</Text>
+          {/* Date-only: matches legacy "formatDate" behavior. The schema column is DateTime but the audit memo records the determination as a calendar event. Upgrade to formatPracticeDateTime requires a label change ("Determination recorded at") + downstream test updates. */}
           <Text style={s.metaValue}>
             {formatPracticeDate(incident.breachDeterminedAt, input.practiceTimezone)}
           </Text>
