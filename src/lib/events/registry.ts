@@ -126,6 +126,13 @@ export const EVENT_TYPES = [
   // Tool invocation inside a Concierge turn. Projection writes a
   // ConversationMessage row (role=TOOL) with the full input/output payload.
   "CONCIERGE_TOOL_INVOKED",
+  // User-renamed an existing Concierge thread title (inline edit on the
+  // /concierge thread list). Idempotent on threadId.
+  "CONCIERGE_THREAD_RENAMED",
+  // User archived a Concierge thread (sets archivedAt; soft-hide from
+  // default thread list). Idempotent — re-archiving is a no-op on the
+  // existing archivedAt timestamp.
+  "CONCIERGE_THREAD_ARCHIVED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -1242,6 +1249,22 @@ export const EVENT_SCHEMAS = {
       toolOutput: z.unknown(),
       latencyMs: z.number().int().min(0),
       error: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  // User renamed a Concierge thread (inline edit on /concierge thread list).
+  // Projection updates ConversationThread.title.
+  CONCIERGE_THREAD_RENAMED: {
+    1: z.object({
+      threadId: z.string().min(1),
+      title: z.string().min(1).max(200),
+    }),
+  },
+  // User archived a Concierge thread. Projection sets archivedAt.
+  // Idempotent: re-archiving the same thread leaves the original timestamp
+  // intact (updateMany + archivedAt: null filter).
+  CONCIERGE_THREAD_ARCHIVED: {
+    1: z.object({
+      threadId: z.string().min(1),
     }),
   },
 } as const;

@@ -18,6 +18,8 @@ import {
   projectConciergeMessageUserSent,
   projectConciergeMessageAssistantProduced,
   projectConciergeToolInvoked,
+  projectConciergeThreadRenamed,
+  projectConciergeThreadArchived,
 } from "@/lib/events/projections/conciergeThread";
 
 async function seedPractice() {
@@ -202,5 +204,98 @@ describe("Concierge thread projections", () => {
     expect(msg).not.toBeNull();
     expect(msg!.role).toBe("TOOL");
     expect(msg!.content).toContain("list_frameworks");
+  });
+
+  it("CONCIERGE_THREAD_RENAMED updates ConversationThread.title", async () => {
+    const { user, practice } = await seedPractice();
+    const threadId = randomUUID();
+    await appendEventAndApply(
+      {
+        practiceId: practice.id,
+        actorUserId: user.id,
+        type: "CONCIERGE_THREAD_CREATED",
+        payload: { threadId, userId: user.id, title: "Initial title" },
+      },
+      async (tx) => projectConciergeThreadCreated(tx, {
+        practiceId: practice.id,
+        payload: { threadId, userId: user.id, title: "Initial title" },
+      }),
+    );
+    await appendEventAndApply(
+      {
+        practiceId: practice.id,
+        actorUserId: user.id,
+        type: "CONCIERGE_THREAD_RENAMED",
+        payload: { threadId, title: "My renamed thread" },
+      },
+      async (tx) => projectConciergeThreadRenamed(tx, {
+        practiceId: practice.id,
+        payload: { threadId, title: "My renamed thread" },
+      }),
+    );
+    const thread = await db.conversationThread.findUniqueOrThrow({
+      where: { id: threadId },
+    });
+    expect(thread.title).toBe("My renamed thread");
+  });
+
+  it("CONCIERGE_THREAD_ARCHIVED sets archivedAt; re-archiving is a no-op", async () => {
+    const { user, practice } = await seedPractice();
+    const threadId = randomUUID();
+    await appendEventAndApply(
+      {
+        practiceId: practice.id,
+        actorUserId: user.id,
+        type: "CONCIERGE_THREAD_CREATED",
+        payload: { threadId, userId: user.id, title: null },
+      },
+      async (tx) => projectConciergeThreadCreated(tx, {
+        practiceId: practice.id,
+        payload: { threadId, userId: user.id, title: null },
+      }),
+    );
+
+    await appendEventAndApply(
+      {
+        practiceId: practice.id,
+        actorUserId: user.id,
+        type: "CONCIERGE_THREAD_ARCHIVED",
+        payload: { threadId },
+      },
+      async (tx) => projectConciergeThreadArchived(tx, {
+        practiceId: practice.id,
+        payload: { threadId },
+      }),
+    );
+
+    const firstArchive = await db.conversationThread.findUniqueOrThrow({
+      where: { id: threadId },
+    });
+    expect(firstArchive.archivedAt).not.toBeNull();
+    const firstArchivedAt = firstArchive.archivedAt!.getTime();
+
+    // Ensure the wall clock has ticked at least 10ms so a non-idempotent
+    // implementation would pick up a measurable delta.
+    await new Promise((r) => setTimeout(r, 10));
+
+    // Re-archive: should be a no-op (timestamp unchanged thanks to the
+    // updateMany + archivedAt: null filter inside the projection).
+    await appendEventAndApply(
+      {
+        practiceId: practice.id,
+        actorUserId: user.id,
+        type: "CONCIERGE_THREAD_ARCHIVED",
+        payload: { threadId },
+      },
+      async (tx) => projectConciergeThreadArchived(tx, {
+        practiceId: practice.id,
+        payload: { threadId },
+      }),
+    );
+
+    const secondArchive = await db.conversationThread.findUniqueOrThrow({
+      where: { id: threadId },
+    });
+    expect(secondArchive.archivedAt!.getTime()).toBe(firstArchivedAt);
   });
 });
