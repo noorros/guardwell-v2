@@ -35,20 +35,20 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { config } from "dotenv";
-import { PrismaClient } from "@prisma/client";
+import { db } from "@/lib/db";
 import { appendEventAndApply } from "@/lib/events";
 import {
   projectConciergeThreadCreated,
   projectConciergeMessageUserSent,
 } from "@/lib/events/projections/conciergeThread";
 import { runConciergeTurn } from "@/lib/ai/runConciergeTurn";
+import {
+  KNOWN_CITATIONS,
+  extractCitations,
+  normalizeCitation,
+} from "./lib/eval-concierge-citations";
 
 config({ path: ".env" });
-
-// We import @/lib/db's PrismaClient indirectly via the projections; keep a
-// local handle for the seed/teardown plumbing so the script can run end-
-// to-end without importing the singleton.
-const db = new PrismaClient();
 
 const FIXTURES_DIR = path.resolve(
   __dirname,
@@ -58,93 +58,6 @@ const FIXTURES_DIR = path.resolve(
   "prompts",
   "concierge.chat",
 );
-
-// Allow-list of CFR / USC citations a Concierge response is allowed to
-// emit. Citations OUTSIDE this set are flagged as a possible hallucination
-// (warning, not a fail). Add new known sections here as Concierge legitimately
-// surfaces them — hallucinated citations should NEVER end up in this set.
-const KNOWN_CITATIONS: ReadonlySet<string> = new Set([
-  // HIPAA — 45 CFR Parts 160 + 164
-  "45 CFR §160.103",
-  "45 CFR §164.302",
-  "45 CFR §164.308",
-  "45 CFR §164.310",
-  "45 CFR §164.312",
-  "45 CFR §164.314",
-  "45 CFR §164.316",
-  "45 CFR §164.402",
-  "45 CFR §164.404",
-  "45 CFR §164.406",
-  "45 CFR §164.408",
-  "45 CFR §164.410",
-  "45 CFR §164.412",
-  "45 CFR §164.500",
-  "45 CFR §164.502",
-  "45 CFR §164.504",
-  "45 CFR §164.508",
-  "45 CFR §164.512",
-  "45 CFR §164.514",
-  "45 CFR §164.520",
-  "45 CFR §164.524",
-  "45 CFR §164.526",
-  "45 CFR §164.528",
-  "45 CFR §164.530",
-  // OSHA — 29 CFR Part 1910 (+ 1904 recordkeeping)
-  "29 CFR §1904.32",
-  "29 CFR §1910.1030",
-  "29 CFR §1910.132",
-  "29 CFR §1910.134",
-  // DEA — 21 CFR
-  "21 CFR §1300.01",
-  "21 CFR §1304.04",
-  "21 CFR §1304.21",
-  "21 CFR §1306.04",
-  "21 CFR §1306.11",
-  "21 CFR §1306.12",
-  // CLIA — 42 CFR
-  "42 CFR §493.1100",
-  "42 CFR §493.1200",
-  "42 CFR §493.1281",
-  // MACRA / OIG / CMS Stark
-  "42 USC §1320a-7b",
-  "42 CFR §1001.952",
-  "42 CFR §411.357",
-]);
-
-// Regexes for citation extraction. We accept the common formats:
-//   "45 CFR §164.402"  "45 CFR § 164.402"  "45 CFR  § 164.402"
-//   "42 USC §1320a-7b"  "42 U.S.C. § 1320a-7b"
-// Whitespace inside the run is normalized to a single space before
-// allow-list lookup.
-const CFR_CITATION_RE = /\b(\d+)\s*CFR\s*§\s*(\d+(?:\.\d+)?)\b/gi;
-const USC_CITATION_RE = /\b(\d+)\s*U\.?\s*S\.?\s*C\.?\s*§\s*(\d+(?:[a-z]-?\d+)?)\b/gi;
-
-function normalizeCitation(raw: string): string {
-  return raw
-    .replace(/\s+/g, " ")
-    .replace(/\s*§\s*/g, " §")
-    .replace(/U\.?S\.?C\.?/i, "USC")
-    .trim();
-}
-
-function extractCitations(text: string): string[] {
-  const out: string[] = [];
-  // CFR matches: rebuild a normalized "<title> CFR §<section>" string.
-  // The CFR vs USC token in the rebuilt string differentiates them, so
-  // the two patterns can't collide on a shared title number.
-  let m: RegExpExecArray | null;
-  while ((m = CFR_CITATION_RE.exec(text))) {
-    const title = m[1];
-    const section = m[2];
-    out.push(`${title} CFR §${section}`);
-  }
-  while ((m = USC_CITATION_RE.exec(text))) {
-    const title = m[1];
-    const section = m[2];
-    out.push(`${title} USC §${section}`);
-  }
-  return out;
-}
 
 interface FixtureInputMessage {
   role: "user" | "assistant";
@@ -237,6 +150,7 @@ async function seedFixture(fixture: Fixture): Promise<SeededFixture> {
       primaryState: fixture.input.primaryState,
       providerCount: fixture.input.providerCount ?? "SOLO",
       specialty: "Primary Care",
+      // Eval skips trial / billing gating — fixtures aren't testing subscription state.
       subscriptionStatus: "ACTIVE",
     },
   });
@@ -573,11 +487,58 @@ function formatLine(idx: number, total: number, r: FixtureResult): string {
 async function main(): Promise<void> {
   if (!process.env.ANTHROPIC_API_KEY) {
     console.error("ANTHROPIC_API_KEY is not set. Eval requires real Claude calls.");
-    process.exit(2);
+    process.exitCode = 2;
+    return;
   }
   if (!process.env.DATABASE_URL) {
     console.error("DATABASE_URL is not set. Eval requires a Postgres database.");
-    process.exit(2);
+    process.exitCode = 2;
+    return;
+  }
+
+  // Production-DB safety guard. Log the resolved DATABASE_URL host (just
+  // the host — not credentials) so a misconfigured run is visible at
+  // startup, then refuse to run if the host looks like production.
+  // The pattern is intentionally permissive: anything with "prod",
+  // "production", "live", or one of GuardWell's known prod project IDs
+  // in the host gets blocked. Dev hosts (localhost, 127.0.0.1, Docker
+  // service names like "test-db", Cloud SQL dev instances) all pass.
+  // Override with --allow-prod for the rare case of a deliberate prod
+  // run.
+  const dbUrl = process.env.DATABASE_URL ?? "";
+  const dbHost = (() => {
+    try {
+      return new URL(dbUrl).host;
+    } catch {
+      return "<invalid>";
+    }
+  })();
+  console.error(`[eval-concierge] DATABASE_URL host: ${dbHost}`);
+
+  const looksLikeProd =
+    /\bprod\b|production|live/i.test(dbHost) ||
+    /(guardwell-v2-prod|guardwell-prod|gw-prod)/i.test(dbHost);
+
+  if (looksLikeProd && !process.argv.includes("--allow-prod")) {
+    console.error(
+      `[eval-concierge] Refusing to run: DATABASE_URL host '${dbHost}' looks like production.\n` +
+        `If you really mean it, re-run with --allow-prod.`,
+    );
+    process.exitCode = 2;
+    return;
+  }
+
+  // Fail-fast guard: an unseeded test DB has zero RegulatoryFramework
+  // rows, which would silently produce empty practice-framework
+  // enrollments and meaningless eval results. Force the operator to run
+  // the seed scripts first.
+  const frameworkCount = await db.regulatoryFramework.count();
+  if (frameworkCount === 0) {
+    console.error(
+      `[eval-concierge] No RegulatoryFramework rows found. Run \`npm run db:seed\` first.`,
+    );
+    process.exitCode = 2;
+    return;
   }
 
   const fixtures = await loadFixtures();
@@ -611,14 +572,12 @@ async function main(): Promise<void> {
     `Tokens: ${cumulativeInput.toLocaleString()} in / ${cumulativeOutput.toLocaleString()} out`,
   );
 
-  process.exit(failCount === 0 ? 0 : 1);
+  // Set exit code so any pending async cleanup (.finally below, console
+  // flush buffering on some terminals) still runs before Node tears down.
+  process.exitCode = failCount === 0 ? 0 : 1;
 }
 
-main()
-  .catch((err) => {
-    console.error("[eval-concierge] fatal:", err);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await db.$disconnect();
-  });
+main().catch((err) => {
+  console.error("[eval-concierge] fatal:", err);
+  process.exitCode = 1;
+});
