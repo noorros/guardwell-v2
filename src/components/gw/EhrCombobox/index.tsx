@@ -4,7 +4,7 @@
 // system used by the practice. Internal helper for PracticeProfileForm.
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,22 +50,36 @@ export function EhrCombobox({
   const [open, setOpen] = useState(false);
   const isKnown = (KNOWN_EHRS as readonly string[]).includes(value);
   const showOtherInput = value === "Other" || (value !== "" && !isKnown);
-  // Local draft for the free-text input so the user can type smoothly
-  // even when the parent doesn't synchronously re-render on every keystroke.
+
+  // Local draft for the free-text "Other" input. We treat the input as
+  // an uncontrolled-ish field once the user starts typing: the parent's
+  // `value` prop is treated as the seed and seal-of-record, but
+  // intermediate keystrokes live in `otherDraft` so typing remains
+  // smooth even if the parent doesn't synchronously re-render on every
+  // change. The render-time prop-sync below only kicks in when `value`
+  // arrives from outside (e.g. user picks a different EHR from the
+  // dropdown), not when the prop just echoes our last onChange.
   const [otherDraft, setOtherDraft] = useState<string>(
     value !== "" && !isKnown ? value : "",
   );
-  const lastSyncedValue = useRef<string>(value);
-  useEffect(() => {
-    if (value !== lastSyncedValue.current) {
-      lastSyncedValue.current = value;
-      if (value !== "Other" && !isKnown) {
-        setOtherDraft(value);
-      } else if (value === "Other") {
-        setOtherDraft("");
-      }
+  const [lastSyncedValue, setLastSyncedValue] = useState<string>(value);
+  // Render-time sync: only fires when the prop changes to something we
+  // haven't already mirrored locally (e.g. dropdown selection from
+  // outside). Per the React docs, "adjusting state during render" with
+  // a guard is a valid alternative to a useEffect+setState pair and
+  // doesn't cascade re-renders.
+  if (
+    value !== lastSyncedValue &&
+    value !== otherDraft &&
+    !(value === "Other" && otherDraft !== "")
+  ) {
+    setLastSyncedValue(value);
+    if (value === "Other") {
+      setOtherDraft("");
+    } else if (value !== "" && !isKnown) {
+      setOtherDraft(value);
     }
-  }, [value, isKnown]);
+  }
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -122,7 +136,7 @@ export function EhrCombobox({
           onChange={(e) => {
             const next = e.target.value;
             setOtherDraft(next);
-            lastSyncedValue.current = next;
+            setLastSyncedValue(next);
             onChange(next);
           }}
           className="block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
