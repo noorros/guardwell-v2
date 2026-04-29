@@ -129,15 +129,17 @@ export async function completeSignUpAction(
       },
     },
     async (tx) => {
+      // Audit B-2 (HIPAA findings, 2026-04-29): default the OWNER as
+      // Privacy + Security + Compliance Officer. HIPAA §164.308(a)(2)
+      // requires a designated Security Officer. The first-run wizard
+      // (Phase D) confirms or reassigns when staff arrive.
       await tx.practiceUser.create({
         data: {
           userId: user.id,
           practiceId: practice.id,
           role: "OWNER",
-          // Default the OWNER as Privacy + Compliance Officer. They can
-          // delegate later. Mirrors v1's onboarding behavior. The first-
-          // run wizard (Phase D) confirms or reassigns.
           isPrivacyOfficer: true,
+          isSecurityOfficer: true,
           isComplianceOfficer: true,
         },
       });

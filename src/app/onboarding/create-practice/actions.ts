@@ -34,12 +34,17 @@ export async function createPracticeAction(formData: FormData) {
       },
     },
     async (tx) => {
+      // Audit B-2 (HIPAA findings, 2026-04-29): the OWNER must be
+      // designated as Security Officer too — HIPAA §164.308(a)(2)
+      // requires it. Same person can wear all three hats by default;
+      // the first-run wizard reassigns when staff arrive.
       await tx.practiceUser.create({
         data: {
           userId: user.id,
           practiceId: practice.id,
           role: "OWNER",
           isPrivacyOfficer: true,
+          isSecurityOfficer: true,
           isComplianceOfficer: true,
         },
       });
