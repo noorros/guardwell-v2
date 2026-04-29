@@ -19,8 +19,8 @@ import { db } from "@/lib/db";
 import { getPracticeUser } from "@/lib/rbac";
 import { isValidNpi } from "@/lib/npi";
 import { isValidStateCode } from "@/lib/states";
-import { deriveSpecialtyCategory } from "@/lib/specialties";
 import { appendEventAndApply } from "@/lib/events";
+import { projectPracticeProfileSettingsUpdated } from "@/lib/events/projections/practiceProfileSettings";
 import type { PracticeProfileInput } from "@/components/gw/PracticeProfileForm/types";
 
 const InputSchema = z.object({
@@ -107,8 +107,6 @@ export async function handleSavePracticeProfile(
     if (beforeVal !== afterVal) changed.push(k);
   }
 
-  const bucket = deriveSpecialtyCategory(data.specialty);
-
   await appendEventAndApply(
     {
       practiceId: ctx.practiceId,
@@ -117,40 +115,11 @@ export async function handleSavePracticeProfile(
       schemaVersion: 2,
       payload: { changedFields: changed },
     },
-    async (tx) => {
-      await tx.practice.update({
-        where: { id: ctx.practiceId },
-        data: {
-          name: data.name,
-          npiNumber: data.npiNumber,
-          entityType: data.entityType,
-          primaryState: data.primaryState,
-          operatingStates: data.operatingStates,
-          addressStreet: data.addressStreet,
-          addressSuite: data.addressSuite,
-          addressCity: data.addressCity,
-          addressZip: data.addressZip,
-          specialty: data.specialty,
-          providerCount: data.providerCount,
-          ehrSystem: data.ehrSystem,
-          staffHeadcount: data.staffHeadcount,
-          phone: data.phone,
-        },
-      });
-      // Keep the legacy 6-bucket category in sync. The toggles + framework
-      // applicability are owned by saveComplianceProfileAction (onboarding),
-      // not this surface, so we only touch the derived bucket here.
-      await tx.practiceComplianceProfile.upsert({
-        where: { practiceId: ctx.practiceId },
-        create: {
-          practiceId: ctx.practiceId,
-          specialtyCategory: bucket,
-        },
-        update: {
-          specialtyCategory: bucket,
-        },
-      });
-    },
+    async (tx) =>
+      projectPracticeProfileSettingsUpdated(tx, {
+        practiceId: ctx.practiceId,
+        data,
+      }),
   );
 
   return { ok: true };
