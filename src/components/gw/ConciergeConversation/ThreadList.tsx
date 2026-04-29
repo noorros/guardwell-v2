@@ -76,13 +76,7 @@ export function ThreadList({
 
       <div className="border-t pt-2">
         <Button asChild variant="ghost" size="xs" className="w-full text-xs">
-          <Link
-            href={
-              (showArchived
-                ? "/concierge"
-                : "/concierge?archived=true") as Route
-            }
-          >
+          <Link href={buildToggleHref(showArchived, activeThreadId)}>
             {showArchived ? "Hide archived" : "Show archived"}
           </Link>
         </Button>
@@ -275,6 +269,24 @@ function ArchiveButton({
       )}
     </>
   );
+}
+
+/**
+ * Build the "Show archived" / "Hide archived" toggle URL while
+ * preserving the active threadId so toggling doesn't snap the user
+ * back to threads[0]. When toggling on, append `archived=true`; when
+ * toggling off, drop it. Either way, carry the current threadId
+ * forward if there is one.
+ */
+function buildToggleHref(
+  showArchived: boolean,
+  activeThreadId: string | null,
+): Route {
+  const params = new URLSearchParams();
+  if (!showArchived) params.set("archived", "true");
+  if (activeThreadId) params.set("threadId", activeThreadId);
+  const qs = params.toString();
+  return (qs ? `/concierge?${qs}` : "/concierge") as Route;
 }
 
 /**
