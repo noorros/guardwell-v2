@@ -25,7 +25,7 @@ describe("<AiAssistDrawer>", () => {
       />,
     );
     const dialog = screen.getByRole("dialog");
-    expect(dialog).toHaveAccessibleName(/ai concierge/i);
+    expect(dialog).toHaveAccessibleName(/page help/i);
   });
 
   it("shows the current route in the header area", () => {

@@ -10,7 +10,7 @@ function Demo({ summary }: { summary?: string }) {
   return (
     <>
       <Button type="button" onClick={() => setOpen(true)}>
-        Open AI Concierge
+        Open Page Help
       </Button>
       <AiAssistDrawer
         open={open}

@@ -69,7 +69,7 @@ export function AiAssistDrawer({
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Sparkles className="h-4 w-4" aria-hidden="true" />
-            AI Concierge
+            Page Help
           </SheetTitle>
           <SheetDescription>Context-aware help for the current page.</SheetDescription>
           <div className="pt-1">
@@ -106,7 +106,7 @@ export function AiAssistDrawer({
         <SheetFooter className="border-t pt-3">
           <form onSubmit={onSubmit} className="flex flex-col gap-2">
             <label htmlFor="ai-assist-input" className="sr-only">
-              Ask the AI Concierge
+              Ask Page Help
             </label>
             <textarea
               id="ai-assist-input"
