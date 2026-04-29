@@ -43,6 +43,8 @@ export default defineConfig({
             // vitest's glob engine always finds them regardless of OS
             // parenthesis-handling quirks.
             "src/app/(dashboard)/**/*.test.tsx",
+            // lib-level TSX tests (e.g. React context providers) need jsdom.
+            "src/lib/**/*.test.tsx",
           ],
           globals: false,
         },

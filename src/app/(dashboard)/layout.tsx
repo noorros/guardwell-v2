@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { AppShell } from "@/components/gw/AppShell";
 import { ConciergeTrigger } from "@/components/gw/ConciergeDrawer/ConciergeTrigger";
 import { getUserNotificationsSummary } from "@/lib/notifications/get-user-notifications";
+import { PracticeTimezoneProvider } from "@/lib/timezone/PracticeTimezoneContext";
 
 export default async function DashboardLayout({
   children,
@@ -54,6 +55,11 @@ export default async function DashboardLayout({
     });
     if (!profile) redirect("/onboarding/compliance-profile" as Route);
   }
+
+  const { timezone: practiceTimezone } = await db.practice.findUniqueOrThrow({
+    where: { id: pu.practiceId },
+    select: { timezone: true },
+  });
 
   // Enabled frameworks only — the practice's "My Compliance" list. Ordered by
   // the framework-level sortOrder so HIPAA/OSHA/OIG stay at the top regardless
@@ -106,7 +112,7 @@ export default async function DashboardLayout({
   const notificationSummary = await getUserNotificationsSummary(pu.userId);
 
   return (
-    <>
+    <PracticeTimezoneProvider value={practiceTimezone}>
       <AppShell
         practice={{ name: pu.practice.name }}
         user={{ email: pu.dbUser.email }}
@@ -120,6 +126,6 @@ export default async function DashboardLayout({
        *  trigger is fixed-position so DOM placement here doesn't affect
        *  layout. Lazy-mounts the drawer on first open. */}
       <ConciergeTrigger />
-    </>
+    </PracticeTimezoneProvider>
   );
 }
