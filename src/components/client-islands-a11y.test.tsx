@@ -116,10 +116,22 @@ const COMPLIANCE_PROFILE_INITIAL = {
   subjectToMacraMips: false,
   sendsAutomatedPatientMessages: true,
   compoundsAllergens: false,
-  specialty: "Family Medicine" as string | null,
-  providerCount: 3 as number | null,
-  operatingStates: [] as string[],
-  primaryState: "AZ",
+  profile: {
+    name: "Test Practice",
+    npiNumber: null as string | null,
+    entityType: "COVERED_ENTITY" as const,
+    primaryState: "AZ",
+    operatingStates: [] as string[],
+    addressStreet: null as string | null,
+    addressSuite: null as string | null,
+    addressCity: null as string | null,
+    addressZip: null as string | null,
+    specialty: "Family Medicine" as string | null,
+    providerCount: "SOLO" as const,
+    ehrSystem: null as string | null,
+    staffHeadcount: null as number | null,
+    phone: null as string | null,
+  },
 };
 
 describe("Client island accessibility audit (axe-core)", () => {
@@ -192,10 +204,22 @@ describe("Client island accessibility audit (axe-core)", () => {
             subjectToMacraMips: false,
             sendsAutomatedPatientMessages: false,
             compoundsAllergens: false,
-            specialty: null,
-            providerCount: null,
-            operatingStates: [],
-            primaryState: "AZ",
+            profile: {
+              name: "Test Practice",
+              npiNumber: null,
+              entityType: "COVERED_ENTITY",
+              primaryState: "AZ",
+              operatingStates: [],
+              addressStreet: null,
+              addressSuite: null,
+              addressCity: null,
+              addressZip: null,
+              specialty: null,
+              providerCount: "SOLO",
+              ehrSystem: null,
+              staffHeadcount: null,
+              phone: null,
+            },
           }}
           redirectTo={"/dashboard" as never}
           submitLabel="Save"

@@ -496,8 +496,17 @@ export const EVENT_SCHEMAS = {
   },
   // Practice compliance profile upsert. Emitted by the onboarding
   // compliance-profile step and the /settings/practice surface.
-  // Projection writes PracticeComplianceProfile AND flips
-  // PracticeFramework.enabled per the applicability matrix.
+  //
+  // v1 — Onboarding compliance-profile step. Projection writes
+  // PracticeComplianceProfile AND flips PracticeFramework.enabled per the
+  // applicability matrix. Payload carries the 7 framework toggles +
+  // derived specialtyCategory bucket.
+  //
+  // v2 — Settings practice-profile edits. Audit-only; the projection is a
+  // no-op. Payload carries only the list of changed Practice columns
+  // (e.g. ["name", "addressZip"]) so the EventLog row IS the audit trail.
+  // Settings does NOT change framework toggles, so v1's projection is
+  // skipped intentionally.
   PRACTICE_PROFILE_UPDATED: {
     1: z.object({
       hasInHouseLab: z.boolean(),
@@ -519,6 +528,9 @@ export const EVENT_SCHEMAS = {
         .nullable()
         .optional(),
       providerCount: z.number().int().min(0).nullable().optional(),
+    }),
+    2: z.object({
+      changedFields: z.array(z.string()),
     }),
   },
   // Compliance Track auto-generation. Fired by generateTrackIfMissing
