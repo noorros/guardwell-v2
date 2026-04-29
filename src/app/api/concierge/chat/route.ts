@@ -163,7 +163,9 @@ export async function POST(request: NextRequest) {
     name: pu.practice.name,
     primaryState: pu.practice.primaryState,
     providerCount: pu.practice.providerCount ?? null,
-    timezone: pu.practice.timezone ?? null,
+    // Resolve null → "UTC" once here at the auth boundary so downstream
+    // code (streamConciergeTurn, invokeTool) can treat timezone as string.
+    timezone: pu.practice.timezone ?? "UTC",
   };
 
   const encoder = new TextEncoder();
