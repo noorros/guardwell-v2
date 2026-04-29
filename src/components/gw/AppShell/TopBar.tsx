@@ -1,17 +1,16 @@
 // src/components/gw/AppShell/TopBar.tsx
 import type { ReactNode } from "react";
-import { LogOut } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { signOutAction } from "@/app/(auth)/sign-out/actions";
 import { cn } from "@/lib/utils";
 import {
   NotificationBell,
   type NotificationBellItem,
 } from "./NotificationBell";
+import { UserMenu } from "./UserMenu";
 
 export interface TopBarProps {
   practiceName: string;
   userEmail: string;
+  userInitials: string;
   mobileTrigger?: ReactNode;
   notifications?: {
     unreadCount: number;
@@ -23,6 +22,7 @@ export interface TopBarProps {
 export function TopBar({
   practiceName,
   userEmail,
+  userInitials,
   mobileTrigger,
   notifications,
   className,
@@ -43,20 +43,11 @@ export function TopBar({
             recent={notifications.recent}
           />
         )}
-        <span className="hidden truncate text-sm text-muted-foreground sm:inline">
-          {userEmail}
-        </span>
-        <form action={signOutAction}>
-          <Button
-            type="submit"
-            variant="ghost"
-            size="sm"
-            className="gap-1.5 text-muted-foreground hover:text-foreground"
-          >
-            <LogOut className="h-4 w-4" aria-hidden="true" />
-            <span>Sign out</span>
-          </Button>
-        </form>
+        <UserMenu
+          userEmail={userEmail}
+          practiceName={practiceName}
+          userInitials={userInitials}
+        />
       </div>
     </header>
   );
