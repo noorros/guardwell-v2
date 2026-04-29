@@ -12,6 +12,7 @@
 import type { Prisma } from "@prisma/client";
 import type { PayloadFor } from "../registry";
 import { rederiveRequirementStatus } from "@/lib/compliance/derivation/rederive";
+import { assertProjectionPracticeOwned } from "./guards";
 
 type QuizPayload = PayloadFor<"ALLERGY_QUIZ_COMPLETED", 1>;
 type FingertipPayload = PayloadFor<"ALLERGY_FINGERTIP_TEST_PASSED", 1>;
@@ -21,6 +22,21 @@ async function ensureCompetency(
   tx: Prisma.TransactionClient,
   args: { practiceId: string; practiceUserId: string; year: number },
 ): Promise<string> {
+  // Audit C-1: refuse cross-tenant writes. The natural-key lookup is
+  // (practiceUserId, year) — without verifying that practiceUserId
+  // belongs to args.practiceId, a forged event could create or mutate
+  // a competency row for another practice's compounder, e.g. flipping
+  // their `fingertipPassCount` or `isFullyQualified`.
+  const pu = await tx.practiceUser.findUnique({
+    where: { id: args.practiceUserId },
+    select: { practiceId: true },
+  });
+  assertProjectionPracticeOwned(
+    pu,
+    args.practiceId,
+    `allergy competency for practiceUser ${args.practiceUserId}`,
+  );
+
   const existing = await tx.allergyCompetency.findUnique({
     where: {
       practiceUserId_year: {
