@@ -702,8 +702,36 @@ describe("streamConciergeTurn", () => {
     const previousEnv = process.env.CONCIERGE_THREAD_MAX_INPUT_TOKENS;
     process.env.CONCIERGE_THREAD_MAX_INPUT_TOKENS = "5000";
     try {
-      const { user, practice, threadId } =
-        await seedThreadWithUserMessage("new user message after small budget");
+      // Build the thread WITHOUT the seed helper's user message — same
+      // production-mirror pattern as the previous test: route handler
+      // appends the new user message LAST, so it sits at the tail of
+      // createdAt-asc and historical pairs are at the front of the FIFO.
+      const user = await db.user.create({
+        data: {
+          firebaseUid: `concierge-compaction-env-${Math.random().toString(36).slice(2, 10)}`,
+          email: `concierge-compaction-env-${Math.random().toString(36).slice(2, 8)}@test.test`,
+        },
+      });
+      const practice = await db.practice.create({
+        data: { name: "Concierge Compaction Env Test", primaryState: "TX" },
+      });
+      await db.practiceUser.create({
+        data: { userId: user.id, practiceId: practice.id, role: "OWNER" },
+      });
+      const threadId = `thread-compaction-env-${Math.random().toString(36).slice(2, 10)}`;
+      await appendEventAndApply(
+        {
+          practiceId: practice.id,
+          actorUserId: user.id,
+          type: "CONCIERGE_THREAD_CREATED",
+          payload: { threadId, userId: user.id, title: null },
+        },
+        async (tx) =>
+          projectConciergeThreadCreated(tx, {
+            practiceId: practice.id,
+            payload: { threadId, userId: user.id, title: null },
+          }),
+      );
 
       // Single historical pair tagged with 12_000 inputTokens — over
       // the 5_000 override, so the only pair must drop.
@@ -725,6 +753,31 @@ describe("streamConciergeTurn", () => {
           outputTokens: 100,
         },
       });
+
+      // Append the NEW user message LAST via the projection so it sits
+      // at the tail of the history.
+      const newMessageId = `msg-${Math.random().toString(36).slice(2, 10)}`;
+      await appendEventAndApply(
+        {
+          practiceId: practice.id,
+          actorUserId: user.id,
+          type: "CONCIERGE_MESSAGE_USER_SENT",
+          payload: {
+            messageId: newMessageId,
+            threadId,
+            content: "new user message after small budget",
+          },
+        },
+        async (tx) =>
+          projectConciergeMessageUserSent(tx, {
+            practiceId: practice.id,
+            payload: {
+              messageId: newMessageId,
+              threadId,
+              content: "new user message after small budget",
+            },
+          }),
+      );
 
       let receivedMessagesLength = -1;
       __setAnthropicForTests({
@@ -752,8 +805,12 @@ describe("streamConciergeTurn", () => {
         }),
       );
 
-      // The 1 historical pair is dropped; only the new user message
-      // remains. messages.length === 1.
+      // The 1 historical pair (USER + ASSISTANT carrying 12k inputTokens)
+      // is dropped because its sum exceeds the 5_000 override. Only the
+      // new user message remains, so the SDK gets called with exactly 1
+      // message — the new user turn. This catches the orphan-ASSISTANT
+      // bug that an "ordering-naive" compaction would produce when the
+      // new user message lands at the front of createdAt order.
       expect(receivedMessagesLength).toBe(1);
     } finally {
       if (previousEnv === undefined) {
