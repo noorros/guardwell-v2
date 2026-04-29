@@ -9,6 +9,7 @@ import { getPracticeUser } from "@/lib/rbac";
 import { appendEventAndApply } from "@/lib/events";
 import { projectPracticeProfileUpdated } from "@/lib/events/projections/practiceProfile";
 import { deriveSpecialtyCategory } from "@/lib/specialties";
+import { isValidStateCode } from "@/lib/states";
 
 const Input = z.object({
   hasInHouseLab: z.boolean(),
@@ -22,6 +23,7 @@ const Input = z.object({
   // category is derived via deriveSpecialtyCategory() — never user-input.
   specialty: z.string().nullable().optional(),
   providerCount: z.number().int().min(0).nullable().optional(),
+  operatingStates: z.array(z.string().length(2)).default([]),
 });
 
 export async function saveComplianceProfileAction(
@@ -36,13 +38,16 @@ export async function saveComplianceProfileAction(
   const parsed = Input.parse(input);
   const specialty = parsed.specialty ?? null;
   const specialtyCategory = deriveSpecialtyCategory(specialty);
+  const validOperatingStates = (parsed.operatingStates ?? [])
+    .map((c) => c.toUpperCase())
+    .filter(isValidStateCode);
 
-  // Persist the specific specialty on Practice. This field is descriptive
-  // metadata — it doesn't drive framework applicability and so doesn't
-  // need to flow through the event-sourcing pipeline.
+  // Persist the specific specialty + operatingStates on Practice. These
+  // are descriptive metadata — they don't drive framework applicability
+  // and so don't need to flow through the event-sourcing pipeline.
   await db.practice.update({
     where: { id: pu.practiceId },
-    data: { specialty },
+    data: { specialty, operatingStates: validOperatingStates },
   });
 
   // The event still carries the legacy 6-bucket specialtyCategory (derived)

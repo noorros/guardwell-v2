@@ -26,7 +26,7 @@ export default async function ComplianceProfilePage() {
     }),
     db.practice.findUnique({
       where: { id: pu.practiceId },
-      select: { specialty: true },
+      select: { specialty: true, operatingStates: true, primaryState: true },
     }),
   ]);
 
@@ -67,6 +67,8 @@ export default async function ComplianceProfilePage() {
               // specialty.ts runs, all rows have Practice.specialty set.
               specialty: practice?.specialty ?? null,
               providerCount: existing?.providerCount ?? null,
+              operatingStates: practice?.operatingStates ?? [],
+              primaryState: practice?.primaryState ?? "",
             }}
             redirectTo={"/onboarding/first-run" as Route}
             submitLabel="Continue → First-run setup"

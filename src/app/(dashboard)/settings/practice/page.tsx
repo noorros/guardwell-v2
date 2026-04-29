@@ -26,7 +26,7 @@ export default async function PracticeSettingsPage() {
     }),
     db.practice.findUnique({
       where: { id: pu.practiceId },
-      select: { specialty: true },
+      select: { specialty: true, operatingStates: true, primaryState: true },
     }),
   ]);
 
@@ -73,6 +73,8 @@ export default async function PracticeSettingsPage() {
                 compoundsAllergens: profile?.compoundsAllergens ?? false,
                 specialty: practice?.specialty ?? null,
                 providerCount: profile?.providerCount ?? null,
+                operatingStates: practice?.operatingStates ?? [],
+                primaryState: practice?.primaryState ?? "",
               }}
               redirectTo={"/settings/practice" as Route}
               submitLabel="Save profile"
