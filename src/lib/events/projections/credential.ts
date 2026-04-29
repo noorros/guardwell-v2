@@ -9,6 +9,7 @@
 import type { Prisma } from "@prisma/client";
 import type { PayloadFor } from "../registry";
 import { rederiveRequirementStatus } from "@/lib/compliance/derivation/rederive";
+import { assertProjectionPracticeOwned } from "./guards";
 
 type UpsertedPayload = PayloadFor<"CREDENTIAL_UPSERTED", 1>;
 type RemovedPayload = PayloadFor<"CREDENTIAL_REMOVED", 1>;
@@ -45,6 +46,20 @@ export async function projectCredentialUpserted(
   args: { practiceId: string; payload: UpsertedPayload },
 ): Promise<void> {
   const { practiceId, payload } = args;
+
+  // Audit C-1: refuse cross-tenant writes. Without this check a forged
+  // event payload carrying another practice's credentialId would
+  // overwrite that practice's row (holderId, dates, retiredAt, etc.).
+  const existingCred = await tx.credential.findUnique({
+    where: { id: payload.credentialId },
+    select: { practiceId: true },
+  });
+  assertProjectionPracticeOwned(
+    existingCred,
+    practiceId,
+    `CREDENTIAL_UPSERTED ${payload.credentialId}`,
+  );
+
   const credType = await tx.credentialType.findUnique({
     where: { code: payload.credentialTypeCode },
     select: { id: true },
@@ -92,9 +107,18 @@ export async function projectCredentialRemoved(
   const { practiceId, payload } = args;
   const existing = await tx.credential.findUnique({
     where: { id: payload.credentialId },
-    select: { credentialTypeId: true },
+    select: { credentialTypeId: true, practiceId: true },
   });
   if (!existing) return;
+
+  // Audit C-1: refuse cross-tenant retire. Otherwise a forged event
+  // could soft-delete another practice's credential AND mis-rederive
+  // the caller's framework score from the foreign credential type.
+  assertProjectionPracticeOwned(
+    existing,
+    practiceId,
+    `CREDENTIAL_REMOVED ${payload.credentialId}`,
+  );
 
   await tx.credential.update({
     where: { id: payload.credentialId },
@@ -113,6 +137,22 @@ export async function projectCeuActivityLogged(
   args: { practiceId: string; payload: CeuLoggedPayload },
 ): Promise<void> {
   const { practiceId, payload } = args;
+
+  // Audit C-1: the CEU row stores `credentialId` as an FK. Prisma's FK
+  // doesn't validate same-practice — a forged event could create a CEU
+  // attached to another practice's credential, breaking the foreign-key
+  // invariant (`activity.practiceId !== activity.credential.practiceId`)
+  // and poisoning the caller's CEU progress totals.
+  const cred = await tx.credential.findUnique({
+    where: { id: payload.credentialId },
+    select: { practiceId: true },
+  });
+  assertProjectionPracticeOwned(
+    cred,
+    practiceId,
+    `CEU_ACTIVITY_LOGGED credential ${payload.credentialId}`,
+  );
+
   await tx.ceuActivity.create({
     data: {
       id: payload.ceuActivityId,
@@ -133,7 +173,20 @@ export async function projectCeuActivityRemoved(
   tx: Prisma.TransactionClient,
   args: { practiceId: string; payload: CeuRemovedPayload },
 ): Promise<void> {
-  const { payload } = args;
+  const { practiceId, payload } = args;
+
+  // Audit C-1: refuse cross-tenant retire of a CEU activity.
+  const existing = await tx.ceuActivity.findUnique({
+    where: { id: payload.ceuActivityId },
+    select: { practiceId: true },
+  });
+  if (!existing) return;
+  assertProjectionPracticeOwned(
+    existing,
+    practiceId,
+    `CEU_ACTIVITY_REMOVED ${payload.ceuActivityId}`,
+  );
+
   await tx.ceuActivity.update({
     where: { id: payload.ceuActivityId },
     data: { retiredAt: new Date() },
@@ -145,6 +198,22 @@ export async function projectCredentialReminderConfigUpdated(
   args: { practiceId: string; payload: ReminderConfigPayload },
 ): Promise<void> {
   const { practiceId, payload } = args;
+
+  // Audit C-1: reminder-config rows are keyed by credentialId. A forged
+  // event could otherwise create/overwrite a config row for another
+  // practice's credential — the row would have practiceId=A but
+  // credentialId belonging to practice B, triggering renewal-reminder
+  // spam against B's credential charged to A's audit trail.
+  const cred = await tx.credential.findUnique({
+    where: { id: payload.credentialId },
+    select: { practiceId: true },
+  });
+  assertProjectionPracticeOwned(
+    cred,
+    practiceId,
+    `CREDENTIAL_REMINDER_CONFIG_UPDATED credential ${payload.credentialId}`,
+  );
+
   await tx.credentialReminderConfig.upsert({
     where: { credentialId: payload.credentialId },
     create: {

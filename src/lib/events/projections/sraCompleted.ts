@@ -10,6 +10,7 @@
 import type { Prisma } from "@prisma/client";
 import type { PayloadFor } from "../registry";
 import { rederiveRequirementStatus } from "@/lib/compliance/derivation/rederive";
+import { assertProjectionPracticeOwned } from "./guards";
 
 type Payload = PayloadFor<"SRA_COMPLETED", 1>;
 
@@ -18,6 +19,19 @@ export async function projectSraCompleted(
   args: { practiceId: string; payload: Payload },
 ): Promise<void> {
   const { practiceId, payload } = args;
+
+  // Audit C-1: refuse cross-tenant writes. If `assessmentId` belongs to
+  // another practice, a forged event would otherwise overwrite that
+  // practice's row.
+  const existing = await tx.practiceSraAssessment.findUnique({
+    where: { id: payload.assessmentId },
+    select: { practiceId: true },
+  });
+  assertProjectionPracticeOwned(
+    existing,
+    practiceId,
+    `SRA_COMPLETED ${payload.assessmentId}`,
+  );
 
   // Resolve question codes to question IDs in bulk for the FK writes.
   const codes = payload.answers.map((a) => a.questionCode);

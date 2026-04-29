@@ -2,6 +2,7 @@
 import type { Prisma } from "@prisma/client";
 import type { PayloadFor } from "../registry";
 import { rederiveRequirementStatus } from "@/lib/compliance/derivation/rederive";
+import { assertProjectionPracticeOwned } from "./guards";
 
 type Payload = PayloadFor<"ALLERGY_EQUIPMENT_CHECK_LOGGED", 1>;
 
@@ -10,6 +11,20 @@ export async function projectAllergyEquipmentCheckLogged(
   args: { practiceId: string; payload: Payload },
 ): Promise<void> {
   const { practiceId, payload } = args;
+
+  // Audit C-1: refuse cross-tenant overwrite of an existing equipment
+  // check. Without this, a forged event could mutate another practice's
+  // refrigerator-temp / emergency-kit log row.
+  const existing = await tx.allergyEquipmentCheck.findUnique({
+    where: { id: payload.equipmentCheckId },
+    select: { practiceId: true },
+  });
+  assertProjectionPracticeOwned(
+    existing,
+    practiceId,
+    `ALLERGY_EQUIPMENT_CHECK_LOGGED ${payload.equipmentCheckId}`,
+  );
+
   await tx.allergyEquipmentCheck.upsert({
     where: { id: payload.equipmentCheckId },
     create: {
