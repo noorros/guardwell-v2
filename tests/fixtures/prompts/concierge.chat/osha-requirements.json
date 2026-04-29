@@ -1,0 +1,13 @@
+{
+  "name": "osha-requirements",
+  "input": {
+    "practiceName": "Riverside Orthopedics",
+    "primaryState": "PA",
+    "providerCount": "LARGE_16_PLUS",
+    "messages": [
+      { "role": "user", "content": "What are our OSHA requirements?" }
+    ]
+  },
+  "expectedToolCalls": ["list_requirements_by_framework"],
+  "forbiddenStrings": ["I don't have access", "I cannot"]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "hipaa-score-question",
+  "input": {
+    "practiceName": "Acme Family Medicine",
+    "primaryState": "TX",
+    "providerCount": "MEDIUM_6_15",
+    "messages": [
+      { "role": "user", "content": "What's our current HIPAA compliance score?" }
+    ]
+  },
+  "expectedToolCalls": ["list_frameworks"],
+  "forbiddenStrings": ["I don't have access", "I cannot"]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "risk-overview",
+  "input": {
+    "practiceName": "Cobblestone Family Care",
+    "primaryState": "RI",
+    "providerCount": "SOLO",
+    "messages": [
+      { "role": "user", "content": "What are our biggest compliance risks right now?" }
+    ]
+  },
+  "expectedToolCalls": ["get_dashboard_snapshot"],
+  "forbiddenStrings": ["I don't have access", "I cannot"]
+}
