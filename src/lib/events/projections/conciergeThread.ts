@@ -18,6 +18,8 @@ type AssistantMessagePayload = PayloadFor<
   1
 >;
 type ToolInvokedPayload = PayloadFor<"CONCIERGE_TOOL_INVOKED", 1>;
+type ThreadRenamedPayload = PayloadFor<"CONCIERGE_THREAD_RENAMED", 1>;
+type ThreadArchivedPayload = PayloadFor<"CONCIERGE_THREAD_ARCHIVED", 1>;
 
 export async function projectConciergeThreadCreated(
   tx: Prisma.TransactionClient,
@@ -104,5 +106,28 @@ export async function projectConciergeToolInvoked(
       content: `Tool ${payload.toolName} invoked${payload.error ? ` — error: ${payload.error}` : ""}`,
       payload: payload as unknown as Prisma.InputJsonValue,
     },
+  });
+}
+
+export async function projectConciergeThreadRenamed(
+  tx: Prisma.TransactionClient,
+  args: { practiceId: string; payload: ThreadRenamedPayload },
+): Promise<void> {
+  await tx.conversationThread.update({
+    where: { id: args.payload.threadId },
+    data: { title: args.payload.title },
+  });
+}
+
+export async function projectConciergeThreadArchived(
+  tx: Prisma.TransactionClient,
+  args: { practiceId: string; payload: ThreadArchivedPayload },
+): Promise<void> {
+  // Idempotent: if already archived, keep the existing archivedAt
+  // timestamp. updateMany with archivedAt: null filter ensures we only
+  // set archivedAt on first archive — subsequent calls are no-ops.
+  await tx.conversationThread.updateMany({
+    where: { id: args.payload.threadId, archivedAt: null },
+    data: { archivedAt: new Date() },
   });
 }
