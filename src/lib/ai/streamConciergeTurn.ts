@@ -5,8 +5,12 @@
 //      rows; TOOL rows are NOT replayed because tool_use + tool_result blocks
 //      must live inside the assistant turn that produced them — we don't
 //      reconstruct that here. Pair-based FIFO compaction is implemented at
-//      the history-load step. TOOL-row replay is tracked separately in PR
-//      A6.2.)
+//      the history-load step. TOOL-row replay for the UI is implemented in
+//      `src/lib/concierge/replayHistory.ts`; this generator's history-load
+//      step still skips TOOL rows because the SDK requires tool_use+tool_result
+//      blocks to live INSIDE the assistant turn that produced them —
+//      replay-back-to-Claude would require richer reconstruction, which is
+//      out of scope.)
 //   2. Call Anthropic messages.stream() with the 8 read-only tools registered
 //      in PR A2 (src/lib/ai/conciergeTools.ts)
 //   3. On tool_use block: invoke tool handler via invokeTool(), append a
@@ -29,9 +33,7 @@
 //
 // Intermediate-iteration text (text emitted BEFORE a tool_use within the same
 // iteration) is streamed to the client but NOT persisted; only the FINAL
-// non-tool turn's text lands in the assistant ConversationMessage. TOOL-row
-// replay is tracked separately in PR A6.2; the intermediate-text persistence
-// trade-off is unchanged.
+// non-tool turn's text lands in the assistant ConversationMessage.
 
 import { createHash, randomUUID } from "node:crypto";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages.js";

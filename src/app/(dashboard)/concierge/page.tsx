@@ -18,6 +18,7 @@ import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { ConciergeConversation } from "@/components/gw/ConciergeConversation";
 import { ThreadList } from "@/components/gw/ConciergeConversation/ThreadList";
 import type { UIMessage } from "@/components/gw/ConciergeConversation";
+import { replayThreadHistory } from "@/lib/concierge/replayHistory";
 
 // Per-user thread membership + dynamic searchParams require fresh server
 // renders on every nav. Caching this route would leak threads across users.
@@ -77,36 +78,11 @@ export default async function ConciergePage({
         payload: true,
       },
     });
-    initialMessages = messages.flatMap<UIMessage>((m) => {
-      // Only USER + ASSISTANT messages are surfaced in the conversation
-      // pane; TOOL rows are persisted for audit but folded into the
-      // assistant bubble's tool-chip via streaming events. On historical
-      // load we don't have the raw tool_use_started/result event ordering
-      // recorded, so for now we drop TOOL rows from the rendered list.
-      // PR A6 will plumb the structured payload JSON for tool-chip
-      // reconstruction so historical assistant turns show their tools.
-      if (m.role === "USER") {
-        return [
-          {
-            id: m.id,
-            role: "user" as const,
-            content: m.content,
-          },
-        ];
-      }
-      if (m.role === "ASSISTANT") {
-        return [
-          {
-            id: m.id,
-            role: "assistant" as const,
-            parts: [{ kind: "text" as const, text: m.content }],
-            // Historical messages are NOT streaming — they're hydrated.
-            streaming: false,
-          },
-        ];
-      }
-      return [];
-    });
+    // replayThreadHistory groups TOOL rows with the next ASSISTANT message
+    // (createdAt-asc) so resumed threads render their original tool chips.
+    // Orphan TOOL rows at the tail (no closing ASSISTANT) are dropped with
+    // a console.warn — see src/lib/concierge/replayHistory.ts for details.
+    initialMessages = replayThreadHistory(messages);
   }
 
   return (
