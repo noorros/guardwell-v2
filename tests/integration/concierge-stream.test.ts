@@ -574,12 +574,42 @@ describe("streamConciergeTurn", () => {
   });
 
   it("per-thread token compaction drops oldest USER+ASSISTANT pairs over the budget", async () => {
-    const { user, practice, threadId } =
-      await seedThreadWithUserMessage("turn 6 user msg");
+    // Build the thread WITHOUT the seed helper's user message — we want
+    // the new user message to land LAST in createdAt order so it mirrors
+    // the production sequence (route handler appends the user message
+    // BEFORE invoking the generator). Seeding it first via the helper
+    // would put it at the front of the FIFO and make it the first row
+    // dropped — exercising compaction but not the realistic scenario.
+    const user = await db.user.create({
+      data: {
+        firebaseUid: `concierge-compaction-${Math.random().toString(36).slice(2, 10)}`,
+        email: `concierge-compaction-${Math.random().toString(36).slice(2, 8)}@test.test`,
+      },
+    });
+    const practice = await db.practice.create({
+      data: { name: "Concierge Compaction Test", primaryState: "TX" },
+    });
+    await db.practiceUser.create({
+      data: { userId: user.id, practiceId: practice.id, role: "OWNER" },
+    });
+    const threadId = `thread-compaction-${Math.random().toString(36).slice(2, 10)}`;
+    await appendEventAndApply(
+      {
+        practiceId: practice.id,
+        actorUserId: user.id,
+        type: "CONCIERGE_THREAD_CREATED",
+        payload: { threadId, userId: user.id, title: null },
+      },
+      async (tx) =>
+        projectConciergeThreadCreated(tx, {
+          practiceId: practice.id,
+          payload: { threadId, userId: user.id, title: null },
+        }),
+    );
 
     // Seed 5 prior USER+ASSISTANT pairs, each ASSISTANT row carrying
     // 12_000 inputTokens. Five pairs × 12k = 60k > the 50k default
-    // budget; compaction should drop at least one pair.
+    // budget; compaction should drop the oldest pair.
     //
     // Insert directly via db.conversationMessage.create — we don't need
     // the event-log + projection plumbing for these synthetic rows,
@@ -604,6 +634,31 @@ describe("streamConciergeTurn", () => {
         },
       });
     }
+
+    // Now append the NEW user message via the projection, so it sits at
+    // the tail of the history (createdAt-asc).
+    const newMessageId = `msg-${Math.random().toString(36).slice(2, 10)}`;
+    await appendEventAndApply(
+      {
+        practiceId: practice.id,
+        actorUserId: user.id,
+        type: "CONCIERGE_MESSAGE_USER_SENT",
+        payload: {
+          messageId: newMessageId,
+          threadId,
+          content: "turn 6 user msg",
+        },
+      },
+      async (tx) =>
+        projectConciergeMessageUserSent(tx, {
+          practiceId: practice.id,
+          payload: {
+            messageId: newMessageId,
+            threadId,
+            content: "turn 6 user msg",
+          },
+        }),
+    );
 
     let receivedMessagesLength = -1;
     __setAnthropicForTests({
@@ -633,11 +688,14 @@ describe("streamConciergeTurn", () => {
       }),
     );
 
-    // Without compaction we'd see 5 historical pairs (10) + 1 new user
-    // message = 11. With compaction at least one pair must be dropped,
-    // so we expect strictly fewer than 11.
-    expect(receivedMessagesLength).toBeGreaterThan(0);
-    expect(receivedMessagesLength).toBeLessThan(11);
+    // Five pairs × 12k = 60k tokens, over the 50k default budget by 10k.
+    // Dropping the oldest USER+ASSISTANT pair frees 12k (the assistant
+    // row carries the inputTokens), bringing the total to 48k — under
+    // budget. So exactly one pair drops: 4 historical pairs (8 msgs) +
+    // 1 new user message = 9 messages reach the SDK. An exact-value
+    // assertion catches stranded-USER regressions in pair-drop logic
+    // (e.g. dropping a USER without its ASSISTANT, which would yield 10).
+    expect(receivedMessagesLength).toBe(9);
   });
 
   it("per-thread token compaction respects CONCIERGE_THREAD_MAX_INPUT_TOKENS env override", async () => {

@@ -4,7 +4,9 @@
 //   1. Resume conversation from ConversationMessage history (USER + ASSISTANT
 //      rows; TOOL rows are NOT replayed because tool_use + tool_result blocks
 //      must live inside the assistant turn that produced them — we don't
-//      reconstruct that here. PR A6 may revisit for compaction.)
+//      reconstruct that here. Pair-based FIFO compaction is implemented at
+//      the history-load step. TOOL-row replay is tracked separately in PR
+//      A6.2.)
 //   2. Call Anthropic messages.stream() with the 8 read-only tools registered
 //      in PR A2 (src/lib/ai/conciergeTools.ts)
 //   3. On tool_use block: invoke tool handler via invokeTool(), append a
@@ -27,8 +29,9 @@
 //
 // Intermediate-iteration text (text emitted BEFORE a tool_use within the same
 // iteration) is streamed to the client but NOT persisted; only the FINAL
-// non-tool turn's text lands in the assistant ConversationMessage. PR A6 may
-// revisit this for compaction/replay.
+// non-tool turn's text lands in the assistant ConversationMessage. TOOL-row
+// replay is tracked separately in PR A6.2; the intermediate-text persistence
+// trade-off is unchanged.
 
 import { createHash, randomUUID } from "node:crypto";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages.js";
@@ -182,9 +185,14 @@ export async function* streamConciergeTurn(
         errorCode: opts.errorCode ?? null,
         containsPHI: false,
       });
-    } catch {
+    } catch (err) {
       // LlmCall persistence is best-effort; if it fails (DB outage, etc.)
       // we don't want to mask the original error path or break streaming.
+      // Surface a console.warn so a DB-blip-causing-silent-degradation is
+      // visible in Cloud Run logs.
+      console.warn(
+        `[concierge] LlmCall write failed (practice=${args.practiceId} thread=${args.threadId}): ${err instanceof Error ? err.message : String(err)}`,
+      );
       return null;
     }
   }
@@ -237,9 +245,11 @@ export async function* streamConciergeTurn(
   // Tradeoff: this is FIFO compaction (chronological). It's coarse but
   // safe — no semantic loss for the most-recent context. A smarter
   // strategy (summarize-and-replace) is out of scope for A6.
+  const parsedMax = Number(process.env.CONCIERGE_THREAD_MAX_INPUT_TOKENS);
   const threadMaxInputTokens =
-    Number(process.env.CONCIERGE_THREAD_MAX_INPUT_TOKENS) ||
-    DEFAULT_THREAD_MAX_INPUT_TOKENS;
+    Number.isFinite(parsedMax) && parsedMax > 0
+      ? parsedMax
+      : DEFAULT_THREAD_MAX_INPUT_TOKENS;
   let totalThreadTokens = annotated.reduce((s, a) => s + a.inputTokens, 0);
   while (totalThreadTokens > threadMaxInputTokens && annotated.length > 1) {
     // Drop the oldest entry; if it's a USER and the next entry is an
