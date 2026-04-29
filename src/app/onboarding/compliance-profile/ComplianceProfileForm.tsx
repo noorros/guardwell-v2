@@ -5,15 +5,9 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { Button } from "@/components/ui/button";
+import { SpecialtyCombobox } from "@/components/gw/SpecialtyCombobox";
+import { deriveSpecialtyCategory } from "@/lib/specialties";
 import { saveComplianceProfileAction } from "./actions";
-
-type Specialty =
-  | "PRIMARY_CARE"
-  | "SPECIALTY"
-  | "DENTAL"
-  | "BEHAVIORAL"
-  | "ALLIED"
-  | "OTHER";
 
 export interface ComplianceProfileFormProps {
   initial: {
@@ -24,7 +18,13 @@ export interface ComplianceProfileFormProps {
     subjectToMacraMips: boolean;
     sendsAutomatedPatientMessages: boolean;
     compoundsAllergens: boolean;
-    specialtyCategory: string | null;
+    /**
+     * Specific specialty value (e.g. "Family Medicine"). The legacy
+     * 6-bucket category is derived from this via deriveSpecialtyCategory.
+     * Existing rows that pre-date this field will have null until the
+     * user picks a specific.
+     */
+    specialty: string | null;
     providerCount: number | null;
   };
   redirectTo: Route;
@@ -39,7 +39,16 @@ export interface ComplianceProfileFormProps {
 }
 
 interface ToggleDef {
-  key: keyof ComplianceProfileFormProps["initial"];
+  key: keyof Pick<
+    ComplianceProfileFormProps["initial"],
+    | "hasInHouseLab"
+    | "dispensesControlledSubstances"
+    | "medicareParticipant"
+    | "billsMedicaid"
+    | "subjectToMacraMips"
+    | "sendsAutomatedPatientMessages"
+    | "compoundsAllergens"
+  >;
   title: string;
   description: string;
   enables: string;
@@ -110,9 +119,7 @@ export function ComplianceProfileForm({
     sendsAutomatedPatientMessages: initial.sendsAutomatedPatientMessages,
     compoundsAllergens: initial.compoundsAllergens,
   });
-  const [specialty, setSpecialty] = useState<Specialty | "">(
-    (initial.specialtyCategory as Specialty | null) ?? "",
-  );
+  const [specialty, setSpecialty] = useState<string>(initial.specialty ?? "");
   const [providerCount, setProviderCount] = useState<string>(
     initial.providerCount != null ? String(initial.providerCount) : "",
   );
@@ -121,14 +128,15 @@ export function ComplianceProfileForm({
   const [escaping, setEscaping] = useState(false);
   const router = useRouter();
 
-  const handleSpecialtyChange = (next: Specialty | "") => {
+  const handleSpecialtyChange = (next: string) => {
     setSpecialty(next);
     // Specialty-aware defaults: dentists are almost always exempt from
     // MACRA/MIPS (low Medicare Part B volume + not in eligible specialty
     // list), so untoggle MIPS when DENTAL is picked. User can override.
     // Allied health — same exemption pattern. Behavioral health varies, so
     // leave it alone.
-    if (next === "DENTAL" || next === "ALLIED") {
+    const bucket = deriveSpecialtyCategory(next);
+    if (bucket === "DENTAL" || bucket === "ALLIED") {
       setToggles((p) => ({ ...p, subjectToMacraMips: false }));
     }
   };
@@ -142,7 +150,7 @@ export function ComplianceProfileForm({
       try {
         await saveComplianceProfileAction({
           ...toggles,
-          specialtyCategory: specialty || null,
+          specialty: specialty || null,
           providerCount:
             providerCountParsed != null && !Number.isNaN(providerCountParsed)
               ? providerCountParsed
@@ -176,7 +184,7 @@ export function ComplianceProfileForm({
           >
             <input
               type="checkbox"
-              checked={toggles[t.key as keyof typeof toggles]}
+              checked={toggles[t.key]}
               onChange={(e) =>
                 setToggles((p) => ({ ...p, [t.key]: e.target.checked }))
               }
@@ -198,19 +206,11 @@ export function ComplianceProfileForm({
       <section className="grid gap-3 sm:grid-cols-2">
         <label className="space-y-1 text-xs font-medium text-foreground">
           Primary specialty
-          <select
+          <SpecialtyCombobox
             value={specialty}
-            onChange={(e) => handleSpecialtyChange(e.target.value as Specialty | "")}
-            className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-          >
-            <option value="">Select…</option>
-            <option value="PRIMARY_CARE">Primary care</option>
-            <option value="SPECIALTY">Specialty / surgical</option>
-            <option value="DENTAL">Dental</option>
-            <option value="BEHAVIORAL">Behavioral health</option>
-            <option value="ALLIED">Allied health (PT, OT, etc.)</option>
-            <option value="OTHER">Other</option>
-          </select>
+            onChange={handleSpecialtyChange}
+            className="mt-1"
+          />
         </label>
         <label className="space-y-1 text-xs font-medium text-foreground">
           Providers

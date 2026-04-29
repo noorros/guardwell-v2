@@ -20,9 +20,15 @@ export default async function CompliancePreofilePage() {
   const pu = await getPracticeUser();
   if (!pu) redirect("/onboarding/create-practice" as Route);
 
-  const existing = await db.practiceComplianceProfile.findUnique({
-    where: { practiceId: pu.practiceId },
-  });
+  const [existing, practice] = await Promise.all([
+    db.practiceComplianceProfile.findUnique({
+      where: { practiceId: pu.practiceId },
+    }),
+    db.practice.findUnique({
+      where: { id: pu.practiceId },
+      select: { specialty: true },
+    }),
+  ]);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-xl items-start p-6">
@@ -54,7 +60,12 @@ export default async function CompliancePreofilePage() {
               sendsAutomatedPatientMessages:
                 existing?.sendsAutomatedPatientMessages ?? true,
               compoundsAllergens: existing?.compoundsAllergens ?? false,
-              specialtyCategory: existing?.specialtyCategory ?? null,
+              // Bridge: existing rows may have specialty=null but a legacy
+              // bucket value in PracticeComplianceProfile.specialtyCategory.
+              // The combobox will show "Select specialty…" in that case
+              // until the user picks. After scripts/backfill-practice-
+              // specialty.ts runs, all rows have Practice.specialty set.
+              specialty: practice?.specialty ?? null,
               providerCount: existing?.providerCount ?? null,
             }}
             redirectTo={"/onboarding/first-run" as Route}
