@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { PracticeProfileForm } from "@/components/gw/PracticeProfileForm";
 import type { PracticeProfileInput } from "@/components/gw/PracticeProfileForm/types";
+import { deriveSpecialtyCategory } from "@/lib/specialties";
 import { saveComplianceProfileAction } from "./actions";
 
 export interface ComplianceProfileFormProps {
@@ -127,6 +128,13 @@ export function ComplianceProfileForm({
     setToggles((prev) => ({ ...prev, [key]: next }));
   };
 
+  const handleSpecialtyChange = (specialty: string | null) => {
+    const bucket = deriveSpecialtyCategory(specialty);
+    if (bucket === "DENTAL" || bucket === "ALLIED") {
+      setToggles((p) => ({ ...p, subjectToMacraMips: false }));
+    }
+  };
+
   const onSubmitProfile = async (
     next: PracticeProfileInput,
   ): Promise<{ ok: boolean; error?: string }> => {
@@ -222,6 +230,7 @@ export function ComplianceProfileForm({
         initial={initial.profile}
         onSubmit={onSubmitProfile}
         submitLabel={submitLabel}
+        onSpecialtyChange={handleSpecialtyChange}
       />
 
       <div className="flex justify-start">

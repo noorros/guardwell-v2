@@ -25,6 +25,7 @@ export function PracticeProfileForm({
   initial,
   onSubmit,
   submitLabel = "Save",
+  onSpecialtyChange,
 }: PracticeProfileFormProps) {
   const [state, setState] = useState<PracticeProfileInput>(initial);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +40,9 @@ export function PracticeProfileForm({
   ) {
     setState((prev) => ({ ...prev, [key]: value }));
     setFieldErrors((prev) => ({ ...prev, [key]: undefined }));
+    if (key === "specialty" && onSpecialtyChange) {
+      onSpecialtyChange((value ?? null) as string | null);
+    }
   }
 
   function validate(): Partial<Record<keyof PracticeProfileInput, string>> {

@@ -120,4 +120,27 @@ describe("PracticeProfileForm", () => {
       expect(screen.getByText("Server boom")).toBeInTheDocument();
     });
   });
+
+  it("calls onSpecialtyChange when specialty is picked", async () => {
+    const user = userEvent.setup();
+    const onSpecialtyChange = vi.fn();
+    render(
+      <PracticeProfileForm
+        mode="settings"
+        initial={baseInitial}
+        onSubmit={vi.fn().mockResolvedValue({ ok: true })}
+        onSpecialtyChange={onSpecialtyChange}
+      />,
+    );
+    // Open the SpecialtyCombobox (its trigger has aria-label "Select specialty"
+    // when empty, vs "Specialty: <value>" when filled — narrow by name).
+    const specialtyTrigger = screen.getByRole("combobox", {
+      name: /select specialty/i,
+    });
+    await user.click(specialtyTrigger);
+    // Click "Family Medicine"
+    const item = await screen.findByText("Family Medicine");
+    await user.click(item);
+    expect(onSpecialtyChange).toHaveBeenCalledWith("Family Medicine");
+  });
 });

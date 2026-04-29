@@ -30,4 +30,12 @@ export interface PracticeProfileFormProps {
   initial: PracticeProfileInput;
   onSubmit: (next: PracticeProfileInput) => Promise<{ ok: boolean; error?: string }>;
   submitLabel?: string;
+  /**
+   * Optional callback fired whenever the user changes the specialty pick.
+   * Parents who own related state (e.g. compliance toggles in the
+   * onboarding flow) subscribe to this to react to specialty bucket
+   * changes — for example, untoggling MACRA/MIPS when DENTAL or ALLIED
+   * is picked.
+   */
+  onSpecialtyChange?: (specialty: string | null) => void;
 }
