@@ -1,7 +1,7 @@
 // src/app/(dashboard)/programs/risk/new/SraWizard.tsx
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { Card, CardContent } from "@/components/ui/card";
@@ -110,6 +110,22 @@ export function SraWizard({ questions, initialState }: SraWizardProps) {
       setIsSavingDraft(false);
     }
   };
+
+  // Audit B-1 (HIPAA findings, 2026-04-29): debounced auto-save on every
+  // answer or note change so the wizard subtitle's "safe to close the tab"
+  // promise is true after Q1, not just after step transition. 1500ms gives
+  // the user time to finish typing a multi-word note without per-keystroke
+  // event spam, while keeping the "wait 8s and reload" recovery window
+  // tight enough to feel safe.
+  const persistDraftRef = useRef(persistDraft);
+  persistDraftRef.current = persistDraft;
+  useEffect(() => {
+    if (Object.keys(answers).length === 0) return;
+    const timer = setTimeout(() => {
+      void persistDraftRef.current(stepIdx);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [answers, notes, stepIdx]);
 
   const handleNext = () => {
     setError(null);
