@@ -16,7 +16,7 @@ import { ComplianceProfileForm } from "./ComplianceProfileForm";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Compliance profile · Onboarding" };
 
-export default async function CompliancePreofilePage() {
+export default async function ComplianceProfilePage() {
   const pu = await getPracticeUser();
   if (!pu) redirect("/onboarding/create-practice" as Route);
 
