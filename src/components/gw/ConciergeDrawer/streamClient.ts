@@ -48,12 +48,24 @@ export async function* streamConciergeChat(
     } catch {
       // body wasn't JSON — fall through to a generic HTTP error message.
     }
+    // The route handler distinguishes COST_BUDGET_EXCEEDED and PREFLIGHT_FAILURE
+    // (HTTP 500 with a specific `error` field) from generic HTTP errors so the
+    // drawer banner can surface the precise code instead of a flat HTTP_ERROR.
+    const bodyError = (payload as { error?: string } | null)?.error;
+    const code =
+      res.status === 429
+        ? "RATE_LIMITED"
+        : bodyError === "COST_BUDGET_EXCEEDED"
+          ? "COST_BUDGET_EXCEEDED"
+          : bodyError === "PREFLIGHT_FAILURE"
+            ? "PREFLIGHT_FAILURE"
+            : "HTTP_ERROR";
     yield {
       type: "error",
-      code: res.status === 429 ? "RATE_LIMITED" : "HTTP_ERROR",
+      code,
       message:
         (payload as { message?: string } | null)?.message ??
-        (payload as { error?: string } | null)?.error ??
+        bodyError ??
         `HTTP ${res.status}`,
     };
     return;

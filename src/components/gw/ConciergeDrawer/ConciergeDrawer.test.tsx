@@ -4,7 +4,7 @@
 // via `__streamForTests` (an async generator the drawer drains in place of
 // the SSE-fetch generator). Same StreamClientEvent shape, no fetch.
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "jest-axe";
@@ -21,6 +21,13 @@ async function* fakeStream(
 }
 
 describe("<ConciergeDrawer>", () => {
+  // Drawer persists state in localStorage; clear between tests so a stale
+  // threadId from one test doesn't leak into the next.
+  beforeEach(() => {
+    window.localStorage.removeItem("gw-concierge-thread-id");
+    window.localStorage.removeItem("gw-concierge-drawer-open");
+  });
+
   it("renders nothing when closed", () => {
     render(<ConciergeDrawer open={false} onOpenChange={() => {}} />);
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -191,5 +198,91 @@ describe("<ConciergeDrawer>", () => {
     );
     const results = await axe(container);
     expect(results).toHaveNoViolations();
+  });
+
+  it("'New thread' button clears messages and localStorage threadId", async () => {
+    const user = userEvent.setup();
+    // Pre-seed localStorage with a stale threadId.
+    window.localStorage.setItem("gw-concierge-thread-id", "stale-thread-id");
+
+    const fake = () =>
+      fakeStream([
+        { type: "thread_resolved", threadId: "fresh-thread-id" },
+        { type: "text_delta", text: "ok" },
+        {
+          type: "turn_complete",
+          messageId: "m-1",
+          inputTokens: 1,
+          outputTokens: 1,
+          costUsd: 0,
+        },
+        { type: "stream_done" },
+      ]);
+
+    render(
+      <ConciergeDrawer
+        open
+        onOpenChange={() => {}}
+        __streamForTests={fake as never}
+      />,
+    );
+    await user.type(screen.getByRole("textbox"), "hi");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+    // Wait for assistant text to appear so the "New thread" button is rendered.
+    expect(await screen.findByText("ok")).toBeInTheDocument();
+
+    // localStorage should now be the fresh threadId.
+    expect(window.localStorage.getItem("gw-concierge-thread-id")).toBe(
+      "fresh-thread-id",
+    );
+
+    await user.click(screen.getByRole("button", { name: /new thread/i }));
+
+    // Both component state (messages cleared — no more "ok") and localStorage cleared.
+    expect(screen.queryByText("ok")).toBeNull();
+    expect(window.localStorage.getItem("gw-concierge-thread-id")).toBeNull();
+  });
+
+  it("clicking Stop during streaming aborts the request and does not show ABORTED banner", async () => {
+    const user = userEvent.setup();
+    // Object wrapper so TS doesn't narrow the closure-assigned function back
+    // to `null` based on the literal initializer (matches the pattern used by
+    // the "disables Send and shows Stop" test above).
+    const holdOpen: { resolve: (() => void) | null } = { resolve: null };
+    const fake = () =>
+      (async function* () {
+        yield { type: "thread_resolved", threadId: "t-1" };
+        yield { type: "text_delta", text: "starting..." };
+        // Hold the stream open.
+        await new Promise<void>((r) => {
+          holdOpen.resolve = r;
+        });
+        // After resolve, yield ABORTED (matches server behavior on client disconnect).
+        yield { type: "error", code: "ABORTED", message: "Client disconnected" };
+        yield { type: "stream_done" };
+      })();
+
+    render(
+      <ConciergeDrawer
+        open
+        onOpenChange={() => {}}
+        __streamForTests={fake as never}
+      />,
+    );
+    await user.type(screen.getByRole("textbox"), "hi");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    // Wait for streaming-state Stop button.
+    const stopBtn = await screen.findByRole("button", { name: /stop/i });
+    await user.click(stopBtn);
+
+    // Resolve the stream so the generator finishes (would yield the ABORTED event,
+    // but the user-initiated guard should drop it).
+    holdOpen.resolve?.();
+
+    // The "Request canceled" alert banner should NOT appear (user-initiated abort).
+    // Wait one tick for state updates to flush.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByText(/request canceled/i)).toBeNull();
   });
 });

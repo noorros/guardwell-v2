@@ -156,6 +156,12 @@ export function ConciergeDrawer({
   );
   const threadId = threadIdOverride ?? persistedThreadId;
   const abortRef = useRef<AbortController | null>(null);
+  // Distinguishes a user-initiated Stop from a server-initiated ABORTED error.
+  // handleStop sets this true; the error-event branch checks it before showing
+  // the "Request canceled." banner; sendMessage's finally block resets it so
+  // the next turn starts clean. Server-side aborts (Cloud Run timeout, network
+  // drop) leave this false → banner still surfaces.
+  const userAbortedRef = useRef(false);
   const inputId = useId();
   const logRef = useRef<HTMLOListElement | null>(null);
 
@@ -180,6 +186,7 @@ export function ConciergeDrawer({
   }, [open]);
 
   function handleStop() {
+    userAbortedRef.current = true;
     abortRef.current?.abort();
   }
 
@@ -232,14 +239,18 @@ export function ConciergeDrawer({
     try {
       for await (const event of generator) {
         if (ac.signal.aborted) break;
-        dispatchEvent(event, assistantId);
+        applyStreamEvent(event, assistantId);
       }
     } catch (err) {
       if (ac.signal.aborted) {
-        setErrorBanner({
-          code: "ABORTED",
-          message: "Request canceled.",
-        });
+        // Skip the banner for user-initiated cancels (the user already knows
+        // they canceled). Server/network-initiated aborts still surface.
+        if (!userAbortedRef.current) {
+          setErrorBanner({
+            code: "ABORTED",
+            message: "Request canceled.",
+          });
+        }
       } else {
         setErrorBanner({
           code: "STREAM_ERROR",
@@ -259,11 +270,14 @@ export function ConciergeDrawer({
       );
       setPending(false);
       if (abortRef.current === ac) abortRef.current = null;
+      // Reset so a subsequent server-initiated abort still surfaces.
+      userAbortedRef.current = false;
     }
   }
 
   // Apply a single stream event to the assistant message identified by id.
-  function dispatchEvent(event: StreamClientEvent, assistantId: string) {
+  // (Renamed from `dispatchEvent` to avoid shadowing Window.dispatchEvent.)
+  function applyStreamEvent(event: StreamClientEvent, assistantId: string) {
     switch (event.type) {
       case "thread_resolved": {
         if (typeof window !== "undefined") {
@@ -276,6 +290,10 @@ export function ConciergeDrawer({
         setMessages((prev) =>
           prev.map((m) => {
             if (m.id !== assistantId || m.role !== "assistant") return m;
+            // Defensive: drop late deltas that arrive after turn_complete has
+            // already flipped streaming → false. Without this guard a stray
+            // text_delta could silently append to a "completed" message.
+            if (m.streaming === false) return m;
             const last = m.parts[m.parts.length - 1];
             if (last && last.kind === "text") {
               const updated = m.parts.slice(0, -1).concat({
@@ -336,6 +354,11 @@ export function ConciergeDrawer({
         return;
       }
       case "error": {
+        // Suppress the banner only for user-initiated ABORTED. The server
+        // emits ABORTED when request.signal fires; we can't tell apart a
+        // user Stop click from a Cloud Run timeout at this layer except
+        // via the userAbortedRef flag set in handleStop.
+        if (event.code === "ABORTED" && userAbortedRef.current) return;
         setErrorBanner({ code: event.code, message: event.message });
         return;
       }
