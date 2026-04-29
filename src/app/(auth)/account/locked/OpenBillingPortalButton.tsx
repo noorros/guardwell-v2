@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { openBillingPortalAction } from "./actions";
+import { openBillingPortalAction } from "@/lib/billing/portal";
 
 export function OpenBillingPortalButton() {
   const [isPending, startTransition] = useTransition();
