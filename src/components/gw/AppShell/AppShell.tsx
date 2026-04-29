@@ -1,5 +1,6 @@
 // src/components/gw/AppShell/AppShell.tsx
 import type { ReactNode } from "react";
+import { computeUserInitials } from "@/lib/utils";
 import { Sidebar, type MyComplianceItem } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { MobileSidebarTrigger } from "./MobileSidebarTrigger";
@@ -39,6 +40,7 @@ export function AppShell({
       <TopBar
         practiceName={practice.name}
         userEmail={user.email}
+        userInitials={computeUserInitials(user.email)}
         mobileTrigger={
           <MobileSidebarTrigger
             myComplianceItems={myComplianceItems}

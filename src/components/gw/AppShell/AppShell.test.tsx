@@ -1,11 +1,27 @@
 // src/components/gw/AppShell/AppShell.test.tsx
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeAll } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { AppShell } from "./AppShell";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/dashboard",
 }));
+
+vi.mock("@/app/(auth)/sign-out/actions", () => ({
+  signOutAction: vi.fn(async () => undefined),
+}));
+
+beforeAll(() => {
+  if (!Element.prototype.hasPointerCapture) {
+    Element.prototype.hasPointerCapture = () => false;
+  }
+  if (!Element.prototype.setPointerCapture) {
+    Element.prototype.setPointerCapture = () => undefined;
+  }
+  if (!Element.prototype.releasePointerCapture) {
+    Element.prototype.releasePointerCapture = () => undefined;
+  }
+});
 
 describe("<AppShell>", () => {
   it("renders the practice name in the top bar", () => {
@@ -19,19 +35,6 @@ describe("<AppShell>", () => {
       </AppShell>,
     );
     expect(screen.getByText("Acme Primary Care")).toBeInTheDocument();
-  });
-
-  it("renders the user email in the top bar", () => {
-    render(
-      <AppShell
-        practice={{ name: "Acme" }}
-        user={{ email: "jane@acme.test" }}
-        myComplianceItems={[]}
-      >
-        <div>page-content</div>
-      </AppShell>,
-    );
-    expect(screen.getByText("jane@acme.test")).toBeInTheDocument();
   });
 
   it("renders children inside <main id='main'>", () => {
@@ -72,7 +75,7 @@ describe("<AppShell>", () => {
     );
   });
 
-  it("includes a sign-out form with submit button in the top bar", () => {
+  it("renders the avatar in the top bar", () => {
     render(
       <AppShell
         practice={{ name: "Acme" }}
@@ -82,8 +85,6 @@ describe("<AppShell>", () => {
         <div>page-content</div>
       </AppShell>,
     );
-    const signOut = screen.getByRole("button", { name: /sign out/i });
-    expect(signOut).toHaveAttribute("type", "submit");
-    expect(signOut.closest("form")).not.toBeNull();
+    expect(screen.getByRole("button", { name: /open user menu/i })).toBeInTheDocument();
   });
 });
