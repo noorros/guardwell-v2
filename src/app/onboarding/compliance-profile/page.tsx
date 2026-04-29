@@ -36,6 +36,7 @@ export default async function ComplianceProfilePage() {
       "COVERED_ENTITY",
     primaryState: practice.primaryState,
     operatingStates: practice.operatingStates ?? [],
+    timezone: practice.timezone,
     addressStreet: practice.addressStreet,
     addressSuite: practice.addressSuite,
     addressCity: practice.addressCity,

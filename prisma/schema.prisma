@@ -77,6 +77,10 @@ model Practice {
   name             String
   primaryState     String // ISO state code, e.g. "AZ"
   operatingStates  String[]  @default([]) // additional states for multi-state practices
+  // IANA timezone (e.g. "America/Phoenix"). null = pre-backfill row;
+  // formatPracticeDate falls back to UTC. Default-derived from
+  // primaryState at create time and via scripts/backfill-practice-timezone.ts.
+  timezone         String?
   specialty        String?
   npiNumber        String?
   ehrSystem        String?
