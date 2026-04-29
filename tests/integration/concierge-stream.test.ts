@@ -439,4 +439,270 @@ describe("streamConciergeTurn", () => {
     // Anthropic was called exactly twice (one per iteration).
     expect(callCount).toBe(2);
   });
+
+  it("LlmCall row written on success with cost / latency / tokens populated", async () => {
+    const { user, practice, threadId } = await seedThreadWithUserMessage(
+      "say hi",
+    );
+    __setAnthropicForTests(
+      makeFakeAnthropic({
+        textChunks: ["hello"],
+        inputTokens: 200,
+        outputTokens: 25,
+      }) as never,
+    );
+
+    await collect(
+      streamConciergeTurn({
+        practiceId: practice.id,
+        practice: {
+          name: practice.name,
+          primaryState: practice.primaryState,
+          providerCount: null,
+        },
+        threadId,
+        actorUserId: user.id,
+      }),
+    );
+
+    const row = await db.llmCall.findFirst({
+      where: { promptId: "concierge.chat.v1", practiceId: practice.id },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(row).not.toBeNull();
+    expect(row!.success).toBe(true);
+    expect(row!.errorCode).toBeNull();
+    expect(row!.inputTokens).toBe(200);
+    expect(row!.outputTokens).toBe(25);
+    // costUsd is Prisma Decimal — coerce to number for the comparison.
+    expect(row!.costUsd).not.toBeNull();
+    expect(Number(row!.costUsd)).toBeGreaterThan(0);
+    // latency must be a real elapsed measurement.
+    expect(row!.latencyMs).toBeGreaterThanOrEqual(0);
+    expect(row!.containsPHI).toBe(false);
+    expect(row!.actorUserId).toBe(user.id);
+  });
+
+  it("LlmCall row written with success:false + errorCode UPSTREAM when SDK throws", async () => {
+    const { user, practice, threadId } =
+      await seedThreadWithUserMessage("force an error");
+
+    // Stub a stream() that throws synchronously — this hits the
+    // stream-open UPSTREAM catch in streamConciergeTurn.
+    __setAnthropicForTests({
+      messages: {
+        stream() {
+          throw new Error("simulated upstream failure");
+        },
+      },
+    } as never);
+
+    const events = (await collect(
+      streamConciergeTurn({
+        practiceId: practice.id,
+        practice: {
+          name: practice.name,
+          primaryState: practice.primaryState,
+          providerCount: null,
+        },
+        threadId,
+        actorUserId: user.id,
+      }),
+    )) as ConciergeStreamEvent[];
+
+    // Generator surfaces UPSTREAM as the only event.
+    expect(
+      events.find(
+        (e) => e.type === "error" && (e as { code: string }).code === "UPSTREAM",
+      ),
+    ).toBeDefined();
+
+    const row = await db.llmCall.findFirst({
+      where: { promptId: "concierge.chat.v1", practiceId: practice.id },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(row).not.toBeNull();
+    expect(row!.success).toBe(false);
+    expect(row!.errorCode).toBe("UPSTREAM");
+  });
+
+  it("llmCallId on the assistant event payload matches the ConversationMessage row", async () => {
+    const { user, practice, threadId } =
+      await seedThreadWithUserMessage("trace the id");
+    __setAnthropicForTests(
+      makeFakeAnthropic({ textChunks: ["traced"] }) as never,
+    );
+
+    await collect(
+      streamConciergeTurn({
+        practiceId: practice.id,
+        practice: {
+          name: practice.name,
+          primaryState: practice.primaryState,
+          providerCount: null,
+        },
+        threadId,
+        actorUserId: user.id,
+      }),
+    );
+
+    const event = await db.eventLog.findFirst({
+      where: {
+        practiceId: practice.id,
+        type: "CONCIERGE_MESSAGE_ASSISTANT_PRODUCED",
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(event).not.toBeNull();
+    const payload = event!.payload as { llmCallId: string | null };
+    expect(payload.llmCallId).not.toBeNull();
+    expect(typeof payload.llmCallId).toBe("string");
+
+    const assistantMsg = await db.conversationMessage.findFirst({
+      where: { threadId, role: "ASSISTANT" },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(assistantMsg).not.toBeNull();
+    expect(assistantMsg!.llmCallId).toBe(payload.llmCallId);
+
+    // Belt-and-suspenders: that id actually points to a real LlmCall row.
+    const row = await db.llmCall.findUnique({
+      where: { id: payload.llmCallId! },
+    });
+    expect(row).not.toBeNull();
+    expect(row!.success).toBe(true);
+  });
+
+  it("per-thread token compaction drops oldest USER+ASSISTANT pairs over the budget", async () => {
+    const { user, practice, threadId } =
+      await seedThreadWithUserMessage("turn 6 user msg");
+
+    // Seed 5 prior USER+ASSISTANT pairs, each ASSISTANT row carrying
+    // 12_000 inputTokens. Five pairs × 12k = 60k > the 50k default
+    // budget; compaction should drop at least one pair.
+    //
+    // Insert directly via db.conversationMessage.create — we don't need
+    // the event-log + projection plumbing for these synthetic rows,
+    // they just have to surface in the history query.
+    for (let i = 0; i < 5; i++) {
+      await db.conversationMessage.create({
+        data: {
+          threadId,
+          role: "USER",
+          content: `older user msg ${i}`,
+          payload: { content: `older user msg ${i}` },
+        },
+      });
+      await db.conversationMessage.create({
+        data: {
+          threadId,
+          role: "ASSISTANT",
+          content: `older assistant msg ${i}`,
+          payload: { content: `older assistant msg ${i}` },
+          inputTokens: 12_000,
+          outputTokens: 100,
+        },
+      });
+    }
+
+    let receivedMessagesLength = -1;
+    __setAnthropicForTests({
+      messages: {
+        stream(req: { messages: unknown[] }) {
+          receivedMessagesLength = req.messages.length;
+          // Hand back a normal end_turn stream so the rest of the
+          // generator runs unimpeded.
+          return (
+            makeFakeAnthropic({ textChunks: ["ok"] })
+              .messages.stream as unknown as (...a: unknown[]) => unknown
+          )(req);
+        },
+      },
+    } as never);
+
+    await collect(
+      streamConciergeTurn({
+        practiceId: practice.id,
+        practice: {
+          name: practice.name,
+          primaryState: practice.primaryState,
+          providerCount: null,
+        },
+        threadId,
+        actorUserId: user.id,
+      }),
+    );
+
+    // Without compaction we'd see 5 historical pairs (10) + 1 new user
+    // message = 11. With compaction at least one pair must be dropped,
+    // so we expect strictly fewer than 11.
+    expect(receivedMessagesLength).toBeGreaterThan(0);
+    expect(receivedMessagesLength).toBeLessThan(11);
+  });
+
+  it("per-thread token compaction respects CONCIERGE_THREAD_MAX_INPUT_TOKENS env override", async () => {
+    const previousEnv = process.env.CONCIERGE_THREAD_MAX_INPUT_TOKENS;
+    process.env.CONCIERGE_THREAD_MAX_INPUT_TOKENS = "5000";
+    try {
+      const { user, practice, threadId } =
+        await seedThreadWithUserMessage("new user message after small budget");
+
+      // Single historical pair tagged with 12_000 inputTokens — over
+      // the 5_000 override, so the only pair must drop.
+      await db.conversationMessage.create({
+        data: {
+          threadId,
+          role: "USER",
+          content: "older user",
+          payload: { content: "older user" },
+        },
+      });
+      await db.conversationMessage.create({
+        data: {
+          threadId,
+          role: "ASSISTANT",
+          content: "older assistant",
+          payload: { content: "older assistant" },
+          inputTokens: 12_000,
+          outputTokens: 100,
+        },
+      });
+
+      let receivedMessagesLength = -1;
+      __setAnthropicForTests({
+        messages: {
+          stream(req: { messages: unknown[] }) {
+            receivedMessagesLength = req.messages.length;
+            return (
+              makeFakeAnthropic({ textChunks: ["ok"] })
+                .messages.stream as unknown as (...a: unknown[]) => unknown
+            )(req);
+          },
+        },
+      } as never);
+
+      await collect(
+        streamConciergeTurn({
+          practiceId: practice.id,
+          practice: {
+            name: practice.name,
+            primaryState: practice.primaryState,
+            providerCount: null,
+          },
+          threadId,
+          actorUserId: user.id,
+        }),
+      );
+
+      // The 1 historical pair is dropped; only the new user message
+      // remains. messages.length === 1.
+      expect(receivedMessagesLength).toBe(1);
+    } finally {
+      if (previousEnv === undefined) {
+        delete process.env.CONCIERGE_THREAD_MAX_INPUT_TOKENS;
+      } else {
+        process.env.CONCIERGE_THREAD_MAX_INPUT_TOKENS = previousEnv;
+      }
+    }
+  });
 });

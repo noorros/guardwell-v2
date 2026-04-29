@@ -30,12 +30,14 @@
 // non-tool turn's text lands in the assistant ConversationMessage. PR A6 may
 // revisit this for compaction/replay.
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages.js";
 import { db } from "@/lib/db";
 import { getAnthropic } from "./client";
 import { getPrompt } from "./registry";
 import { getAnthropicToolDefinitions, invokeTool } from "./conciergeTools";
+import { estimateCostUsd } from "./pricing";
+import { writeLlmCall, type LlmCallErrorCode } from "./llmCallLog";
 import { appendEventAndApply } from "@/lib/events";
 import {
   projectConciergeMessageAssistantProduced,
@@ -81,22 +83,9 @@ export interface StreamConciergeTurnArgs {
   signal?: AbortSignal;
 }
 
-// concierge.chat.v1 is registered with claude-sonnet-4-6 — these constants
-// match runLlm.ts's pricing for that model. If concierge ever uses a
-// different model, drive both costs through the same PRICING table.
-// TODO(PR A6): extract to src/lib/ai/pricing.ts to share with runLlm.ts.
-const PRICING_INPUT_USD_PER_MTOK = 3;
-const PRICING_OUTPUT_USD_PER_MTOK = 15;
-
-function estimateCostUsd(input: number, output: number): number {
-  const cost =
-    (input / 1_000_000) * PRICING_INPUT_USD_PER_MTOK +
-    (output / 1_000_000) * PRICING_OUTPUT_USD_PER_MTOK;
-  return Number(cost.toFixed(6));
-}
-
 const MAX_TOOL_LOOP_ITERATIONS = 5;
 const MAX_HISTORY_MESSAGES = 200;
+const DEFAULT_THREAD_MAX_INPUT_TOKENS = 50_000;
 
 // Narrow the SDK's loose stream-event union to the three event types we
 // inspect. The SDK exports event objects whose `type` discriminator is the
@@ -145,6 +134,61 @@ function isMessageDeltaEvent(
 export async function* streamConciergeTurn(
   args: StreamConciergeTurnArgs,
 ): AsyncGenerator<ConciergeStreamEvent, void, unknown> {
+  // Latency timer covers the full generator lifecycle: history load +
+  // tool loop + final persistence. Logged on every LlmCall row (success
+  // or failure) for the cost-dashboard latency-percentile view.
+  const started = Date.now();
+  const prompt = getPrompt("concierge.chat.v1");
+
+  // Stable correlation hash. NOT a content hash — we deliberately avoid
+  // hashing user message content because it may contain PHI and the
+  // generator's `containsPHI` flag is hardcoded false for now (Concierge
+  // is read-only and grounded in tool data, but user prompts are
+  // free-text). The hash gives us a per-thread+turn correlation key
+  // that's safe to store in the LlmCall.inputHash column without
+  // accidentally landing PHI there. If we ever opt-in to PHI mode, swap
+  // this for a real content hash.
+  const inputHashSeed = JSON.stringify({
+    threadId: args.threadId,
+    practiceId: args.practiceId,
+    actorUserId: args.actorUserId,
+    startedAt: started,
+  });
+  const inputHash = createHash("sha256")
+    .update(inputHashSeed)
+    .digest("hex");
+
+  // Helper closure so the 5+ LlmCall write sites all use the same
+  // promptId/version/model/practice/actor/inputHash/PHI defaults. Returns
+  // the new LlmCall.id (or null on a write failure — never throws so the
+  // generator can keep yielding terminal error events).
+  async function logLlmCall(opts: {
+    success: boolean;
+    errorCode?: LlmCallErrorCode | null;
+  }): Promise<string | null> {
+    try {
+      return await writeLlmCall({
+        promptId: prompt.id,
+        promptVersion: prompt.version,
+        model: modelReturned,
+        practiceId: args.practiceId,
+        actorUserId: args.actorUserId,
+        inputHash,
+        inputTokens: totalInput || null,
+        outputTokens: totalOutput || null,
+        latencyMs: Date.now() - started,
+        costUsd: estimateCostUsd(modelReturned, totalInput, totalOutput),
+        success: opts.success,
+        errorCode: opts.errorCode ?? null,
+        containsPHI: false,
+      });
+    } catch {
+      // LlmCall persistence is best-effort; if it fails (DB outage, etc.)
+      // we don't want to mask the original error path or break streaming.
+      return null;
+    }
+  }
+
   // 1) Pre-flight is OWNED BY THE ROUTE HANDLER. See
   //    src/app/api/concierge/chat/route.ts — it calls assertMonthlyCostBudget
   //    + assertConciergeRateLimit BEFORE invoking this generator (and before
@@ -157,24 +201,73 @@ export async function* streamConciergeTurn(
     return;
   }
 
-  // 2) Load thread history (oldest-first, capped). Selecting only role +
-  //    content keeps the row payload tiny — token/cost columns aren't
-  //    needed for replay.
+  // 2) Load thread history (oldest-first, capped). Selecting role +
+  //    content + inputTokens — inputTokens drives FIFO compaction below
+  //    so the cumulative token cost across a long thread stays under
+  //    the env-configured budget.
   const history = await db.conversationMessage.findMany({
     where: { threadId: args.threadId },
     orderBy: { createdAt: "asc" },
     take: MAX_HISTORY_MESSAGES,
-    select: { role: true, content: true },
+    select: { role: true, content: true, inputTokens: true },
   });
 
   // 3) Build Anthropic messages array. USER + ASSISTANT rows only; TOOL
   //    rows are not replayed (see header comment).
-  const messages: MessageParam[] = [];
+  //
+  //    Accumulate the per-row inputTokens so we can drop oldest USER+
+  //    ASSISTANT pairs FIFO when the thread exceeds the budget.
+  type MessageWithTokens = { msg: MessageParam; inputTokens: number };
+  const annotated: MessageWithTokens[] = [];
   for (const m of history) {
-    if (m.role === "USER") messages.push({ role: "user", content: m.content });
-    else if (m.role === "ASSISTANT")
-      messages.push({ role: "assistant", content: m.content });
+    const tokens = m.inputTokens ?? 0;
+    if (m.role === "USER") {
+      annotated.push({ msg: { role: "user", content: m.content }, inputTokens: tokens });
+    } else if (m.role === "ASSISTANT") {
+      annotated.push({ msg: { role: "assistant", content: m.content }, inputTokens: tokens });
+    }
   }
+
+  // FIFO per-thread token compaction. We always keep the LAST entry
+  // intact (the new user message just persisted by the route handler);
+  // older USER+ASSISTANT pairs are dropped two-at-a-time from the front
+  // until the cumulative inputTokens drops under the budget. Read the
+  // env each call so live config changes don't require a redeploy.
+  //
+  // Tradeoff: this is FIFO compaction (chronological). It's coarse but
+  // safe — no semantic loss for the most-recent context. A smarter
+  // strategy (summarize-and-replace) is out of scope for A6.
+  const threadMaxInputTokens =
+    Number(process.env.CONCIERGE_THREAD_MAX_INPUT_TOKENS) ||
+    DEFAULT_THREAD_MAX_INPUT_TOKENS;
+  let totalThreadTokens = annotated.reduce((s, a) => s + a.inputTokens, 0);
+  while (totalThreadTokens > threadMaxInputTokens && annotated.length > 1) {
+    // Drop the oldest entry; if it's a USER and the next entry is an
+    // ASSISTANT, drop that too (so we never strand a USER without its
+    // ASSISTANT response).
+    const dropped = annotated.shift()!;
+    totalThreadTokens -= dropped.inputTokens;
+    if (
+      dropped.msg.role === "user" &&
+      annotated.length > 1 &&
+      annotated[0]!.msg.role === "assistant"
+    ) {
+      const droppedAssistant = annotated.shift()!;
+      totalThreadTokens -= droppedAssistant.inputTokens;
+    }
+  }
+  if (totalThreadTokens > threadMaxInputTokens) {
+    // Couldn't compact further — only the new user message remains and
+    // its inputTokens already exceed the budget. Anthropic will reject
+    // if the actual prompt is too big; a console.warn surfaces this
+    // pathological case in Cloud Run logs.
+    console.warn(
+      `[concierge] thread ${args.threadId} exceeds CONCIERGE_THREAD_MAX_INPUT_TOKENS ` +
+        `(${totalThreadTokens} > ${threadMaxInputTokens}) and cannot be compacted further.`,
+    );
+  }
+
+  const messages: MessageParam[] = annotated.map((a) => a.msg);
 
   if (messages.length === 0) {
     yield {
@@ -185,7 +278,6 @@ export async function* streamConciergeTurn(
     return;
   }
 
-  const prompt = getPrompt("concierge.chat.v1");
   const systemFilled = prompt.system
     .replaceAll("<practiceName>", args.practice.name)
     .replaceAll("<primaryState>", args.practice.primaryState)
@@ -241,6 +333,7 @@ export async function* streamConciergeTurn(
         args.signal ? { signal: args.signal } : undefined,
       );
     } catch (err) {
+      await logLlmCall({ success: false, errorCode: "UPSTREAM" });
       yield {
         type: "error",
         code: "UPSTREAM",
@@ -284,7 +377,8 @@ export async function* streamConciergeTurn(
       }
     } catch (err) {
       // If the abort fired, surface ABORTED rather than a generic UPSTREAM —
-      // the SDK throws APIUserAbortError when the AbortSignal trips.
+      // the SDK throws APIUserAbortError when the AbortSignal trips. Aborts
+      // are user-initiated and NOT logged as LlmCall failures.
       if (args.signal?.aborted) {
         yield {
           type: "error",
@@ -293,6 +387,7 @@ export async function* streamConciergeTurn(
         };
         return;
       }
+      await logLlmCall({ success: false, errorCode: "UPSTREAM" });
       yield {
         type: "error",
         code: "UPSTREAM",
@@ -302,9 +397,8 @@ export async function* streamConciergeTurn(
       return;
     }
 
-    // TODO(PR A6): drop `as { content: unknown[] }` once we narrow the SDK
-    // FinalMessage return type — currently it's loose due to the parametric
-    // ParsedMessage<ParsedT> return.
+    // The SDK's FinalMessage return is parametric (ParsedMessage<ParsedT>);
+    // we only inspect `.content`, so a narrow cast to that shape suffices.
     let finalMsg: { content: unknown[] };
     try {
       finalMsg = (await stream.finalMessage()) as { content: unknown[] };
@@ -317,6 +411,7 @@ export async function* streamConciergeTurn(
         };
         return;
       }
+      await logLlmCall({ success: false, errorCode: "UPSTREAM" });
       yield {
         type: "error",
         code: "UPSTREAM",
@@ -466,14 +561,17 @@ export async function* streamConciergeTurn(
     };
   }
 
-  // 7) Persist the final assistant message. llmCallId is null until PR A6
-  //    wires actual LlmCall row writes through the same observability
-  //    pipeline as runLlm; storing a stale UUID here would produce a
-  //    fictional foreign-key-like reference in production events.
-  // TODO(PR A6): replace null with the real LlmCall.id once that write
-  //    lands inside this function.
+  // 7) Write the LlmCall row BEFORE persisting the assistant message —
+  //    we want the LlmCall.id available to embed in both the event
+  //    payload and the ConversationMessage row, so an audit can trace
+  //    back from a user-visible message to the exact AI call that
+  //    produced it. logLlmCall swallows write errors so a logging
+  //    failure can't take down the response.
+  const llmCallId = await logLlmCall({ success: true });
+
+  // 8) Persist the final assistant message.
   const messageId = randomUUID();
-  const costUsd = estimateCostUsd(totalInput, totalOutput);
+  const costUsd = estimateCostUsd(modelReturned, totalInput, totalOutput);
 
   // Map the SDK's stop_reason to the registry's enum. We only persist the
   // four registered values; anything else (e.g. SDK adding "pause_turn"
@@ -504,7 +602,7 @@ export async function* streamConciergeTurn(
           inputTokens: totalInput,
           outputTokens: totalOutput,
           costUsd,
-          llmCallId: null,
+          llmCallId,
           model: modelReturned,
           stopReason: persistedStopReason,
         },
@@ -519,13 +617,18 @@ export async function* streamConciergeTurn(
             inputTokens: totalInput,
             outputTokens: totalOutput,
             costUsd,
-            llmCallId: null,
+            llmCallId,
             model: modelReturned,
             stopReason: persistedStopReason,
           },
         }),
     );
   } catch (err) {
+    // The AI call succeeded; only the projection write failed. The
+    // success LlmCall row above ALREADY captured the call — we don't
+    // double-write a second row here, otherwise the cost dashboard
+    // would over-count the same Anthropic invocation. The PERSISTENCE
+    // surface on the error event is what differentiates this case.
     yield {
       type: "error",
       code: "PERSISTENCE",
