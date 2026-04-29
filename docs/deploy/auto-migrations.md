@@ -79,6 +79,15 @@ The step's stdout and stderr stream to Cloud Logging. Open the build in the Clou
 - `Cannot drop ...` from prisma → destructive change blocked. Use the manual fallback with explicit consent.
 - `npm ci` failures → check for dirty `package-lock.json` or a deleted dep.
 
+## Post-deploy one-shot scripts
+
+Some schema additions need a one-shot data backfill that runs *after* the auto-`db push` step lands the new column. These scripts are kept under `scripts/` and run via the manual proxy ritual above. Idempotent — safe to re-run.
+
+| Script | Run after | Purpose |
+|---|---|---|
+| `scripts/backfill-practice-specialty.ts` | PR #183 (specialty list expansion) | Maps legacy `specialtyCategory` enum → new specific `specialty` strings. |
+| `scripts/backfill-practice-timezone.ts` | `feat/practice-timezone` (audit #10) | Sets `Practice.timezone` from `primaryState` for pre-column rows. Run via `DATABASE_URL="$PROXY_URL" npx tsx scripts/backfill-practice-timezone.ts`. Verify with `SELECT primaryState, timezone, count(*) FROM "Practice" GROUP BY primaryState, timezone;` — every row should land non-null. Pre-`primaryState` rows remain null and render UTC dates via the helper's fallback (acceptable). |
+
 ## Rollback
 
 Revert the cloudbuild.yaml change. The step is removed and future deploys fall back to the manual ritual. No data risk.
