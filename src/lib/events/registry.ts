@@ -1215,7 +1215,10 @@ export const EVENT_SCHEMAS = {
       inputTokens: z.number().int().min(0),
       outputTokens: z.number().int().min(0),
       costUsd: z.number().min(0).nullable().optional(),
-      llmCallId: z.string().min(1),
+      // Nullable: streamConciergeTurn currently passes null pending the
+      // PR A6 wire-up of LlmCall row writes. ConversationMessage.llmCallId
+      // is already optional in the DB schema, so projecting null is safe.
+      llmCallId: z.string().min(1).nullable(),
       model: z.string().min(1).max(100),
       stopReason: z.enum([
         "end_turn",
