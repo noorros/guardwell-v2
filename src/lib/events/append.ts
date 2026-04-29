@@ -28,11 +28,14 @@ export type ProjectionFn = (
 ) => Promise<void>;
 
 /** Append a typed event AND apply its projection inside one transaction.
- *  Validates payload via the registered Zod schema. */
-export async function appendEventAndApply<T extends EventType>(
-  input: EventInput<T>,
-  projection: ProjectionFn,
-): Promise<EventLog> {
+ *  Validates payload via the registered Zod schema. The optional `V` type
+ *  parameter widens the payload to a non-default schema version when the
+ *  caller passes `schemaVersion: 2` (etc.) — leave V defaulted for the
+ *  v1 case. */
+export async function appendEventAndApply<
+  T extends EventType,
+  V extends number = 1,
+>(input: EventInput<T, V>, projection: ProjectionFn): Promise<EventLog> {
   const version = input.schemaVersion ?? 1;
   const schema = getEventSchema(input.type, version);
   const validated = schema.parse(input.payload);
