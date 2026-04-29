@@ -138,6 +138,19 @@ describe("<Sidebar>", () => {
     expect(screen.getByText(/no frameworks/i)).toBeInTheDocument();
   });
 
+  it("does not render a Settings section in the sidebar (it's in the avatar menu now)", () => {
+    pathnameMock.mockReturnValue("/dashboard");
+    render(
+      <Sidebar
+        myComplianceItems={[
+          { code: "HIPAA", name: "HIPAA", score: 80, assessed: true },
+        ]}
+      />,
+    );
+    expect(screen.queryByText(/^Settings$/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /practice profile/i })).not.toBeInTheDocument();
+  });
+
   it("renders the 'Not assessed' setup state: em-dash instead of score + blue dot", async () => {
     pathnameMock.mockReturnValue("/dashboard");
     const { container } = render(
