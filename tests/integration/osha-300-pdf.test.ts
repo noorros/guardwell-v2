@@ -142,7 +142,8 @@ describe("GET /api/audit/osha-300", () => {
           discoveredAt: new Date("2025-06-15T10:00:00Z"),
           reportedByUserId: user.id,
           oshaInjuryNature: "Old injury 2025",
-          oshaOutcome: "FIRST_AID",
+          oshaOutcome: "RESTRICTED",
+          oshaDaysRestricted: 5,
         },
         {
           practiceId: practice.id,
@@ -155,7 +156,8 @@ describe("GET /api/audit/osha-300", () => {
           discoveredAt: new Date("2026-03-01T10:00:00Z"),
           reportedByUserId: user.id,
           oshaInjuryNature: "Recent injury 2026",
-          oshaOutcome: "FIRST_AID",
+          oshaOutcome: "DAYS_AWAY",
+          oshaDaysAway: 2,
         },
       ],
     });
@@ -169,5 +171,52 @@ describe("GET /api/audit/osha-300", () => {
     const text = extractInflatedText(buf);
     expect(text).toMatch(/Recent injury 2026/);
     expect(text).not.toMatch(/Old injury 2025/);
+  });
+
+  it("excludes FIRST_AID incidents per §1904.7(b)(5)", async () => {
+    const { user, practice } = await seedPracticeWithUser("FirstAid-Filter");
+    signInAs(user);
+
+    await db.incident.createMany({
+      data: [
+        {
+          practiceId: practice.id,
+          title: "Recordable injury",
+          type: "OSHA_RECORDABLE",
+          severity: "MEDIUM",
+          status: "OPEN",
+          description: "Sprained ankle, days away from work.",
+          phiInvolved: false,
+          discoveredAt: new Date("2026-04-10T10:00:00Z"),
+          reportedByUserId: user.id,
+          oshaInjuryNature: "Recordable sprain DAYS_AWAY",
+          oshaOutcome: "DAYS_AWAY",
+          oshaDaysAway: 4,
+        },
+        {
+          practiceId: practice.id,
+          title: "First aid only",
+          type: "OSHA_RECORDABLE",
+          severity: "LOW",
+          status: "RESOLVED",
+          description: "Minor finger cut treated with bandage.",
+          phiInvolved: false,
+          discoveredAt: new Date("2026-04-12T10:00:00Z"),
+          reportedByUserId: user.id,
+          oshaInjuryNature: "FirstAidOnly cut excluded",
+          oshaOutcome: "FIRST_AID",
+        },
+      ],
+    });
+
+    const { GET } = await import("@/app/api/audit/osha-300/route");
+    const res = await GET(
+      new Request("http://localhost/api/audit/osha-300?year=2026"),
+    );
+    expect(res.status).toBe(200);
+    const buf = new Uint8Array(await res.arrayBuffer());
+    const text = extractInflatedText(buf);
+    expect(text).toMatch(/Recordable sprain DAYS_AWAY/);
+    expect(text).not.toMatch(/FirstAidOnly cut excluded/);
   });
 });

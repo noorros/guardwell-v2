@@ -48,11 +48,15 @@ async function osha300LogRule(
   practiceId: string,
 ): Promise<DerivedStatus | null> {
   const cutoff = new Date(Date.now() - YEAR_MS);
+  // §1904.7(b)(5) — first-aid-only injuries are NOT recordable on Form 300.
+  // `{ not: "FIRST_AID" }` in Prisma also excludes NULL outcomes, which
+  // matches the audit B-5 finding (incomplete rows should not pad the log).
   const count = await tx.incident.count({
     where: {
       practiceId,
       type: "OSHA_RECORDABLE",
       discoveredAt: { gt: cutoff },
+      oshaOutcome: { not: "FIRST_AID" },
     },
   });
   return count >= 1 ? "COMPLIANT" : "GAP";

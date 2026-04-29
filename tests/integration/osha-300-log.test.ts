@@ -1,12 +1,15 @@
 // tests/integration/osha-300-log.test.ts
 //
 // Reporting an OSHA_RECORDABLE incident should flip OSHA_300_LOG to
-// COMPLIANT via the incident-recordable evidence path.
+// COMPLIANT via the incident-recordable evidence path — UNLESS the
+// outcome is FIRST_AID, which §1904.7(b)(5) explicitly excludes from
+// the 300 Log. Audit C-1 / OSHA code review (2026-04-29).
 
 import { describe, it, expect } from "vitest";
 import { db } from "@/lib/db";
 import { appendEventAndApply } from "@/lib/events";
 import { projectIncidentReported } from "@/lib/events/projections/incident";
+import { loadOsha300LogEvidence } from "@/lib/audit-prep/evidence-loaders";
 
 async function seed() {
   const user = await db.user.create({
@@ -110,21 +113,22 @@ describe("OSHA_300_LOG → INCIDENT:OSHA_RECORDABLE derivation", () => {
     expect(await statusOf(practice.id, req.id)).toBe("NOT_STARTED");
   });
 
-  it("OSHA_RECORDABLE incident flips OSHA_300_LOG to COMPLIANT", async () => {
+  it("OSHA_RECORDABLE incident with DAYS_AWAY outcome flips OSHA_300_LOG to COMPLIANT", async () => {
     const { user, practice, req } = await seed();
     const id = `inc-${Math.random().toString(36).slice(2, 10)}`;
     const payload = {
       incidentId: id,
-      title: "Needlestick during venipuncture",
-      description: "RN sustained a needlestick",
+      title: "Slip-and-fall — sprained ankle",
+      description: "Staff member slipped on wet floor",
       type: "OSHA_RECORDABLE" as const,
       severity: "MEDIUM" as const,
       phiInvolved: false,
       affectedCount: 0,
       discoveredAt: new Date().toISOString(),
-      oshaBodyPart: "Finger",
-      oshaInjuryNature: "Needlestick",
-      oshaOutcome: "FIRST_AID" as const,
+      oshaBodyPart: "Ankle",
+      oshaInjuryNature: "Sprain",
+      oshaOutcome: "DAYS_AWAY" as const,
+      oshaDaysAway: 3,
     };
     await appendEventAndApply(
       {
@@ -141,5 +145,83 @@ describe("OSHA_300_LOG → INCIDENT:OSHA_RECORDABLE derivation", () => {
         }),
     );
     expect(await statusOf(practice.id, req.id)).toBe("COMPLIANT");
+  });
+
+  it("FIRST_AID-only incident does NOT flip OSHA_300_LOG (§1904.7(b)(5) exclusion)", async () => {
+    const { user, practice, req } = await seed();
+    const id = `inc-${Math.random().toString(36).slice(2, 10)}`;
+    const payload = {
+      incidentId: id,
+      title: "Minor cut — bandage only",
+      description: "RN small finger cut, treated with bandage",
+      type: "OSHA_RECORDABLE" as const,
+      severity: "LOW" as const,
+      phiInvolved: false,
+      affectedCount: 0,
+      discoveredAt: new Date().toISOString(),
+      oshaBodyPart: "Finger",
+      oshaInjuryNature: "Laceration",
+      oshaOutcome: "FIRST_AID" as const,
+    };
+    await appendEventAndApply(
+      {
+        practiceId: practice.id,
+        actorUserId: user.id,
+        type: "INCIDENT_REPORTED",
+        payload,
+      },
+      async (tx) =>
+        projectIncidentReported(tx, {
+          practiceId: practice.id,
+          reportedByUserId: user.id,
+          payload,
+        }),
+    );
+    // §1904.7(b)(5): first-aid-only injuries are NOT recordable on Form 300.
+    // Projection still rederives (incident type is OSHA_RECORDABLE) but the
+    // rule excludes FIRST_AID from the count, so it lands on GAP.
+    expect(await statusOf(practice.id, req.id)).toBe("GAP");
+  });
+
+  it("loadOsha300LogEvidence excludes FIRST_AID incidents from counts", async () => {
+    const { user, practice } = await seed();
+    // One DAYS_AWAY (recordable) + one FIRST_AID (NOT recordable per §1904.7).
+    await db.incident.createMany({
+      data: [
+        {
+          practiceId: practice.id,
+          title: "Real recordable",
+          type: "OSHA_RECORDABLE",
+          severity: "MEDIUM",
+          status: "OPEN",
+          description: "Slip-and-fall",
+          phiInvolved: false,
+          discoveredAt: new Date(),
+          reportedByUserId: user.id,
+          oshaInjuryNature: "Sprain",
+          oshaOutcome: "DAYS_AWAY",
+          oshaDaysAway: 3,
+        },
+        {
+          practiceId: practice.id,
+          title: "First aid only",
+          type: "OSHA_RECORDABLE",
+          severity: "LOW",
+          status: "RESOLVED",
+          description: "Minor cut",
+          phiInvolved: false,
+          discoveredAt: new Date(),
+          reportedByUserId: user.id,
+          oshaInjuryNature: "Laceration",
+          oshaOutcome: "FIRST_AID",
+        },
+      ],
+    });
+    const evidence = await db.$transaction((tx) =>
+      loadOsha300LogEvidence(tx, practice.id),
+    );
+    // Only the DAYS_AWAY row should count — FIRST_AID is not recordable.
+    expect(evidence.recordableIncidentsLast12Months).toBe(1);
+    expect(evidence.recordableIncidentsAllTime).toBe(1);
   });
 });
