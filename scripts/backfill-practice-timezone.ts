@@ -10,7 +10,6 @@ import { defaultTimezoneForState } from "@/lib/timezone/stateDefaults";
 
 export async function backfillPracticeTimezone(): Promise<{
   updated: number;
-  skipped: number;
 }> {
   const candidates = await db.practice.findMany({
     where: { timezone: null },
@@ -18,14 +17,9 @@ export async function backfillPracticeTimezone(): Promise<{
   });
 
   let updated = 0;
-  let skipped = 0;
 
   for (const p of candidates) {
     const tz = defaultTimezoneForState(p.primaryState);
-    if (!tz) {
-      skipped++;
-      continue;
-    }
     await db.practice.update({
       where: { id: p.id },
       data: { timezone: tz },
@@ -33,13 +27,13 @@ export async function backfillPracticeTimezone(): Promise<{
     updated++;
   }
 
-  return { updated, skipped };
+  return { updated };
 }
 
 if (require.main === module) {
   backfillPracticeTimezone()
-    .then(({ updated, skipped }) => {
-      console.log(`Done. updated=${updated} skipped=${skipped}`);
+    .then(({ updated }) => {
+      console.log(`Done. updated=${updated}`);
       process.exit(0);
     })
     .catch((err) => {
