@@ -136,7 +136,7 @@ describe("generatePolicyReviewDueNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generatePolicyReviewDueNotifications(tx, practice.id, [user.id]),
+      generatePolicyReviewDueNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(1);
@@ -163,7 +163,7 @@ describe("generatePolicyReviewDueNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generatePolicyReviewDueNotifications(tx, practice.id, [user.id]),
+      generatePolicyReviewDueNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -182,7 +182,7 @@ describe("generatePolicyReviewDueNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generatePolicyReviewDueNotifications(tx, practice.id, [user.id]),
+      generatePolicyReviewDueNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -209,7 +209,7 @@ describe("generatePolicyReviewDueNotifications", () => {
         owner.id,
         admin.id,
         staff.id,
-      ]),
+      ], "UTC"),
     );
 
     const recipientIds = new Set(proposals.map((p) => p.userId));
@@ -233,7 +233,7 @@ describe("generatePolicyReviewDueNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generatePolicyReviewDueNotifications(tx, practice.id, [user.id]),
+      generatePolicyReviewDueNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -262,7 +262,7 @@ describe("generateTrainingOverdueNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateTrainingOverdueNotifications(tx, practice.id, [user.id]),
+      generateTrainingOverdueNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(1);
@@ -306,7 +306,7 @@ describe("generateTrainingOverdueNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateTrainingOverdueNotifications(tx, practice.id, [user.id]),
+      generateTrainingOverdueNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -329,7 +329,7 @@ describe("generateTrainingOverdueNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateTrainingOverdueNotifications(tx, practice.id, [user.id]),
+      generateTrainingOverdueNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -353,7 +353,7 @@ describe("generateTrainingOverdueNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateTrainingOverdueNotifications(tx, practice.id, [owner.id, staff.id]),
+      generateTrainingOverdueNotifications(tx, practice.id, [owner.id, staff.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(1);
@@ -384,7 +384,7 @@ describe("generateCmsEnrollmentNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateCmsEnrollmentNotifications(tx, practice.id, [user.id]),
+      generateCmsEnrollmentNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(1);
@@ -414,7 +414,7 @@ describe("generateCmsEnrollmentNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateCmsEnrollmentNotifications(tx, practice.id, [user.id]),
+      generateCmsEnrollmentNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -436,7 +436,7 @@ describe("generateCmsEnrollmentNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateCmsEnrollmentNotifications(tx, practice.id, [user.id]),
+      generateCmsEnrollmentNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(1);
@@ -469,7 +469,7 @@ describe("generateCmsEnrollmentNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateCmsEnrollmentNotifications(tx, practice.id, [user.id]),
+      generateCmsEnrollmentNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -501,7 +501,7 @@ describe("generateBreachDeterminationDeadlineNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateBreachDeterminationDeadlineNotifications(tx, practice.id, [user.id]),
+      generateBreachDeterminationDeadlineNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(1);
@@ -536,7 +536,7 @@ describe("generateBreachDeterminationDeadlineNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateBreachDeterminationDeadlineNotifications(tx, practice.id, [user.id]),
+      generateBreachDeterminationDeadlineNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -559,7 +559,7 @@ describe("generateBreachDeterminationDeadlineNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateBreachDeterminationDeadlineNotifications(tx, practice.id, [user.id]),
+      generateBreachDeterminationDeadlineNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -582,7 +582,7 @@ describe("generateBreachDeterminationDeadlineNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateBreachDeterminationDeadlineNotifications(tx, practice.id, [user.id]),
+      generateBreachDeterminationDeadlineNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -608,7 +608,7 @@ describe("generateBreachDeterminationDeadlineNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateBreachDeterminationDeadlineNotifications(tx, practice.id, [user.id]),
+      generateBreachDeterminationDeadlineNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -635,7 +635,7 @@ describe("generateOshaPostingReminderNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateOshaPostingReminderNotifications(tx, practice.id, [user.id]),
+      generateOshaPostingReminderNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(1);
@@ -660,7 +660,7 @@ describe("generateOshaPostingReminderNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateOshaPostingReminderNotifications(tx, practice.id, [user.id]),
+      generateOshaPostingReminderNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(1);
@@ -677,7 +677,7 @@ describe("generateOshaPostingReminderNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateOshaPostingReminderNotifications(tx, practice.id, [user.id]),
+      generateOshaPostingReminderNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -694,7 +694,7 @@ describe("generateOshaPostingReminderNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateOshaPostingReminderNotifications(tx, practice.id, [user.id]),
+      generateOshaPostingReminderNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -707,7 +707,7 @@ describe("generateOshaPostingReminderNotifications", () => {
     const { user, practice } = await seedPracticeWithOwner("osha-disabled");
     // No PracticeFramework row at all = framework not enabled.
     const proposals = await db.$transaction((tx) =>
-      generateOshaPostingReminderNotifications(tx, practice.id, [user.id]),
+      generateOshaPostingReminderNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -729,7 +729,7 @@ describe("generateOshaPostingReminderNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateOshaPostingReminderNotifications(tx, practice.id, [user.id]),
+      generateOshaPostingReminderNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
