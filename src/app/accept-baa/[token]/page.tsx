@@ -49,7 +49,7 @@ export default async function AcceptBaaPage({ params }: PageProps) {
   if (!tokenRow) notFound();
 
   // Status guards — render different states.
-  // eslint-disable-next-line react-hooks/purity -- Server component.
+  // eslint-disable-next-line react-hooks/purity -- Server component; Date.now() is safe here.
   const now = Date.now();
   const expired = tokenRow.expiresAt.getTime() < now;
   const consumed = !!tokenRow.consumedAt;
@@ -200,6 +200,9 @@ function SuccessState({
           <h1 className="text-xl font-semibold">BAA executed</h1>
           <p className="text-sm text-muted-foreground">
             {vendorName} signed this BAA with {practiceName} on{" "}
+            {/* Unauthenticated viewer — no practice context available. UTC is the
+                safe default for token landing pages; if we ever attach the inviting
+                practice's timezone to the token row, switch to that. */}
             {executedAt ? formatPracticeDate(executedAt, "UTC") : "—"}.
           </p>
           {signatureName ? (

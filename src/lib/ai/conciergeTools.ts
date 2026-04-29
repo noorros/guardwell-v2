@@ -131,7 +131,7 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
     description: "List all PracticePolicy rows currently adopted (not retired).",
     inputSchema: EMPTY_INPUT_SCHEMA,
     inputSchemaJson: EMPTY_INPUT_SCHEMA_JSON,
-    async handle({ practiceId }) {
+    async handle({ practiceId, practiceTimezone }) {
       // take: 101 + slice(0, 100) is the standard pattern for detecting
       // truncation without a false-positive when row count == cap.
       const rows = await db.practicePolicy.findMany({
@@ -146,7 +146,14 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
         take: 101,
       });
       const truncated = rows.length > 100;
-      const slice = rows.slice(0, 100);
+      const slice = rows.slice(0, 100).map((p) => ({
+        policyCode: p.policyCode,
+        version: p.version,
+        adoptedAt: formatPracticeDate(p.adoptedAt, practiceTimezone),
+        lastReviewedAt: p.lastReviewedAt
+          ? formatPracticeDate(p.lastReviewedAt, practiceTimezone)
+          : null,
+      }));
       return { policies: slice, _truncated: truncated };
     },
   },
@@ -157,7 +164,7 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
       "List the practice's 20 most recent incidents (privacy, security, OSHA, breach, etc.).",
     inputSchema: EMPTY_INPUT_SCHEMA,
     inputSchemaJson: EMPTY_INPUT_SCHEMA_JSON,
-    async handle({ practiceId }) {
+    async handle({ practiceId, practiceTimezone }) {
       const rows = await db.incident.findMany({
         where: { practiceId },
         orderBy: { discoveredAt: "desc" },
@@ -173,7 +180,19 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
           discoveredAt: true,
         },
       });
-      return { incidents: rows, _truncated: false };
+      const incidents = rows.map((r) => ({
+        id: r.id,
+        title: r.title,
+        type: r.type,
+        severity: r.severity,
+        isBreach: r.isBreach,
+        affectedCount: r.affectedCount,
+        discoveredAt: formatPracticeDate(r.discoveredAt, practiceTimezone),
+        resolvedAt: r.resolvedAt
+          ? formatPracticeDate(r.resolvedAt, practiceTimezone)
+          : null,
+      }));
+      return { incidents, _truncated: false };
     },
   },
 
@@ -182,7 +201,7 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
     description: "List vendors with BAA status (executed/expired/missing).",
     inputSchema: EMPTY_INPUT_SCHEMA,
     inputSchemaJson: EMPTY_INPUT_SCHEMA_JSON,
-    async handle({ practiceId }) {
+    async handle({ practiceId, practiceTimezone }) {
       // SCHEMA NOTE: Vendor uses `retiredAt` (not `removedAt`).
       // take: 101 + slice(0, 100) — see list_policies for rationale.
       const rows = await db.vendor.findMany({
@@ -198,7 +217,17 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
         take: 101,
       });
       const truncated = rows.length > 100;
-      const slice = rows.slice(0, 100);
+      const slice = rows.slice(0, 100).map((v) => ({
+        name: v.name,
+        type: v.type,
+        processesPhi: v.processesPhi,
+        baaExecutedAt: v.baaExecutedAt
+          ? formatPracticeDate(v.baaExecutedAt, practiceTimezone)
+          : null,
+        baaExpiresAt: v.baaExpiresAt
+          ? formatPracticeDate(v.baaExpiresAt, practiceTimezone)
+          : null,
+      }));
       return { vendors: slice, _truncated: truncated };
     },
   },
@@ -260,7 +289,7 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
       "Get the practice's auto-generated Compliance Track and progress.",
     inputSchema: EMPTY_INPUT_SCHEMA,
     inputSchemaJson: EMPTY_INPUT_SCHEMA_JSON,
-    async handle({ practiceId }) {
+    async handle({ practiceId, practiceTimezone }) {
       const track = await db.practiceTrack.findUnique({
         where: { practiceId },
         include: { tasks: { select: { id: true, completedAt: true } } },
@@ -271,8 +300,10 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
       return {
         track: {
           templateCode: track.templateCode,
-          generatedAt: track.generatedAt,
-          completedAt: track.completedAt,
+          generatedAt: formatPracticeDate(track.generatedAt, practiceTimezone),
+          completedAt: track.completedAt
+            ? formatPracticeDate(track.completedAt, practiceTimezone)
+            : null,
           totalTasks: total,
           completedTasks: completed,
           openTasks: total - completed,
@@ -332,7 +363,7 @@ export function getAnthropicToolDefinitions(): Array<{
 export async function invokeTool(args: {
   toolName: string;
   practiceId: string;
-  practiceTimezone?: string;
+  practiceTimezone: string;
   input: unknown;
 }): Promise<{
   output: unknown;
@@ -355,7 +386,7 @@ export async function invokeTool(args: {
   try {
     const output = await handler.handle({
       practiceId: args.practiceId,
-      practiceTimezone: args.practiceTimezone ?? "UTC",
+      practiceTimezone: args.practiceTimezone,
       input: parsed.data,
     });
     return { output, error: null, latencyMs: Date.now() - started };

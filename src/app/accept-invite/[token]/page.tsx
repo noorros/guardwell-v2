@@ -56,7 +56,7 @@ export default async function AcceptInvitePage({ params }: PageProps) {
   const normalizedInvitedEmail = invitation.invitedEmail.toLowerCase();
   const viewerEmail = user.email.toLowerCase();
   const emailMismatch = viewerEmail !== normalizedInvitedEmail;
-  // eslint-disable-next-line react-hooks/purity -- Server component.
+  // eslint-disable-next-line react-hooks/purity -- Server component; Date.now() is safe here.
   const isExpired = invitation.expiresAt.getTime() < Date.now();
   const isRevoked = invitation.revokedAt !== null;
   const isAccepted = invitation.acceptedAt !== null;
@@ -89,6 +89,9 @@ export default async function AcceptInvitePage({ params }: PageProps) {
           {isExpired && !isAccepted && !isRevoked && (
             <p className="rounded-md border border-[color:var(--gw-color-risk)] bg-[color:color-mix(in_oklch,var(--gw-color-risk)_10%,transparent)] p-3 text-xs text-foreground">
               This invitation expired{" "}
+              {/* Unauthenticated viewer — no practice context available. UTC is the
+                  safe default for token landing pages; if we ever attach the inviting
+                  practice's timezone to the token row, switch to that. */}
               {formatPracticeDate(invitation.expiresAt, "UTC")}. Ask the practice
               owner to resend.
             </p>

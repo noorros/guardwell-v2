@@ -68,6 +68,7 @@ interface FixtureInput {
   practiceName: string;
   primaryState: string;
   providerCount: string | null;
+  timezone?: string;
   messages: FixtureInputMessage[];
 }
 
@@ -400,6 +401,7 @@ async function runFixture(fixture: Fixture): Promise<FixtureResult> {
         name: fixture.input.practiceName,
         primaryState: fixture.input.primaryState,
         providerCount: fixture.input.providerCount,
+        timezone: fixture.input.timezone ?? "UTC",
       },
       threadId: seeded.threadId,
       actorUserId: seeded.userId,

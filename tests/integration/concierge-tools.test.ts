@@ -41,6 +41,7 @@ describe("Concierge tool registry", () => {
     const { output, error } = await invokeTool({
       toolName: "list_frameworks",
       practiceId: practice.id,
+      practiceTimezone: "UTC",
       input: {},
     });
     expect(error).toBeNull();
@@ -70,6 +71,7 @@ describe("Concierge tool registry", () => {
     const { output, error } = await invokeTool({
       toolName: "list_requirements_by_framework",
       practiceId: practice.id,
+      practiceTimezone: "UTC",
       input: { frameworkCode: "HIPAA" },
     });
     expect(error).toBeNull();
@@ -85,6 +87,7 @@ describe("Concierge tool registry", () => {
     const { output } = await invokeTool({
       toolName: "list_requirements_by_framework",
       practiceId: practice.id,
+      practiceTimezone: "UTC",
       input: { frameworkCode: "BOGUS" },
     });
     const result = output as { error?: string; requirements: unknown[] };
@@ -144,6 +147,7 @@ describe("Concierge tool registry", () => {
     const { output, error } = await invokeTool({
       toolName: "get_dashboard_snapshot",
       practiceId: practice.id,
+      practiceTimezone: "UTC",
       input: {},
     });
     expect(error).toBeNull();
@@ -166,6 +170,7 @@ describe("Concierge tool registry", () => {
     const { output, error } = await invokeTool({
       toolName: "nonexistent_tool",
       practiceId: practice.id,
+      practiceTimezone: "UTC",
       input: {},
     });
     expect(output).toBeNull();
@@ -177,6 +182,7 @@ describe("Concierge tool registry", () => {
     const { error } = await invokeTool({
       toolName: "list_requirements_by_framework",
       practiceId: practice.id,
+      practiceTimezone: "UTC",
       input: { frameworkCode: 12345 }, // wrong type
     });
     expect(error).toContain("INPUT_SCHEMA");
@@ -231,6 +237,7 @@ describe("Concierge tool registry", () => {
     const { output, error } = await invokeTool({
       toolName: "list_credentials",
       practiceId: practice.id,
+      practiceTimezone: "UTC",
       input: {},
     });
     expect(error).toBeNull();
