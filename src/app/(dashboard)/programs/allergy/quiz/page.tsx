@@ -6,6 +6,7 @@ import { BookOpen, Syringe } from "lucide-react";
 import { db } from "@/lib/db";
 import { getPracticeUser } from "@/lib/rbac";
 import { Breadcrumb } from "@/components/gw/Breadcrumb";
+import { buildClientQuizQuestions } from "@/lib/allergy/quiz-client";
 import { QuizRunner } from "../QuizRunner";
 
 export const metadata = { title: "Allergy Quiz · My Programs" };
@@ -33,16 +34,11 @@ export default async function AllergyQuizPage() {
     orderBy: [{ category: "asc" }, { displayOrder: "asc" }],
   });
 
-  // Serialize: options is JSON in Prisma, cast to the expected shape
-  type QuizOption = { id: string; text: string };
-  const serializedQuestions = questions.map((q) => ({
-    id: q.id,
-    questionText: q.questionText,
-    options: q.options as QuizOption[],
-    correctId: q.correctId,
-    explanation: q.explanation ?? null,
-    category: q.category,
-  }));
+  // Strip `correctId` + `explanation` before sending to the client. Code
+  // review C-3 (2026-04-29 audit) — without this gate the answer key is
+  // visible via View Source / DevTools and the USP §21.3 competency
+  // assessment is structurally bypassable.
+  const serializedQuestions = buildClientQuizQuestions(questions);
 
   // Generate fresh attemptId per page render
   const attemptId = randomUUID();

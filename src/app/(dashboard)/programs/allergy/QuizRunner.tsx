@@ -6,19 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { submitQuizAttemptAction } from "./actions";
+import type { ClientQuizQuestion, QuizOption } from "@/lib/allergy/quiz-client";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type QuizOption = { id: string; text: string };
-
-export interface QuizQuestion {
-  id: string;
-  questionText: string;
-  options: QuizOption[];
-  correctId: string;
-  explanation: string | null;
-  category: string;
-}
+// Note: NO correctId, NO explanation. Those are server-only and arrive in
+// the action's reviewItems response after the user submits. C-3 audit fix.
+export type QuizQuestion = ClientQuizQuestion;
 
 export interface QuizRunnerProps {
   attemptId: string;
@@ -27,16 +21,22 @@ export interface QuizRunnerProps {
 
 // ── Result types (from action) ────────────────────────────────────────────────
 
+interface ReviewEntry {
+  question: QuizQuestion;
+  selectedId: string;
+  isCorrect: boolean;
+  correctOptionId: string;
+  explanation: string | null;
+}
+
 interface QuizResult {
   score: number;
   passed: boolean;
-  /** annotated answers from local scoring for the review panel */
-  reviewItems: Array<{
-    question: QuizQuestion;
-    selectedId: string;
-    isCorrect: boolean;
-  }>;
+  reviewItems: ReviewEntry[];
 }
+
+// (QuizOption import preserved so call-sites that re-export the shape don't break.)
+export type { QuizOption };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -118,9 +118,9 @@ function ResultPanel({
             Review incorrect answers ({incorrect.length})
           </h2>
           <ul className="space-y-4">
-            {incorrect.map(({ question, selectedId }) => {
+            {incorrect.map(({ question, selectedId, correctOptionId, explanation }) => {
               const yourAnswer = question.options.find((o) => o.id === selectedId);
-              const correctAnswer = question.options.find((o) => o.id === question.correctId);
+              const correctAnswer = question.options.find((o) => o.id === correctOptionId);
               return (
                 <li key={question.id} className="rounded-lg border bg-card p-4 space-y-2">
                   <p className="text-sm font-medium">{question.questionText}</p>
@@ -143,9 +143,9 @@ function ResultPanel({
                       </span>
                     </p>
                   </div>
-                  {question.explanation && (
+                  {explanation && (
                     <p className="rounded bg-muted px-3 py-2 text-xs text-muted-foreground">
-                      {question.explanation}
+                      {explanation}
                     </p>
                   )}
                 </li>
@@ -207,22 +207,29 @@ export function QuizRunner({ attemptId, questions }: QuizRunnerProps) {
 
     startTransition(async () => {
       try {
-        const { score, passed } = await submitQuizAttemptAction({
+        const result = await submitQuizAttemptAction({
           attemptId,
           answers: submittedAnswers,
         });
 
-        // Build local review items for the result panel
-        const reviewItems = questions.map((q) => {
-          const selectedId = answers[q.id] ?? "";
-          return {
-            question: q,
-            selectedId,
-            isCorrect: selectedId === q.correctId,
-          };
+        // Join the action's per-question review entries with the in-memory
+        // questions so the result panel can render question text + options.
+        // The answer key (`correctOptionId` + `explanation`) is supplied by
+        // the action — never shipped to the client before submission.
+        const questionMap = new Map(questions.map((q) => [q.id, q]));
+        const reviewItems = result.reviewItems.flatMap((item) => {
+          const question = questionMap.get(item.questionId);
+          if (!question) return [];
+          return [{
+            question,
+            selectedId: item.selectedId,
+            isCorrect: item.isCorrect,
+            correctOptionId: item.correctOptionId,
+            explanation: item.explanation,
+          }];
         });
 
-        setResult({ score, passed, reviewItems });
+        setResult({ score: result.score, passed: result.passed, reviewItems });
         // Scroll to top of page
         window.scrollTo({ top: 0, behavior: "smooth" });
       } catch (e) {
