@@ -9,9 +9,29 @@
 // Failure messages name the exact axe rule (color contrast, missing label,
 // aria-allowed-role, etc.) so fixes are targeted.
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeAll } from "vitest";
 import { render, fireEvent } from "@testing-library/react";
 import { axe } from "jest-axe";
+
+// SpecialtyCombobox uses Radix Popover (needs pointer-capture) and cmdk
+// (needs ResizeObserver). Polyfill both for jsdom.
+beforeAll(() => {
+  if (!Element.prototype.hasPointerCapture) {
+    Element.prototype.hasPointerCapture = vi.fn(() => false);
+    Element.prototype.setPointerCapture = vi.fn();
+    Element.prototype.releasePointerCapture = vi.fn();
+  }
+  if (!Element.prototype.scrollIntoView) {
+    Element.prototype.scrollIntoView = vi.fn();
+  }
+  if (typeof globalThis.ResizeObserver === "undefined") {
+    globalThis.ResizeObserver = class ResizeObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+  }
+});
 
 import { NotificationBell } from "./gw/AppShell/NotificationBell";
 import { ComplianceProfileForm } from "@/app/onboarding/compliance-profile/ComplianceProfileForm";
@@ -96,7 +116,7 @@ const COMPLIANCE_PROFILE_INITIAL = {
   subjectToMacraMips: false,
   sendsAutomatedPatientMessages: true,
   compoundsAllergens: false,
-  specialtyCategory: "PRIMARY_CARE",
+  specialty: "Family Medicine",
   providerCount: 3,
 } as const;
 
@@ -170,7 +190,7 @@ describe("Client island accessibility audit (axe-core)", () => {
             subjectToMacraMips: false,
             sendsAutomatedPatientMessages: false,
             compoundsAllergens: false,
-            specialtyCategory: null,
+            specialty: null,
             providerCount: null,
           }}
           redirectTo={"/dashboard" as never}

@@ -16,7 +16,11 @@ export default defineConfig({
           name: "node",
           environment: "node",
           setupFiles: ["./tests/setup.ts"],
-          include: ["tests/**/*.test.ts", "src/lib/**/*.test.ts"],
+          include: [
+            "tests/**/*.test.ts",
+            "src/lib/**/*.test.ts",
+            "scripts/__tests__/**/*.test.ts",
+          ],
           globals: false,
           // Integration tests share one Docker Postgres DB, so parallel
           // file execution races on cross-file FK/cleanup ordering. Each

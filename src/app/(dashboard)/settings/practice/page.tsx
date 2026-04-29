@@ -20,9 +20,15 @@ export default async function PracticeSettingsPage() {
   if (!pu) return null;
   const canEdit = pu.role === "OWNER" || pu.role === "ADMIN";
 
-  const profile = await db.practiceComplianceProfile.findUnique({
-    where: { practiceId: pu.practiceId },
-  });
+  const [profile, practice] = await Promise.all([
+    db.practiceComplianceProfile.findUnique({
+      where: { practiceId: pu.practiceId },
+    }),
+    db.practice.findUnique({
+      where: { id: pu.practiceId },
+      select: { specialty: true },
+    }),
+  ]);
 
   return (
     <main className="mx-auto max-w-2xl space-y-6 p-6">
@@ -65,7 +71,7 @@ export default async function PracticeSettingsPage() {
                 sendsAutomatedPatientMessages:
                   profile?.sendsAutomatedPatientMessages ?? true,
                 compoundsAllergens: profile?.compoundsAllergens ?? false,
-                specialtyCategory: profile?.specialtyCategory ?? null,
+                specialty: practice?.specialty ?? null,
                 providerCount: profile?.providerCount ?? null,
               }}
               redirectTo={"/settings/practice" as Route}
