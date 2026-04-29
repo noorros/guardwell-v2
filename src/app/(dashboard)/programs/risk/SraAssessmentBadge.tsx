@@ -1,25 +1,9 @@
 // src/app/(dashboard)/programs/risk/SraAssessmentBadge.tsx
 "use client";
 
-import { useSyncExternalStore } from "react";
 import { Badge } from "@/components/ui/badge";
-
-const SSR_FMT = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "medium",
-  timeZone: "UTC",
-});
-const noopSubscribe = () => () => {};
-
-function useLocalDate(iso: string): string {
-  return useSyncExternalStore(
-    noopSubscribe,
-    () =>
-      new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
-        new Date(iso),
-      ),
-    () => SSR_FMT.format(new Date(iso)),
-  );
-}
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDateLong } from "@/lib/audit/format";
 
 export interface SraAssessmentBadgeProps {
   completedAt: string;
@@ -32,7 +16,8 @@ export function SraAssessmentBadge({
   overallScore,
   fresh,
 }: SraAssessmentBadgeProps) {
-  const formatted = useLocalDate(completedAt);
+  const tz = usePracticeTimezone();
+  const formatted = formatPracticeDateLong(new Date(completedAt), tz);
   return (
     <Badge
       variant="secondary"

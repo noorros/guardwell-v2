@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { recordDestructionAction } from "./actions";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 const DOC_TYPES = [
   { v: "MEDICAL_RECORDS", l: "Medical records" },
@@ -25,10 +27,11 @@ const METHODS = [
 
 export function NewDestructionForm() {
   const router = useRouter();
+  const tz = usePracticeTimezone();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = formatPracticeDate(new Date(), tz);
   const [docType, setDocType] = useState<typeof DOC_TYPES[number]["v"]>(
     "MEDICAL_RECORDS",
   );

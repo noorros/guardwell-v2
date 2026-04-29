@@ -12,6 +12,8 @@ import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export function AllergyExtras({
   practiceName,
@@ -143,31 +145,24 @@ const STORAGE_NOTES: Record<BudType, string> = {
   frozen: "STORAGE: Freeze at −20°C or colder. Do not refreeze after thaw.",
 };
 
-function addDays(dateStr: string, days: number): string {
+function addDays(dateStr: string, days: number, tz: string): string {
   if (!dateStr) return "";
   const d = new Date(dateStr + "T12:00:00"); // noon avoids DST edge cases
   d.setDate(d.getDate() + days);
-  return d.toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
+  return formatPracticeDate(d, tz);
 }
 
 function VialLabelGenerator({ practiceName }: { practiceName: string }) {
-  const today = new Date().toISOString().split("T")[0] ?? "";
+  const tz = usePracticeTimezone();
+  const today = formatPracticeDate(new Date(), tz);
 
   const [baseDate, setBaseDate] = useState<string>(today);
   const [budType, setBudType] = useState<BudType>("aqueous-ref");
 
   const preparedDisplay = baseDate
-    ? new Date(baseDate + "T12:00:00").toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      })
+    ? formatPracticeDate(new Date(baseDate + "T12:00:00"), tz)
     : "—";
-  const budDisplay = baseDate ? addDays(baseDate, BUD_OFFSETS[budType]) : "—";
+  const budDisplay = baseDate ? addDays(baseDate, BUD_OFFSETS[budType], tz) : "—";
 
   const labelText = [
     `${practiceName}`,

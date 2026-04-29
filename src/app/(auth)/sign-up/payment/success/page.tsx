@@ -15,6 +15,7 @@ import { db } from "@/lib/db";
 import { getPracticeUser } from "@/lib/rbac";
 import { Logo } from "@/components/gw/Logo";
 import { SuccessAutoAdvance } from "./SuccessAutoAdvance";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export const metadata = { title: "Payment confirmed · Sign up" };
 export const dynamic = "force-dynamic";
@@ -58,7 +59,7 @@ export default async function PaymentSuccessPage() {
         <h1 className="text-2xl font-bold text-slate-900">You&apos;re in</h1>
         <p className="text-sm text-slate-500">
           {practice.subscriptionStatus === "TRIALING" && practice.trialEndsAt
-            ? `Your 7-day free trial runs through ${practice.trialEndsAt.toISOString().slice(0, 10)}. We won't charge anything until then. Cancel anytime in /settings/billing.`
+            ? `Your 7-day free trial runs through ${formatPracticeDate(practice.trialEndsAt, pu.practice.timezone ?? "UTC")}. We won't charge anything until then. Cancel anytime in /settings/billing.`
             : "Your subscription is active. Cancel anytime in /settings/billing."}
         </p>
         <SuccessAutoAdvance

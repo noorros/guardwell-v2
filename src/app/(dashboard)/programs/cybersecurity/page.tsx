@@ -31,6 +31,7 @@ import { scoreToColorToken } from "@/lib/utils";
 import { PhishingDrillForm } from "./PhishingDrillForm";
 import { BackupVerificationForm } from "./BackupVerificationForm";
 import { MfaToggle } from "./MfaToggle";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export const metadata = { title: "Cybersecurity · My Programs" };
 export const dynamic = "force-dynamic";
@@ -69,8 +70,9 @@ function statusIcon(status: CyberComponentScore["status"]) {
 export default async function CybersecurityPage() {
   const pu = await getPracticeUser();
   if (!pu) return null;
+  const tz = pu.practice.timezone ?? "UTC";
 
-  const snapshot = await computeCyberReadiness(db, pu.practiceId);
+  const snapshot = await computeCyberReadiness(db, pu.practiceId, tz);
   const scoreColor = scoreToColorToken(snapshot.total);
 
   // Workforce list with MFA status — for the per-user MFA toggle table.
@@ -298,7 +300,7 @@ export default async function CybersecurityPage() {
                       <p className="truncate text-[10px] text-muted-foreground">
                         {wu.role}
                         {enrolled
-                          ? ` · enrolled ${wu.mfaEnrolledAt!.toISOString().slice(0, 10)}`
+                          ? ` · enrolled ${formatPracticeDate(wu.mfaEnrolledAt!, tz)}`
                           : " · not enrolled"}
                       </p>
                     </div>
@@ -342,7 +344,7 @@ export default async function CybersecurityPage() {
                   <li key={d.id} className="space-y-1 px-3 py-2 text-xs">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium tabular-nums">
-                        {d.conductedAt.toISOString().slice(0, 10)}
+                        {formatPracticeDate(d.conductedAt, tz)}
                       </span>
                       {d.vendor && (
                         <Badge variant="secondary" className="text-[10px]">
@@ -404,7 +406,7 @@ export default async function CybersecurityPage() {
                 <li key={b.id} className="space-y-1 px-3 py-2 text-xs">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium tabular-nums">
-                      {b.verifiedAt.toISOString().slice(0, 10)}
+                      {formatPracticeDate(b.verifiedAt, tz)}
                     </span>
                     <Badge variant="secondary" className="text-[10px]">
                       {b.scope}

@@ -163,6 +163,7 @@ export async function POST(request: NextRequest) {
     name: pu.practice.name,
     primaryState: pu.practice.primaryState,
     providerCount: pu.practice.providerCount ?? null,
+    timezone: pu.practice.timezone ?? null,
   };
 
   const encoder = new TextEncoder();

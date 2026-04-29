@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScoreRing } from "@/components/gw/ScoreRing";
 import { PROTOCOLS_BY_MODE } from "@/lib/audit-prep/protocols";
 import { StepPanel } from "./StepPanel";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Audit Prep session" };
@@ -23,6 +24,7 @@ export default async function AuditPrepDetailPage({ params }: PageProps) {
   const { id } = await params;
   const pu = await getPracticeUser();
   if (!pu) return null;
+  const tz = pu.practice.timezone ?? "UTC";
   const session = await db.auditPrepSession.findUnique({
     where: { id },
     include: { steps: { orderBy: { code: "asc" } } },
@@ -44,7 +46,7 @@ export default async function AuditPrepDetailPage({ params }: PageProps) {
         items={[
           { label: "Audit & Insights" },
           { label: "Audit Prep", href: "/audit/prep" as Route },
-          { label: session.startedAt.toISOString().slice(0, 10) },
+          { label: formatPracticeDate(session.startedAt, tz) },
         ]}
       />
       <header className="flex items-start gap-3">
@@ -59,11 +61,11 @@ export default async function AuditPrepDetailPage({ params }: PageProps) {
             <Badge variant="outline" className="text-[10px]">
               {session.status.replace(/_/g, " ")}
             </Badge>
-            <span>Started {session.startedAt.toISOString().slice(0, 10)}</span>
+            <span>Started {formatPracticeDate(session.startedAt, tz)}</span>
             {session.packetGeneratedAt && (
               <span>
                 Packet generated{" "}
-                {session.packetGeneratedAt.toISOString().slice(0, 10)}
+                {formatPracticeDate(session.packetGeneratedAt, tz)}
               </span>
             )}
           </div>

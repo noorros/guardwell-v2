@@ -14,6 +14,8 @@ import {
   removeCeuActivityAction,
   updateReminderConfigAction,
 } from "../actions";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 const FIELD_CLASS =
   "mt-1 block w-full rounded-md border bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -67,11 +69,6 @@ export interface CredentialDetailProps {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmtDate(iso: string | null): string {
-  if (!iso) return "—";
-  return iso.slice(0, 10);
-}
-
 function makeUuid(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
@@ -115,6 +112,7 @@ export function CredentialDetail({
   reminderConfig,
   initialEvidence,
 }: CredentialDetailProps) {
+  const tz = usePracticeTimezone();
   const showCeuProgress =
     credentialType.ceuRequirementHours != null &&
     credentialType.ceuRequirementWindowMonths != null;
@@ -171,7 +169,9 @@ export function CredentialDetail({
                 Issue date
               </dt>
               <dd className="mt-0.5 tabular-nums">
-                {fmtDate(credential.issueDate)}
+                {credential.issueDate
+                  ? formatPracticeDate(new Date(credential.issueDate), tz)
+                  : "—"}
               </dd>
             </div>
             <div>
@@ -179,7 +179,9 @@ export function CredentialDetail({
                 Expiry date
               </dt>
               <dd className="mt-0.5 tabular-nums">
-                {fmtDate(credential.expiryDate)}
+                {credential.expiryDate
+                  ? formatPracticeDate(new Date(credential.expiryDate), tz)
+                  : "—"}
               </dd>
             </div>
             {credential.notes && (
@@ -293,6 +295,7 @@ export function CredentialDetail({
 // ── CeuProgressBar ───────────────────────────────────────────────────────────
 
 function CeuProgressBar({ progress }: { progress: CeuProgress }) {
+  const tz = usePracticeTimezone();
   const widthPct = Math.min(progress.pct, 100);
   const colorVar =
     progress.bucket === "high"
@@ -326,7 +329,7 @@ function CeuProgressBar({ progress }: { progress: CeuProgress }) {
         />
       </div>
       <p className="text-[10px] text-muted-foreground">
-        Counting activities since {progress.windowStart.toISOString().slice(0, 10)}
+        Counting activities since {formatPracticeDate(progress.windowStart, tz)}
       </p>
     </div>
   );
@@ -399,6 +402,7 @@ function CeuActivityRow({
   striped: boolean;
   canManage: boolean;
 }) {
+  const tz = usePracticeTimezone();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -417,7 +421,7 @@ function CeuActivityRow({
   return (
     <tr className={striped ? "bg-muted/20 border-t" : "bg-background border-t"}>
       <td className="px-3 py-2.5 tabular-nums text-xs">
-        {activity.activityDate.slice(0, 10)}
+        {formatPracticeDate(new Date(activity.activityDate), tz)}
       </td>
       <td className="px-3 py-2.5">
         <div className="font-medium">{activity.activityName}</div>
@@ -465,11 +469,12 @@ function CeuActivityRow({
 // ── NewCeuActivityForm ───────────────────────────────────────────────────────
 
 function NewCeuActivityForm({ credentialId }: { credentialId: string }) {
+  const tz = usePracticeTimezone();
   const [expanded, setExpanded] = useState(false);
   const [activityName, setActivityName] = useState("");
   const [provider, setProvider] = useState("");
   const [activityDate, setActivityDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
+    formatPracticeDate(new Date(), tz),
   );
   const [hoursAwarded, setHoursAwarded] = useState("");
   const [category, setCategory] = useState("");
@@ -481,7 +486,7 @@ function NewCeuActivityForm({ credentialId }: { credentialId: string }) {
   const reset = () => {
     setActivityName("");
     setProvider("");
-    setActivityDate(new Date().toISOString().slice(0, 10));
+    setActivityDate(formatPracticeDate(new Date(), tz));
     setHoursAwarded("");
     setCategory("");
     setNotes("");

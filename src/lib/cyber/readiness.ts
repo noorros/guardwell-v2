@@ -15,6 +15,7 @@
 // MVP simplicity. A future iteration can introduce partial credit.
 
 import type { Prisma, PrismaClient } from "@prisma/client";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export const CYBER_COURSE_CODES = [
   "PHISHING_RECOGNITION_RESPONSE",
@@ -67,6 +68,7 @@ type DbClient = PrismaClient | Prisma.TransactionClient;
 export async function computeCyberReadiness(
   db: DbClient,
   practiceId: string,
+  practiceTimezone = "UTC",
 ): Promise<CyberReadinessSnapshot> {
   const now = new Date();
 
@@ -235,13 +237,13 @@ export async function computeCyberReadiness(
                 return {
                   earned: 25,
                   status: "PASS" as const,
-                  detail: `Most recent drill ${recentDrill.conductedAt.toISOString().slice(0, 10)} — click rate ${pct(clickRate)} (target ≤${pct(PHISHING_CLICK_RATE_TARGET)}).`,
+                  detail: `Most recent drill ${formatPracticeDate(recentDrill.conductedAt, practiceTimezone)} — click rate ${pct(clickRate)} (target ≤${pct(PHISHING_CLICK_RATE_TARGET)}).`,
                 };
               }
               return {
                 earned: 12,
                 status: "FAIL" as const,
-                detail: `Most recent drill ${recentDrill.conductedAt.toISOString().slice(0, 10)} — click rate ${pct(clickRate)} above target ${pct(PHISHING_CLICK_RATE_TARGET)}. (Half credit for running the drill.)`,
+                detail: `Most recent drill ${formatPracticeDate(recentDrill.conductedAt, practiceTimezone)} — click rate ${pct(clickRate)} above target ${pct(PHISHING_CLICK_RATE_TARGET)}. (Half credit for running the drill.)`,
               };
             })()),
     },
@@ -259,7 +261,7 @@ export async function computeCyberReadiness(
           ? {
               earned: 15,
               status: "PASS" as const,
-              detail: `Last successful test ${recentBackup.verifiedAt.toISOString().slice(0, 10)} — scope: ${recentBackup.scope}.`,
+              detail: `Last successful test ${formatPracticeDate(recentBackup.verifiedAt, practiceTimezone)} — scope: ${recentBackup.scope}.`,
             }
           : {
               earned: 0,
