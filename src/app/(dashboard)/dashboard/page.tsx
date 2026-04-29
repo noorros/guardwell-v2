@@ -11,6 +11,7 @@ import {
 import { Inbox } from "lucide-react";
 import { FirstRunReminderBanner } from "./FirstRunReminderBanner";
 import { ComplianceTrackWidget } from "./ComplianceTrackWidget";
+import { ConciergeCostTile } from "@/components/gw/ConciergeCostTile";
 
 export const metadata = {
   title: "Dashboard · GuardWell",
@@ -98,6 +99,7 @@ export default async function DashboardPage() {
         officerRoles={officerRoles}
         setupProgress={eventCount > 0 ? 10 : 0}
       />
+      <ConciergeCostTile practiceId={pu.practiceId} />
       {eventCount === 0 ? (
         <EmptyState
           icon={Inbox}
