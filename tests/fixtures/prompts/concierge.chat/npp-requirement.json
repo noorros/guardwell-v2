@@ -1,0 +1,13 @@
+{
+  "name": "npp-requirement",
+  "input": {
+    "practiceName": "Stonebridge Allergy Clinic",
+    "primaryState": "CO",
+    "providerCount": "SMALL_2_5",
+    "messages": [
+      { "role": "user", "content": "What does the Notice of Privacy Practices need to include?" }
+    ]
+  },
+  "expectedToolCalls": [],
+  "forbiddenStrings": ["I don't have access", "I cannot"]
+}

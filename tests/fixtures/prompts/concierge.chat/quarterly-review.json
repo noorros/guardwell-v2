@@ -1,0 +1,13 @@
+{
+  "name": "quarterly-review",
+  "input": {
+    "practiceName": "Willowbrook Dermatology",
+    "primaryState": "VA",
+    "providerCount": "SMALL_2_5",
+    "messages": [
+      { "role": "user", "content": "What needs my attention this quarter?" }
+    ]
+  },
+  "expectedToolCalls": ["get_dashboard_snapshot"],
+  "forbiddenStrings": ["I don't have access", "I cannot"]
+}

@@ -9,27 +9,12 @@
 // Never import the Anthropic SDK directly elsewhere.
 
 import crypto from "node:crypto";
-import { db } from "@/lib/db";
 import { getAnthropic } from "./client";
 import { getPrompt, type PromptId, PROMPTS } from "./registry";
 import { z } from "zod";
 import { zodToJsonSchema } from "./zodToJsonSchema";
-
-// --- Pricing table (USD per million tokens) ---------------------------------
-// Updated 2026-04 from Anthropic pricing page. When a new model is added to
-// the registry, add its price here too or costUsd is null.
-const PRICING_PER_MTOK: Record<string, { input: number; output: number }> = {
-  "claude-opus-4-7":  { input: 15, output: 75 },
-  "claude-sonnet-4-6": { input: 3,  output: 15 },
-  "claude-haiku-4-5-20251001":  { input: 1,  output: 5  },
-};
-
-function estimateCostUsd(model: string, input: number, output: number): number | null {
-  const p = PRICING_PER_MTOK[model];
-  if (!p) return null;
-  const cost = (input / 1_000_000) * p.input + (output / 1_000_000) * p.output;
-  return Number(cost.toFixed(6));
-}
+import { estimateCostUsd } from "./pricing";
+import { writeLlmCall } from "./llmCallLog";
 
 function stableHash(obj: unknown): string {
   const json = JSON.stringify(obj, Object.keys(obj as object).sort());
@@ -50,48 +35,6 @@ export interface RunLlmResult<TOut> {
   inputTokens: number;
   outputTokens: number;
   costUsd: number | null;
-}
-
-type ErrorCode =
-  | "INPUT_SCHEMA"
-  | "UPSTREAM"
-  | "NO_TOOL_USE"
-  | "OUTPUT_SCHEMA"
-  | "INTERNAL";
-
-async function writeLlmCall(args: {
-  promptId: string;
-  promptVersion: number;
-  model: string;
-  practiceId?: string | null;
-  actorUserId?: string | null;
-  inputHash: string;
-  inputTokens?: number | null;
-  outputTokens?: number | null;
-  latencyMs: number;
-  costUsd: number | null;
-  success: boolean;
-  errorCode?: ErrorCode | null;
-  containsPHI: boolean;
-}) {
-  const row = await db.llmCall.create({
-    data: {
-      promptId: args.promptId,
-      promptVersion: args.promptVersion,
-      model: args.model,
-      practiceId: args.practiceId ?? null,
-      actorUserId: args.actorUserId ?? null,
-      inputHash: args.inputHash,
-      inputTokens: args.inputTokens ?? null,
-      outputTokens: args.outputTokens ?? null,
-      latencyMs: args.latencyMs,
-      costUsd: args.costUsd as unknown as null, // Prisma Decimal accepts number
-      success: args.success,
-      errorCode: args.errorCode ?? null,
-      containsPHI: args.containsPHI,
-    },
-  });
-  return row.id;
 }
 
 export async function runLlm<T extends PromptId>(

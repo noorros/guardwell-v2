@@ -1,0 +1,13 @@
+{
+  "name": "clarification-needed",
+  "input": {
+    "practiceName": "Mountainview Allergy Associates",
+    "primaryState": "UT",
+    "providerCount": "SMALL_2_5",
+    "messages": [
+      { "role": "user", "content": "Tell me about §164.502" }
+    ]
+  },
+  "expectedToolCalls": [],
+  "forbiddenStrings": []
+}

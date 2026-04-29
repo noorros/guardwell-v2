@@ -24,7 +24,7 @@ import {
   archiveThreadAction,
 } from "@/app/(dashboard)/concierge/actions";
 
-interface ThreadRow {
+export interface ThreadRow {
   id: string;
   title: string | null;
   lastMessageAt: Date;

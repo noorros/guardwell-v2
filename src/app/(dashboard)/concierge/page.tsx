@@ -17,7 +17,9 @@ import { db } from "@/lib/db";
 import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { ConciergeConversation } from "@/components/gw/ConciergeConversation";
 import { ThreadList } from "@/components/gw/ConciergeConversation/ThreadList";
+import { MobileThreadSwitcher } from "@/components/gw/ConciergeConversation/MobileThreadSwitcher";
 import type { UIMessage } from "@/components/gw/ConciergeConversation";
+import { replayThreadHistory } from "@/lib/concierge/replayHistory";
 
 // Per-user thread membership + dynamic searchParams require fresh server
 // renders on every nav. Caching this route would leak threads across users.
@@ -77,36 +79,11 @@ export default async function ConciergePage({
         payload: true,
       },
     });
-    initialMessages = messages.flatMap<UIMessage>((m) => {
-      // Only USER + ASSISTANT messages are surfaced in the conversation
-      // pane; TOOL rows are persisted for audit but folded into the
-      // assistant bubble's tool-chip via streaming events. On historical
-      // load we don't have the raw tool_use_started/result event ordering
-      // recorded, so for now we drop TOOL rows from the rendered list.
-      // PR A6 will plumb the structured payload JSON for tool-chip
-      // reconstruction so historical assistant turns show their tools.
-      if (m.role === "USER") {
-        return [
-          {
-            id: m.id,
-            role: "user" as const,
-            content: m.content,
-          },
-        ];
-      }
-      if (m.role === "ASSISTANT") {
-        return [
-          {
-            id: m.id,
-            role: "assistant" as const,
-            parts: [{ kind: "text" as const, text: m.content }],
-            // Historical messages are NOT streaming — they're hydrated.
-            streaming: false,
-          },
-        ];
-      }
-      return [];
-    });
+    // replayThreadHistory groups TOOL rows with the next ASSISTANT message
+    // (createdAt-asc) so resumed threads render their original tool chips.
+    // Orphan TOOL rows at the tail (no closing ASSISTANT) are dropped with
+    // a console.warn — see src/lib/concierge/replayHistory.ts for details.
+    initialMessages = replayThreadHistory(messages);
   }
 
   return (
@@ -118,29 +95,16 @@ export default async function ConciergePage({
           <span>{threads.length} thread{threads.length === 1 ? "" : "s"}</span>
         </div>
       </div>
-      {/* Mobile-only thread switcher. Below md, the left rail is hidden
-          to give the conversation pane the full width — but users still
-          need a way to navigate / archive / rename. Lowest-effort fix is
-          a native <details> collapsible exposing the same <ThreadList>.
-          TODO(future PR): replace this with a proper mobile thread-
-          switcher Sheet — current pattern is functional but ergonomically
-          poor on small screens. */}
-      <details className="md:hidden">
-        <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
-          All threads ({threads.length})
-        </summary>
-        <div className="mt-2">
-          <ThreadList
-            threads={threads}
-            activeThreadId={activeThreadId}
-            showArchived={showArchived}
-          />
-        </div>
-      </details>
+      {/* Mobile-only thread switcher. Below md, the desktop left rail is
+          hidden to give the conversation pane the full width. The
+          hamburger button opens a left-side Sheet containing the same
+          ThreadList used in the rail. */}
+      <MobileThreadSwitcher
+        threads={threads}
+        activeThreadId={activeThreadId}
+        showArchived={showArchived}
+      />
       <div className="flex flex-1 min-h-0 gap-4">
-        {/* TODO(future PR): the desktop left rail is the only thread
-            navigator on md+. Mobile users use the <details> collapsible
-            above. A unified responsive drawer/sheet would be cleaner. */}
         <aside className="hidden w-72 shrink-0 md:block">
           <ThreadList
             threads={threads}

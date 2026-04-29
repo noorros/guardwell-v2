@@ -6,10 +6,7 @@
 // total meets or exceeds the budget.
 
 import { db } from "@/lib/db";
-
-function startOfMonthUtc(now: Date = new Date()): Date {
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0));
-}
+import { startOfMonthUtc } from "@/lib/ai/monthBoundary";
 
 export async function assertMonthlyCostBudget(): Promise<void> {
   const budgetRaw = process.env.LLM_MONTHLY_BUDGET_USD;

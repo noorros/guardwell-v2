@@ -1,0 +1,13 @@
+{
+  "name": "vendor-baas",
+  "input": {
+    "practiceName": "Sunset Cardiology",
+    "primaryState": "CA",
+    "providerCount": "MEDIUM_6_15",
+    "messages": [
+      { "role": "user", "content": "Do we have an active BAA with Athena?" }
+    ]
+  },
+  "expectedToolCalls": ["list_vendors"],
+  "forbiddenStrings": ["I don't have access", "I cannot"]
+}

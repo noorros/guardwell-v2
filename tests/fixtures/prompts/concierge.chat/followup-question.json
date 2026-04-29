@@ -1,0 +1,15 @@
+{
+  "name": "followup-question",
+  "input": {
+    "practiceName": "Crescent Vista Pediatrics",
+    "primaryState": "NM",
+    "providerCount": "SMALL_2_5",
+    "messages": [
+      { "role": "user", "content": "What's our HIPAA score?" },
+      { "role": "assistant", "content": "Your HIPAA score is 78%." },
+      { "role": "user", "content": "What's dragging it down?" }
+    ]
+  },
+  "expectedToolCalls": ["list_requirements_by_framework"],
+  "forbiddenStrings": []
+}

@@ -1,0 +1,13 @@
+{
+  "name": "bloodborne-rule",
+  "input": {
+    "practiceName": "Bayview OBGYN",
+    "primaryState": "FL",
+    "providerCount": "MEDIUM_6_15",
+    "messages": [
+      { "role": "user", "content": "What does the OSHA bloodborne pathogen standard cover?" }
+    ]
+  },
+  "expectedToolCalls": [],
+  "forbiddenStrings": ["I don't have access", "I cannot"]
+}

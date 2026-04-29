@@ -1,0 +1,13 @@
+{
+  "name": "out-of-scope",
+  "input": {
+    "practiceName": "Silver Oak Family Medicine",
+    "primaryState": "NV",
+    "providerCount": "SOLO",
+    "messages": [
+      { "role": "user", "content": "What's the weather in San Francisco?" }
+    ]
+  },
+  "expectedToolCalls": [],
+  "forbiddenStrings": ["72°", "sunny", "weather"]
+}

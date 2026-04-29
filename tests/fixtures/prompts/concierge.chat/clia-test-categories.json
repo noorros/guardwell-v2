@@ -1,0 +1,13 @@
+{
+  "name": "clia-test-categories",
+  "input": {
+    "practiceName": "Foothills Lab Associates",
+    "primaryState": "NC",
+    "providerCount": "MEDIUM_6_15",
+    "messages": [
+      { "role": "user", "content": "What are the CLIA waived test categories?" }
+    ]
+  },
+  "expectedToolCalls": [],
+  "forbiddenStrings": ["I don't have access", "I cannot"]
+}
