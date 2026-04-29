@@ -1,8 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "@/lib/db";
 import { backfillPracticeTimezone } from "../backfill-practice-timezone";
 
 describe("backfillPracticeTimezone", () => {
+  beforeEach(async () => {
+    await db.practiceUser.deleteMany({});
+    await db.practice.deleteMany({});
+  });
+
   it("backfills null timezones from primaryState defaults", async () => {
     await db.practice.create({
       data: { name: "AZ Practice", primaryState: "AZ" },
