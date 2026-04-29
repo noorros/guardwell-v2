@@ -205,7 +205,14 @@ describe("streamConciergeTurn", () => {
     );
   });
 
-  it("rate-limit failure yields an error event and never calls Anthropic", async () => {
+  it("generator no longer enforces rate limit (pre-flight moved to the route handler)", async () => {
+    // POST-POLISH BEHAVIOR: the route handler at /api/concierge/chat owns
+    // pre-flight (cost guard + rate limit) so a denied request never gets
+    // far enough to persist a user message. The generator runs without
+    // re-checking. This test pins that contract: even with a denying
+    // limiter set, the generator proceeds to call Anthropic and does NOT
+    // yield a RATE_LIMITED error. Route-level rate-limit denial belongs
+    // in a separate route-handler test (PR A4 introduces the surface).
     const { user, practice, threadId } =
       await seedThreadWithUserMessage("ping");
     __setConciergeLimiterForTests({
@@ -214,10 +221,8 @@ describe("streamConciergeTurn", () => {
       },
     });
     __setAnthropicForTests(
-      makeFakeAnthropic({ textChunks: ["should-never-stream"] }) as never,
+      makeFakeAnthropic({ textChunks: ["actually-streams"] }) as never,
     );
-    // Clear UPSTASH_DISABLE so the rate-limit assertion actually fires
-    // (tests/setup.ts pins it to "1" by default).
     const previous = process.env.UPSTASH_DISABLE;
     delete process.env.UPSTASH_DISABLE;
     try {
@@ -233,21 +238,21 @@ describe("streamConciergeTurn", () => {
           actorUserId: user.id,
         }),
       )) as ConciergeStreamEvent[];
-      expect(events.length).toBe(1);
-      expect(events[0]!.type).toBe("error");
-      expect((events[0] as { code: string }).code).toBe("RATE_LIMITED");
-      // No assistant message persisted.
-      const assistantMsgs = await db.conversationMessage.findMany({
-        where: { threadId, role: "ASSISTANT" },
-      });
-      expect(assistantMsgs.length).toBe(0);
+      // No RATE_LIMITED event — generator no longer pre-flights.
+      const rateLimitErrors = events.filter(
+        (e) => e.type === "error" && (e as { code: string }).code === "RATE_LIMITED",
+      );
+      expect(rateLimitErrors.length).toBe(0);
+      // The fake Anthropic produced text + turn_complete normally.
+      expect(events.some((e) => e.type === "text_delta")).toBe(true);
+      expect(events.some((e) => e.type === "turn_complete")).toBe(true);
     } finally {
       if (previous !== undefined) process.env.UPSTASH_DISABLE = previous;
       else process.env.UPSTASH_DISABLE = "1";
     }
   });
 
-  it("empty thread history yields EMPTY_HISTORY error", async () => {
+  it("empty thread history yields EMPTY_HISTORY error and never calls Anthropic", async () => {
     const user = await db.user.create({
       data: {
         firebaseUid: `concierge-empty-${Math.random().toString(36).slice(2, 10)}`,
@@ -275,9 +280,21 @@ describe("streamConciergeTurn", () => {
         }),
     );
 
-    __setAnthropicForTests(
-      makeFakeAnthropic({ textChunks: ["nope"] }) as never,
-    );
+    let streamCallCount = 0;
+    const fake = makeFakeAnthropic({ textChunks: ["nope"] });
+    __setAnthropicForTests({
+      messages: {
+        stream(...streamArgs: unknown[]) {
+          streamCallCount += 1;
+          // Forward to the inner fake so the test still "works" if the
+          // generator ever DOES call stream() (then assertion below fails
+          // loudly with a useful count).
+          return (
+            fake.messages.stream as unknown as (...a: unknown[]) => unknown
+          )(...streamArgs);
+        },
+      },
+    } as never);
 
     const events = (await collect(
       streamConciergeTurn({
@@ -293,5 +310,133 @@ describe("streamConciergeTurn", () => {
     )) as ConciergeStreamEvent[];
     expect(events.length).toBe(1);
     expect((events[0] as { code: string }).code).toBe("EMPTY_HISTORY");
+    // Generator must short-circuit before opening an Anthropic stream.
+    expect(streamCallCount).toBe(0);
+  });
+
+  it("tool-use turn: invokes tool, streams tool events, persists CONCIERGE_TOOL_INVOKED", async () => {
+    const { user, practice, threadId } = await seedThreadWithUserMessage(
+      "What's our HIPAA score?",
+    );
+
+    // Seed an enrolled framework so list_frameworks returns useful data.
+    const fw = await db.regulatoryFramework.findUniqueOrThrow({
+      where: { code: "HIPAA" },
+    });
+    await db.practiceFramework.create({
+      data: {
+        practiceId: practice.id,
+        frameworkId: fw.id,
+        enabled: true,
+        scoreCache: 75,
+      },
+    });
+
+    // Two-iteration stub: iter 1 emits a tool_use block; iter 2 emits
+    // text + end_turn. The generator should invoke the tool between them,
+    // append a CONCIERGE_TOOL_INVOKED event, and persist iter 2's text.
+    let callCount = 0;
+    __setAnthropicForTests({
+      messages: {
+        stream() {
+          callCount += 1;
+          const isFirstTurn = callCount === 1;
+          const toolUseId = "toolu_test_001";
+          return {
+            async *[Symbol.asyncIterator]() {
+              yield {
+                type: "message_start",
+                message: {
+                  usage: { input_tokens: 100 },
+                  model: "claude-sonnet-4-6",
+                },
+              };
+              if (!isFirstTurn) {
+                yield {
+                  type: "content_block_delta",
+                  delta: {
+                    type: "text_delta",
+                    text: "Your HIPAA score is 75.",
+                  },
+                };
+              }
+              yield {
+                type: "message_delta",
+                delta: {
+                  stop_reason: isFirstTurn ? "tool_use" : "end_turn",
+                },
+                usage: { output_tokens: 30 },
+              };
+            },
+            async finalMessage() {
+              if (isFirstTurn) {
+                return {
+                  content: [
+                    {
+                      type: "tool_use",
+                      id: toolUseId,
+                      name: "list_frameworks",
+                      input: {},
+                    },
+                  ],
+                  usage: { input_tokens: 100, output_tokens: 30 },
+                  model: "claude-sonnet-4-6",
+                  stop_reason: "tool_use",
+                };
+              }
+              return {
+                content: [{ type: "text", text: "Your HIPAA score is 75." }],
+                usage: { input_tokens: 100, output_tokens: 30 },
+                model: "claude-sonnet-4-6",
+                stop_reason: "end_turn",
+              };
+            },
+          };
+        },
+      },
+    } as never);
+
+    const events = (await collect(
+      streamConciergeTurn({
+        practiceId: practice.id,
+        practice: {
+          name: practice.name,
+          primaryState: practice.primaryState,
+          providerCount: null,
+        },
+        threadId,
+        actorUserId: user.id,
+      }),
+    )) as ConciergeStreamEvent[];
+
+    const toolStarted = events.filter((e) => e.type === "tool_use_started");
+    expect(toolStarted.length).toBe(1);
+    expect((toolStarted[0] as { toolName: string }).toolName).toBe(
+      "list_frameworks",
+    );
+
+    const toolResults = events.filter((e) => e.type === "tool_result");
+    expect(toolResults.length).toBe(1);
+    expect((toolResults[0] as { error: string | null }).error).toBeNull();
+
+    const completes = events.filter((e) => e.type === "turn_complete");
+    expect(completes.length).toBe(1);
+
+    // Final assistant message holds iter 2 text — intermediate-iteration
+    // text is not persisted.
+    const assistantMsgs = await db.conversationMessage.findMany({
+      where: { threadId, role: "ASSISTANT" },
+    });
+    expect(assistantMsgs.length).toBe(1);
+    expect(assistantMsgs[0]!.content).toBe("Your HIPAA score is 75.");
+
+    // CONCIERGE_TOOL_INVOKED event row landed in the EventLog.
+    const toolEvents = await db.eventLog.findMany({
+      where: { practiceId: practice.id, type: "CONCIERGE_TOOL_INVOKED" },
+    });
+    expect(toolEvents.length).toBe(1);
+
+    // Anthropic was called exactly twice (one per iteration).
+    expect(callCount).toBe(2);
   });
 });

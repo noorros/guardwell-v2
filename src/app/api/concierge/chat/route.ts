@@ -26,10 +26,16 @@ import {
   projectConciergeMessageUserSent,
 } from "@/lib/events/projections/conciergeThread";
 import { streamConciergeTurn } from "@/lib/ai/streamConciergeTurn";
+import { assertConciergeRateLimit } from "@/lib/ai/rateLimit";
+import { assertMonthlyCostBudget } from "@/lib/ai/costGuard";
 import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Cloud Run kills HTTP requests at 60s by default. Concierge tool-loop turns
+// can legitimately run several minutes when chained tools fan out — match
+// the 5-minute ceiling used by /api/cron/onboarding-drip.
+export const maxDuration = 300;
 
 const RequestSchema = z
   .object({
@@ -39,11 +45,6 @@ const RequestSchema = z
   .strict();
 
 export async function POST(request: NextRequest) {
-  const pu = await getPracticeUser();
-  if (!pu) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-
   let body: unknown;
   try {
     body = await request.json();
@@ -62,11 +63,38 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // Resolve or create thread. Brand-new threads get a server-derived title
-  // = first 80 chars of the user's first message (matches the projection's
-  // optional `title` payload field).
+  // Resolve thread + PracticeUser together.
+  //
+  // Multi-practice rule: when a threadId is provided, look up the thread
+  // FIRST (it's keyed by primary key) and resolve PracticeUser scoped to
+  // thread.practiceId. Otherwise a user whose default practice (the one
+  // getPracticeUser() returns when called with no args) differs from the
+  // thread's practice gets a spurious 404 because their default-practice
+  // PracticeUser doesn't match the thread's practiceId.
+  //
+  // For brand-new threads we still use the user's default practice — PR A4
+  // (drawer UI) will introduce an explicit practiceId field on the request
+  // body for the new-thread case.
   let threadId = parsed.data.threadId;
-  if (!threadId) {
+  let pu;
+  if (threadId) {
+    const thread = await db.conversationThread.findUnique({
+      where: { id: threadId },
+      select: { practiceId: true, userId: true },
+    });
+    if (!thread) {
+      return new Response("Thread not found", { status: 404 });
+    }
+    pu = await getPracticeUser(thread.practiceId);
+    // 404 (not 403) so we don't leak existence of someone else's thread.
+    if (!pu || pu.dbUser.id !== thread.userId) {
+      return new Response("Thread not found", { status: 404 });
+    }
+  } else {
+    pu = await getPracticeUser();
+    if (!pu) {
+      return new Response("Unauthorized", { status: 401 });
+    }
     threadId = randomUUID();
     const title = parsed.data.message.slice(0, 80);
     await appendEventAndApply(
@@ -78,20 +106,29 @@ export async function POST(request: NextRequest) {
       },
       async (tx) =>
         projectConciergeThreadCreated(tx, {
-          practiceId: pu.practiceId,
-          payload: { threadId: threadId!, userId: pu.dbUser.id, title },
+          practiceId: pu!.practiceId,
+          payload: { threadId: threadId!, userId: pu!.dbUser.id, title },
         }),
     );
-  } else {
-    // Verify thread belongs to this practice + user. 404 instead of 403
-    // so we don't leak existence of someone else's thread id.
-    const t = await db.conversationThread.findUnique({
-      where: { id: threadId },
-      select: { practiceId: true, userId: true },
+  }
+
+  // Pre-flight: cost guard + per-user rate limit. MUST run BEFORE persisting
+  // the user message so a denied request doesn't leave an orphan user
+  // message dangling in the thread without an assistant reply.
+  try {
+    await assertMonthlyCostBudget();
+    await assertConciergeRateLimit(pu.dbUser.id);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Pre-flight failed";
+    const code = message.startsWith("RATE_LIMITED")
+      ? "RATE_LIMITED"
+      : message.startsWith("COST_BUDGET_EXCEEDED")
+        ? "COST_BUDGET_EXCEEDED"
+        : "PREFLIGHT_FAILURE";
+    return new Response(JSON.stringify({ error: code, message }), {
+      status: code === "RATE_LIMITED" ? 429 : 500,
+      headers: { "Content-Type": "application/json" },
     });
-    if (!t || t.practiceId !== pu.practiceId || t.userId !== pu.dbUser.id) {
-      return new Response("Thread not found", { status: 404 });
-    }
   }
 
   // Persist user message before streaming so it's in history when
@@ -110,7 +147,7 @@ export async function POST(request: NextRequest) {
     },
     async (tx) =>
       projectConciergeMessageUserSent(tx, {
-        practiceId: pu.practiceId,
+        practiceId: pu!.practiceId,
         payload: {
           messageId: userMessageId,
           threadId: threadId!,
@@ -141,10 +178,16 @@ export async function POST(request: NextRequest) {
 
       try {
         for await (const event of streamConciergeTurn({
-          practiceId: pu.practiceId,
+          practiceId: pu!.practiceId,
           practice,
           threadId: threadId!,
-          actorUserId: pu.dbUser.id,
+          actorUserId: pu!.dbUser.id,
+          // request.signal aborts when the consumer (browser tab, fetch
+          // AbortController) disconnects. The generator checks this at
+          // iteration boundaries + before each tool invocation, and the
+          // SDK forwards it to fetch so the in-flight Anthropic stream
+          // is also torn down. Stops ticking tokens on closed-tab streams.
+          signal: request.signal,
         })) {
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify(event)}\n\n`),
@@ -164,6 +207,12 @@ export async function POST(request: NextRequest) {
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();
       }
+    },
+    cancel() {
+      // ReadableStream.cancel fires when the consumer closes. Next.js links
+      // request.signal to this event, so the generator already sees the
+      // abort and exits naturally; this handler exists mostly so future
+      // best-effort logging can hook in without a structural change.
     },
   });
 

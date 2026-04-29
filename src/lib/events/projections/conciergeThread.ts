@@ -78,7 +78,9 @@ export async function projectConciergeMessageAssistantProduced(
       inputTokens: payload.inputTokens,
       outputTokens: payload.outputTokens,
       costUsd: payload.costUsd ?? undefined,
-      llmCallId: payload.llmCallId,
+      // llmCallId is nullable in the registry schema (PR A6 will wire the
+      // actual LlmCall row write); column is also nullable in the DB.
+      llmCallId: payload.llmCallId ?? undefined,
     },
   });
   await tx.conversationThread.update({
