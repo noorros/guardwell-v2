@@ -12,6 +12,12 @@ export interface PracticeProfileInput {
   // Location
   primaryState: string;
   operatingStates: string[];
+  /**
+   * IANA timezone (e.g. "America/Phoenix"). null = use the
+   * primaryState default. Surfaces in /settings/practice's
+   * "Display timezone" select; never null after first save.
+   */
+  timezone: string | null;
   addressStreet: string | null;
   addressSuite: string | null;
   addressCity: string | null;

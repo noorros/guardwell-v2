@@ -28,6 +28,7 @@ const baseInitial: PracticeProfileInput = {
   entityType: "COVERED_ENTITY",
   primaryState: "AZ",
   operatingStates: [],
+  timezone: null,
   addressStreet: null,
   addressSuite: null,
   addressCity: null,

@@ -23,6 +23,7 @@ export async function projectPracticeProfileSettingsUpdated(
       entityType: data.entityType,
       primaryState: data.primaryState,
       operatingStates: data.operatingStates,
+      timezone: data.timezone,
       addressStreet: data.addressStreet,
       addressSuite: data.addressSuite,
       addressCity: data.addressCity,
