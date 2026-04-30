@@ -11,6 +11,8 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Osha300AReminder } from "@/components/gw/Osha300AReminder";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
 
 interface Form300AInputs {
   deaths: number;
@@ -35,8 +37,13 @@ const ZERO: Form300AInputs = {
 };
 
 export function OshaExtras() {
+  // Phase 2 B1 (v2 feature recovery): TZ-aware Feb 1–Apr 30 banner.
+  // The reminder is self-hiding outside the window so it stays mounted
+  // year-round without polluting the page.
+  const tz = usePracticeTimezone();
   return (
     <div className="space-y-4">
+      <Osha300AReminder tz={tz} href="/api/audit/osha-300" />
       <div className="grid gap-4 md:grid-cols-2">
         <Form300AWorksheet />
         <OshaPostingChecklist />

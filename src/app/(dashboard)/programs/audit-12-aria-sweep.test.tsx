@@ -70,6 +70,8 @@ import { AcceptBaaForm } from "@/app/accept-baa/[token]/AcceptBaaForm";
 import { PhishingDrillForm } from "./cybersecurity/PhishingDrillForm";
 import { BackupVerificationForm } from "./cybersecurity/BackupVerificationForm";
 import { LogDrillForm } from "./allergy/DrillTab";
+import { Osha300AReminder } from "@/components/gw/Osha300AReminder";
+import { MajorBreachBanner } from "@/components/gw/MajorBreachBanner";
 
 const AXE_OPTS = {
   rules: {
@@ -414,6 +416,50 @@ describe("Audit #12 ARIA / form labelling sweep", () => {
 
     it("empty members list", async () => {
       const { container } = render(<LogDrillForm members={[]} />);
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+  });
+
+  // ── Phase 2 B1+B2 (v2 feature recovery, 2026-04-30) ─────────────────────
+  // Banners on the module pages get the same jest-axe lock-in. Both have
+  // standalone tests too — these confirm the wired-shape stays clean.
+
+  describe("<Osha300AReminder>", () => {
+    it("in-window render (Feb 15, Pacific)", async () => {
+      const { container } = render(
+        <Osha300AReminder
+          now={new Date("2026-02-15T12:00:00Z")}
+          tz="America/Los_Angeles"
+          href="/api/audit/osha-300"
+        />,
+      );
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+
+    it("out-of-window render (July, no banner)", async () => {
+      const { container } = render(
+        <Osha300AReminder
+          now={new Date("2026-07-15T12:00:00Z")}
+          tz="America/Los_Angeles"
+        />,
+      );
+      // Returns null — empty DOM still trips no axe rules.
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+  });
+
+  describe("<MajorBreachBanner> (Phase 2 B2 wiring on /modules/hipaa)", () => {
+    it("renders cleanly when affectedCount >= 500", async () => {
+      const { container } = render(
+        <MajorBreachBanner
+          affectedCount={750}
+          reportingDeadline={new Date("2026-06-15T23:59:59Z")}
+          now={new Date("2026-04-30T12:00:00Z")}
+        />,
+      );
       const results = await axe(container, AXE_OPTS);
       expect(results).toHaveNoViolations();
     });
