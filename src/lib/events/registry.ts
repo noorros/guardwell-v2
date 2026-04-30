@@ -196,6 +196,10 @@ export const EVENT_TYPES = [
   // today; the projection sets sortOrder=9999 as the soft-retire signal
   // until a follow-up schema migration adds the column.
   "TRAINING_COURSE_RETIRED",
+  // Reverses a TRAINING_COURSE_RETIRED. The projection resets sortOrder
+  // to 999 (the default for projection-created custom courses), which
+  // re-includes the row in catalog queries that filter sortOrder<9999.
+  "TRAINING_COURSE_RESTORED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -1642,6 +1646,13 @@ export const EVENT_SCHEMAS = {
   // Soft-retire. TrainingCourse has no retiredAt column today; the
   // projection sets sortOrder=9999 as the soft-retire signal.
   TRAINING_COURSE_RETIRED: {
+    1: z.object({
+      courseId: z.string().min(1),
+    }),
+  },
+  // Restore a previously-retired course. Projection resets sortOrder to
+  // 999 (the default for projection-created custom courses).
+  TRAINING_COURSE_RESTORED: {
     1: z.object({
       courseId: z.string().min(1),
     }),
