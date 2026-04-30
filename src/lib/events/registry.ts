@@ -113,6 +113,14 @@ export const EVENT_TYPES = [
   "BAA_ACKNOWLEDGED_BY_VENDOR",
   "BAA_EXECUTED_BY_VENDOR",
   "BAA_REJECTED_BY_VENDOR",
+  // Audit #21 M-5 (2026-04-30): attacker-style failed token attempts
+  // against /accept-baa/[token] / /api/baa-document/[token]. Emitted
+  // ONLY when the token resolves to a real BaaRequest but its lifecycle
+  // state rejects the attempt (revoked, expired, already-consumed,
+  // BAA-no-longer-accepting). Unknown-token attempts have no practiceId
+  // scope and are NOT recorded here — they're logged via console.warn
+  // so the platform aggregator can still correlate them.
+  "BAA_TOKEN_REJECTED",
   // OSHA poster + PPE attestation — feeds OSHA_REQUIRED_POSTERS + OSHA_PPE
   // derivation rules (see src/lib/compliance/derivation/osha.ts).
   "POSTER_ATTESTATION",
@@ -1316,6 +1324,33 @@ export const EVENT_SCHEMAS = {
       tokenId: z.string().min(1),
       rejectedAt: z.string().datetime(),
       reason: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  // Audit-trail entry for a failed token attempt that resolved to a
+  // real BaaRequest but was refused by the lifecycle guards. Audit #21
+  // M-5 (2026-04-30) — pairs with the C-4 rate-limiter so OCR-style
+  // questions ("how would you detect token enumeration?") have a
+  // documented answer. PHI-safe by construction:
+  //   * `tokenHash` is sha256-then-first-12-hex of the raw token.
+  //   * No plaintext token, no PHI fields.
+  //   * IP + user agent captured for forensics, but truncated.
+  BAA_TOKEN_REJECTED: {
+    1: z.object({
+      baaRequestId: z.string().min(1),
+      tokenId: z.string().min(1),
+      tokenHash: z.string().length(12),
+      rejectedAt: z.string().datetime(),
+      reason: z.enum([
+        "REVOKED",
+        "EXPIRED",
+        "ALREADY_CONSUMED",
+        "STATUS_CLOSED",
+        "EMAIL_MISMATCH",
+        "RATE_LIMITED",
+        "ID_MISMATCH",
+      ]),
+      ip: z.string().max(45).nullable().optional(),
+      userAgent: z.string().max(500).nullable().optional(),
     }),
   },
   // Annual poster attestation — officer attests that required OSHA + state

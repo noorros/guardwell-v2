@@ -8,6 +8,7 @@
 // Lives at the top level of /src/app/ — outside the (dashboard) group —
 // so it doesn't inherit the dashboard layout / auth redirect chain.
 
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +16,12 @@ import { appendEventAndApply } from "@/lib/events";
 import { projectBaaAcknowledgedByVendor } from "@/lib/events/projections/baa";
 import { AcceptBaaForm } from "./AcceptBaaForm";
 import { formatPracticeDate } from "@/lib/audit/format";
+import { assertBaaTokenRateLimit } from "@/lib/baa/rateLimit";
+import { extractClientIp } from "@/lib/baa/tokenAudit";
+import {
+  logRejectedKnownToken,
+  logRejectedUnknownToken,
+} from "@/lib/baa/logRejected";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Review BAA · GuardWell" };
@@ -25,6 +32,22 @@ interface PageProps {
 
 export default async function AcceptBaaPage({ params }: PageProps) {
   const { token } = await params;
+
+  // Capture forensic context up front so rate-limit / rejection logs
+  // share the same IP + UA snapshot. Audit #21 C-4 + M-5 (2026-04-30).
+  const hdrs = await headers();
+  const ip = extractClientIp(hdrs);
+  const userAgent = hdrs.get("user-agent");
+
+  // Rate-limit BEFORE any DB I/O. 10 attempts / 5 min per IP.
+  // RATE_LIMITED throws bubble out as a 500 from Next; matches the
+  // posture of /api/concierge/chat where rate-limit is a hard fail.
+  try {
+    await assertBaaTokenRateLimit(ip);
+  } catch (err) {
+    logRejectedUnknownToken({ token, ip, userAgent });
+    throw err;
+  }
 
   const tokenRow = await db.baaAcceptanceToken.findUnique({
     where: { token },
@@ -46,7 +69,10 @@ export default async function AcceptBaaPage({ params }: PageProps) {
       },
     },
   });
-  if (!tokenRow) notFound();
+  if (!tokenRow) {
+    logRejectedUnknownToken({ token, ip, userAgent });
+    notFound();
+  }
 
   // Status guards — render different states.
   // eslint-disable-next-line react-hooks/purity -- Server component; Date.now() is safe here.
@@ -57,6 +83,15 @@ export default async function AcceptBaaPage({ params }: PageProps) {
   const baa = tokenRow.baaRequest;
 
   if (revoked) {
+    await logRejectedKnownToken({
+      practiceId: baa.practiceId,
+      baaRequestId: baa.id,
+      tokenId: tokenRow.id,
+      token,
+      reason: "REVOKED",
+      ip,
+      userAgent,
+    });
     return (
       <BlockedState
         title="Link revoked"
@@ -65,6 +100,15 @@ export default async function AcceptBaaPage({ params }: PageProps) {
     );
   }
   if (expired) {
+    await logRejectedKnownToken({
+      practiceId: baa.practiceId,
+      baaRequestId: baa.id,
+      tokenId: tokenRow.id,
+      token,
+      reason: "EXPIRED",
+      ip,
+      userAgent,
+    });
     return (
       <BlockedState
         title="Link expired"
