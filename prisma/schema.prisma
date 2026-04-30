@@ -762,6 +762,13 @@ model Credential {
   @@index([practiceId, retiredAt])
   @@index([practiceId, expiryDate])
   @@index([practiceId, holderId])
+  // Audit #21 IM-5: idempotent bulk re-upload. Postgres treats NULLs as
+  // distinct in unique constraints by default, so this is functionally a
+  // partial unique index across non-null licenseNumber rows — exactly
+  // what we want. Two staff sharing a null-license credential of the
+  // same type don't collide here; their dedup runs in app code via
+  // (practice, type, holder, title) instead.
+  @@unique([practiceId, credentialTypeId, holderId, licenseNumber])
 }
 
 // =====================================================================

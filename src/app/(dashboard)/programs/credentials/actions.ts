@@ -191,14 +191,27 @@ export async function updateCredentialAction(input: z.infer<typeof UpdateInput>)
 // code (e.g., "MD_STATE_LICENSE"). Per-row results.
 // ──────────────────────────────────────────────────────────────────────
 
+// CR-5 (audit #21): the issueDate/expiryDate columns previously accepted
+// any string and crashed on `new Date("garbage").toISOString()` mid-batch
+// — `RangeError: Invalid time value` escaped the row loop and aborted
+// the whole import. Refine to reject obviously malformed values up front,
+// then the per-row try/catch below catches anything that slips through.
+const optionalDateString = z
+  .string()
+  .nullable()
+  .optional()
+  .refine((s) => !s || !Number.isNaN(Date.parse(s)), {
+    message: "could not be parsed as a date",
+  });
+
 const BulkCredentialRow = z.object({
   credentialTypeCode: z.string().min(1).max(100),
   holderEmail: z.string().nullable().optional(), // empty = practice-level
   title: z.string().min(1).max(200),
   licenseNumber: z.string().max(100).nullable().optional(),
   issuingBody: z.string().max(200).nullable().optional(),
-  issueDate: z.string().nullable().optional(), // ISO or YYYY-MM-DD
-  expiryDate: z.string().nullable().optional(),
+  issueDate: optionalDateString, // ISO or YYYY-MM-DD
+  expiryDate: optionalDateString,
   notes: z.string().max(2000).nullable().optional(),
 });
 
@@ -241,6 +254,7 @@ export async function bulkImportCredentialsAction(input: {
 
   const perRowResults: BulkPerRowResult[] = [];
   let insertedCount = 0;
+  let updatedCount = 0;
 
   // Resolve all the things we'll need for lookups in one pass.
   const allTypes = await db.credentialType.findMany({
@@ -258,90 +272,200 @@ export async function bulkImportCredentialsAction(input: {
     if (m.user.email) holderByEmail.set(m.user.email.toLowerCase(), m.id);
   }
 
-  // (license#, type) intra-batch dedup so a CSV with two rows for the
-  // same license doesn't double-write.
+  // IM-4 (audit #21): intra-batch dedup. The previous key was just
+  // `licenseNumber || title` which collided when two staff each had a
+  // "BLS card" row with no license number — second row dropped as
+  // DUPLICATE_IN_BATCH even though it was for a different person.
+  // Including the holderEmail disambiguates: distinct staff → distinct
+  // keys, even when title + license are identical.
   const seenInBatch = new Set<string>();
 
   for (const raw of input.rows) {
-    const r = BulkCredentialRow.safeParse(raw);
-    if (!r.success) {
-      perRowResults.push({
-        identifier: raw.title || "(untitled)",
-        status: "INVALID",
-        reason: r.error.issues[0]?.message ?? "validation failed",
-      });
-      continue;
-    }
-    const row = r.data;
-    const id = `${(row.licenseNumber ?? row.title).toLowerCase()}::${row.credentialTypeCode.toUpperCase()}`;
-    if (seenInBatch.has(id)) {
-      perRowResults.push({
-        identifier: row.title,
-        status: "DUPLICATE_IN_BATCH",
-      });
-      continue;
-    }
-    seenInBatch.add(id);
-
-    if (!typeByCode.has(row.credentialTypeCode.toUpperCase())) {
-      perRowResults.push({
-        identifier: row.title,
-        status: "INVALID",
-        reason: `unknown credentialTypeCode "${row.credentialTypeCode}"`,
-      });
-      continue;
-    }
-
-    let holderId: string | null = null;
-    const emailLower = row.holderEmail?.trim().toLowerCase();
-    if (emailLower) {
-      const resolved = holderByEmail.get(emailLower);
-      if (!resolved) {
+    // CR-5 (audit #21) defense-in-depth: any throw inside this loop body
+    // (malformed dates, projection assertion failures, etc.) used to
+    // escape and abort the whole import mid-flight, leaving prior rows
+    // committed but later valid rows un-imported and the per-row results
+    // map empty. Wrap so the bad row is reported INVALID and the loop
+    // continues.
+    try {
+      const r = BulkCredentialRow.safeParse(raw);
+      if (!r.success) {
         perRowResults.push({
-          identifier: row.title,
+          identifier: raw.title || "(untitled)",
           status: "INVALID",
-          reason: `holderEmail "${row.holderEmail}" is not an active member of this practice`,
+          reason: r.error.issues[0]?.message ?? "validation failed",
         });
         continue;
       }
-      holderId = resolved;
-    }
+      const row = r.data;
+      const dedupCore = (row.licenseNumber ?? row.title).toLowerCase();
+      const dedupKey = `${row.holderEmail?.trim().toLowerCase() ?? ""}::${dedupCore}::${row.credentialTypeCode.toUpperCase()}`;
+      if (seenInBatch.has(dedupKey)) {
+        perRowResults.push({
+          identifier: row.title,
+          status: "DUPLICATE_IN_BATCH",
+        });
+        continue;
+      }
+      seenInBatch.add(dedupKey);
 
-    const credentialId = randomUUID();
-    const payload = {
-      credentialId,
-      credentialTypeCode: row.credentialTypeCode,
-      holderId,
-      title: row.title,
-      licenseNumber: row.licenseNumber ?? null,
-      issuingBody: row.issuingBody ?? null,
-      issueDate: row.issueDate
-        ? new Date(row.issueDate).toISOString()
-        : null,
-      expiryDate: row.expiryDate
-        ? new Date(row.expiryDate).toISOString()
-        : null,
-      notes: row.notes ?? null,
-    };
-    await appendEventAndApply(
-      {
-        practiceId: pu.practiceId,
-        actorUserId: user.id,
-        type: "CREDENTIAL_UPSERTED",
-        payload,
-      },
-      async (tx) =>
-        projectCredentialUpserted(tx, { practiceId: pu.practiceId, payload }),
-    );
-    insertedCount += 1;
-    perRowResults.push({ identifier: row.title, status: "INSERTED" });
+      const credentialTypeId = typeByCode.get(row.credentialTypeCode.toUpperCase());
+      if (!credentialTypeId) {
+        perRowResults.push({
+          identifier: row.title,
+          status: "INVALID",
+          reason: `unknown credentialTypeCode "${row.credentialTypeCode}"`,
+        });
+        continue;
+      }
+
+      let holderId: string | null = null;
+      const emailLower = row.holderEmail?.trim().toLowerCase();
+      if (emailLower) {
+        const resolved = holderByEmail.get(emailLower);
+        if (!resolved) {
+          perRowResults.push({
+            identifier: row.title,
+            status: "INVALID",
+            reason: `holderEmail "${row.holderEmail}" is not an active member of this practice`,
+          });
+          continue;
+        }
+        holderId = resolved;
+      }
+
+      // CR-5 (audit #21) per-row date coercion. The Zod refine above
+      // already rejects obvious garbage, but `new Date(s).toISOString()`
+      // can still RangeError on edge values that pass `Date.parse` (e.g.
+      // "0000-00-00"). A failed coercion here marks the row INVALID and
+      // continues the batch.
+      let issueIso: string | null;
+      let expiryIso: string | null;
+      try {
+        issueIso = row.issueDate
+          ? new Date(row.issueDate).toISOString()
+          : null;
+        expiryIso = row.expiryDate
+          ? new Date(row.expiryDate).toISOString()
+          : null;
+      } catch {
+        perRowResults.push({
+          identifier: row.title,
+          status: "INVALID",
+          reason: "issueDate or expiryDate could not be parsed",
+        });
+        continue;
+      }
+
+      // IM-5 (audit #21): re-uploading the same CSV used to create
+      // duplicate rows. Look up an existing live (non-retired) credential
+      // matching this (practice, type, holder) and either licenseNumber
+      // (when present — most cases) or title (when license is null).
+      // Prisma null semantics: `licenseNumber: null` in a where-clause
+      // matches IS NULL exactly, mirroring the partial-unique-index
+      // behavior described in the audit plan.
+      const matchKey = row.licenseNumber
+        ? { licenseNumber: row.licenseNumber }
+        : { licenseNumber: null, title: row.title };
+      const existing = await db.credential.findFirst({
+        where: {
+          practiceId: pu.practiceId,
+          credentialTypeId,
+          holderId,
+          retiredAt: null,
+          ...matchKey,
+        },
+      });
+
+      if (existing) {
+        // Compare each user-editable field. Any difference → UPDATED;
+        // identical row → ALREADY_EXISTS (no-op, no event re-emit).
+        const issuingBodyNew = row.issuingBody ?? null;
+        const titleNew = row.title;
+        const licenseNumberNew = row.licenseNumber ?? null;
+        const notesNew = row.notes ?? null;
+        const issueChanged = (existing.issueDate?.toISOString() ?? null) !== issueIso;
+        const expiryChanged = (existing.expiryDate?.toISOString() ?? null) !== expiryIso;
+        const unchanged =
+          existing.title === titleNew &&
+          existing.licenseNumber === licenseNumberNew &&
+          existing.issuingBody === issuingBodyNew &&
+          existing.notes === notesNew &&
+          !issueChanged &&
+          !expiryChanged;
+        if (unchanged) {
+          perRowResults.push({ identifier: row.title, status: "ALREADY_EXISTS" });
+          continue;
+        }
+        // Re-emit CREDENTIAL_UPSERTED with the EXISTING credentialId so
+        // the projection's upsert routes to the update branch (same path
+        // updateCredentialAction uses).
+        const payload = {
+          credentialId: existing.id,
+          credentialTypeCode: row.credentialTypeCode,
+          holderId,
+          title: titleNew,
+          licenseNumber: licenseNumberNew,
+          issuingBody: issuingBodyNew,
+          issueDate: issueIso,
+          expiryDate: expiryIso,
+          notes: notesNew,
+        };
+        await appendEventAndApply(
+          {
+            practiceId: pu.practiceId,
+            actorUserId: user.id,
+            type: "CREDENTIAL_UPSERTED",
+            payload,
+          },
+          async (tx) =>
+            projectCredentialUpserted(tx, { practiceId: pu.practiceId, payload }),
+        );
+        updatedCount += 1;
+        perRowResults.push({ identifier: row.title, status: "UPDATED" });
+        continue;
+      }
+
+      const credentialId = randomUUID();
+      const payload = {
+        credentialId,
+        credentialTypeCode: row.credentialTypeCode,
+        holderId,
+        title: row.title,
+        licenseNumber: row.licenseNumber ?? null,
+        issuingBody: row.issuingBody ?? null,
+        issueDate: issueIso,
+        expiryDate: expiryIso,
+        notes: row.notes ?? null,
+      };
+      await appendEventAndApply(
+        {
+          practiceId: pu.practiceId,
+          actorUserId: user.id,
+          type: "CREDENTIAL_UPSERTED",
+          payload,
+        },
+        async (tx) =>
+          projectCredentialUpserted(tx, { practiceId: pu.practiceId, payload }),
+      );
+      insertedCount += 1;
+      perRowResults.push({ identifier: row.title, status: "INSERTED" });
+    } catch (err) {
+      perRowResults.push({
+        identifier: raw.title || "(untitled)",
+        status: "INVALID",
+        reason: err instanceof Error ? err.message : "unexpected error",
+      });
+    }
   }
 
   revalidatePath("/programs/credentials");
+  const skippedCount =
+    perRowResults.length - insertedCount - updatedCount;
   return {
     insertedCount,
-    updatedCount: 0,
-    skippedCount: perRowResults.length - insertedCount,
+    updatedCount,
+    skippedCount,
     perRowResults,
   };
 }
