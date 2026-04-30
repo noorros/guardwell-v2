@@ -437,3 +437,79 @@ describe("excludeFromAssignmentAction (Phase 4 PR 2)", () => {
     ).rejects.toThrow(/different practice|not in your practice|unauthorized/i);
   });
 });
+
+describe("autoAssignRequiredAction (Phase 4 PR 2)", () => {
+  it("rejects STAFF callers (requires ADMIN)", async () => {
+    await seed("STAFF");
+    await seedCourse({ isRequired: true, roles: [] });
+    const { autoAssignRequiredAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+    await expect(autoAssignRequiredAction()).rejects.toThrow(
+      /admin|owner|requires/i,
+    );
+  });
+
+  it("emits TRAINING_ASSIGNED for required courses (one per role; empty roles[] → STAFF)", async () => {
+    const { practice } = await seed("ADMIN");
+    // Course A: required, roles=[] → one assignment with assignedToRole="STAFF".
+    const courseA = await seedCourse({ isRequired: true, roles: [] });
+    // Course B: required, roles=["OWNER","ADMIN"] → 2 assignments.
+    const courseB = await seedCourse({
+      isRequired: true,
+      roles: ["OWNER", "ADMIN"],
+    });
+    // Course C: NOT required → ignored entirely.
+    const courseC = await seedCourse({ isRequired: false, roles: [] });
+    const { autoAssignRequiredAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+    const result = await autoAssignRequiredAction();
+    // The platform's seed catalog contains additional isRequired=true
+    // courses (HIPAA_BASICS, etc.). Don't assert the exact created count;
+    // assert per-course outcomes to keep the test independent of
+    // whichever required courses are in the seed.
+    expect(result.created).toBeGreaterThanOrEqual(3);
+    expect(result.skipped).toBe(0);
+
+    // Course A: 1 row, role=STAFF
+    const a = await db.trainingAssignment.findMany({
+      where: { practiceId: practice.id, courseId: courseA.id },
+    });
+    expect(a).toHaveLength(1);
+    expect(a[0]!.assignedToRole).toBe("STAFF");
+    expect(a[0]!.requiredFlag).toBe(true);
+
+    // Course B: 2 rows
+    const b = await db.trainingAssignment.findMany({
+      where: { practiceId: practice.id, courseId: courseB.id },
+    });
+    expect(b).toHaveLength(2);
+    const bRoles = new Set(b.map((r) => r.assignedToRole));
+    expect(bRoles).toEqual(new Set(["OWNER", "ADMIN"]));
+
+    // Course C: zero rows (not required)
+    const c = await db.trainingAssignment.findMany({
+      where: { practiceId: practice.id, courseId: courseC.id },
+    });
+    expect(c).toHaveLength(0);
+  });
+
+  it("is idempotent on re-run (no duplicate rows)", async () => {
+    const { practice } = await seed("ADMIN");
+    const courseA = await seedCourse({ isRequired: true, roles: [] });
+    const { autoAssignRequiredAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+    const first = await autoAssignRequiredAction();
+    const firstCreated = first.created;
+    expect(firstCreated).toBeGreaterThanOrEqual(1);
+    const second = await autoAssignRequiredAction();
+    expect(second.created).toBe(0);
+    expect(second.skipped).toBe(firstCreated);
+    const rows = await db.trainingAssignment.findMany({
+      where: { practiceId: practice.id, courseId: courseA.id },
+    });
+    expect(rows).toHaveLength(1);
+  });
+});

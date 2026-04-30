@@ -323,3 +323,88 @@ export async function excludeFromAssignmentAction(
   revalidatePath("/programs/training/assignments");
   return { assignmentId: parsed.assignmentId, userId: parsed.userId };
 }
+
+const ROLE_VALUES = ["OWNER", "ADMIN", "STAFF", "VIEWER"] as const;
+type RoleValue = (typeof ROLE_VALUES)[number];
+
+/**
+ * ADMIN-gated. Sweeps every isRequired=true TrainingCourse and emits a
+ * TRAINING_ASSIGNED event for each (course, role) tuple that does NOT
+ * already have an active (non-revoked) assignment in the caller's
+ * practice.
+ *
+ * Empty `course.roles[]` is treated as "applies to STAFF" — emits ONE
+ * assignment with assignedToRole="STAFF". Practices that want it pinned
+ * to all four roles should populate `course.roles` explicitly via the
+ * course catalog.
+ *
+ * Returns { created, skipped } for the UI's "swept N, X new, Y already
+ * present" toast.
+ */
+export async function autoAssignRequiredAction() {
+  const pu = await requireRole("ADMIN");
+
+  const courses = await db.trainingCourse.findMany({
+    where: { isRequired: true },
+    select: { id: true, roles: true },
+  });
+
+  let created = 0;
+  let skipped = 0;
+
+  for (const course of courses) {
+    const targetRoles: RoleValue[] =
+      course.roles.length === 0
+        ? ["STAFF"]
+        : (course.roles.filter((r): r is RoleValue =>
+            (ROLE_VALUES as readonly string[]).includes(r),
+          ) as RoleValue[]);
+
+    for (const role of targetRoles) {
+      const existing = await db.trainingAssignment.findFirst({
+        where: {
+          practiceId: pu.practiceId,
+          courseId: course.id,
+          assignedToRole: role,
+          revokedAt: null,
+        },
+        select: { id: true },
+      });
+      if (existing) {
+        skipped += 1;
+        continue;
+      }
+
+      const assignmentId = randomUUID();
+      const payload = {
+        assignmentId,
+        courseId: course.id,
+        assignedToUserId: null,
+        assignedToRole: role,
+        assignedToCategory: null,
+        dueDate: null,
+        requiredFlag: true,
+      };
+
+      await appendEventAndApply(
+        {
+          practiceId: pu.practiceId,
+          actorUserId: pu.dbUser.id,
+          type: "TRAINING_ASSIGNED",
+          payload,
+        },
+        async (tx) =>
+          projectTrainingAssigned(tx, {
+            practiceId: pu.practiceId,
+            actorUserId: pu.dbUser.id,
+            payload,
+          }),
+      );
+      created += 1;
+    }
+  }
+
+  revalidatePath("/programs/training");
+  revalidatePath("/programs/training/assignments");
+  return { created, skipped };
+}
