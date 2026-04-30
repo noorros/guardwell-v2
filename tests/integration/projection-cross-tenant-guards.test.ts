@@ -27,6 +27,20 @@ import {
 } from "@/lib/events/projections/credential";
 import { projectSraCompleted } from "@/lib/events/projections/sraCompleted";
 import { projectSraDraftSaved } from "@/lib/events/projections/sraDraftSaved";
+import {
+  projectPolicyAdopted,
+  projectPolicyRetired,
+  projectPolicyReviewed,
+} from "@/lib/events/projections/policyAdopted";
+import { projectPolicyContentUpdated } from "@/lib/events/projections/policyContentUpdated";
+import { projectPolicyAcknowledged } from "@/lib/events/projections/policyAcknowledged";
+import {
+  projectBaaDraftUploaded,
+  projectBaaSentToVendor,
+  projectBaaAcknowledgedByVendor,
+  projectBaaExecutedByVendor,
+  projectBaaRejectedByVendor,
+} from "@/lib/events/projections/baa";
 
 interface TwoPracticeSetup {
   practiceA: { id: string };
@@ -489,6 +503,298 @@ describe("Audit C-1 cross-tenant projection guards", () => {
             required: true,
             previousValue: false,
             toggledByPracticeUserId: practiceBUser.id,
+          },
+        }),
+      ),
+    ).rejects.toThrow(/different practice/i);
+  });
+
+  // ────────────────────────────────────────────────────────────────────
+  // Policy — 5 sites (audit #21 HIPAA C-1)
+  //
+  // Audit #2 / PR #202 added assertProjectionPracticeOwned to
+  // SRA / Credentials / Allergy projections but missed Policy + BAA.
+  // §164.530 evidence-integrity: cross-tenant projection forging could
+  // overwrite a foreign practice's adopted-policy version, fake annual
+  // review attestations, or pollute the cross-policy ack-coverage rule.
+  // ────────────────────────────────────────────────────────────────────
+
+  it("projectPolicyAdopted refuses a practicePolicyId owned by another practice", async () => {
+    const { practiceA, practiceB } = await seedTwoPractices();
+    const bPolicy = await db.practicePolicy.create({
+      data: {
+        practiceId: practiceB.id,
+        policyCode: "HIPAA_PRIVACY_POLICY",
+        version: 1,
+      },
+    });
+    await expect(
+      db.$transaction(async (tx) =>
+        projectPolicyAdopted(tx, {
+          practiceId: practiceA.id,
+          payload: {
+            practicePolicyId: bPolicy.id,
+            policyCode: "HIPAA_PRIVACY_POLICY",
+            version: 2,
+          },
+        }),
+      ),
+    ).rejects.toThrow(/different practice/i);
+  });
+
+  it("projectPolicyRetired refuses a practicePolicyId owned by another practice", async () => {
+    const { practiceA, practiceB } = await seedTwoPractices();
+    const bPolicy = await db.practicePolicy.create({
+      data: {
+        practiceId: practiceB.id,
+        policyCode: "HIPAA_BREACH_RESPONSE_POLICY",
+        version: 1,
+      },
+    });
+    await expect(
+      db.$transaction(async (tx) =>
+        projectPolicyRetired(tx, {
+          practiceId: practiceA.id,
+          payload: {
+            practicePolicyId: bPolicy.id,
+            policyCode: "HIPAA_BREACH_RESPONSE_POLICY",
+          },
+        }),
+      ),
+    ).rejects.toThrow(/different practice/i);
+  });
+
+  it("projectPolicyReviewed refuses a practicePolicyId owned by another practice", async () => {
+    const { practiceA, practiceB, userB } = await seedTwoPractices();
+    const bPolicy = await db.practicePolicy.create({
+      data: {
+        practiceId: practiceB.id,
+        policyCode: "HIPAA_SECURITY_POLICY",
+        version: 1,
+      },
+    });
+    await expect(
+      db.$transaction(async (tx) =>
+        projectPolicyReviewed(tx, {
+          practiceId: practiceA.id,
+          payload: {
+            practicePolicyId: bPolicy.id,
+            policyCode: "HIPAA_SECURITY_POLICY",
+            reviewedByUserId: userB.id,
+          },
+        }),
+      ),
+    ).rejects.toThrow(/different practice/i);
+  });
+
+  it("projectPolicyContentUpdated refuses a practicePolicyId owned by another practice", async () => {
+    const { practiceA, practiceB, userB } = await seedTwoPractices();
+    const bPolicy = await db.practicePolicy.create({
+      data: {
+        practiceId: practiceB.id,
+        policyCode: "HIPAA_PRIVACY_POLICY",
+        version: 1,
+        content: "B's original content",
+      },
+    });
+    await expect(
+      db.$transaction(async (tx) =>
+        projectPolicyContentUpdated(tx, {
+          practiceId: practiceA.id,
+          payload: {
+            practicePolicyId: bPolicy.id,
+            policyCode: "HIPAA_PRIVACY_POLICY",
+            newVersion: 2,
+            contentLength: 14,
+            editedByUserId: userB.id,
+          },
+          content: "Forged content",
+        }),
+      ),
+    ).rejects.toThrow(/different practice/i);
+  });
+
+  it("projectPolicyAcknowledged refuses a practicePolicyId owned by another practice", async () => {
+    const { practiceA, practiceB, userB } = await seedTwoPractices();
+    const bPolicy = await db.practicePolicy.create({
+      data: {
+        practiceId: practiceB.id,
+        policyCode: "HIPAA_PRIVACY_POLICY",
+        version: 1,
+      },
+    });
+    await expect(
+      db.$transaction(async (tx) =>
+        projectPolicyAcknowledged(tx, {
+          practiceId: practiceA.id,
+          payload: {
+            practicePolicyId: bPolicy.id,
+            policyCode: "HIPAA_PRIVACY_POLICY",
+            acknowledgingUserId: userB.id,
+            policyVersion: 1,
+            signatureText: "Forged ack — Jane Doe",
+          },
+        }),
+      ),
+    ).rejects.toThrow(/different practice/i);
+  });
+
+  // ────────────────────────────────────────────────────────────────────
+  // BAA — 5 sites (audit #21 HIPAA C-1)
+  //
+  // §164.316(b): vendor-BAA register integrity. Without these guards,
+  // a forged event could flip status / executedAt on a foreign
+  // practice's BaaRequest, revoke or consume their acceptance tokens,
+  // or update their Vendor.baaExecutedAt side effect.
+  // ────────────────────────────────────────────────────────────────────
+
+  async function seedBaaRequestInB(): Promise<{
+    practiceA: { id: string };
+    practiceB: { id: string };
+    bVendor: { id: string };
+    bRequest: { id: string };
+  }> {
+    const { practiceA, practiceB } = await seedTwoPractices();
+    const bVendor = await db.vendor.create({
+      data: {
+        practiceId: practiceB.id,
+        name: "B's Vendor",
+        processesPhi: true,
+      },
+    });
+    const bRequest = await db.baaRequest.create({
+      data: {
+        practiceId: practiceB.id,
+        vendorId: bVendor.id,
+        status: "DRAFT",
+      },
+    });
+    return { practiceA, practiceB, bVendor, bRequest };
+  }
+
+  it("projectBaaDraftUploaded refuses a baaRequestId owned by another practice", async () => {
+    const { practiceA, bVendor, bRequest } = await seedBaaRequestInB();
+    await expect(
+      db.$transaction(async (tx) =>
+        projectBaaDraftUploaded(tx, {
+          practiceId: practiceA.id,
+          payload: {
+            baaRequestId: bRequest.id,
+            vendorId: bVendor.id,
+            draftEvidenceId: null,
+          },
+        }),
+      ),
+    ).rejects.toThrow(/different practice/i);
+  });
+
+  it("projectBaaSentToVendor refuses a baaRequestId owned by another practice", async () => {
+    const { practiceA, bRequest } = await seedBaaRequestInB();
+    await expect(
+      db.$transaction(async (tx) =>
+        projectBaaSentToVendor(tx, {
+          practiceId: practiceA.id,
+          payload: {
+            baaRequestId: bRequest.id,
+            tokenId: `forged-token-${Math.random().toString(36).slice(2, 10)}`,
+            token: `forged-${Math.random().toString(36).slice(2, 16)}`,
+            tokenExpiresAt: new Date(
+              Date.now() + 7 * 24 * 60 * 60 * 1000,
+            ).toISOString(),
+            recipientEmail: "vendor@b.test",
+            recipientMessage: null,
+          },
+        }),
+      ),
+    ).rejects.toThrow(/different practice/i);
+  });
+
+  it("projectBaaAcknowledgedByVendor refuses a baaRequestId owned by another practice", async () => {
+    const { practiceA, bRequest } = await seedBaaRequestInB();
+    // Move B's request into SENT so the ack would otherwise fire.
+    await db.baaRequest.update({
+      where: { id: bRequest.id },
+      data: { status: "SENT", sentAt: new Date() },
+    });
+    await expect(
+      db.$transaction(async (tx) =>
+        projectBaaAcknowledgedByVendor(tx, {
+          practiceId: practiceA.id,
+          payload: {
+            baaRequestId: bRequest.id,
+            tokenId: `forged-token-${Math.random().toString(36).slice(2, 10)}`,
+            acknowledgedAt: new Date().toISOString(),
+          },
+        }),
+      ),
+    ).rejects.toThrow(/different practice/i);
+  });
+
+  it("projectBaaExecutedByVendor refuses a baaRequestId owned by another practice", async () => {
+    const { practiceA, practiceB, bRequest } = await seedBaaRequestInB();
+    // Move B's request to ACKNOWLEDGED so execution would otherwise be valid.
+    await db.baaRequest.update({
+      where: { id: bRequest.id },
+      data: {
+        status: "ACKNOWLEDGED",
+        sentAt: new Date(),
+        acknowledgedAt: new Date(),
+      },
+    });
+    // Seed B's acceptance token (referenced by tokenId in the forged payload).
+    const bToken = await db.baaAcceptanceToken.create({
+      data: {
+        practiceId: practiceB.id,
+        baaRequestId: bRequest.id,
+        token: `bToken-${Math.random().toString(36).slice(2, 16)}`,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+    await expect(
+      db.$transaction(async (tx) =>
+        projectBaaExecutedByVendor(tx, {
+          practiceId: practiceA.id,
+          payload: {
+            baaRequestId: bRequest.id,
+            tokenId: bToken.id,
+            executedAt: new Date().toISOString(),
+            vendorSignatureName: "Forged Signer",
+            vendorSignatureIp: null,
+            vendorSignatureUserAgent: null,
+            expiresAt: null,
+          },
+        }),
+      ),
+    ).rejects.toThrow(/different practice/i);
+  });
+
+  it("projectBaaRejectedByVendor refuses a baaRequestId owned by another practice", async () => {
+    const { practiceA, practiceB, bRequest } = await seedBaaRequestInB();
+    await db.baaRequest.update({
+      where: { id: bRequest.id },
+      data: {
+        status: "ACKNOWLEDGED",
+        sentAt: new Date(),
+        acknowledgedAt: new Date(),
+      },
+    });
+    const bToken = await db.baaAcceptanceToken.create({
+      data: {
+        practiceId: practiceB.id,
+        baaRequestId: bRequest.id,
+        token: `bToken-${Math.random().toString(36).slice(2, 16)}`,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    });
+    await expect(
+      db.$transaction(async (tx) =>
+        projectBaaRejectedByVendor(tx, {
+          practiceId: practiceA.id,
+          payload: {
+            baaRequestId: bRequest.id,
+            tokenId: bToken.id,
+            rejectedAt: new Date().toISOString(),
+            reason: "Forged rejection",
           },
         }),
       ),
