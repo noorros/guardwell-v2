@@ -64,6 +64,14 @@ export function BreachDeterminationWizard({
   const previewScore = Math.round((sum / (FACTORS.length * 5)) * 100);
   const hasMaxFactor = FACTORS.some((f) => scores[f.id] === 5);
   const previewIsBreach = hasMaxFactor || previewScore >= 50;
+  // Audit #21 (HIPAA I-6): mirror the server-side guard for the submit
+  // button so the user can't push a "reportable: true with 0 affected"
+  // combination across the wire.
+  const parsedAffectedCount = Number.parseInt(affectedCount, 10);
+  const affectedCountValid =
+    !Number.isNaN(parsedAffectedCount) && parsedAffectedCount >= 0;
+  const breachWithoutAffected =
+    previewIsBreach && affectedCountValid && parsedAffectedCount < 1;
 
   const handleSubmit = () => {
     setError(null);
@@ -74,6 +82,16 @@ export function BreachDeterminationWizard({
     const parsedCount = Number.parseInt(affectedCount, 10);
     if (Number.isNaN(parsedCount) || parsedCount < 0) {
       setError("Affected count must be a non-negative integer.");
+      return;
+    }
+    // Audit #21 (HIPAA I-6): a "reportable breach" path requires at
+    // least one affected individual. Mirror the server-side guard so
+    // we surface the error before the round-trip and so the submit
+    // button stays disabled when the combination is impossible.
+    if (previewIsBreach && parsedCount < 1) {
+      setError(
+        "Affected count must be at least 1 when the determination is a reportable breach (factor-5 trigger or composite ≥ 50). Update the count or revise the factor scores.",
+      );
       return;
     }
     if (memoText.trim().length < 40) {
@@ -219,6 +237,12 @@ export function BreachDeterminationWizard({
               Preview: composite {previewScore}/100 ·{" "}
               {previewIsBreach ? "Reportable breach" : "Not a reportable breach"}
             </p>
+            {breachWithoutAffected && (
+              <p className="mt-1 text-[color:var(--gw-color-risk)]">
+                A reportable breach requires at least 1 affected individual —
+                update the affected count or revise the factor scores.
+              </p>
+            )}
           </div>
         )}
 
@@ -230,7 +254,12 @@ export function BreachDeterminationWizard({
           <Button
             size="sm"
             onClick={handleSubmit}
-            disabled={!allScored || memoText.trim().length < 40 || isPending}
+            disabled={
+              !allScored ||
+              memoText.trim().length < 40 ||
+              breachWithoutAffected ||
+              isPending
+            }
           >
             {isPending ? "Submitting…" : "Submit determination"}
           </Button>

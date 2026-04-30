@@ -177,6 +177,20 @@ export async function completeBreachDeterminationAction(
   const isBreach = hasMaxFactor || overallRiskScore >= 50;
   const ocrNotifyRequired = isBreach;
 
+  // Audit #21 (HIPAA I-6): a "reportable breach" with affectedCount=0
+  // is internally inconsistent — HHS notification, individual notice,
+  // and the §164.408(b) 60-day clock all require at least one affected
+  // individual. If the factor-5 / composite ≥50 path fires, require
+  // affectedCount >= 1. The "low-risk / not reportable" path (sum < 20,
+  // no max factor) still accepts affectedCount=0 — a misrouted fax
+  // that the recipient confirmed was never opened can plausibly close
+  // as "incident logged, no PHI affected."
+  if (isBreach && parsed.affectedCount < 1) {
+    throw new Error(
+      "Affected count must be at least 1 when the determination is a reportable breach (factor-5 trigger or composite ≥ 50). Update the count or revise the factor scores.",
+    );
+  }
+
   const payload = {
     incidentId: parsed.incidentId,
     factor1Score: parsed.factor1Score,
