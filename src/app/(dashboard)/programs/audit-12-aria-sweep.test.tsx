@@ -9,7 +9,7 @@
 // case there already covers that wizard — this file picks up the rest).
 
 import { describe, it, expect, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { render, fireEvent } from "@testing-library/react";
 import { axe } from "jest-axe";
 
 vi.mock("next/navigation", () => ({
@@ -29,6 +29,7 @@ vi.mock("@/app/(dashboard)/programs/risk/actions", () => ({
 
 vi.mock("@/app/(dashboard)/programs/incidents/actions", () => ({
   reportIncidentAction: vi.fn(),
+  updateIncidentOshaOutcomeAction: vi.fn(),
 }));
 
 vi.mock("@/app/(dashboard)/programs/credentials/actions", () => ({
@@ -41,6 +42,7 @@ vi.mock("@/app/(dashboard)/programs/document-retention/actions", () => ({
 
 import { SraWizard, type SraWizardQuestion } from "./risk/new/SraWizard";
 import { IncidentReportForm } from "./incidents/new/IncidentReportForm";
+import { OshaOutcomePanel } from "./incidents/[id]/OshaOutcomePanel";
 import { AddCredentialForm } from "./credentials/AddCredentialForm";
 import { NewDestructionForm } from "./document-retention/NewDestructionForm";
 
@@ -168,5 +170,184 @@ describe("Audit #12 ARIA / form labelling sweep", () => {
       const results = await axe(container, AXE_OPTS);
       expect(results).toHaveNoViolations();
     });
+  });
+
+  describe("<OshaOutcomePanel>", () => {
+    // Audit #21 / OSHA I-5 (2026-04-30): edit form must have proper
+    // ARIA — <fieldset>/<legend>, aria-required, label/htmlFor pairs.
+    // The panel ships a view mode and an edit mode toggled via an Edit
+    // button; both modes are audited here.
+    const BASE_INITIAL = {
+      oshaBodyPart: "Hand",
+      oshaInjuryNature: "Needlestick",
+      oshaOutcome: "RESTRICTED" as const,
+      oshaDaysAway: 0,
+      oshaDaysRestricted: 5,
+      sharpsDeviceType: "Needle",
+      injuredUserId: "u-1",
+    };
+    const MEMBERS = [
+      { userId: "u-1", label: "Alice (CLINICIAN)" },
+      { userId: "u-2", label: "Bob (STAFF)" },
+    ];
+
+    it("view mode — admin canManage", async () => {
+      const { container } = render(
+        <OshaOutcomePanel
+          incidentId="inc-1"
+          canManage={true}
+          memberOptions={MEMBERS}
+          initial={BASE_INITIAL}
+        />,
+      );
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+
+    it("view mode — non-admin canManage=false (no Edit button)", async () => {
+      const { container } = render(
+        <OshaOutcomePanel
+          incidentId="inc-1"
+          canManage={false}
+          memberOptions={MEMBERS}
+          initial={BASE_INITIAL}
+        />,
+      );
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+
+    it("edit mode — fieldset/legend, labels, aria-required all clean", async () => {
+      const { container, getByRole } = render(
+        <OshaOutcomePanel
+          incidentId="inc-1"
+          canManage={true}
+          memberOptions={MEMBERS}
+          initial={BASE_INITIAL}
+        />,
+      );
+      // Open edit mode so the form is rendered.
+      fireEvent.click(getByRole("button", { name: /edit/i }));
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+
+    it("edit mode — with offboarded employee (still axe-clean)", async () => {
+      const { container, getByRole } = render(
+        <OshaOutcomePanel
+          incidentId="inc-1"
+          canManage={true}
+          memberOptions={[{ userId: "u-3", label: "Carol (ADMIN)" }]}
+          injuredUserLabel="Alice Smith"
+          initial={{ ...BASE_INITIAL, injuredUserId: "u-1" }}
+        />,
+      );
+      fireEvent.click(getByRole("button", { name: /edit/i }));
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+  });
+});
+
+// Audit #21 / CHROME-1 (2026-04-30): when an incident's injuredUserId
+// points to a user no longer in memberOptions (offboarded since the
+// incident was reported), the panel must render a "(removed)" option
+// using injuredUserLabel and pre-select it so the stored value isn't
+// silently dropped on save.
+describe("Audit #21 — OshaOutcomePanel pre-selects offboarded injured user", () => {
+  const BASE_INITIAL = {
+    oshaBodyPart: null,
+    oshaInjuryNature: null,
+    oshaOutcome: null,
+    oshaDaysAway: null,
+    oshaDaysRestricted: null,
+    sharpsDeviceType: null,
+    injuredUserId: "u-removed",
+  };
+
+  it("renders the original employee as a (removed) option pre-selected", () => {
+    const { getByRole, getByLabelText } = render(
+      <OshaOutcomePanel
+        incidentId="inc-1"
+        canManage={true}
+        memberOptions={[{ userId: "u-active", label: "Bob Active" }]}
+        injuredUserLabel="Alice Smith"
+        initial={BASE_INITIAL}
+      />,
+    );
+    fireEvent.click(getByRole("button", { name: /edit/i }));
+    const select = getByLabelText(/injured staff member/i) as HTMLSelectElement;
+    expect(select.value).toBe("u-removed");
+    // The option text must mark the user as removed so the admin
+    // understands the name represents a former employee.
+    const matchingOption = Array.from(select.options).find(
+      (o) => o.value === "u-removed",
+    );
+    expect(matchingOption).toBeTruthy();
+    expect(matchingOption?.textContent).toMatch(/Alice Smith/);
+    expect(matchingOption?.textContent).toMatch(/removed/i);
+  });
+
+  it("falls back to a generic label when injuredUserLabel is null", () => {
+    const { getByRole, getByLabelText } = render(
+      <OshaOutcomePanel
+        incidentId="inc-1"
+        canManage={true}
+        memberOptions={[{ userId: "u-active", label: "Bob Active" }]}
+        injuredUserLabel={null}
+        initial={BASE_INITIAL}
+      />,
+    );
+    fireEvent.click(getByRole("button", { name: /edit/i }));
+    const select = getByLabelText(/injured staff member/i) as HTMLSelectElement;
+    expect(select.value).toBe("u-removed");
+    const matchingOption = Array.from(select.options).find(
+      (o) => o.value === "u-removed",
+    );
+    expect(matchingOption?.textContent).toMatch(/removed/i);
+  });
+
+  it("does NOT inject a removed option when stored id is in memberOptions", () => {
+    const { getByRole, getByLabelText } = render(
+      <OshaOutcomePanel
+        incidentId="inc-1"
+        canManage={true}
+        memberOptions={[
+          { userId: "u-removed", label: "Alice Smith" },
+          { userId: "u-active", label: "Bob Active" },
+        ]}
+        injuredUserLabel="Alice Smith"
+        initial={BASE_INITIAL}
+      />,
+    );
+    fireEvent.click(getByRole("button", { name: /edit/i }));
+    const select = getByLabelText(/injured staff member/i) as HTMLSelectElement;
+    // Only the placeholder + 2 active members, no extra "(removed)" option.
+    const removedOptions = Array.from(select.options).filter((o) =>
+      /removed/i.test(o.textContent ?? ""),
+    );
+    expect(removedOptions).toHaveLength(0);
+  });
+
+  it("does NOT inject a removed option for a NEW incident (no injuredUserId)", () => {
+    const { getByRole, getByLabelText } = render(
+      <OshaOutcomePanel
+        incidentId="inc-2"
+        canManage={true}
+        memberOptions={[{ userId: "u-active", label: "Bob Active" }]}
+        injuredUserLabel={null}
+        initial={{ ...BASE_INITIAL, injuredUserId: null }}
+      />,
+    );
+    fireEvent.click(getByRole("button", { name: /edit/i }));
+    const select = getByLabelText(/injured staff member/i) as HTMLSelectElement;
+    // Empty stored value means dropdown should default to the placeholder
+    // "" and never inject a removed option even if an active member list
+    // happens to be small.
+    expect(select.value).toBe("");
+    const removedOptions = Array.from(select.options).filter((o) =>
+      /removed/i.test(o.textContent ?? ""),
+    );
+    expect(removedOptions).toHaveLength(0);
   });
 });

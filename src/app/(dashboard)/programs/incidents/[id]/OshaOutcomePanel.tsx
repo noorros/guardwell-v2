@@ -7,6 +7,17 @@
 // Save dispatches updateIncidentOshaOutcomeAction.
 //
 // Mirrors the audit-#8 CredentialMetadataPanel mode-toggle pattern.
+//
+// Audit #21 (2026-04-30):
+//   - CHROME-1: when the originally-injured employee was offboarded
+//     (PracticeUser.removedAt set), the dropdown couldn't reflect the
+//     stored injuredUserId because the active-member list filters them
+//     out. The panel now accepts an `injuredUserLabel` prop and renders
+//     a clearly-labeled "(removed)" option above the active list so the
+//     stored value is preserved across saves.
+//   - OSHA I-5: ARIA pass — wrap the edit form in <fieldset>/<legend>,
+//     add aria-required on required inputs, and aria-invalid +
+//     aria-describedby on the error message when a save fails.
 
 "use client";
 
@@ -36,6 +47,16 @@ export interface OshaOutcomePanelProps {
   incidentId: string;
   canManage: boolean;
   memberOptions: OshaOutcomePanelMember[];
+  /**
+   * Audit #21 / CHROME-1: display label for the originally-injured
+   * employee when they are no longer in `memberOptions` (e.g. their
+   * PracticeUser row was soft-deleted via removedAt). The page passes
+   * a label like "Alice Smith" or the user's email. The panel renders
+   * a "(removed)" option using this label so the stored injuredUserId
+   * is preserved across edit/save without forcing the admin to pick
+   * a substitute or losing the historical attribution.
+   */
+  injuredUserLabel?: string | null;
   initial: {
     oshaBodyPart: string | null;
     oshaInjuryNature: string | null;
@@ -51,6 +72,7 @@ export function OshaOutcomePanel({
   incidentId,
   canManage,
   memberOptions,
+  injuredUserLabel,
   initial,
 }: OshaOutcomePanelProps) {
   const [mode, setMode] = useState<"view" | "edit">("view");
@@ -60,6 +82,7 @@ export function OshaOutcomePanel({
       <OshaOutcomeEditForm
         incidentId={incidentId}
         memberOptions={memberOptions}
+        injuredUserLabel={injuredUserLabel}
         initial={initial}
         onCancel={() => setMode("view")}
       />
@@ -118,11 +141,13 @@ export function OshaOutcomePanel({
 function OshaOutcomeEditForm({
   incidentId,
   memberOptions,
+  injuredUserLabel,
   initial,
   onCancel,
 }: {
   incidentId: string;
   memberOptions: OshaOutcomePanelMember[];
+  injuredUserLabel?: string | null;
   initial: OshaOutcomePanelProps["initial"];
   onCancel: () => void;
 }) {
@@ -174,10 +199,29 @@ function OshaOutcomeEditForm({
   }
 
   const idPrefix = `edit-osha-${incidentId}`;
+  const legendId = `${idPrefix}-legend`;
+  const errorId = `${idPrefix}-error`;
+
+  // Audit #21 / CHROME-1: if the stored injuredUserId is non-empty and
+  // not present in the active member list, the original employee has
+  // been offboarded. Render a clearly-labeled "(removed)" option above
+  // active members so the dropdown reflects the stored value and the
+  // admin can still see who was originally listed. Saving without
+  // changing the dropdown preserves the value.
+  const storedIdNotInActive =
+    injuredUserId !== "" &&
+    !memberOptions.some((m) => m.userId === injuredUserId);
+  const removedLabel = injuredUserLabel?.trim() || "Former staff member";
 
   return (
-    <div className="rounded-md border bg-muted/30 p-3 text-xs text-foreground space-y-3">
-      <p className="font-medium">Edit OSHA recordable details</p>
+    <fieldset
+      aria-labelledby={legendId}
+      aria-describedby={error ? errorId : undefined}
+      className="rounded-md border bg-muted/30 p-3 text-xs text-foreground space-y-3"
+    >
+      <legend id={legendId} className="font-medium px-1">
+        Edit OSHA recordable details
+      </legend>
       <div>
         <label
           htmlFor={`${idPrefix}-injured`}
@@ -190,9 +234,15 @@ function OshaOutcomeEditForm({
           value={injuredUserId}
           onChange={(e) => setInjuredUserId(e.target.value)}
           disabled={isPending}
+          aria-required="true"
+          aria-invalid={error ? "true" : undefined}
+          aria-describedby={error ? errorId : undefined}
           className={FIELD_CLASS}
         >
           <option value="">Select staff member…</option>
+          {storedIdNotInActive && (
+            <option value={injuredUserId}>{removedLabel} (removed)</option>
+          )}
           {memberOptions.map((m) => (
             <option key={m.userId} value={m.userId}>
               {m.label}
@@ -215,6 +265,8 @@ function OshaOutcomeEditForm({
             onChange={(e) => setBodyPart(e.target.value)}
             disabled={isPending}
             maxLength={200}
+            aria-invalid={error ? "true" : undefined}
+            aria-describedby={error ? errorId : undefined}
             className={FIELD_CLASS}
           />
         </div>
@@ -232,6 +284,8 @@ function OshaOutcomeEditForm({
             onChange={(e) => setInjuryNature(e.target.value)}
             disabled={isPending}
             maxLength={200}
+            aria-invalid={error ? "true" : undefined}
+            aria-describedby={error ? errorId : undefined}
             className={FIELD_CLASS}
           />
         </div>
@@ -247,6 +301,8 @@ function OshaOutcomeEditForm({
             value={outcome}
             onChange={(e) => setOutcome(e.target.value)}
             disabled={isPending}
+            aria-invalid={error ? "true" : undefined}
+            aria-describedby={error ? errorId : undefined}
             className={FIELD_CLASS}
           >
             <option value="">Select…</option>
@@ -271,6 +327,8 @@ function OshaOutcomeEditForm({
             value={daysAway}
             onChange={(e) => setDaysAway(e.target.value)}
             disabled={isPending}
+            aria-invalid={error ? "true" : undefined}
+            aria-describedby={error ? errorId : undefined}
             className={FIELD_CLASS}
           />
         </div>
@@ -288,6 +346,8 @@ function OshaOutcomeEditForm({
             value={daysRestricted}
             onChange={(e) => setDaysRestricted(e.target.value)}
             disabled={isPending}
+            aria-invalid={error ? "true" : undefined}
+            aria-describedby={error ? errorId : undefined}
             className={FIELD_CLASS}
           />
         </div>
@@ -305,11 +365,17 @@ function OshaOutcomeEditForm({
             onChange={(e) => setSharpsDevice(e.target.value)}
             disabled={isPending}
             maxLength={200}
+            aria-invalid={error ? "true" : undefined}
+            aria-describedby={error ? errorId : undefined}
             className={FIELD_CLASS}
           />
         </div>
       </div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && (
+        <p id={errorId} role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
       <div className="flex items-center gap-2">
         <Button onClick={handleSave} disabled={isPending} size="sm">
           {isPending ? "Saving…" : "Save changes"}
@@ -324,6 +390,6 @@ function OshaOutcomeEditForm({
           Cancel
         </Button>
       </div>
-    </div>
+    </fieldset>
   );
 }
