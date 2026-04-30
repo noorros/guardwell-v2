@@ -826,3 +826,397 @@ describe("Audit #21 CR-4 — USP §21.3 strict gap-year qualification", () => {
     expect(after.isFullyQualified).toBe(false);
   });
 });
+// ─────────────────────────────────────────────────────────────────────
+// Audit #21 IM-11 (2026-04-30): ALLERGY_QUALIFICATION_RECOMPUTED audit
+// trail. State pharmacy boards expect a documented record of every
+// isFullyQualified flip — not just the current state on
+// AllergyCompetency. The recompute path emits the event ONLY when the
+// boolean actually changes, so replay is safe.
+// ─────────────────────────────────────────────────────────────────────
+describe("ALLERGY_QUALIFICATION_RECOMPUTED audit-trail event", () => {
+  type RecomputedPayload = {
+    practiceUserId: string;
+    year: number;
+    previousQualified: boolean;
+    nextQualified: boolean;
+    reason: string;
+  };
+
+  it("emits when a quiz pass tips the compounder over to fully qualified", async () => {
+    const { owner, ownerPu, compounderPu, practice } = await seed();
+    const year = new Date().getFullYear();
+
+    // Seed: 3 fingertip passes + media fill, NO quiz yet — so
+    // isFullyQualified is currently false. (Use the projections so the
+    // row's state matches what the projection expects.)
+    for (let i = 0; i < 3; i++) {
+      const ftPayload = {
+        practiceUserId: compounderPu.id,
+        year,
+        attestedByUserId: ownerPu.id,
+        notes: null,
+      };
+      await appendEventAndApply(
+        {
+          practiceId: practice.id,
+          actorUserId: owner.id,
+          type: "ALLERGY_FINGERTIP_TEST_PASSED",
+          payload: ftPayload,
+        },
+        async (tx) =>
+          projectAllergyFingertipTestPassed(tx, {
+            practiceId: practice.id,
+            payload: ftPayload,
+          }),
+      );
+    }
+    const mfPayload = {
+      practiceUserId: compounderPu.id,
+      year,
+      attestedByUserId: ownerPu.id,
+      notes: null,
+    };
+    await appendEventAndApply(
+      {
+        practiceId: practice.id,
+        actorUserId: owner.id,
+        type: "ALLERGY_MEDIA_FILL_PASSED",
+        payload: mfPayload,
+      },
+      async (tx) =>
+        projectAllergyMediaFillPassed(tx, {
+          practiceId: practice.id,
+          payload: mfPayload,
+        }),
+    );
+    const beforeQuiz = await db.allergyCompetency.findUniqueOrThrow({
+      where: {
+        practiceUserId_year: { practiceUserId: compounderPu.id, year },
+      },
+    });
+    expect(beforeQuiz.isFullyQualified).toBe(false);
+    // Sanity: no recompute events yet (no flip has happened).
+    const beforeEvents = await db.eventLog.findMany({
+      where: {
+        practiceId: practice.id,
+        type: "ALLERGY_QUALIFICATION_RECOMPUTED",
+      },
+    });
+    expect(beforeEvents).toHaveLength(0);
+
+    // Quiz pass tips the compounder over.
+    const attemptId = randomUUID();
+    const quizPayload = {
+      attemptId,
+      practiceUserId: compounderPu.id,
+      year,
+      score: 92,
+      passed: true,
+      correctAnswers: 23,
+      totalQuestions: 25,
+      answers: [],
+    };
+    await appendEventAndApply(
+      {
+        practiceId: practice.id,
+        actorUserId: owner.id,
+        type: "ALLERGY_QUIZ_COMPLETED",
+        payload: quizPayload,
+      },
+      async (tx) =>
+        projectAllergyQuizCompleted(tx, {
+          practiceId: practice.id,
+          payload: quizPayload,
+        }),
+    );
+
+    const afterQuiz = await db.allergyCompetency.findUniqueOrThrow({
+      where: {
+        practiceUserId_year: { practiceUserId: compounderPu.id, year },
+      },
+    });
+    expect(afterQuiz.isFullyQualified).toBe(true);
+
+    const events = await db.eventLog.findMany({
+      where: {
+        practiceId: practice.id,
+        type: "ALLERGY_QUALIFICATION_RECOMPUTED",
+      },
+    });
+    expect(events).toHaveLength(1);
+    const payload = events[0]!.payload as RecomputedPayload;
+    expect(payload.practiceUserId).toBe(compounderPu.id);
+    expect(payload.year).toBe(year);
+    expect(payload.previousQualified).toBe(false);
+    expect(payload.nextQualified).toBe(true);
+    expect(payload.reason.toLowerCase()).toContain("quiz");
+    // Derived event — actorUserId is null (the human action is recorded
+    // on the parent ALLERGY_QUIZ_COMPLETED row).
+    expect(events[0]!.actorUserId).toBeNull();
+  });
+
+  it("emits when 6-month inactivity flips a qualified compounder back to false", async () => {
+    const { compounderPu, practice } = await seed();
+    const year = new Date().getFullYear();
+
+    // Seed a fully qualified competency directly. lastCompoundedAt
+    // backdated 7 months — the next recompute should flip
+    // isFullyQualified false because of the §21 inactivity rule.
+    const sevenMonthsAgo = new Date(Date.now() - 213 * 24 * 60 * 60 * 1000);
+    const comp = await db.allergyCompetency.create({
+      data: {
+        practiceId: practice.id,
+        practiceUserId: compounderPu.id,
+        year,
+        quizPassedAt: new Date(),
+        fingertipPassCount: 3,
+        fingertipLastPassedAt: new Date(),
+        mediaFillPassedAt: new Date(),
+        lastCompoundedAt: sevenMonthsAgo,
+        isFullyQualified: true,
+      },
+    });
+
+    // Recompute under the inactivity-tripped condition WITH context so
+    // the event is emitted.
+    await db.$transaction(async (tx) => {
+      await recomputeIsFullyQualified(tx, comp.id, {
+        practiceId: practice.id,
+        trigger: "MANUAL_RECOMPUTE",
+      });
+    });
+
+    const after = await db.allergyCompetency.findUniqueOrThrow({
+      where: { id: comp.id },
+    });
+    expect(after.isFullyQualified).toBe(false);
+
+    const events = await db.eventLog.findMany({
+      where: {
+        practiceId: practice.id,
+        type: "ALLERGY_QUALIFICATION_RECOMPUTED",
+      },
+    });
+    expect(events).toHaveLength(1);
+    const payload = events[0]!.payload as RecomputedPayload;
+    expect(payload.previousQualified).toBe(true);
+    expect(payload.nextQualified).toBe(false);
+    expect(payload.reason.toLowerCase()).toContain("inactivity");
+  });
+
+  it("emits with a §21.3 strict-year-1 reason when the year-1 path forces requalification", async () => {
+    // Audit #21 CR-4 introduces strict §21.3: a renewal year only
+    // counts when the IMMEDIATELY-prior year was qualified. This test
+    // simulates the boundary: a compounder qualified in year N-2,
+    // skipped year N-1, and is now in year N with only 1 fingertip
+    // pass. Under the lax "any prior year" logic they'd be qualified
+    // (1 pass enough); under strict §21.3 they need 3.
+    //
+    // The current main branch uses lax `year: { lt: c.year }` logic, so
+    // for this test we exercise the strict path by ensuring there is
+    // NO prior-year qualified row at all — which forces the year-1
+    // 3-fingertip rule. This proves the reason string is correct
+    // regardless of which prior-year-lookup variant is in effect.
+    const { compounderPu, practice } = await seed();
+    const year = new Date().getFullYear();
+
+    // Seed a row that would have looked qualified under naive logic
+    // (quiz + media fill + 1 fingertip), but the year-1 strict path
+    // requires 3 fingertips. Mark isFullyQualified=true to set up the
+    // flip we want the recompute to record.
+    const comp = await db.allergyCompetency.create({
+      data: {
+        practiceId: practice.id,
+        practiceUserId: compounderPu.id,
+        year,
+        quizPassedAt: new Date(),
+        fingertipPassCount: 1,
+        fingertipLastPassedAt: new Date(),
+        mediaFillPassedAt: new Date(),
+        isFullyQualified: true,
+      },
+    });
+
+    await db.$transaction(async (tx) => {
+      await recomputeIsFullyQualified(tx, comp.id, {
+        practiceId: practice.id,
+        trigger: "MANUAL_RECOMPUTE",
+      });
+    });
+
+    const after = await db.allergyCompetency.findUniqueOrThrow({
+      where: { id: comp.id },
+    });
+    expect(after.isFullyQualified).toBe(false);
+
+    const events = await db.eventLog.findMany({
+      where: {
+        practiceId: practice.id,
+        type: "ALLERGY_QUALIFICATION_RECOMPUTED",
+      },
+    });
+    expect(events).toHaveLength(1);
+    const payload = events[0]!.payload as RecomputedPayload;
+    expect(payload.previousQualified).toBe(true);
+    expect(payload.nextQualified).toBe(false);
+    expect(payload.reason).toContain("§21.3");
+    // Strict-year-1 reason mentions the 3-pass requirement.
+    expect(payload.reason).toContain("3 fingertip");
+  });
+
+  it("does NOT emit when isFullyQualified does not change", async () => {
+    const { owner, ownerPu, compounderPu, practice } = await seed();
+    const year = new Date().getFullYear();
+
+    // Take a compounder all the way to qualified — exactly one flip
+    // event (the final media fill).
+    for (let i = 0; i < 3; i++) {
+      const ftPayload = {
+        practiceUserId: compounderPu.id,
+        year,
+        attestedByUserId: ownerPu.id,
+        notes: null,
+      };
+      await appendEventAndApply(
+        {
+          practiceId: practice.id,
+          actorUserId: owner.id,
+          type: "ALLERGY_FINGERTIP_TEST_PASSED",
+          payload: ftPayload,
+        },
+        async (tx) =>
+          projectAllergyFingertipTestPassed(tx, {
+            practiceId: practice.id,
+            payload: ftPayload,
+          }),
+      );
+    }
+    const attemptId = randomUUID();
+    const quizPayload = {
+      attemptId,
+      practiceUserId: compounderPu.id,
+      year,
+      score: 92,
+      passed: true,
+      correctAnswers: 23,
+      totalQuestions: 25,
+      answers: [],
+    };
+    await appendEventAndApply(
+      {
+        practiceId: practice.id,
+        actorUserId: owner.id,
+        type: "ALLERGY_QUIZ_COMPLETED",
+        payload: quizPayload,
+      },
+      async (tx) =>
+        projectAllergyQuizCompleted(tx, {
+          practiceId: practice.id,
+          payload: quizPayload,
+        }),
+    );
+    const mfPayload = {
+      practiceUserId: compounderPu.id,
+      year,
+      attestedByUserId: ownerPu.id,
+      notes: null,
+    };
+    await appendEventAndApply(
+      {
+        practiceId: practice.id,
+        actorUserId: owner.id,
+        type: "ALLERGY_MEDIA_FILL_PASSED",
+        payload: mfPayload,
+      },
+      async (tx) =>
+        projectAllergyMediaFillPassed(tx, {
+          practiceId: practice.id,
+          payload: mfPayload,
+        }),
+    );
+
+    const eventsAfterFlip = await db.eventLog.findMany({
+      where: {
+        practiceId: practice.id,
+        type: "ALLERGY_QUALIFICATION_RECOMPUTED",
+      },
+    });
+    expect(eventsAfterFlip).toHaveLength(1);
+    expect(
+      (eventsAfterFlip[0]!.payload as RecomputedPayload).nextQualified,
+    ).toBe(true);
+
+    // Now replay: another quiz attempt at a DIFFERENT attemptId but
+    // same passed=true outcome. isFullyQualified is already true, so
+    // the recompute should be a no-op — no new event row.
+    const replayPayload = {
+      ...quizPayload,
+      attemptId: randomUUID(),
+    };
+    await appendEventAndApply(
+      {
+        practiceId: practice.id,
+        actorUserId: owner.id,
+        type: "ALLERGY_QUIZ_COMPLETED",
+        payload: replayPayload,
+      },
+      async (tx) =>
+        projectAllergyQuizCompleted(tx, {
+          practiceId: practice.id,
+          payload: replayPayload,
+        }),
+    );
+
+    const eventsAfterReplay = await db.eventLog.findMany({
+      where: {
+        practiceId: practice.id,
+        type: "ALLERGY_QUALIFICATION_RECOMPUTED",
+      },
+    });
+    expect(eventsAfterReplay).toHaveLength(1);
+  });
+
+  it("is replay-safe: running recompute twice produces only one event", async () => {
+    const { compounderPu, practice } = await seed();
+    const year = new Date().getFullYear();
+
+    // Seed a row that's about to flip qualified → false (year-1 strict
+    // path: 1 fingertip < 3 required).
+    const comp = await db.allergyCompetency.create({
+      data: {
+        practiceId: practice.id,
+        practiceUserId: compounderPu.id,
+        year,
+        quizPassedAt: new Date(),
+        fingertipPassCount: 1,
+        fingertipLastPassedAt: new Date(),
+        mediaFillPassedAt: new Date(),
+        isFullyQualified: true,
+      },
+    });
+
+    // First recompute: emits.
+    await db.$transaction(async (tx) => {
+      await recomputeIsFullyQualified(tx, comp.id, {
+        practiceId: practice.id,
+        trigger: "MANUAL_RECOMPUTE",
+      });
+    });
+    // Second recompute: row is already in the new state, no flip,
+    // no event.
+    await db.$transaction(async (tx) => {
+      await recomputeIsFullyQualified(tx, comp.id, {
+        practiceId: practice.id,
+        trigger: "MANUAL_RECOMPUTE",
+      });
+    });
+
+    const events = await db.eventLog.findMany({
+      where: {
+        practiceId: practice.id,
+        type: "ALLERGY_QUALIFICATION_RECOMPUTED",
+      },
+    });
+    expect(events).toHaveLength(1);
+  });
+});

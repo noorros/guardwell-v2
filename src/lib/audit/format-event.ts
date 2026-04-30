@@ -256,6 +256,18 @@ export function formatEventForActivityLog(
         detail: p.resolution ? String(p.resolution).slice(0, 80) : null,
       };
 
+    case "ALLERGY_QUALIFICATION_RECOMPUTED": {
+      const next = bool(p.nextQualified);
+      const year = num(p.year);
+      const reason = str(p.reason);
+      return {
+        icon: "requirement",
+        verb: next === true ? "Qualified" : "Unqualified",
+        summary: `allergy compounder${year != null ? ` (${year})` : ""}`,
+        detail: reason || null,
+      };
+    }
+
     default:
       return {
         icon: "unknown",
