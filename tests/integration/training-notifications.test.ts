@@ -254,6 +254,35 @@ describe("generateTrainingAssignedNotifications", () => {
     expect(proposals).toHaveLength(1);
     expect(proposals[0]?.body).toContain("No due date set.");
   });
+
+  it("category-only assignment with no matching staff emits zero proposals (until PracticeUser.category lands)", async () => {
+    // Locks in current behavior: assignedToCategory routing is plumbed
+    // through loadAssignmentRecipientContext + resolveAssignmentRecipients
+    // end-to-end, but PracticeUser has no `category` column today, so
+    // members[].category is always null and the predicate never matches.
+    // When the schema adds the column, this test must be updated to seed a
+    // category-tagged member and assert routing. See the TODO breadcrumb
+    // in loadAssignmentRecipientContext (src/lib/notifications/generators.ts).
+    const { user, practice } = await seedPracticeWithOwner("assigned-category");
+    const course = await seedTrainingCourse("Category Only");
+    await db.trainingAssignment.create({
+      data: {
+        practiceId: practice.id,
+        courseId: course.id,
+        assignedToCategory: "CLINICAL",
+        requiredFlag: true,
+        createdByUserId: user.id,
+      },
+    });
+
+    const proposals = await db.$transaction((tx) =>
+      generateTrainingAssignedNotifications(tx, practice.id, [user.id], "UTC"),
+    );
+
+    // No PracticeUser has category=CLINICAL today (column doesn't exist),
+    // so the eligibility predicate never matches.
+    expect(proposals).toEqual([]);
+  });
 });
 
 // -------------------------------------------------------------------------

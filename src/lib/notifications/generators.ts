@@ -899,6 +899,12 @@ async function loadAssignmentRecipientContext(
     members: members.map((m) => ({
       userId: m.userId,
       role: m.role,
+      // TODO(when-PracticeUser.category-lands): once the schema adds a
+      // category column on PracticeUser, this path will route assignments
+      // to all matching staff. The category-only test in
+      // tests/integration/training-notifications.test.ts (currently asserts
+      // zero proposals) will need to be updated to seed a category-tagged
+      // member and assert routing.
       category: null, // PracticeUser has no per-user category column today
     })),
     passByUserCourse,
@@ -1093,7 +1099,10 @@ export async function generateTrainingOverdueAssignmentNotifications(
     if (recipients.length === 0) continue;
 
     const dueStr = formatPracticeDate(a.dueDate, practiceTimezone);
-    const daysOverdue = Math.floor(msSinceDue / DAY_MS);
+    // Clamp to 1: within the first 24h past dueDate, Math.floor produces 0,
+    // which reads awkwardly ("overdue 0 days"). The assignment is overdue
+    // the moment dueDate passes, so 1 is the floor of user-facing meaning.
+    const daysOverdue = Math.max(1, Math.floor(msSinceDue / DAY_MS));
     const severity: NotificationSeverity =
       weekIndex >= 4 ? "CRITICAL" : "WARNING";
     const title = `${a.course.title} — overdue ${daysOverdue} day${daysOverdue === 1 ? "" : "s"}`;
