@@ -125,7 +125,11 @@ describe("generatePolicyReviewDueNotifications", () => {
     const { user, practice } = await seedPracticeWithOwner("policy-30d");
     // lastReviewedAt is 365-30 days ago → due in ~30 days.
     const lastReviewedAt = new Date(
-      Date.now() - (365 - 30) * DAY_MS - 60 * 60 * 1000,
+      // +1h shifts dueDate forward, so daysUntil floors to 30 (not 29) at
+      // call time. Without the buffer, ms elapsed between create() and
+      // daysUntil() would push Math.floor down to 29 — outside the
+      // (m=30, days <= m && days > m - 1) window.
+      Date.now() - (365 - 30) * DAY_MS + 60 * 60 * 1000,
     );
     const policy = await db.practicePolicy.create({
       data: {
@@ -194,7 +198,11 @@ describe("generatePolicyReviewDueNotifications", () => {
     const staff = await seedStaff(practice.id, "policy");
 
     const lastReviewedAt = new Date(
-      Date.now() - (365 - 30) * DAY_MS - 60 * 60 * 1000,
+      // +1h shifts dueDate forward, so daysUntil floors to 30 (not 29) at
+      // call time. Without the buffer, ms elapsed between create() and
+      // daysUntil() would push Math.floor down to 29 — outside the
+      // (m=30, days <= m && days > m - 1) window.
+      Date.now() - (365 - 30) * DAY_MS + 60 * 60 * 1000,
     );
     await db.practicePolicy.create({
       data: {
@@ -221,7 +229,11 @@ describe("generatePolicyReviewDueNotifications", () => {
   it("skips retired policies", async () => {
     const { user, practice } = await seedPracticeWithOwner("policy-retired");
     const lastReviewedAt = new Date(
-      Date.now() - (365 - 30) * DAY_MS - 60 * 60 * 1000,
+      // +1h shifts dueDate forward, so daysUntil floors to 30 (not 29) at
+      // call time. Without the buffer, ms elapsed between create() and
+      // daysUntil() would push Math.floor down to 29 — outside the
+      // (m=30, days <= m && days > m - 1) window.
+      Date.now() - (365 - 30) * DAY_MS + 60 * 60 * 1000,
     );
     await db.practicePolicy.create({
       data: {
@@ -368,7 +380,7 @@ describe("generateTrainingOverdueNotifications", () => {
 // -------------------------------------------------------------------------
 
 describe("generateCmsEnrollmentNotifications", () => {
-  it("fires the 30-day milestone for a Medicare PECOS credential", async () => {
+  it("fires every milestone we're inside of for a Medicare PECOS credential 30 days out", async () => {
     const { user, practice } = await seedPracticeWithOwner("cms-pecos");
     const ctId = await seedCredentialType(
       "MEDICARE_PECOS_ENROLLMENT",
@@ -387,15 +399,23 @@ describe("generateCmsEnrollmentNotifications", () => {
       generateCmsEnrollmentNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
-    expect(proposals).toHaveLength(1);
-    const p = proposals[0];
-    if (!p) throw new Error("expected one proposal");
-    expect(p.type).toBe("CMS_ENROLLMENT_EXPIRING");
-    expect(p.severity).toBe("INFO");
-    expect(p.entityKey).toBe(`cms-enrollment:${cred.id}:milestone:30`);
-    expect(p.userId).toBe(user.id);
-    expect(p.title).toContain("PECOS");
-    expect(p.body).toContain("PECOS");
+    // Audit #21 IM-7: fires for every milestone in [90, 60, 30, 7] where
+    // days <= m. With days=30, that's 90, 60, 30 (three proposals).
+    expect(proposals).toHaveLength(3);
+    expect(proposals.map((p) => p.entityKey).sort()).toEqual(
+      [
+        `cms-enrollment:${cred.id}:milestone:30`,
+        `cms-enrollment:${cred.id}:milestone:60`,
+        `cms-enrollment:${cred.id}:milestone:90`,
+      ].sort(),
+    );
+    for (const p of proposals) {
+      expect(p.type).toBe("CMS_ENROLLMENT_EXPIRING");
+      expect(p.severity).toBe("INFO");
+      expect(p.userId).toBe(user.id);
+      expect(p.title).toContain("PECOS");
+      expect(p.body).toContain("PECOS");
+    }
   });
 
   it("emits nothing for a non-CMS credential expiring in the same window", async () => {
@@ -420,7 +440,7 @@ describe("generateCmsEnrollmentNotifications", () => {
     expect(proposals).toHaveLength(0);
   });
 
-  it("emits proposal for the Medicare provider enrollment code variant", async () => {
+  it("emits proposals for the Medicare provider enrollment code variant", async () => {
     const { user, practice } = await seedPracticeWithOwner("cms-provider");
     const ctId = await seedCredentialType(
       "MEDICARE_PROVIDER_ENROLLMENT",
@@ -439,10 +459,11 @@ describe("generateCmsEnrollmentNotifications", () => {
       generateCmsEnrollmentNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
-    expect(proposals).toHaveLength(1);
-    const p = proposals[0];
-    if (!p) throw new Error("expected one proposal");
-    expect(p.title).toContain("provider");
+    // Audit #21 IM-7: 60 days out → milestones 90 and 60 fire.
+    expect(proposals).toHaveLength(2);
+    for (const p of proposals) {
+      expect(p.title).toContain("provider");
+    }
   });
 
   it("respects reminderConfig.enabled = false", async () => {
@@ -744,7 +765,11 @@ describe("end-to-end dedup for Phase A generators", () => {
   it("running runNotificationDigest twice for POLICY_REVIEW_DUE produces a single row", async () => {
     const { user, practice } = await seedPracticeWithOwner("dedup-policy");
     const lastReviewedAt = new Date(
-      Date.now() - (365 - 30) * DAY_MS - 60 * 60 * 1000,
+      // +1h shifts dueDate forward, so daysUntil floors to 30 (not 29) at
+      // call time. Without the buffer, ms elapsed between create() and
+      // daysUntil() would push Math.floor down to 29 — outside the
+      // (m=30, days <= m && days > m - 1) window.
+      Date.now() - (365 - 30) * DAY_MS + 60 * 60 * 1000,
     );
     await db.practicePolicy.create({
       data: {
