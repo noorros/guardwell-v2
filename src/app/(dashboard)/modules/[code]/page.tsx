@@ -1,5 +1,7 @@
 // src/app/(dashboard)/modules/[code]/page.tsx
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import type { Route } from "next";
 import { ShieldCheck, FileText } from "lucide-react";
 import { getPracticeUser } from "@/lib/rbac";
 import { db } from "@/lib/db";
@@ -15,6 +17,10 @@ import {
 import { AiAssistTrigger } from "@/components/gw/AiAssistDrawer/AiAssistTrigger";
 import { EXTRAS_BY_FRAMEWORK_CODE } from "@/components/gw/Extras/registry";
 import { CyberReadinessPanel } from "@/components/gw/CyberReadinessPanel/CyberReadinessPanel";
+import {
+  MajorBreachBanner,
+  MAJOR_BREACH_THRESHOLD,
+} from "@/components/gw/MajorBreachBanner";
 import { ChecklistItemServer } from "./ChecklistItemServer";
 import type { AiReasonSource } from "@/components/gw/ChecklistItem/AiReasonIndicator";
 import {
@@ -38,6 +44,11 @@ type StatusEventPayload = {
   reason?: string;
   nextStatus?: ActivityStatus;
 };
+
+// HHS OCR §164.408: notification required within 60 days of discovery for
+// major (500+) breaches. Same constant the dashboard + audit/overview pages
+// use; kept local to avoid pulling a tiny shared module in for one number.
+const OCR_WINDOW_MS = 60 * 24 * 60 * 60 * 1000;
 
 export default async function ModulePage({
   params,
@@ -148,6 +159,30 @@ export default async function ModulePage({
   });
   const score = pf?.scoreCache ?? 0;
 
+  // Phase 2 B2 (v2 feature recovery, 2026-04-30): unresolved 500+ breach
+  // banner on /modules/hipaa. Mirrors the dashboard + audit/overview
+  // surfaces — same "isBreach + resolvedAt:null + affectedCount >= 500"
+  // criteria, same orderBy:asc to surface the closest-to-deadline first.
+  // Skipped for non-HIPAA frameworks (the query is a wasted round-trip
+  // anywhere else, and the banner is HIPAA-specific copy).
+  const majorBreach =
+    framework.code === "HIPAA"
+      ? await db.incident.findFirst({
+          where: {
+            practiceId: pu.practiceId,
+            isBreach: true,
+            resolvedAt: null,
+            affectedCount: { gte: MAJOR_BREACH_THRESHOLD },
+          },
+          orderBy: { discoveredAt: "asc" },
+          select: {
+            id: true,
+            affectedCount: true,
+            discoveredAt: true,
+          },
+        })
+      : null;
+
   // Practice profile drives the AI helper's specialty context. Optional —
   // null is fine when the profile hasn't been filled out yet.
   const practiceProfile = await db.practiceComplianceProfile.findUnique({
@@ -227,6 +262,19 @@ export default async function ModulePage({
           { label: framework.name },
         ]}
       />
+      {majorBreach && (
+        <Link
+          href={`/programs/incidents/${majorBreach.id}` as Route}
+          className="block rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          <MajorBreachBanner
+            affectedCount={majorBreach.affectedCount ?? 0}
+            reportingDeadline={
+              new Date(majorBreach.discoveredAt.getTime() + OCR_WINDOW_MS)
+            }
+          />
+        </Link>
+      )}
       <ModuleHeader
         icon={ShieldCheck}
         name={framework.name}
@@ -332,6 +380,7 @@ export default async function ModulePage({
               practiceName={pu.practice.name}
               practicePrimaryState={pu.practice.primaryState}
               practiceProviderCount={pu.practice.providerCount ?? null}
+              practiceTimezone={pu.practice.timezone ?? null}
             />
           </section>
         );

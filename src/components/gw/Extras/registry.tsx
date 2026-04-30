@@ -31,6 +31,10 @@ export interface ExtrasComponentProps {
   practiceName: string;
   practicePrimaryState: string;
   practiceProviderCount: string | null;
+  /** Practice IANA timezone — used by Section G surfaces that render
+   *  TZ-aware deadlines (e.g. <Osha300AReminder>). Optional so callers
+   *  not yet plumbed through still type-check. */
+  practiceTimezone?: string | null;
 }
 
 type ExtrasComponent = (props: ExtrasComponentProps) => JSX.Element;
