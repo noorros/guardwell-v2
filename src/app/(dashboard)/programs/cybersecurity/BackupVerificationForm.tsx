@@ -67,23 +67,59 @@ export function BackupVerificationForm() {
     );
   }
 
+  const errorId = "backup-verification-error";
+  const errorAttrs = error
+    ? { "aria-invalid": true as const, "aria-describedby": errorId }
+    : {};
+
   return (
     <Card>
-      <CardContent className="space-y-3 p-4">
-        <h3 className="text-sm font-semibold">Log a backup restore-test</h3>
+      <CardContent
+        role="group"
+        aria-labelledby="backup-verification-heading"
+        className="space-y-3 p-4"
+      >
+        <h3
+          id="backup-verification-heading"
+          className="text-sm font-semibold"
+        >
+          Log a backup restore-test
+        </h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <label className="space-y-1 text-xs font-medium text-foreground">
-            Verified at
+          <div className="space-y-1">
+            <label
+              htmlFor="backup-verified-at"
+              className="block text-xs font-medium text-foreground"
+            >
+              Verified at{" "}
+              <span className="text-destructive" aria-hidden="true">
+                *
+              </span>
+            </label>
             <input
+              id="backup-verified-at"
               type="date"
+              required
+              aria-required="true"
               value={verifiedAt}
               onChange={(e) => setVerifiedAt(e.target.value)}
               className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
             />
-          </label>
-          <label className="space-y-1 text-xs font-medium text-foreground">
-            Scope
+          </div>
+          <div className="space-y-1">
+            <label
+              htmlFor="backup-scope"
+              className="block text-xs font-medium text-foreground"
+            >
+              Scope{" "}
+              <span className="text-destructive" aria-hidden="true">
+                *
+              </span>
+            </label>
             <select
+              id="backup-scope"
+              required
+              aria-required="true"
               value={scope}
               onChange={(e) => setScope(e.target.value)}
               className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
@@ -94,10 +130,21 @@ export function BackupVerificationForm() {
                 </option>
               ))}
             </select>
-          </label>
-          <label className="space-y-1 text-xs font-medium text-foreground">
-            Result
+          </div>
+          <div className="space-y-1">
+            <label
+              htmlFor="backup-result"
+              className="block text-xs font-medium text-foreground"
+            >
+              Result{" "}
+              <span className="text-destructive" aria-hidden="true">
+                *
+              </span>
+            </label>
             <select
+              id="backup-result"
+              required
+              aria-required="true"
               value={success}
               onChange={(e) => setSuccess(e.target.value)}
               className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
@@ -105,30 +152,49 @@ export function BackupVerificationForm() {
               <option value="true">Successful restore</option>
               <option value="false">Failed restore</option>
             </select>
-          </label>
-          <label className="space-y-1 text-xs font-medium text-foreground">
-            Restore time (minutes, optional)
+          </div>
+          <div className="space-y-1">
+            <label
+              htmlFor="backup-restore-minutes"
+              className="block text-xs font-medium text-foreground"
+            >
+              Restore time (minutes, optional)
+            </label>
             <input
+              id="backup-restore-minutes"
               type="number"
               min={0}
+              {...errorAttrs}
               value={restoreTimeMinutes}
               onChange={(e) => setRestoreTimeMinutes(e.target.value)}
               className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm tabular-nums"
             />
-          </label>
+          </div>
         </div>
-        <label className="block space-y-1 text-xs font-medium text-foreground">
-          Notes (optional)
+        <div className="space-y-1">
+          <label
+            htmlFor="backup-notes"
+            className="block text-xs font-medium text-foreground"
+          >
+            Notes (optional)
+          </label>
           <textarea
+            id="backup-notes"
             rows={2}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="What you restored, by whom, any issues encountered."
             className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
           />
-        </label>
+        </div>
         {error && (
-          <p className="text-xs text-[color:var(--gw-color-risk)]">{error}</p>
+          <p
+            id={errorId}
+            role="alert"
+            className="text-xs text-[color:var(--gw-color-risk)]"
+          >
+            {error}
+          </p>
         )}
         <div className="flex gap-2">
           <Button type="button" size="sm" onClick={handleSubmit} disabled={isPending}>

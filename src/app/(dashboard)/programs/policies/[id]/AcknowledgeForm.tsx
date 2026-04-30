@@ -158,6 +158,8 @@ export function AcknowledgeForm({
     );
   }
 
+  const errorId = "ack-signature-error";
+
   return (
     <Card>
       <CardContent className="space-y-3 p-4">
@@ -168,17 +170,35 @@ export function AcknowledgeForm({
           By typing your name below and clicking Sign, you attest that you've
           read this policy and understand your obligations under it.
         </p>
-        <label className="block space-y-1 text-xs font-medium text-foreground">
-          Type your full name + signature attestation
+        <div className="space-y-1">
+          <label
+            htmlFor="ack-signature"
+            className="block text-xs font-medium text-foreground"
+          >
+            Type your full name + signature attestation{" "}
+            <span className="text-destructive" aria-hidden="true">
+              *
+            </span>
+          </label>
           <textarea
+            id="ack-signature"
             rows={3}
             value={signature}
             onChange={(e) => setSignature(e.target.value)}
+            aria-required="true"
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? errorId : undefined}
             className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
           />
-        </label>
+        </div>
         {error && (
-          <p className="text-xs text-[color:var(--gw-color-risk)]">{error}</p>
+          <p
+            id={errorId}
+            role="alert"
+            className="text-xs text-[color:var(--gw-color-risk)]"
+          >
+            {error}
+          </p>
         )}
         <div className="flex gap-2">
           <Button

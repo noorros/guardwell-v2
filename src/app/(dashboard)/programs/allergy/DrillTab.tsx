@@ -67,7 +67,7 @@ function OverdueBanner({ drills }: { drills: DrillTabProps["drills"] }) {
 
 // ── Log Drill Form ────────────────────────────────────────────────────────────
 
-function LogDrillForm({ members }: { members: DrillTabProps["members"] }) {
+export function LogDrillForm({ members }: { members: DrillTabProps["members"] }) {
   const tz = usePracticeTimezone();
   const today = formatPracticeDate(new Date(), tz);
   const [conductedAt, setConductedAt] = useState(today);
@@ -130,19 +130,36 @@ function LogDrillForm({ members }: { members: DrillTabProps["members"] }) {
     });
   }
 
+  const errorId = "log-drill-error";
+  const errorAttrs = error
+    ? { "aria-invalid": true as const, "aria-describedby": errorId }
+    : {};
+
   return (
-    <div className="rounded-lg border bg-card p-4 space-y-4">
-      <h3 className="text-sm font-semibold">Log a drill</h3>
+    <div
+      role="group"
+      aria-labelledby="log-drill-heading"
+      className="rounded-lg border bg-card p-4 space-y-4"
+    >
+      <h3 id="log-drill-heading" className="text-sm font-semibold">
+        Log a drill
+      </h3>
 
       {/* Date + Duration row */}
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <label htmlFor="drill-date" className="text-xs font-medium">
-            Date conducted <span className="text-destructive">*</span>
+            Date conducted{" "}
+            <span className="text-destructive" aria-hidden="true">
+              *
+            </span>
           </label>
           <input
             id="drill-date"
             type="date"
+            required
+            aria-required="true"
+            {...errorAttrs}
             value={conductedAt}
             onChange={(e) => setConductedAt(e.target.value)}
             disabled={isPending}
@@ -170,11 +187,17 @@ function LogDrillForm({ members }: { members: DrillTabProps["members"] }) {
       {/* Scenario */}
       <div className="space-y-1.5">
         <label htmlFor="drill-scenario" className="text-xs font-medium">
-          Scenario <span className="text-destructive">*</span>
+          Scenario{" "}
+          <span className="text-destructive" aria-hidden="true">
+            *
+          </span>
         </label>
         <textarea
           id="drill-scenario"
           rows={3}
+          required
+          aria-required="true"
+          {...errorAttrs}
           value={scenario}
           onChange={(e) => setScenario(e.target.value)}
           maxLength={2000}
@@ -188,36 +211,47 @@ function LogDrillForm({ members }: { members: DrillTabProps["members"] }) {
       </div>
 
       {/* Participants */}
-      <div className="space-y-1.5">
-        <p className="text-xs font-medium">
-          Participants <span className="text-destructive">*</span>
-        </p>
+      <fieldset
+        className="space-y-1.5"
+        aria-describedby={error ? errorId : undefined}
+      >
+        <legend className="text-xs font-medium">
+          Participants{" "}
+          <span className="text-destructive" aria-hidden="true">
+            *
+          </span>
+        </legend>
         {members.length === 0 ? (
           <p className="text-xs text-muted-foreground">No staff members found.</p>
         ) : (
           <div className="rounded-md border bg-background p-2 space-y-1 max-h-40 overflow-y-auto">
-            {members.map((m) => (
-              <label
-                key={m.id}
-                className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-accent"
-              >
-                <input
-                  type="checkbox"
-                  checked={participantIds.has(m.id)}
-                  onChange={() => toggleParticipant(m.id)}
-                  disabled={isPending}
-                  className="h-3.5 w-3.5 cursor-pointer accent-[color:var(--gw-color-compliant)]"
-                />
-                <span className="truncate">{m.name}</span>
-                <span className="ml-auto text-xs text-muted-foreground">{m.role}</span>
-              </label>
-            ))}
+            {members.map((m) => {
+              const inputId = `drill-participant-${m.id}`;
+              return (
+                <label
+                  key={m.id}
+                  htmlFor={inputId}
+                  className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-accent"
+                >
+                  <input
+                    id={inputId}
+                    type="checkbox"
+                    checked={participantIds.has(m.id)}
+                    onChange={() => toggleParticipant(m.id)}
+                    disabled={isPending}
+                    className="h-3.5 w-3.5 cursor-pointer accent-[color:var(--gw-color-compliant)]"
+                  />
+                  <span className="truncate">{m.name}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">{m.role}</span>
+                </label>
+              );
+            })}
           </div>
         )}
         {participantIds.size > 0 && (
           <p className="text-xs text-muted-foreground">{participantIds.size} selected</p>
         )}
-      </div>
+      </fieldset>
 
       {/* Observations */}
       <div className="space-y-1.5">
@@ -269,7 +303,15 @@ function LogDrillForm({ members }: { members: DrillTabProps["members"] }) {
         />
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && (
+        <p
+          id={errorId}
+          role="alert"
+          className="text-sm text-destructive"
+        >
+          {error}
+        </p>
+      )}
       {success && (
         <p className="text-sm text-[color:var(--gw-color-compliant)]">Drill logged successfully.</p>
       )}

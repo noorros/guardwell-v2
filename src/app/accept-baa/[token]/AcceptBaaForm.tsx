@@ -72,10 +72,19 @@ export function AcceptBaaForm({
     });
   };
 
+  const emailHelpId = recipientEmail ? "vendor-email-help" : undefined;
+  const errorId = "accept-baa-error";
+
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <form
+      onSubmit={handleSubmit}
+      noValidate
+      aria-labelledby="accept-baa-heading"
+    >
       <div className="rounded-xl border bg-card p-6 shadow-sm">
-        <h2 className="text-sm font-semibold">E-signature</h2>
+        <h2 id="accept-baa-heading" className="text-sm font-semibold">
+          E-signature
+        </h2>
         <p className="mt-1 text-xs text-muted-foreground">
           Per HIPAA §164.504(e), {vendorName} agrees that typing a full name
           below constitutes a legally binding electronic signature for this
@@ -88,13 +97,18 @@ export function AcceptBaaForm({
               htmlFor="vendor-email"
               className="block text-xs font-medium"
             >
-              Your email
+              Your email{" "}
+              <span className="text-destructive" aria-hidden="true">
+                *
+              </span>
             </label>
             <input
               id="vendor-email"
               name="vendor-email"
               type="email"
               required
+              aria-required="true"
+              aria-describedby={emailHelpId}
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -102,7 +116,10 @@ export function AcceptBaaForm({
               placeholder={recipientEmail ?? "you@example.com"}
             />
             {recipientEmail ? (
-              <p className="mt-1 text-[10px] text-muted-foreground">
+              <p
+                id={emailHelpId}
+                className="mt-1 text-[10px] text-muted-foreground"
+              >
                 Must match{" "}
                 <span className="font-medium">{recipientEmail}</span>
                 {" "}— the address this BAA was sent to.
@@ -115,13 +132,18 @@ export function AcceptBaaForm({
               htmlFor="vendor-signature"
               className="block text-xs font-medium"
             >
-              Full legal name
+              Full legal name{" "}
+              <span className="text-destructive" aria-hidden="true">
+                *
+              </span>
             </label>
             <input
               id="vendor-signature"
               name="vendor-signature"
               type="text"
               required
+              aria-required="true"
+              aria-describedby="vendor-signature-help"
               minLength={2}
               maxLength={200}
               autoComplete="name"
@@ -130,24 +152,30 @@ export function AcceptBaaForm({
               className={FIELD_CLASS}
               placeholder="Jane Doe"
             />
-            <p className="mt-1 text-[10px] text-muted-foreground">
+            <p
+              id="vendor-signature-help"
+              className="mt-1 text-[10px] text-muted-foreground"
+            >
               This will be recorded as your e-signature.
             </p>
           </div>
 
-          <label className="flex items-start gap-2 text-xs">
+          <div className="flex items-start gap-2 text-xs">
             <input
+              id="vendor-agreed"
               type="checkbox"
+              required
+              aria-required="true"
               checked={agreed}
               onChange={(e) => setAgreed(e.target.checked)}
               className="mt-0.5 h-4 w-4 rounded border-input"
             />
-            <span>
+            <label htmlFor="vendor-agreed">
               I have read and agree to the terms of this Business Associate
               Agreement, and I confirm I am authorized to sign on behalf of{" "}
               <span className="font-medium">{vendorName}</span>.
-            </span>
-          </label>
+            </label>
+          </div>
         </div>
 
         <div className="mt-4 flex items-center gap-3">
@@ -155,7 +183,13 @@ export function AcceptBaaForm({
             {isPending ? "Submitting…" : "Sign and execute BAA"}
           </Button>
           {error ? (
-            <p className="text-xs text-[color:var(--gw-color-risk)]">{error}</p>
+            <p
+              id={errorId}
+              role="alert"
+              className="text-xs text-[color:var(--gw-color-risk)]"
+            >
+              {error}
+            </p>
           ) : null}
         </div>
       </div>
