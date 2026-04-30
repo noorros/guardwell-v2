@@ -361,10 +361,11 @@ describe("projectStaffExcludedFromAssignment", () => {
 });
 
 describe("projectTrainingCourseCreated", () => {
-  it("creates a TrainingCourse row with the projection's authored defaults", async () => {
+  it("creates a TrainingCourse row with the projection's authored defaults + payload-driven lessonContent", async () => {
     const { actor } = await seed();
     const courseId = randomUUID();
     const code = `CUSTOM_${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    const lessonContent = "## My Custom Lesson\n\nReplay-safe body.";
     await db.$transaction(async (tx) => {
       await projectTrainingCourseCreated(tx, {
         practiceId: actor.practiceId,
@@ -376,6 +377,7 @@ describe("projectTrainingCourseCreated", () => {
           type: "CUSTOM",
           durationMinutes: 45,
           passingScore: 70,
+          lessonContent,
           isCustom: true,
         },
       });
@@ -391,7 +393,7 @@ describe("projectTrainingCourseCreated", () => {
     expect(row.isRequired).toBe(false);
     expect(row.version).toBe(1);
     expect(row.sortOrder).toBe(999);
-    expect(row.lessonContent).toBe("");
+    expect(row.lessonContent).toBe(lessonContent);
     // cleanup so a later test doesn't observe this row through cascade
     await db.trainingCourse.delete({ where: { id: courseId } });
   });

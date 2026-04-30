@@ -1614,9 +1614,9 @@ export const EVENT_SCHEMAS = {
     }),
   },
   // Custom-course creation. Projection writes a TrainingCourse row with
-  // isRequired=false, version=1, sortOrder=999, lessonContent="" — these
-  // are the customer-authored defaults; PR 2's createCustomCourseAction
-  // is the first caller.
+  // isRequired=false, version=1, sortOrder=999. lessonContent travels
+  // through the event payload (Phase 4 PR 2) so the event log remains
+  // the source of truth for course content.
   TRAINING_COURSE_CREATED: {
     1: z.object({
       courseId: z.string().min(1),
@@ -1625,6 +1625,7 @@ export const EVENT_SCHEMAS = {
       type: z.string().min(1).max(40),
       durationMinutes: z.number().int().min(0).max(600).nullable(),
       passingScore: z.number().int().min(0).max(100),
+      lessonContent: z.string().max(50_000),
       isCustom: z.boolean(),
     }),
   },

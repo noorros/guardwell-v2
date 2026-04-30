@@ -129,9 +129,11 @@ export async function projectStaffExcludedFromAssignment(
 
 /**
  * Materialize a custom-authored TrainingCourse row. The projection
- * authors customer-supplied defaults: lessonContent="", isRequired=false,
- * version=1, sortOrder=999. Subsequent edits flow through
- * projectTrainingCourseUpdated which bumps version monotonically.
+ * authors customer-supplied defaults: isRequired=false, version=1,
+ * sortOrder=999. lessonContent travels via the event payload (Phase 4
+ * PR 2 update) so the event log carries the full course body and
+ * replay reconstructs lessonContent verbatim. Subsequent edits flow
+ * through projectTrainingCourseUpdated which bumps version monotonically.
  *
  * Idempotent — re-applies safely on replay (upsert with empty update).
  *
@@ -152,7 +154,7 @@ export async function projectTrainingCourseCreated(
       code: payload.code,
       title: payload.title,
       type: payload.type,
-      lessonContent: "",
+      lessonContent: payload.lessonContent,
       durationMinutes: payload.durationMinutes,
       passingScore: payload.passingScore,
       isRequired: false,
