@@ -154,6 +154,9 @@ model Practice {
   baaAcceptanceTokens     BaaAcceptanceToken[]
   macraActivityLogs       MacraActivityLog[]
   conversationThreads     ConversationThread[]
+  // Audit #21 (HIPAA I-1, 2026-04-30): per-state AG notification rows
+  // for multi-state breaches. One row per affected state per breach.
+  incidentStateAgNotifications IncidentStateAgNotification[]
 
   @@index([primaryState])
   @@index([subscriptionStatus])
@@ -557,16 +560,65 @@ model Incident {
   // State breach-notification tracking — populated once the wizard confirms
   // isBreach=true for a practice with a non-federal state in scope.
   patientState                  String?
+  // Audit #21 (HIPAA I-1, 2026-04-30): the full set of states whose
+  // residents were affected by this breach. Distinct from `patientState`
+  // (the primary or single-state case) — when a breach touches residents
+  // of multiple states, we must track each state's AG notification
+  // deadline separately because deadlines + thresholds vary by state.
+  // Empty list = single-state breach (use `patientState`); non-empty
+  // list overrides patientState for multi-state notification tracking.
+  // The IncidentStateAgNotification join table is the source of truth
+  // for per-state deadlines.
+  affectedPatientStates         String[]         @default([])
   createdAt                     DateTime         @default(now())
   updatedAt                     DateTime         @updatedAt
 
   practice           Practice             @relation(fields: [practiceId], references: [id], onDelete: Cascade)
   deaTheftLossReports DeaTheftLossReport[]
+  stateAgNotifications IncidentStateAgNotification[]
 
   @@index([practiceId, status])
   @@index([practiceId, isBreach])
   @@index([practiceId, discoveredAt])
   @@index([practiceId, injuredUserId])
+}
+
+// Audit #21 (HIPAA I-1, 2026-04-30): per-state AG notification tracking
+// for multi-state breaches. Each row = one state-specific obligation
+// derived at breach-determination time. The single-state case still
+// generates one row (the practice's primaryState or `patientState`),
+// preserving uniform handling. Replays are idempotent via the
+// (incidentId, state) unique constraint.
+//
+// `deadlineAt` snapshots the per-state HIPAA-overlay window at
+// determination time; ongoing changes to the rules in hipaa.ts do NOT
+// retroactively shift recorded deadlines (audit-stability: the
+// determination memo and the deadline must be reproducible at any
+// point in the future).
+//
+// `notifiedAt` is set when an INCIDENT_NOTIFIED_STATE_AG event with
+// a matching stateCode fires. Pre-audit-#21 events without a stateCode
+// fall back to updating the matching primary-state row.
+model IncidentStateAgNotification {
+  id          String   @id @default(cuid())
+  practiceId  String
+  practice    Practice @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  incidentId  String
+  incident    Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  state       String
+  deadlineAt  DateTime
+  notifiedAt  DateTime?
+  // Snapshot of `affectedCount` at determination time so the per-state
+  // threshold-driven AG-notification rule (e.g. "TX requires AG notice
+  // for ≥250 affected") can be replayed without re-deriving from the
+  // current Incident.affectedCount.
+  thresholdAffectedCount Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([incidentId, state])
+  @@index([practiceId, state])
+  @@index([practiceId, deadlineAt])
 }
 
 // Evidence for HIPAA_SRA. One row per completion event. Drafts (isDraft=true)

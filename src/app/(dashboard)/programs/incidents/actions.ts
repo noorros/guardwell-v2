@@ -54,6 +54,15 @@ const ReportInput = z.object({
     .regex(/^[A-Z]{2}$/)
     .nullable()
     .optional(),
+  // Audit #21 (HIPAA I-1, 2026-04-30): multi-state breach support.
+  // When residents of ≥2 states were affected, the form populates this
+  // list and the breach-determination projection generates one
+  // IncidentStateAgNotification row per state with the correct
+  // per-state HIPAA-overlay deadline.
+  affectedPatientStates: z
+    .array(z.string().length(2).regex(/^[A-Z]{2}$/))
+    .max(56)
+    .optional(),
   oshaBodyPart: z.string().max(200).nullable().optional(),
   oshaInjuryNature: z.string().max(200).nullable().optional(),
   oshaOutcome: OshaOutcomeEnum.nullable().optional(),
@@ -104,6 +113,13 @@ export async function reportIncidentAction(
     affectedCount: parsed.affectedCount ?? null,
     discoveredAt: parsed.discoveredAt,
     patientState: parsed.patientState ?? null,
+    // Audit #21 (HIPAA I-1): de-dupe + uppercase before persisting so
+    // downstream projections / derivations don't have to normalize.
+    affectedPatientStates: parsed.affectedPatientStates
+      ? Array.from(
+          new Set(parsed.affectedPatientStates.map((s) => s.toUpperCase())),
+        )
+      : undefined,
     oshaBodyPart: parsed.oshaBodyPart ?? null,
     oshaInjuryNature: parsed.oshaInjuryNature ?? null,
     oshaOutcome: parsed.oshaOutcome ?? null,

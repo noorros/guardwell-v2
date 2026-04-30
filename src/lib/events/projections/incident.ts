@@ -17,6 +17,7 @@
 import type { Prisma } from "@prisma/client";
 import type { PayloadFor } from "../registry";
 import { rederiveRequirementStatus } from "@/lib/compliance/derivation/rederive";
+import { computeStateBreachDeadline } from "@/lib/compliance/derivation/hipaa";
 
 type ReportedPayload = PayloadFor<"INCIDENT_REPORTED", 1>;
 type BreachPayload = PayloadFor<"INCIDENT_BREACH_DETERMINED", 1>;
@@ -53,6 +54,11 @@ export async function projectIncidentReported(
       affectedCount: payload.affectedCount ?? null,
       discoveredAt: new Date(payload.discoveredAt),
       patientState: payload.patientState ?? null,
+      // Audit #21 (HIPAA I-1): pre-breach-determination capture of the
+      // multi-state set. Empty default keeps single-state callers
+      // unchanged. The breach-determination projection reads this to
+      // materialize per-state IncidentStateAgNotification rows.
+      affectedPatientStates: payload.affectedPatientStates ?? [],
       oshaBodyPart: payload.oshaBodyPart ?? null,
       oshaInjuryNature: payload.oshaInjuryNature ?? null,
       oshaOutcome: payload.oshaOutcome ?? null,
@@ -83,7 +89,13 @@ export async function projectIncidentBreachDetermined(
   const { practiceId, payload } = args;
   const existing = await tx.incident.findUnique({
     where: { id: payload.incidentId },
-    select: { practiceId: true, status: true },
+    select: {
+      practiceId: true,
+      status: true,
+      discoveredAt: true,
+      patientState: true,
+      affectedPatientStates: true,
+    },
   });
   if (!existing) {
     throw new Error(
@@ -113,12 +125,110 @@ export async function projectIncidentBreachDetermined(
       status: existing.status === "OPEN" ? "UNDER_INVESTIGATION" : existing.status,
     },
   });
+
+  // Audit #21 (HIPAA I-1, 2026-04-30): when isBreach=true, materialize
+  // one IncidentStateAgNotification row per affected state. Each row
+  // snapshots the deadline derived from the per-state HIPAA overlay so
+  // the breach memo + per-state AG notification log can be replayed
+  // unchanged. Single-state breaches still generate one row (the
+  // patientState or, if null, practice.primaryState) so downstream
+  // readers have uniform shape.
+  //
+  // Idempotent on replay: the (incidentId, state) unique constraint
+  // makes upsert a no-op for already-recorded rows. We deliberately do
+  // NOT recompute deadlineAt on re-determination (audit-stability:
+  // determination memo + deadline must be reproducible).
+  if (payload.isBreach) {
+    const states = collectAffectedStates({
+      patientState: existing.patientState,
+      affectedPatientStates: existing.affectedPatientStates,
+    });
+    if (states.length === 0) {
+      // No state in scope — fall back to the practice's primary state so
+      // the breach memo always renders a single AG-notification line.
+      const practice = await tx.practice.findUnique({
+        where: { id: practiceId },
+        select: { primaryState: true },
+      });
+      if (practice?.primaryState) states.push(practice.primaryState);
+    }
+
+    for (const state of states) {
+      const deadlineAt =
+        computeStateBreachDeadline(state, existing.discoveredAt) ??
+        // "Most expedient" states have no fixed deadline — anchor the
+        // row to discoveredAt so downstream UI has a render-stable
+        // value. The rendered PDF still labels these as expedient.
+        existing.discoveredAt;
+      await tx.incidentStateAgNotification.upsert({
+        where: {
+          incidentId_state: {
+            incidentId: payload.incidentId,
+            state,
+          },
+        },
+        create: {
+          practiceId,
+          incidentId: payload.incidentId,
+          state,
+          deadlineAt,
+          thresholdAffectedCount: payload.affectedCount,
+        },
+        update: {
+          // Re-determination: refresh threshold + clear stale notifiedAt
+          // ONLY if the state list shrank (handled by the find-and-purge
+          // below). Recorded notifiedAt timestamps are preserved.
+          thresholdAffectedCount: payload.affectedCount,
+        },
+      });
+    }
+
+    // Purge per-state rows for states no longer in scope (e.g. the
+    // determiner removed a state via re-determination). Limited to
+    // rows that have NOT yet been notified — once an AG notice is on
+    // the books, it stays as audit history.
+    if (states.length > 0) {
+      await tx.incidentStateAgNotification.deleteMany({
+        where: {
+          incidentId: payload.incidentId,
+          state: { notIn: states },
+          notifiedAt: null,
+        },
+      });
+    }
+  }
+
   // Composite HIPAA_BREACH_RESPONSE rule cares about unresolved breaches.
   await rederiveRequirementStatus(
     tx,
     practiceId,
     "POLICY:HIPAA_BREACH_RESPONSE_POLICY",
   );
+}
+
+/**
+ * Audit #21 (HIPAA I-1) helper — single source of truth for "which
+ * states does this breach touch?" Reads `affectedPatientStates` first
+ * (multi-state authoritative); falls back to `patientState` (legacy
+ * single-state) when the list is empty. Returns deduplicated, uppercase
+ * state codes.
+ */
+function collectAffectedStates(input: {
+  patientState: string | null;
+  affectedPatientStates: string[];
+}): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  const push = (s: string | null | undefined) => {
+    if (!s) return;
+    const code = s.toUpperCase();
+    if (seen.has(code)) return;
+    seen.add(code);
+    result.push(code);
+  };
+  for (const s of input.affectedPatientStates) push(s);
+  if (result.length === 0) push(input.patientState);
+  return result;
 }
 
 export async function projectIncidentResolved(
@@ -265,10 +375,27 @@ export async function projectIncidentNotifiedStateAg(
     payload.incidentId,
     "INCIDENT_NOTIFIED_STATE_AG",
   );
+  const notifiedAt = new Date(payload.notifiedAt);
   await tx.incident.update({
     where: { id: payload.incidentId },
-    data: { stateAgNotifiedAt: new Date(payload.notifiedAt) },
+    data: { stateAgNotifiedAt: notifiedAt },
   });
+  // Audit #21 (HIPAA I-1, 2026-04-30): also stamp the matching per-state
+  // row (created at breach-determination time). Idempotent —
+  // updateMany on the unique pair is a no-op when no row matches (e.g.
+  // legacy events fired before the determination wrote per-state rows).
+  // We use updateMany rather than upsert because we don't have the
+  // deadline window in this event payload — re-deriving it here would
+  // de-anchor from the determination snapshot.
+  if (payload.stateCode) {
+    await tx.incidentStateAgNotification.updateMany({
+      where: {
+        incidentId: payload.incidentId,
+        state: payload.stateCode.toUpperCase(),
+      },
+      data: { notifiedAt },
+    });
+  }
   await rederiveRequirementStatus(
     tx,
     practiceId,

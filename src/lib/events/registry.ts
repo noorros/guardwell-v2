@@ -400,6 +400,15 @@ export const EVENT_SCHEMAS = {
         .regex(/^[A-Z]{2}$/)
         .nullable()
         .optional(),
+      // Audit #21 (HIPAA I-1, 2026-04-30): full set of states affected
+      // by this incident — distinct from the single-state `patientState`.
+      // When ≥2 states' residents are affected, populate this; the
+      // breach-determination projection materializes one
+      // IncidentStateAgNotification row per state.
+      affectedPatientStates: z
+        .array(z.string().length(2).regex(/^[A-Z]{2}$/))
+        .max(56) // 50 states + DC + PR + 4 territories cap
+        .optional(),
       // OSHA-specific fields — only populated when type=OSHA_RECORDABLE.
       oshaBodyPart: z.string().max(200).nullable().optional(),
       oshaInjuryNature: z.string().max(200).nullable().optional(),
