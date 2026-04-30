@@ -149,10 +149,18 @@ export async function updateCredentialAction(input: z.infer<typeof UpdateInput>)
     await verifyHolderInPractice(parsed.holderId, pu.practiceId);
   }
 
+  // Zod `.optional().nullable()` collapses two distinct intents into one union;
+  // distinguish them here so a field-omitted Edit/Renew preserves the existing
+  // holder instead of silently nulling it (audit #21 CR-1).
+  const resolvedHolderId =
+    parsed.holderId === undefined
+      ? existing.holderId
+      : (parsed.holderId ?? null);
+
   const payload = {
     credentialId: parsed.credentialId,
     credentialTypeCode: credType.code,
-    holderId: parsed.holderId ?? null,
+    holderId: resolvedHolderId,
     title: parsed.title,
     licenseNumber: parsed.licenseNumber ?? null,
     issuingBody: parsed.issuingBody ?? null,

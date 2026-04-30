@@ -230,6 +230,86 @@ describe("updateCredentialAction (audit #8)", () => {
     ).rejects.toThrow(/holder not in your practice/i);
   });
 
+  it("preserves holderId through Edit when payload omits the field (audit #21 CR-1)", async () => {
+    const { practice } = await seed("ADMIN");
+    const credType = await seedCredentialType("CU_TYPE_HOLDER_PRESERVE");
+    // Seed Dr. Jane as a separate PracticeUser (the holder) in the same practice.
+    const holderUser = await db.user.create({
+      data: {
+        firebaseUid: `dj-${Math.random().toString(36).slice(2, 10)}`,
+        email: `dj-${Math.random().toString(36).slice(2, 8)}@test.test`,
+      },
+    });
+    const drJane = await db.practiceUser.create({
+      data: {
+        userId: holderUser.id,
+        practiceId: practice.id,
+        role: "STAFF",
+      },
+    });
+    const cred = await db.credential.create({
+      data: {
+        practiceId: practice.id,
+        credentialTypeId: credType.id,
+        holderId: drJane.id,
+        title: "AZ MD License",
+      },
+    });
+    const { updateCredentialAction } = await import(
+      "@/app/(dashboard)/programs/credentials/actions"
+    );
+    // Mirrors the Edit form: holderId is NOT in the payload.
+    await updateCredentialAction({
+      credentialId: cred.id,
+      title: "AZ MD License (renewed)",
+      licenseNumber: null,
+      issuingBody: null,
+      issueDate: null,
+      expiryDate: null,
+      notes: null,
+    });
+    const after = await db.credential.findUniqueOrThrow({ where: { id: cred.id } });
+    expect(after.holderId).toBe(drJane.id);
+    expect(after.title).toBe("AZ MD License (renewed)");
+  });
+
+  it("clears holderId when payload explicitly passes null (audit #21 CR-1)", async () => {
+    const { practice } = await seed("ADMIN");
+    const credType = await seedCredentialType("CU_TYPE_HOLDER_CLEAR");
+    const holderUser = await db.user.create({
+      data: {
+        firebaseUid: `hc-${Math.random().toString(36).slice(2, 10)}`,
+        email: `hc-${Math.random().toString(36).slice(2, 8)}@test.test`,
+      },
+    });
+    const drJane = await db.practiceUser.create({
+      data: { userId: holderUser.id, practiceId: practice.id, role: "STAFF" },
+    });
+    const cred = await db.credential.create({
+      data: {
+        practiceId: practice.id,
+        credentialTypeId: credType.id,
+        holderId: drJane.id,
+        title: "Practice-level after clear",
+      },
+    });
+    const { updateCredentialAction } = await import(
+      "@/app/(dashboard)/programs/credentials/actions"
+    );
+    await updateCredentialAction({
+      credentialId: cred.id,
+      holderId: null,
+      title: "Practice-level after clear",
+      licenseNumber: null,
+      issuingBody: null,
+      issueDate: null,
+      expiryDate: null,
+      notes: null,
+    });
+    const after = await db.credential.findUniqueOrThrow({ where: { id: cred.id } });
+    expect(after.holderId).toBeNull();
+  });
+
   it("preserves the credential's original credentialTypeCode (not editable)", async () => {
     const { practice } = await seed("OWNER");
     const credType = await seedCredentialType("CU_TYPE_PRESERVED");
