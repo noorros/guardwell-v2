@@ -2,7 +2,7 @@
 //
 // Effective lead-time resolution per category. Defaults match existing
 // hardcoded values in per-generator files (e.g.
-// generateCredentialRenewalNotifications uses [60, 30, 14, 7]). The
+// generateCredentialRenewalNotifications uses [90, 60, 30, 7]). The
 // per-practice override JSON at Practice.reminderSettings can supersede
 // any category. Missing keys fall through to defaults.
 

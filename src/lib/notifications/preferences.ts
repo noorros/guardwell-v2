@@ -12,6 +12,11 @@ export interface EffectivePreferences {
   emailEnabled: boolean;
   cadence: "INSTANT" | "DAILY" | "WEEKLY" | "NONE";
   channels: Set<"EMAIL" | "IN_APP">;
+  /**
+   * User's category allowlist. EMPTY SET = no filter (all categories
+   * surface in the digest). Non-empty = only those categories are
+   * included. Mirrors the @default([]) semantic in the schema.
+   */
   categoryFilters: Set<string>;
   digestTime: string;
   digestDay: string;
