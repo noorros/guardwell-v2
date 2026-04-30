@@ -229,3 +229,35 @@ function getZoneOffsetMinutes(at: Date, zone: string): number {
   );
   return Math.round((asUtc - at.getTime()) / 60_000);
 }
+
+/**
+ * Returns the calendar year that `date` falls in when interpreted in `tz`.
+ *
+ * Replaces `new Date().getFullYear()` calls in compliance-clock code that
+ * need the practice's calendar year — not the server's. A practice in
+ * Hawaii (UTC-10) running at server-UTC 2026-01-01T05:00:00Z is still in
+ * 2025 from the practice's perspective, so a "current calendar year"
+ * cutoff that uses `getFullYear()` would mistakenly bump to 2026.
+ */
+export function getPracticeYear(
+  date: Date,
+  tz: string | null | undefined,
+): number {
+  const zone = resolveTimezone(tz);
+  const yearStr = getDtf(zone, "date-input").format(date).slice(0, 4);
+  return Number.parseInt(yearStr, 10);
+}
+
+/**
+ * Returns the [start, end) UTC instants bounding the calendar year that
+ * `date` falls in when interpreted in `tz`. Convenience wrapper over
+ * `practiceYearBoundsUtc(year, tz)` — for callers that have a Date in hand
+ * rather than a year integer (e.g. "the current year right now in this
+ * practice's timezone"). Use audit #21 OSHA I-1 (poster rule, recordkeeping).
+ */
+export function getPracticeYearBoundsUtc(
+  date: Date,
+  tz: string | null | undefined,
+): { startUtc: Date; endUtc: Date } {
+  return practiceYearBoundsUtc(getPracticeYear(date, tz), tz);
+}

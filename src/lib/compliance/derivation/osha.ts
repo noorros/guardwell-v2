@@ -11,6 +11,7 @@ import type { Prisma } from "@prisma/client";
 import type { DerivationRule, DerivedStatus } from "./hipaa";
 import type { OshaPolicyCode } from "@/lib/compliance/policies";
 import { courseCompletionThresholdRule } from "./shared";
+import { getPracticeYearBoundsUtc } from "@/lib/audit/format";
 
 /**
  * Generic: is the given OSHA policy code currently adopted (not retired)?
@@ -67,24 +68,34 @@ async function osha300LogRule(
 /**
  * 29 CFR §1903.2 — Required workplace posters.
  * COMPLIANT when at least one POSTER_ATTESTATION EventLog row exists for
- * this practice with createdAt >= Jan 1 of the current calendar year.
- * Officers must re-attest each year to confirm posters are still displayed.
+ * this practice with createdAt >= Jan 1 of the current calendar year,
+ * computed in the practice's timezone.
+ *
+ * Audit #21 OSHA I-1: prior implementation used `new Date().getFullYear()`
+ * which resolves to the server's local TZ (UTC on Cloud Run). For a
+ * practice in Hawaii (UTC-10), that meant the year boundary flipped at
+ * server-UTC midnight Jan 1 — 10 hours BEFORE the practice's actual year
+ * boundary. A poster attestation logged in late December (Hawaii time)
+ * would briefly disappear from the "current year" cutoff because the
+ * server's clock had already advanced.
  */
 export async function oshaRequiredPostersRule(
   tx: Prisma.TransactionClient,
   practiceId: string,
 ): Promise<DerivedStatus | null> {
-  // Cloud Run prod runs in UTC, so getFullYear() + new Date(year, 0, 1)
-  // resolves to YYYY-01-01T00:00:00Z by design. Local-dev runs in the
-  // developer's TZ — internally consistent with the year extraction, so
-  // the cutoff still falls on local Jan 1, just translated to UTC at
-  // query time. Acceptable drift; OSHA posting is calendar-year scoped.
-  const jan1 = new Date(new Date().getFullYear(), 0, 1);
+  const practice = await tx.practice.findUnique({
+    where: { id: practiceId },
+    select: { timezone: true },
+  });
+  // null practice shouldn't be reachable from rederive (which already
+  // looks up the practice), but be defensive.
+  const tz = practice?.timezone ?? "UTC";
+  const { startUtc } = getPracticeYearBoundsUtc(new Date(), tz);
   const count = await tx.eventLog.count({
     where: {
       practiceId,
       type: "POSTER_ATTESTATION",
-      createdAt: { gte: jan1 },
+      createdAt: { gte: startUtc },
     },
   });
   return count >= 1 ? "COMPLIANT" : "GAP";

@@ -105,11 +105,19 @@ export function IncidentReportForm({
             | "RESTRICTED"
             | "OTHER_RECORDABLE"
             | "FIRST_AID") : null,
+          // Guard against NaN (e.g. if a non-numeric string slips past
+          // the type=number input). Zod will then enforce the 0-180 range.
           oshaDaysAway: isOsha && oshaDaysAway
-            ? Number.parseInt(oshaDaysAway, 10)
+            ? (() => {
+                const n = Number.parseInt(oshaDaysAway, 10);
+                return Number.isFinite(n) ? n : null;
+              })()
             : null,
           oshaDaysRestricted: isOsha && oshaDaysRestricted
-            ? Number.parseInt(oshaDaysRestricted, 10)
+            ? (() => {
+                const n = Number.parseInt(oshaDaysRestricted, 10);
+                return Number.isFinite(n) ? n : null;
+              })()
             : null,
           sharpsDeviceType: isOsha && sharpsDeviceType.trim()
             ? sharpsDeviceType.trim()
@@ -343,10 +351,15 @@ export function IncidentReportForm({
                       id="osha-days-away"
                       type="number"
                       min={0}
+                      max={180}
                       value={oshaDaysAway}
                       onChange={(e) => setOshaDaysAway(e.target.value)}
+                      aria-describedby="osha-days-away-help"
                       className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
                     />
+                    <p id="osha-days-away-help" className="mt-1 text-[11px] font-normal text-muted-foreground">
+                      max 180 days per §1904.7
+                    </p>
                   </div>
                   <div>
                     <label htmlFor="osha-days-restricted" className="block text-xs font-medium text-foreground">
@@ -356,10 +369,15 @@ export function IncidentReportForm({
                       id="osha-days-restricted"
                       type="number"
                       min={0}
+                      max={180}
                       value={oshaDaysRestricted}
                       onChange={(e) => setOshaDaysRestricted(e.target.value)}
+                      aria-describedby="osha-days-restricted-help"
                       className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
                     />
+                    <p id="osha-days-restricted-help" className="mt-1 text-[11px] font-normal text-muted-foreground">
+                      max 180 days per §1904.7
+                    </p>
                   </div>
                   <div>
                     <label htmlFor="osha-sharps-device" className="block text-xs font-medium text-foreground">

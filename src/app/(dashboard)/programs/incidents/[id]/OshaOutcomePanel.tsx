@@ -184,9 +184,20 @@ function OshaOutcomeEditForm({
           oshaOutcome: outcome
             ? (outcome as OshaOutcomeValue)
             : null,
-          oshaDaysAway: daysAway ? parseInt(daysAway, 10) : null,
+          // §1904.7 caps day counts at 180. Guard against NaN before
+          // Zod sees the value — sending NaN would surface as a generic
+          // type error instead of a clear range error.
+          oshaDaysAway: daysAway
+            ? (() => {
+                const n = parseInt(daysAway, 10);
+                return Number.isFinite(n) ? n : null;
+              })()
+            : null,
           oshaDaysRestricted: daysRestricted
-            ? parseInt(daysRestricted, 10)
+            ? (() => {
+                const n = parseInt(daysRestricted, 10);
+                return Number.isFinite(n) ? n : null;
+              })()
             : null,
           sharpsDeviceType: sharpsDevice.trim() || null,
           injuredUserId: injuredUserId || null,
@@ -324,13 +335,20 @@ function OshaOutcomeEditForm({
             id={`${idPrefix}-days-away`}
             type="number"
             min={0}
+            max={180}
             value={daysAway}
             onChange={(e) => setDaysAway(e.target.value)}
             disabled={isPending}
             aria-invalid={error ? "true" : undefined}
-            aria-describedby={error ? errorId : undefined}
+            aria-describedby={error ? `${errorId} ${idPrefix}-days-away-help` : `${idPrefix}-days-away-help`}
             className={FIELD_CLASS}
           />
+          <p
+            id={`${idPrefix}-days-away-help`}
+            className="mt-0.5 text-[11px] text-muted-foreground"
+          >
+            max 180 days per §1904.7
+          </p>
         </div>
         <div>
           <label
@@ -343,13 +361,20 @@ function OshaOutcomeEditForm({
             id={`${idPrefix}-days-restricted`}
             type="number"
             min={0}
+            max={180}
             value={daysRestricted}
             onChange={(e) => setDaysRestricted(e.target.value)}
             disabled={isPending}
             aria-invalid={error ? "true" : undefined}
-            aria-describedby={error ? errorId : undefined}
+            aria-describedby={error ? `${errorId} ${idPrefix}-days-restricted-help` : `${idPrefix}-days-restricted-help`}
             className={FIELD_CLASS}
           />
+          <p
+            id={`${idPrefix}-days-restricted-help`}
+            className="mt-0.5 text-[11px] text-muted-foreground"
+          >
+            max 180 days per §1904.7
+          </p>
         </div>
         <div>
           <label
