@@ -410,3 +410,142 @@ describe("Audit #15 — incident OSHA outcome edit", () => {
     ).rejects.toThrow(/not found/i);
   });
 });
+
+// Audit #21 (OSHA C-1): cross-tenant injuredUserId validation.
+// PR #211 (audit #19) added the injuredUserId column to track the actual
+// injured employee on Form 300/301, but reportIncidentAction and
+// updateIncidentOshaOutcomeAction accepted the value from the client
+// without verifying tenancy. The UI dropdown is same-practice only, but
+// a hand-crafted POST could write another practice's user id onto the
+// §1904.35(b)(2)(v) employee-privacy fields.
+describe("Audit #21 — cross-tenant injuredUserId guard", () => {
+  it("reportIncidentAction rejects an injuredUserId that belongs to another practice", async () => {
+    // Practice A: actor (ADMIN) submitting the report.
+    const { practice: practiceA } = await seedPracticeWithUser("ADMIN");
+    void practiceA;
+
+    // Practice B: STAFF user the attacker is trying to write onto
+    // practice A's Form 300.
+    const otherPractice = await db.practice.create({
+      data: { name: "Audit-#21 Other practice", primaryState: "TX" },
+    });
+    const otherUser = await db.user.create({
+      data: {
+        firebaseUid: `a21-other-${Math.random().toString(36).slice(2, 10)}`,
+        email: `a21-other-${Math.random().toString(36).slice(2, 8)}@test.test`,
+      },
+    });
+    await db.practiceUser.create({
+      data: {
+        userId: otherUser.id,
+        practiceId: otherPractice.id,
+        role: "STAFF",
+      },
+    });
+
+    const { reportIncidentAction } = await import(
+      "@/app/(dashboard)/programs/incidents/actions"
+    );
+    await expect(
+      reportIncidentAction({
+        title: "Hijack attempt",
+        description: "Hand-crafted POST trying to write another tenant's user.",
+        type: "OSHA_RECORDABLE",
+        severity: "MEDIUM",
+        phiInvolved: false,
+        discoveredAt: new Date().toISOString(),
+        oshaBodyPart: "Hand",
+        oshaInjuryNature: "Laceration",
+        oshaOutcome: "OTHER_RECORDABLE",
+        injuredUserId: otherUser.id,
+      }),
+    ).rejects.toThrow(/not an active member of your practice/i);
+  });
+
+  it("reportIncidentAction accepts a same-practice injuredUserId (happy path)", async () => {
+    const { practice, pu: actorPu } = await seedPracticeWithUser("ADMIN");
+    // Add a second user in the same practice — the actual injured staff.
+    const injuredUser = await db.user.create({
+      data: {
+        firebaseUid: `a21-inj-${Math.random().toString(36).slice(2, 10)}`,
+        email: `a21-inj-${Math.random().toString(36).slice(2, 8)}@test.test`,
+      },
+    });
+    await db.practiceUser.create({
+      data: {
+        userId: injuredUser.id,
+        practiceId: practice.id,
+        role: "STAFF",
+      },
+    });
+
+    const { reportIncidentAction } = await import(
+      "@/app/(dashboard)/programs/incidents/actions"
+    );
+    const { incidentId } = await reportIncidentAction({
+      title: "Same-practice injury",
+      description: "Injured staff is in the same practice as the reporter.",
+      type: "OSHA_RECORDABLE",
+      severity: "MEDIUM",
+      phiInvolved: false,
+      discoveredAt: new Date().toISOString(),
+      oshaBodyPart: "Foot",
+      oshaInjuryNature: "Sprain",
+      oshaOutcome: "DAYS_AWAY",
+      oshaDaysAway: 2,
+      injuredUserId: injuredUser.id,
+    });
+    const row = await db.incident.findUniqueOrThrow({
+      where: { id: incidentId },
+    });
+    expect(row.injuredUserId).toBe(injuredUser.id);
+    void actorPu;
+  });
+
+  it("updateIncidentOshaOutcomeAction rejects an injuredUserId that belongs to another practice", async () => {
+    // Practice A: ADMIN actor + an existing OSHA incident to edit.
+    const { practice, pu } = await seedPracticeWithUser("ADMIN");
+    const incident = await db.incident.create({
+      data: {
+        practiceId: practice.id,
+        reportedByUserId: pu.userId,
+        title: "Audit-#21 update target",
+        description: "Existing incident the actor will try to mis-attribute.",
+        type: "OSHA_RECORDABLE",
+        severity: "MEDIUM",
+        phiInvolved: false,
+        discoveredAt: new Date(),
+        oshaOutcome: "DAYS_AWAY",
+      },
+    });
+
+    // Practice B user the attacker wants to assign as the injured employee.
+    const otherPractice = await db.practice.create({
+      data: { name: "Audit-#21 update other practice", primaryState: "FL" },
+    });
+    const otherUser = await db.user.create({
+      data: {
+        firebaseUid: `a21-upd-${Math.random().toString(36).slice(2, 10)}`,
+        email: `a21-upd-${Math.random().toString(36).slice(2, 8)}@test.test`,
+      },
+    });
+    await db.practiceUser.create({
+      data: {
+        userId: otherUser.id,
+        practiceId: otherPractice.id,
+        role: "STAFF",
+      },
+    });
+
+    const { updateIncidentOshaOutcomeAction } = await import(
+      "@/app/(dashboard)/programs/incidents/actions"
+    );
+    await expect(
+      updateIncidentOshaOutcomeAction({
+        incidentId: incident.id,
+        oshaOutcome: "DAYS_AWAY",
+        injuredUserId: otherUser.id,
+      }),
+    ).rejects.toThrow(/not an active member of your practice/i);
+  });
+});
