@@ -184,6 +184,96 @@ export async function hipaaBaaRule(
 }
 
 /**
+ * Per-state breach-notification window registry. Single source of truth
+ * for the deadline used by both the derivation rules below AND by the
+ * incident-projection layer when it materializes per-state AG-notification
+ * rows on multi-state breaches (audit #21 / HIPAA I-1).
+ *
+ * windowDays=null → "most expedient time possible"; no fixed numeric
+ *   deadline. Used by states that codify the obligation but not a clock.
+ * windowDays=N → fixed calendar-day deadline.
+ * useBusinessDays=true → calendar excludes weekends (CA only). Federal
+ *   holidays aren't tracked.
+ */
+export interface StateBreachWindow {
+  windowDays: number | null;
+  useBusinessDays?: boolean;
+}
+
+export const STATE_BREACH_WINDOWS: Record<string, StateBreachWindow> = {
+  // Fixed-window states
+  CA: { windowDays: 15, useBusinessDays: true },
+  TX: { windowDays: 60 },
+  FL: { windowDays: 30 },
+  WA: { windowDays: 30 },
+  CO: { windowDays: 30 },
+  OR: { windowDays: 45 },
+  OH: { windowDays: 45 },
+  MD: { windowDays: 45 },
+  AZ: { windowDays: 45 },
+  CT: { windowDays: 60 },
+  TN: { windowDays: 45 },
+  WI: { windowDays: 45 },
+  LA: { windowDays: 60 },
+  AL: { windowDays: 45 },
+  ME: { windowDays: 30 },
+  NM: { windowDays: 45 },
+  RI: { windowDays: 45 },
+  SD: { windowDays: 60 },
+  // "Most expedient time possible" states — no fixed numeric deadline.
+  NY: { windowDays: null },
+  IL: { windowDays: null },
+  MA: { windowDays: null },
+  NJ: { windowDays: null },
+  NV: { windowDays: null },
+  UT: { windowDays: null },
+  GA: { windowDays: null },
+  NC: { windowDays: null },
+  MI: { windowDays: null },
+  PA: { windowDays: null },
+  MN: { windowDays: null },
+  IN: { windowDays: null },
+  KY: { windowDays: null },
+  IA: { windowDays: null },
+  MO: { windowDays: null },
+  AK: { windowDays: null },
+  AR: { windowDays: null },
+  DE: { windowDays: null },
+  DC: { windowDays: null },
+  HI: { windowDays: null },
+  ID: { windowDays: null },
+  KS: { windowDays: null },
+  MS: { windowDays: null },
+  MT: { windowDays: null },
+  NE: { windowDays: null },
+  NH: { windowDays: null },
+  ND: { windowDays: null },
+  OK: { windowDays: null },
+  SC: { windowDays: null },
+  VT: { windowDays: null },
+  WV: { windowDays: null },
+  WY: { windowDays: null },
+};
+
+/**
+ * Pure helper. Computes the per-state breach-notification deadline
+ * starting from `discoveredAt`. Returns null when the state's rule is
+ * "most expedient" (no numeric deadline). Audit #21 / HIPAA I-1: the
+ * incident projection calls this when materializing per-state AG-
+ * notification rows so each row carries the correct deadline.
+ */
+export function computeStateBreachDeadline(
+  state: string,
+  discoveredAt: Date,
+): Date | null {
+  const window = STATE_BREACH_WINDOWS[state];
+  if (!window || window.windowDays === null) return null;
+  return window.useBusinessDays
+    ? addBusinessDays(discoveredAt, window.windowDays)
+    : addCalendarDays(discoveredAt, window.windowDays);
+}
+
+/**
  * Generic state breach-notification rule factory. Used for every state
  * overlay where the obligation is "notify affected individuals within
  * X days of discovery for any breach scoped to that state."
@@ -198,7 +288,10 @@ export async function hipaaBaaRule(
  *     window (when windowDays is non-null) → GAP.
  *
  * "State-scoped breach" = isBreach=true AND (patientState=stateCode OR
- * patientState=null AND practice.primaryState=stateCode).
+ * affectedPatientStates contains stateCode OR patientState=null AND
+ * practice.primaryState=stateCode). The affectedPatientStates check
+ * (audit #21 / HIPAA I-1) ensures multi-state breaches trip every
+ * affected state's overlay even if patientState only stores one.
  *
  * windowDays=null means "most expedient time possible" — courts read
  * this strictly but there's no fixed numeric deadline. We treat presence
@@ -226,6 +319,10 @@ function stateBreachNotificationRule(
         isBreach: true,
         OR: [
           { patientState: stateCode },
+          // Audit #21 (HIPAA I-1): multi-state breaches that record the
+          // affected state in `affectedPatientStates` must trip every
+          // affected state's overlay, not just the practice's primary.
+          { affectedPatientStates: { has: stateCode } },
           ...(practice?.primaryState === stateCode
             ? [{ patientState: null }]
             : []),

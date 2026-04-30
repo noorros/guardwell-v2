@@ -143,6 +143,58 @@ const s = StyleSheet.create({
     color: "#D97706",
     fontStyle: "italic",
   },
+  // Audit #21 (HIPAA I-1) — per-state AG notification table styles.
+  stateAgTableTitle: {
+    marginTop: 6,
+    marginBottom: 4,
+    fontSize: 10,
+    fontWeight: "bold",
+    color: "#1E3A5F",
+  },
+  stateAgTableHeader: {
+    flexDirection: "row",
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1E3A5F",
+    backgroundColor: "#F1F5F9",
+  },
+  stateAgTableRow: {
+    flexDirection: "row",
+    paddingVertical: 4,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#E2E8F0",
+  },
+  stateAgColState: {
+    width: 60,
+    fontSize: 9,
+    color: "#1E293B",
+    fontWeight: "bold",
+  },
+  stateAgColDeadline: {
+    width: 130,
+    fontSize: 9,
+    color: "#1E293B",
+  },
+  stateAgColNotified: {
+    width: 140,
+    fontSize: 9,
+    color: "#1E293B",
+  },
+  stateAgColThreshold: {
+    flex: 1,
+    fontSize: 9,
+    color: "#1E293B",
+    textAlign: "right",
+  },
+  stateAgHeaderText: {
+    fontSize: 9,
+    fontWeight: "bold",
+    color: "#1E3A5F",
+  },
+  stateAgPending: {
+    color: "#D97706",
+    fontStyle: "italic",
+  },
   footer: {
     position: "absolute",
     bottom: 24,
@@ -180,6 +232,19 @@ export interface BreachMemoNotification {
   stateAgNotifiedAt: Date | null;
 }
 
+/**
+ * Audit #21 (HIPAA I-1, 2026-04-30): per-state AG-notification row for
+ * multi-state breaches. One per affected state with the correct HIPAA-
+ * overlay deadline + threshold snapshot at determination time. Replaces
+ * the single `stateAgNotifiedAt` line on the memo when ≥2 states.
+ */
+export interface BreachMemoStateAgRow {
+  state: string;
+  deadlineAt: Date;
+  notifiedAt: Date | null;
+  thresholdAffectedCount: number;
+}
+
 export interface BreachMemoInput {
   practiceName: string;
   practiceState: string;
@@ -204,6 +269,12 @@ export interface BreachMemoInput {
     breachDeterminedAt: Date;
   };
   notifications: BreachMemoNotification;
+  // Audit #21 (HIPAA I-1): when populated with ≥2 rows, the PDF renders
+  // a per-state AG-notification table instead of the single State
+  // Attorney General line. With 0 or 1 row, the legacy single-line
+  // format is preserved (1 row's notifiedAt is still the source of
+  // truth for that state but rendered identically to the legacy form).
+  stateAgNotifications?: BreachMemoStateAgRow[];
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -355,12 +426,19 @@ export function IncidentBreachMemoDocument({
           required={incident.isBreach && isMajor}
           timezone={input.practiceTimezone}
         />
-        <NotifRow
-          label="State Attorney General"
-          notifiedAt={notifications.stateAgNotifiedAt}
-          required={incident.isBreach}
-          timezone={input.practiceTimezone}
-        />
+        {input.stateAgNotifications && input.stateAgNotifications.length >= 2 ? (
+          <StateAgTable
+            rows={input.stateAgNotifications}
+            timezone={input.practiceTimezone}
+          />
+        ) : (
+          <NotifRow
+            label="State Attorney General"
+            notifiedAt={notifications.stateAgNotifiedAt}
+            required={incident.isBreach}
+            timezone={input.practiceTimezone}
+          />
+        )}
 
         <Text style={s.footer} fixed>
           Generated {formatPracticeDateTime(input.generatedAt, input.practiceTimezone)} · GuardWell · Confidential
@@ -392,6 +470,60 @@ function NotifRow({
     <View style={s.notifRow}>
       <Text style={s.notifLabel}>{label}</Text>
       <Text style={styleLine}>{value}</Text>
+    </View>
+  );
+}
+
+/**
+ * Audit #21 (HIPAA I-1) — per-state AG notification table. Rendered when
+ * the breach affected residents of ≥2 states. Each row carries the
+ * deadline + threshold snapshot taken at breach-determination time and
+ * the recorded `notifiedAt` (or "Not yet notified" placeholder).
+ */
+function StateAgTable({
+  rows,
+  timezone,
+}: {
+  rows: BreachMemoStateAgRow[];
+  timezone: string;
+}) {
+  const sorted = [...rows].sort((a, b) => a.state.localeCompare(b.state));
+  return (
+    <View>
+      <Text style={s.stateAgTableTitle}>
+        State Attorneys General (per affected state)
+      </Text>
+      <View style={s.stateAgTableHeader}>
+        <Text style={[s.stateAgColState, s.stateAgHeaderText]}>State</Text>
+        <Text style={[s.stateAgColDeadline, s.stateAgHeaderText]}>Deadline</Text>
+        <Text style={[s.stateAgColNotified, s.stateAgHeaderText]}>Notified</Text>
+        <Text style={[s.stateAgColThreshold, s.stateAgHeaderText]}>Threshold (count)</Text>
+      </View>
+      {sorted.map((row) => {
+        const notifiedText = row.notifiedAt
+          ? formatPracticeDate(row.notifiedAt, timezone)
+          : "Not yet notified";
+        return (
+          <View key={row.state} style={s.stateAgTableRow}>
+            <Text style={s.stateAgColState}>{row.state}</Text>
+            <Text style={s.stateAgColDeadline}>
+              {formatPracticeDate(row.deadlineAt, timezone)}
+            </Text>
+            <Text
+              style={
+                row.notifiedAt
+                  ? s.stateAgColNotified
+                  : [s.stateAgColNotified, s.stateAgPending]
+              }
+            >
+              {notifiedText}
+            </Text>
+            <Text style={s.stateAgColThreshold}>
+              {row.thresholdAffectedCount.toLocaleString("en-US")}
+            </Text>
+          </View>
+        );
+      })}
     </View>
   );
 }

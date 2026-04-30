@@ -57,6 +57,10 @@ afterEach(async () => {
   // MACRA activity log references Practice (cascade); explicit delete keeps
   // test setup deterministic (parallels DEA / allergy / CEU patterns above).
   await db.macraActivityLog.deleteMany();
+  // Audit #21 (HIPAA I-1): per-state AG notification rows reference both
+  // Incident (cascade) and Practice (cascade); explicit delete keeps
+  // test setup deterministic.
+  await db.incidentStateAgNotification.deleteMany();
   // Concierge tables reference Practice (cascade) — explicit deletes for
   // deterministic test ordering. Messages first (FK on threadId), then threads.
   await db.conversationMessage.deleteMany();

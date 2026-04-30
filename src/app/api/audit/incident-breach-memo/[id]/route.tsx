@@ -64,6 +64,17 @@ export async function GET(
       affectedIndividualsNotifiedAt: true,
       mediaNotifiedAt: true,
       stateAgNotifiedAt: true,
+      // Audit #21 (HIPAA I-1): per-state AG notification rows for
+      // multi-state breaches. The PDF renders a per-state table when
+      // ≥2 rows; single/zero rows fall back to the legacy single line.
+      stateAgNotifications: {
+        select: {
+          state: true,
+          deadlineAt: true,
+          notifiedAt: true,
+          thresholdAffectedCount: true,
+        },
+      },
     },
   });
 
@@ -117,6 +128,15 @@ export async function GET(
           mediaNotifiedAt: incident.mediaNotifiedAt,
           stateAgNotifiedAt: incident.stateAgNotifiedAt,
         },
+        // Audit #21 (HIPAA I-1): pass through the per-state rows. The
+        // PDF component decides between the table view (≥2 rows) and
+        // the legacy single-line view (0/1 rows).
+        stateAgNotifications: incident.stateAgNotifications.map((r) => ({
+          state: r.state,
+          deadlineAt: r.deadlineAt,
+          notifiedAt: r.notifiedAt,
+          thresholdAffectedCount: r.thresholdAffectedCount,
+        })),
       }}
     />,
   );
