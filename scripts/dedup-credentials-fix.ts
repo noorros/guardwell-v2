@@ -1,19 +1,23 @@
 /**
  * One-off fix script for PR #226's unique index pre-flight (audit #21).
  *
- * If `dedup-credentials-check.ts` reports duplicates, this script resolves
- * them by retiring all but the lowest-createdAt row per group. Surviving
- * row keeps the original id + history; retired rows get retiredAt + a
- * retiredReason explaining the dedup.
+ * The unique index `@@unique([practiceId, credentialTypeId, holderId,
+ * licenseNumber])` applies regardless of `retiredAt` — Prisma `@@unique`
+ * doesn't have a WHERE clause. So even soft-retired duplicates block the
+ * index creation at `prisma db push`.
  *
- * Idempotent — re-running after the fix is a no-op (retiredAt rows are
- * skipped by the duplicate query).
+ * Strategy: for each duplicate group (rows with same composite key,
+ * licenseNumber NOT NULL), keep the canonical row's licenseNumber and
+ * suffix all OTHER rows' licenseNumber with `-DUP-{shortId}` so they
+ * remain unique. Canonical = the non-retired row with earliest createdAt
+ * (or simply earliest createdAt if all retired).
+ *
+ * Idempotent: re-running after a successful run finds zero groups (the
+ * suffixes are unique by id, so they can't collide).
  *
  * Usage:
- *   npx tsx scripts/dedup-credentials-fix.ts          # dry-run by default
- *   APPLY=1 npx tsx scripts/dedup-credentials-fix.ts  # actually retire rows
- *
- * Exit code: 0 on success, 1 on error.
+ *   npx tsx scripts/dedup-credentials-fix.ts          # dry-run (default)
+ *   APPLY=1 npx tsx scripts/dedup-credentials-fix.ts  # actually update rows
  */
 
 import { PrismaClient } from "@prisma/client";
@@ -25,19 +29,19 @@ interface DupRow {
   practiceId: string;
   credentialTypeId: string;
   holderId: string | null;
-  licenseNumber: string | null;
+  licenseNumber: string;
   ct: bigint;
   ids: string[];
+  retiredFlags: boolean[];
 }
 
 async function main() {
   console.log(
-    `Audit #21 #226 dedup-fix (${APPLY ? "APPLY mode" : "dry-run — pass APPLY=1 to actually retire rows"})`,
+    `Audit #21 #226 dedup-fix (${APPLY ? "APPLY mode" : "dry-run — pass APPLY=1 to actually update rows"})`,
   );
   console.log("======================================");
 
-  // Same query as dedup-check, with retiredAt: null filter so we don't
-  // re-retire already-retired duplicates on re-run.
+  // All composite-key collisions, regardless of retiredAt.
   const groups = await prisma.$queryRaw<DupRow[]>`
     SELECT
       "practiceId",
@@ -45,55 +49,62 @@ async function main() {
       "holderId",
       "licenseNumber",
       COUNT(*) AS ct,
-      ARRAY_AGG("id" ORDER BY "createdAt" ASC) AS ids
+      ARRAY_AGG("id" ORDER BY ("retiredAt" IS NOT NULL), "createdAt" ASC) AS ids,
+      ARRAY_AGG(("retiredAt" IS NOT NULL) ORDER BY ("retiredAt" IS NOT NULL), "createdAt" ASC) AS "retiredFlags"
     FROM "Credential"
     WHERE "licenseNumber" IS NOT NULL
-      AND "retiredAt" IS NULL
     GROUP BY "practiceId", "credentialTypeId", "holderId", "licenseNumber"
     HAVING COUNT(*) > 1
     ORDER BY ct DESC
   `;
 
   if (groups.length === 0) {
-    console.log("✅ No active duplicates. Safe to merge PR #226.");
+    console.log("✅ No duplicates. Safe to merge PR #226.");
     process.exit(0);
   }
 
   console.log(`Found ${groups.length} duplicate group(s). Resolution plan:`);
-  let toRetire = 0;
+  let toUpdate = 0;
   for (const g of groups) {
-    const [keepId, ...retireIds] = g.ids;
-    toRetire += retireIds.length;
+    const [keepId, ...dupIds] = g.ids;
+    const keepRetired = g.retiredFlags[0];
+    toUpdate += dupIds.length;
     console.log(
       `  group practice=${g.practiceId.slice(0, 8)}  license=${g.licenseNumber}  count=${g.ct}`,
     );
-    console.log(`    keep:    ${keepId}`);
-    for (const r of retireIds) console.log(`    retire:  ${r}`);
+    console.log(
+      `    keep:    ${keepId} ${keepRetired ? "(retired)" : "(active)"}`,
+    );
+    for (let i = 0; i < dupIds.length; i++) {
+      const id = dupIds[i];
+      const retired = g.retiredFlags[i + 1];
+      const suffix = `-DUP-${id.slice(0, 8)}`;
+      console.log(
+        `    suffix:  ${id} ${retired ? "(retired)" : "(active)"} → ${g.licenseNumber}${suffix}`,
+      );
+    }
   }
-  console.log(`\nTotal rows to retire: ${toRetire}`);
+  console.log(`\nTotal rows to update: ${toUpdate}`);
 
   if (!APPLY) {
-    console.log("\nDry-run mode — no changes made. Re-run with APPLY=1 to retire.");
+    console.log("\nDry-run mode — no changes made. Re-run with APPLY=1 to apply.");
     process.exit(0);
   }
 
-  console.log("\nApplying retirements...");
-  const now = new Date();
-  let retired = 0;
+  console.log("\nApplying suffixes...");
+  let updated = 0;
   for (const g of groups) {
-    const [, ...retireIds] = g.ids;
-    for (const id of retireIds) {
+    const [, ...dupIds] = g.ids;
+    for (const id of dupIds) {
+      const suffix = `-DUP-${id.slice(0, 8)}`;
       await prisma.credential.update({
         where: { id },
-        data: {
-          retiredAt: now,
-          retiredReason: `Audit #21 #226 dedup — duplicate of ${g.ids[0]}`,
-        },
+        data: { licenseNumber: `${g.licenseNumber}${suffix}` },
       });
-      retired++;
+      updated++;
     }
   }
-  console.log(`✅ Retired ${retired} duplicate row(s). Safe to merge PR #226.`);
+  console.log(`✅ Updated ${updated} row(s). Safe to merge PR #226.`);
   process.exit(0);
 }
 
