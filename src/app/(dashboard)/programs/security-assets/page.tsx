@@ -8,6 +8,7 @@ import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/gw/EmptyState";
+import { CITATIONS } from "@/lib/regulations/citations";
 import { AssetForm } from "./AssetForm";
 import { RetireAssetButton } from "./RetireAssetButton";
 
@@ -60,9 +61,10 @@ export default async function SecurityAssetsPage() {
             Security assets
           </h1>
           <p className="text-sm text-muted-foreground">
-            HIPAA Security Rule §164.310 + .312 — identify the systems
+            HIPAA Security Rule {CITATIONS.HIPAA_PHYSICAL_SAFEGUARDS.code} +{" "}
+            {CITATIONS.HIPAA_TECHNICAL_SAFEGUARDS.code} — identify the systems
             that store and transmit ePHI. Required for a substantive SRA;
-            the HIPAA_SRA requirement on /modules/hipaa won't flip
+            the HIPAA_SRA requirement on /modules/hipaa won&apos;t flip
             COMPLIANT until ≥1 PHI-processing asset is on file.
           </p>
         </div>

@@ -7,6 +7,7 @@ import { getPracticeUser } from "@/lib/rbac";
 import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { CITATIONS } from "@/lib/regulations/citations";
 import {
   Tooltip,
   TooltipContent,
@@ -32,12 +33,12 @@ const OFFICER_COLUMNS: OfficerColumn[] = [
   {
     role: "PRIVACY",
     label: "Privacy",
-    tooltip: "Satisfies HIPAA §164.530(a)(1)(i) — Designate a Privacy Officer.",
+    tooltip: `Satisfies ${CITATIONS.HIPAA_PRIVACY_OFFICER.display} — Designate a Privacy Officer.`,
   },
   {
     role: "SECURITY",
     label: "Security",
-    tooltip: "Satisfies HIPAA §164.308(a)(2) — Designate a Security Officer.",
+    tooltip: `Satisfies ${CITATIONS.HIPAA_SECURITY_OFFICER.display} — Designate a Security Officer.`,
   },
   {
     role: "COMPLIANCE",

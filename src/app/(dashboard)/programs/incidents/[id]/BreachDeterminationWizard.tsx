@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { completeBreachDeterminationAction } from "../actions";
+import { CITATIONS } from "@/lib/regulations/citations";
 
 interface FactorDef {
   id: 1 | 2 | 3 | 4;
@@ -103,7 +104,8 @@ export function BreachDeterminationWizard({
         <div>
           <h2 className="text-sm font-semibold">Breach determination</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            HIPAA §164.402 "low probability of compromise" analysis. Score each
+            {CITATIONS.HIPAA_BREACH_DEFINITION.display}{" "}
+            &ldquo;low probability of compromise&rdquo; analysis. Score each
             factor 1–5 (1 = low probability, 5 = high). Any single factor at 5,
             or a composite ≥ 50, triggers breach notification obligations.
           </p>
@@ -163,7 +165,7 @@ export function BreachDeterminationWizard({
         </label>
 
         <label className="block space-y-1 text-xs font-medium text-foreground">
-          Documented analysis (HIPAA §164.402)
+          Documented analysis ({CITATIONS.HIPAA_BREACH_DEFINITION.display})
           <span className="mt-1 block text-[11px] font-normal text-muted-foreground">
             Briefly describe the nature of the PHI involved, the unauthorized
             recipient, whether PHI was actually viewed/acquired, and the extent

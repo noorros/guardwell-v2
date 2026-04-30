@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { completeSraAction, saveSraDraftAction } from "../actions";
+import { CITATIONS } from "@/lib/regulations/citations";
 
 // Auto-save debounce. Long enough to coalesce rapid radio clicks /
 // keystrokes in the notes textarea, short enough that a user who walks
@@ -41,9 +42,9 @@ export interface SraWizardProps {
 }
 
 const STEP_LABEL: Record<Category, string> = {
-  ADMINISTRATIVE: "Administrative safeguards (§164.308)",
-  PHYSICAL: "Physical safeguards (§164.310)",
-  TECHNICAL: "Technical safeguards (§164.312)",
+  ADMINISTRATIVE: `Administrative safeguards (${CITATIONS.HIPAA_ADMIN_SAFEGUARDS.code})`,
+  PHYSICAL: `Physical safeguards (${CITATIONS.HIPAA_PHYSICAL_SAFEGUARDS.code})`,
+  TECHNICAL: `Technical safeguards (${CITATIONS.HIPAA_TECHNICAL_SAFEGUARDS.code})`,
 };
 
 const ANSWER_OPTIONS: { value: Answer; label: string }[] = [
