@@ -513,3 +513,98 @@ describe("autoAssignRequiredAction (Phase 4 PR 2)", () => {
     expect(rows).toHaveLength(1);
   });
 });
+
+describe("createCustomCourseAction (Phase 4 PR 2)", () => {
+  const validPayload = {
+    code: `MY_COURSE_${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+    title: "My Custom Course",
+    type: "CUSTOM",
+    durationMinutes: 45,
+    passingScore: 70,
+    lessonContent: "## Lesson body\n\nWith markdown.",
+    quizQuestions: [
+      {
+        question: "What's 2+2?",
+        options: ["3", "4", "5", "6"],
+        correctIndex: 1,
+        explanation: "Basic math.",
+        order: 1,
+      },
+      {
+        question: "What's 3*3?",
+        options: ["6", "8", "9", "12"],
+        correctIndex: 2,
+        order: 2,
+      },
+    ],
+  };
+
+  it("rejects STAFF callers (requires ADMIN)", async () => {
+    await seed("STAFF");
+    const { createCustomCourseAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+    await expect(
+      createCustomCourseAction({
+        ...validPayload,
+        code: `STAFF_REJ_${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
+      }),
+    ).rejects.toThrow(/admin|owner|requires/i);
+  });
+
+  it("creates a custom course as ADMIN with namespaced code + quiz questions", async () => {
+    const { practice } = await seed("ADMIN");
+    const userCode = `MYCC_${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    const { createCustomCourseAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+    const result = await createCustomCourseAction({
+      ...validPayload,
+      code: userCode,
+    });
+    expect(result.code).toBe(`${practice.id}_${userCode}`);
+    const row = await db.trainingCourse.findUniqueOrThrow({
+      where: { id: result.courseId },
+      include: { quizQuestions: { orderBy: { order: "asc" } } },
+    });
+    expect(row.code).toBe(`${practice.id}_${userCode}`);
+    expect(row.title).toBe(validPayload.title);
+    expect(row.type).toBe(validPayload.type);
+    expect(row.durationMinutes).toBe(validPayload.durationMinutes);
+    expect(row.passingScore).toBe(validPayload.passingScore);
+    expect(row.lessonContent).toBe(validPayload.lessonContent);
+    expect(row.isRequired).toBe(false);
+    expect(row.version).toBe(1);
+    expect(row.sortOrder).toBe(999);
+    expect(row.quizQuestions).toHaveLength(2);
+    expect(row.quizQuestions[0]!.question).toBe("What's 2+2?");
+    expect(row.quizQuestions[0]!.correctIndex).toBe(1);
+    expect(row.quizQuestions[0]!.explanation).toBe("Basic math.");
+    expect(row.quizQuestions[1]!.question).toBe("What's 3*3?");
+    expect(row.quizQuestions[1]!.correctIndex).toBe(2);
+    expect(row.quizQuestions[1]!.explanation).toBeNull();
+    // cleanup — TrainingCourse isn't in afterEach; cascade-deletes
+    // quizQuestions via the schema relation onDelete: Cascade.
+    await db.trainingCourse.delete({ where: { id: result.courseId } });
+  });
+
+  it("rejects when a course with the same namespaced code already exists", async () => {
+    await seed("ADMIN");
+    const userCode = `DUP_${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    const { createCustomCourseAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+    const first = await createCustomCourseAction({
+      ...validPayload,
+      code: userCode,
+    });
+    await expect(
+      createCustomCourseAction({
+        ...validPayload,
+        code: userCode,
+      }),
+    ).rejects.toThrow(/already exists|duplicate/i);
+    // cleanup
+    await db.trainingCourse.delete({ where: { id: first.courseId } });
+  });
+});

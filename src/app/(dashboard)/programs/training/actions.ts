@@ -408,3 +408,126 @@ export async function autoAssignRequiredAction() {
   revalidatePath("/programs/training/assignments");
   return { created, skipped };
 }
+
+const QuizQuestionInput = z.object({
+  question: z.string().min(1).max(2000),
+  options: z.array(z.string().min(1).max(500)).min(2).max(10),
+  correctIndex: z.number().int().min(0),
+  explanation: z.string().max(2000).nullable().optional(),
+  order: z.number().int().min(1),
+});
+
+const CreateCustomCourseInput = z.object({
+  // User-provided code, namespaced as `${practiceId}_${code}` to avoid
+  // colliding with system codes (HIPAA_BASICS etc.). Capped at 30 to
+  // leave room for the cuid practice prefix (~25) under the registry's
+  // 60-char ceiling.
+  code: z
+    .string()
+    .min(1)
+    .max(30)
+    .regex(/^[A-Z0-9_]+$/, "code must be uppercase letters, digits, underscore"),
+  title: z.string().min(1).max(200),
+  type: z.string().min(1).max(40),
+  durationMinutes: z.number().int().min(0).max(600).nullable(),
+  passingScore: z.number().int().min(0).max(100),
+  lessonContent: z.string().max(50_000),
+  quizQuestions: z.array(QuizQuestionInput).max(50),
+});
+
+/**
+ * ADMIN-gated. Creates a practice-namespaced custom training course.
+ * The user-provided code is stored as `${practiceId}_${code}` so two
+ * practices can independently author "MY_COURSE" without collision and
+ * neither can clobber a system code (HIPAA_BASICS etc.).
+ *
+ * Emits TRAINING_COURSE_CREATED carrying lessonContent verbatim (Phase 4
+ * PR 2 prep extended the registry payload). After the projection writes
+ * the TrainingCourse row, this action writes the QuizQuestion rows
+ * directly via createMany — QuizQuestion isn't a projection table per
+ * the lint allowlist (eslint-rules/no-direct-projection-mutation.js).
+ *
+ * Returns { courseId, code: namespacedCode }.
+ */
+export async function createCustomCourseAction(
+  input: z.infer<typeof CreateCustomCourseInput>,
+) {
+  const pu = await requireRole("ADMIN");
+  const parsed = CreateCustomCourseInput.parse(input);
+
+  const namespacedCode = `${pu.practiceId}_${parsed.code}`;
+
+  const existing = await db.trainingCourse.findUnique({
+    where: { code: namespacedCode },
+    select: { id: true },
+  });
+  if (existing) {
+    throw new Error(
+      `A custom course with code "${parsed.code}" already exists in your practice`,
+    );
+  }
+
+  // Validate correctIndex < options.length per question + uniqueness of
+  // `order`. The registry's per-question Zod can't see the options array
+  // length cross-field, so we do that here.
+  const orders = new Set<number>();
+  for (const q of parsed.quizQuestions) {
+    if (q.correctIndex >= q.options.length) {
+      throw new Error(
+        `Question "${q.question}": correctIndex ${q.correctIndex} is out of range for ${q.options.length} options`,
+      );
+    }
+    if (orders.has(q.order)) {
+      throw new Error(
+        `Duplicate question order ${q.order} — every question must have a unique order`,
+      );
+    }
+    orders.add(q.order);
+  }
+
+  const courseId = randomUUID();
+  const payload = {
+    courseId,
+    code: namespacedCode,
+    title: parsed.title,
+    type: parsed.type,
+    durationMinutes: parsed.durationMinutes,
+    passingScore: parsed.passingScore,
+    lessonContent: parsed.lessonContent,
+    isCustom: true,
+  };
+
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: pu.dbUser.id,
+      type: "TRAINING_COURSE_CREATED",
+      payload,
+    },
+    async (tx) =>
+      projectTrainingCourseCreated(tx, {
+        practiceId: pu.practiceId,
+        actorUserId: pu.dbUser.id,
+        payload,
+      }),
+  );
+
+  // QuizQuestion rows: NOT a projection table — direct write is allowed.
+  // The (courseId, order) pair is enforced unique above so createMany
+  // won't violate any constraint.
+  if (parsed.quizQuestions.length > 0) {
+    await db.quizQuestion.createMany({
+      data: parsed.quizQuestions.map((q) => ({
+        courseId,
+        question: q.question,
+        options: q.options,
+        correctIndex: q.correctIndex,
+        explanation: q.explanation ?? null,
+        order: q.order,
+      })),
+    });
+  }
+
+  revalidatePath("/programs/training");
+  return { courseId, code: namespacedCode };
+}
