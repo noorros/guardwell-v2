@@ -13,6 +13,7 @@
 import type { Prisma, NotificationType, NotificationSeverity } from "@prisma/client";
 import { formatPracticeDate } from "@/lib/audit/format";
 import { EXPIRING_SOON_DAYS } from "@/lib/credentials/status";
+import { getEffectiveLeadTimes } from "./leadTimes";
 
 export interface NotificationProposal {
   userId: string;
@@ -174,6 +175,7 @@ export async function generateCredentialRenewalNotifications(
   practiceId: string,
   userIds: string[],
   practiceTimezone: string,
+  reminderSettings: unknown,
 ): Promise<NotificationProposal[]> {
   const credentials = await tx.credential.findMany({
     where: {
@@ -193,7 +195,12 @@ export async function generateCredentialRenewalNotifications(
   });
 
   const proposals: NotificationProposal[] = [];
-  const DEFAULT_MILESTONES = [90, 60, 30, 7];
+  // Per-credential reminderConfig still wins when set; per-practice
+  // reminderSettings is the fallback above the global default.
+  const practiceMilestones = getEffectiveLeadTimes(
+    reminderSettings,
+    "credentials",
+  );
 
   for (const cred of credentials) {
     if (!cred.expiryDate) continue;
@@ -202,7 +209,7 @@ export async function generateCredentialRenewalNotifications(
     if (config?.enabled === false) continue;
     const milestones = config?.milestoneDays?.length
       ? config.milestoneDays
-      : DEFAULT_MILESTONES;
+      : practiceMilestones;
 
     const days = daysUntil(cred.expiryDate);
     if (days === null) continue;
@@ -584,9 +591,7 @@ export async function generateAllergyCompetencyDueNotifications(
 // ---------------------------------------------------------------------------
 
 const POLICY_REVIEW_OBLIGATION_DAYS = 365;
-const POLICY_REVIEW_MILESTONES = [90, 60, 30];
 const TRAINING_OVERDUE_GRACE_DAYS = 90;
-const CMS_DEFAULT_MILESTONES = [90, 60, 30, 7];
 const CMS_CREDENTIAL_TYPE_CODES = [
   "MEDICARE_PECOS_ENROLLMENT",
   "MEDICARE_PROVIDER_ENROLLMENT",
@@ -628,6 +633,7 @@ export async function generatePolicyReviewDueNotifications(
   // signature consistency with the rest of the generators.
   userIds: string[],
   practiceTimezone: string,
+  reminderSettings: unknown,
 ): Promise<NotificationProposal[]> {
   const adminIds = await ownerAdminUserIds(tx, practiceId);
   if (adminIds.length === 0) return [];
@@ -645,6 +651,8 @@ export async function generatePolicyReviewDueNotifications(
     },
   });
 
+  const milestones = getEffectiveLeadTimes(reminderSettings, "policyReview");
+
   const proposals: NotificationProposal[] = [];
   for (const p of policies) {
     if (!p.lastReviewedAt) continue;
@@ -657,7 +665,7 @@ export async function generatePolicyReviewDueNotifications(
 
     // Same milestone-cross logic as the credential renewal generator: fire
     // exactly the day a milestone threshold is crossed.
-    const matched = POLICY_REVIEW_MILESTONES.find(
+    const matched = milestones.find(
       (m) => days <= m && days > m - 1,
     );
     if (matched === undefined) continue;
@@ -804,9 +812,6 @@ export async function generateTrainingOverdueNotifications(
 // honored against PracticeUser.category once that column lands; today no
 // PracticeUser carries a category, so a category-only assignment resolves
 // to zero recipients (same as resolveGrid's behavior).
-
-const TRAINING_DUE_SOON_MILESTONES = [14, 7, 3, 1] as const;
-const TRAINING_EXPIRING_MILESTONES = [30, 14, 7] as const;
 
 interface AssignmentRecipientRow {
   id: string;
@@ -1010,10 +1015,12 @@ export async function generateTrainingDueSoonNotifications(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   userIds: string[],
   practiceTimezone: string,
+  reminderSettings: unknown,
 ): Promise<NotificationProposal[]> {
   const ctx = await loadAssignmentRecipientContext(tx, practiceId);
   if (ctx.assignments.length === 0) return [];
 
+  const milestones = getEffectiveLeadTimes(reminderSettings, "training");
   const now = new Date();
   const proposals: NotificationProposal[] = [];
 
@@ -1023,7 +1030,7 @@ export async function generateTrainingDueSoonNotifications(
     if (days === null) continue;
     if (days <= 0) continue; // Past due — overdue generator territory.
 
-    const matched = TRAINING_DUE_SOON_MILESTONES.filter((m) => days <= m);
+    const matched = milestones.filter((m) => days <= m);
     if (matched.length === 0) continue;
 
     const recipients = resolveAssignmentRecipients(a, ctx);
@@ -1145,6 +1152,7 @@ export async function generateTrainingExpiringNotifications(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   userIds: string[],
   practiceTimezone: string,
+  reminderSettings: unknown,
 ): Promise<NotificationProposal[]> {
   // Pull ALL future-expiring passing completions per (userId, courseId) so
   // the latest-wins map can see a newer roll-forward row even when its
@@ -1179,13 +1187,17 @@ export async function generateTrainingExpiringNotifications(
     }
   }
 
+  const milestones = getEffectiveLeadTimes(
+    reminderSettings,
+    "trainingExpiring",
+  );
   const proposals: NotificationProposal[] = [];
   for (const c of latestByUserCourse.values()) {
     const days = daysUntil(c.expiresAt);
     if (days === null) continue;
     if (days < 0) continue; // Already expired — TRAINING_OVERDUE handles past-expiry.
 
-    const matched = TRAINING_EXPIRING_MILESTONES.filter((m) => days <= m);
+    const matched = milestones.filter((m) => days <= m);
     if (matched.length === 0) continue;
 
     const courseTitle = c.course?.title ?? "Required training";
@@ -1223,6 +1235,7 @@ export async function generateCmsEnrollmentNotifications(
   // Owner/admin-only — see comment on generatePolicyReviewDueNotifications.
   userIds: string[],
   practiceTimezone: string,
+  reminderSettings: unknown,
 ): Promise<NotificationProposal[]> {
   const adminIds = await ownerAdminUserIds(tx, practiceId);
   if (adminIds.length === 0) return [];
@@ -1245,6 +1258,13 @@ export async function generateCmsEnrollmentNotifications(
     },
   });
 
+  // Per-credential reminderConfig still wins when set; per-practice
+  // reminderSettings.cmsEnrollment is the fallback above the global default.
+  const practiceMilestones = getEffectiveLeadTimes(
+    reminderSettings,
+    "cmsEnrollment",
+  );
+
   const proposals: NotificationProposal[] = [];
   for (const cred of credentials) {
     if (!cred.expiryDate) continue;
@@ -1252,7 +1272,7 @@ export async function generateCmsEnrollmentNotifications(
     if (config?.enabled === false) continue;
     const milestones = config?.milestoneDays?.length
       ? config.milestoneDays
-      : CMS_DEFAULT_MILESTONES;
+      : practiceMilestones;
 
     const days = daysUntil(cred.expiryDate);
     if (days === null) continue;
@@ -1717,6 +1737,7 @@ export async function generateAllNotifications(
   practiceId: string,
   userIds: string[],
   practiceTimezone: string,
+  reminderSettings: unknown,
 ): Promise<NotificationProposal[]> {
   if (userIds.length === 0) return [];
   const [
@@ -1741,19 +1762,19 @@ export async function generateAllNotifications(
   ] = await Promise.all([
     generateSraNotifications(tx, practiceId, userIds, practiceTimezone),
     generateCredentialNotifications(tx, practiceId, userIds, practiceTimezone),
-    generateCredentialRenewalNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateCredentialRenewalNotifications(tx, practiceId, userIds, practiceTimezone, reminderSettings),
     generateCredentialEscalationNotifications(tx, practiceId, userIds, practiceTimezone),
-    generateCmsEnrollmentNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateCmsEnrollmentNotifications(tx, practiceId, userIds, practiceTimezone, reminderSettings),
     generateVendorBaaNotifications(tx, practiceId, userIds, practiceTimezone),
     generateIncidentNotifications(tx, practiceId, userIds, practiceTimezone),
     generateBreachDeterminationDeadlineNotifications(tx, practiceId, userIds, practiceTimezone),
-    generatePolicyReviewDueNotifications(tx, practiceId, userIds, practiceTimezone),
+    generatePolicyReviewDueNotifications(tx, practiceId, userIds, practiceTimezone, reminderSettings),
     generateTrainingOverdueNotifications(tx, practiceId, userIds, practiceTimezone),
     generateTrainingEscalationNotifications(tx, practiceId, userIds, practiceTimezone),
     generateTrainingAssignedNotifications(tx, practiceId, userIds, practiceTimezone),
-    generateTrainingDueSoonNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateTrainingDueSoonNotifications(tx, practiceId, userIds, practiceTimezone, reminderSettings),
     generateTrainingOverdueAssignmentNotifications(tx, practiceId, userIds, practiceTimezone),
-    generateTrainingExpiringNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateTrainingExpiringNotifications(tx, practiceId, userIds, practiceTimezone, reminderSettings),
     generateOshaPostingReminderNotifications(tx, practiceId, userIds, practiceTimezone),
     generateAllergyNotifications(tx, practiceId, userIds, practiceTimezone),
     generateAllergyCompetencyDueNotifications(tx, practiceId, userIds, practiceTimezone),

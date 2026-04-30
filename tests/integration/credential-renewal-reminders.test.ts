@@ -63,7 +63,7 @@ describe("generateCredentialRenewalNotifications", () => {
     });
 
     const proposals = await db.$transaction(async (tx) =>
-      generateCredentialRenewalNotifications(tx, practice.id, [user.id], "UTC"),
+      generateCredentialRenewalNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     // Audit #21 IM-7: every milestone with days <= m fires per run; entityKey
@@ -121,7 +121,7 @@ describe("generateCredentialRenewalNotifications", () => {
     });
 
     const proposals = await db.$transaction(async (tx) =>
-      generateCredentialRenewalNotifications(tx, practice.id, [user.id], "UTC"),
+      generateCredentialRenewalNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     expect(proposals).toHaveLength(1);
@@ -153,7 +153,7 @@ describe("generateCredentialRenewalNotifications", () => {
     });
 
     const proposals = await db.$transaction(async (tx) =>
-      generateCredentialRenewalNotifications(tx, practice.id, [user.id], "UTC"),
+      generateCredentialRenewalNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     expect(proposals).toHaveLength(0);
@@ -172,7 +172,7 @@ describe("generateCredentialRenewalNotifications", () => {
     });
 
     const proposals = await db.$transaction(async (tx) =>
-      generateCredentialRenewalNotifications(tx, practice.id, [user.id], "UTC"),
+      generateCredentialRenewalNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     // No CREDENTIAL_RENEWAL_DUE — past-expiry handled by CREDENTIAL_EXPIRING.
@@ -239,7 +239,7 @@ describe("generateCredentialRenewalNotifications", () => {
     });
 
     const proposals = await db.$transaction(async (tx) =>
-      generateCredentialRenewalNotifications(tx, practice.id, [user.id], "UTC"),
+      generateCredentialRenewalNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     expect(proposals).toHaveLength(3);
@@ -282,6 +282,7 @@ describe("generateCredentialRenewalNotifications", () => {
           practice.id,
           [user.id],
           "UTC",
+          null,
         ),
       );
       await db.notification.createMany({
@@ -337,7 +338,7 @@ describe("generateCredentialRenewalNotifications", () => {
     });
 
     const proposals = await db.$transaction(async (tx) =>
-      generateCredentialRenewalNotifications(tx, practice.id, [user.id], "UTC"),
+      generateCredentialRenewalNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     // days=29 → 30, 60, 90 all match (29 <= 30, 29 <= 60, 29 <= 90).
@@ -367,7 +368,7 @@ describe("generateCredentialRenewalNotifications", () => {
     });
 
     const proposals = await db.$transaction(async (tx) =>
-      generateCredentialRenewalNotifications(tx, practice.id, [user.id], "UTC"),
+      generateCredentialRenewalNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     expect(proposals).toHaveLength(2);

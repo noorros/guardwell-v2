@@ -305,7 +305,7 @@ describe("generateTrainingDueSoonNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateTrainingDueSoonNotifications(tx, practice.id, [user.id], "UTC"),
+      generateTrainingDueSoonNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     // days=10 → matches m=14 only (10>7, 10>3, 10>1).
@@ -335,7 +335,7 @@ describe("generateTrainingDueSoonNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateTrainingDueSoonNotifications(tx, practice.id, [user.id], "UTC"),
+      generateTrainingDueSoonNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     // days=2 → matches m=14, 7, 3 (not 1, since 2 > 1).
@@ -370,7 +370,7 @@ describe("generateTrainingDueSoonNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateTrainingDueSoonNotifications(tx, practice.id, [user.id], "UTC"),
+      generateTrainingDueSoonNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     expect(proposals).toHaveLength(0);
@@ -390,7 +390,7 @@ describe("generateTrainingDueSoonNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateTrainingDueSoonNotifications(tx, practice.id, [user.id], "UTC"),
+      generateTrainingDueSoonNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     expect(proposals).toHaveLength(0);
@@ -422,7 +422,7 @@ describe("generateTrainingDueSoonNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateTrainingDueSoonNotifications(tx, practice.id, [user.id], "UTC"),
+      generateTrainingDueSoonNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     expect(proposals).toHaveLength(0);
@@ -669,7 +669,7 @@ describe("generateTrainingExpiringNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateTrainingExpiringNotifications(tx, practice.id, [user.id], "UTC"),
+      generateTrainingExpiringNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     // days=20 → matches m=30 only (20>14, 20>7).
@@ -701,7 +701,7 @@ describe("generateTrainingExpiringNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateTrainingExpiringNotifications(tx, practice.id, [user.id], "UTC"),
+      generateTrainingExpiringNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     expect(proposals).toHaveLength(3);
@@ -738,7 +738,7 @@ describe("generateTrainingExpiringNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateTrainingExpiringNotifications(tx, practice.id, [user.id], "UTC"),
+      generateTrainingExpiringNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     expect(proposals).toHaveLength(0);
@@ -761,7 +761,7 @@ describe("generateTrainingExpiringNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateTrainingExpiringNotifications(tx, practice.id, [user.id], "UTC"),
+      generateTrainingExpiringNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     expect(proposals).toHaveLength(0);
@@ -799,7 +799,7 @@ describe("generateTrainingExpiringNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateTrainingExpiringNotifications(tx, practice.id, [user.id], "UTC"),
+      generateTrainingExpiringNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     // Both are in the findMany result (since expiresAt < horizon for the
@@ -833,6 +833,7 @@ describe("generateTrainingExpiringNotifications", () => {
         practice.id,
         [owner.id, staff.id],
         "UTC",
+        null,
       ),
     );
 
