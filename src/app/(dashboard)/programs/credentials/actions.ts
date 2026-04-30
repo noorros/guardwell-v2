@@ -101,6 +101,82 @@ export async function addCredentialAction(input: z.infer<typeof AddInput>) {
 }
 
 // ──────────────────────────────────────────────────────────────────────
+// Update — re-emits CREDENTIAL_UPSERTED with the existing credentialId
+// so the projection's upsert routes to the update branch. The
+// credentialTypeCode is intentionally NOT in the input (immutable per
+// credential — the CredentialType drives derivation rules, so changing
+// it mid-life would require migrating all linked CEU activity totals).
+// Audit #8 (Credentials B-2): closes the "no Edit on detail page"
+// finding — users had to Remove + Re-Add, losing credential.id +
+// EvidenceLog history + CeuActivity rows.
+// ──────────────────────────────────────────────────────────────────────
+
+const UpdateInput = z.object({
+  credentialId: z.string().min(1),
+  holderId: z.string().min(1).optional().nullable(),
+  title: z.string().min(1).max(200),
+  licenseNumber: z.string().max(100).optional().nullable(),
+  issuingBody: z.string().max(200).optional().nullable(),
+  issueDate: isoOrEmpty,
+  expiryDate: isoOrEmpty,
+  notes: z.string().max(2000).optional().nullable(),
+});
+
+/**
+ * Audit #8 (Credentials B-2) + Audit C-2: gated to ADMIN+. Updates a
+ * credential's editable fields in place. credentialTypeCode is fixed
+ * for the life of the row — change it via Remove + Add if needed.
+ */
+export async function updateCredentialAction(input: z.infer<typeof UpdateInput>) {
+  const pu = await requireRole("ADMIN");
+  const user = pu.dbUser;
+  const parsed = UpdateInput.parse(input);
+
+  // Per-target tenant check + load the immutable credentialTypeCode.
+  const existing = await verifyCredentialInPractice(parsed.credentialId, pu.practiceId);
+  if (existing.retiredAt) {
+    throw new Error("Cannot edit a retired credential. Re-add it instead.");
+  }
+  const credType = await db.credentialType.findUnique({
+    where: { id: existing.credentialTypeId },
+    select: { code: true },
+  });
+  if (!credType) {
+    throw new Error("Credential type not found.");
+  }
+
+  if (parsed.holderId) {
+    await verifyHolderInPractice(parsed.holderId, pu.practiceId);
+  }
+
+  const payload = {
+    credentialId: parsed.credentialId,
+    credentialTypeCode: credType.code,
+    holderId: parsed.holderId ?? null,
+    title: parsed.title,
+    licenseNumber: parsed.licenseNumber ?? null,
+    issuingBody: parsed.issuingBody ?? null,
+    issueDate: toIso(parsed.issueDate),
+    expiryDate: toIso(parsed.expiryDate),
+    notes: parsed.notes ?? null,
+  };
+
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: user.id,
+      type: "CREDENTIAL_UPSERTED",
+      payload,
+    },
+    async (tx) =>
+      projectCredentialUpserted(tx, { practiceId: pu.practiceId, payload }),
+  );
+
+  revalidatePath("/programs/credentials");
+  revalidatePath(`/programs/credentials/${parsed.credentialId}`);
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // Bulk CSV import — emits CREDENTIAL_UPSERTED per row. Resolves
 // holderEmail → PracticeUser.id by joining User.email; missing/unknown
 // emails are reported as INVALID. credentialTypeCode is the CredentialType

@@ -107,6 +107,7 @@ export default async function CredentialDetailPage({ params }: PageProps) {
             credential.credentialType.requiresEvidenceByDefault,
         }}
         credential={{
+          title: credential.title,
           licenseNumber: credential.licenseNumber,
           issuingBody: credential.issuingBody,
           issueDate: credential.issueDate?.toISOString() ?? null,

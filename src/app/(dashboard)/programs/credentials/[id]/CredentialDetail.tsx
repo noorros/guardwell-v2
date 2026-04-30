@@ -16,6 +16,7 @@ import {
 } from "../actions";
 import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
 import { formatPracticeDate } from "@/lib/audit/format";
+import { CredentialMetadataPanel } from "./CredentialMetadataPanel";
 
 const FIELD_CLASS =
   "mt-1 block w-full rounded-md border bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -52,6 +53,7 @@ export interface CredentialDetailProps {
     requiresEvidenceByDefault: boolean;
   };
   credential: {
+    title: string;
     licenseNumber: string | null;
     issuingBody: string | null;
     issueDate: string | null; // ISO
@@ -112,7 +114,6 @@ export function CredentialDetail({
   reminderConfig,
   initialEvidence,
 }: CredentialDetailProps) {
-  const tz = usePracticeTimezone();
   const showCeuProgress =
     credentialType.ceuRequirementHours != null &&
     credentialType.ceuRequirementWindowMonths != null;
@@ -137,64 +138,14 @@ export function CredentialDetail({
 
   return (
     <div className="space-y-6">
-      {/* ── Credential metadata ───────────────────────────────────────── */}
+      {/* ── Credential metadata (with Edit / Renew / Retire) ──────────── */}
       <Card>
         <CardContent className="space-y-3 p-6">
-          <h2 className="text-sm font-semibold">Credential details</h2>
-          <dl className="grid gap-3 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="text-xs font-medium text-muted-foreground">
-                License number
-              </dt>
-              <dd className="mt-0.5">
-                {credential.licenseNumber ? (
-                  <span className="font-mono">{credential.licenseNumber}</span>
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium text-muted-foreground">
-                Issuing body
-              </dt>
-              <dd className="mt-0.5">
-                {credential.issuingBody ?? (
-                  <span className="text-muted-foreground">—</span>
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium text-muted-foreground">
-                Issue date
-              </dt>
-              <dd className="mt-0.5 tabular-nums">
-                {credential.issueDate
-                  ? formatPracticeDate(new Date(credential.issueDate), tz)
-                  : "—"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium text-muted-foreground">
-                Expiry date
-              </dt>
-              <dd className="mt-0.5 tabular-nums">
-                {credential.expiryDate
-                  ? formatPracticeDate(new Date(credential.expiryDate), tz)
-                  : "—"}
-              </dd>
-            </div>
-            {credential.notes && (
-              <div className="sm:col-span-2">
-                <dt className="text-xs font-medium text-muted-foreground">
-                  Notes
-                </dt>
-                <dd className="mt-0.5 whitespace-pre-wrap">
-                  {credential.notes}
-                </dd>
-              </div>
-            )}
-          </dl>
+          <CredentialMetadataPanel
+            credentialId={credentialId}
+            canManage={canManage}
+            value={credential}
+          />
         </CardContent>
       </Card>
 
