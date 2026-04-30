@@ -76,6 +76,15 @@ export const EVENT_TYPES = [
   // event evidence chain. Both now emit dedicated events.
   "ALLERGY_COMPOUNDING_LOGGED",
   "ALLERGY_REQUIREMENT_TOGGLED",
+  // Audit #21 IM-11 (2026-04-30): isFullyQualified flips on the
+  // AllergyCompetency row are derived state, not directly user-driven —
+  // they happen as a side effect of quiz/fingertip/media-fill/compounding
+  // events. State pharmacy boards expect a documented qualification
+  // audit trail; the existing AllergyCompetency row stores only current
+  // state. This event is emitted by recomputeIsFullyQualified ONLY when
+  // the boolean actually changed, so audit-trail consumers see exactly
+  // one row per real transition.
+  "ALLERGY_QUALIFICATION_RECOMPUTED",
   // Audit #15 (2026-04-30): typo correction + soft-delete on history rows.
   // Distinct event types so the audit trail clearly distinguishes
   // "originally logged" vs "edited" vs "retired" instead of relying on
@@ -1025,6 +1034,28 @@ export const EVENT_SCHEMAS = {
       required: z.boolean(),
       previousValue: z.boolean(),
       toggledByPracticeUserId: z.string().min(1),
+    }),
+  },
+  // ALLERGY_QUALIFICATION_RECOMPUTED — audit trail for derived
+  // isFullyQualified flips on AllergyCompetency. Emitted by
+  // recomputeIsFullyQualified ONLY when the boolean actually changed,
+  // so replay is safe (no event on no-op recomputes). No projection
+  // write — the AllergyCompetency row IS the projection for this state;
+  // this event is purely an EventLog audit-trail record so state
+  // pharmacy boards can reconstruct the qualification history.
+  ALLERGY_QUALIFICATION_RECOMPUTED: {
+    1: z.object({
+      practiceUserId: z.string().min(1),
+      year: z.number().int().min(2024).max(3000),
+      previousQualified: z.boolean(),
+      nextQualified: z.boolean(),
+      // Human-readable explanation. Built by recomputeIsFullyQualified
+      // from the trigger (which projection fired) + the surrounding
+      // state (year-1 strict path, 6-month inactivity, etc.). Examples:
+      //   "Quiz pass completed §21.3 three-component requirement"
+      //   "USP §21 6-month inactivity rule triggered; re-qualification required"
+      //   "USP §21.3 strict year-1 requirement: 3 fingertip passes needed"
+      reason: z.string().min(1).max(500),
     }),
   },
   // ALLERGY_EQUIPMENT_CHECK_LOGGED — emergency kit / fridge / supplies

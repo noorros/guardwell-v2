@@ -11,6 +11,11 @@
 // After every write, recomputes isFullyQualified per USP §21:
 //   - Initial year: 3 fingertip passes required
 //   - Renewal year (prior year had isFullyQualified=true): 1 pass required
+//
+// Audit #21 IM-11 (2026-04-30): when isFullyQualified actually flips,
+// recomputeIsFullyQualified emits ALLERGY_QUALIFICATION_RECOMPUTED — a
+// derived audit-trail event so state pharmacy boards can reconstruct
+// the qualification history (the row itself stores only current state).
 
 import type { Prisma } from "@prisma/client";
 import type { PayloadFor } from "../registry";
@@ -70,9 +75,91 @@ async function ensureCompetency(
 // 6 months expressed as milliseconds (183 days, matching v1's sixMonthsAgo)
 const SIX_MONTHS_MS = 183 * 24 * 60 * 60 * 1000;
 
+/**
+ * Audit #21 IM-11: which projection invoked the recompute. Used to build
+ * a human-readable `reason` on the ALLERGY_QUALIFICATION_RECOMPUTED event
+ * so an auditor can tell why the flip happened without correlating
+ * timestamps across multiple event types.
+ */
+export type RecomputeTrigger =
+  | "QUIZ_PASS"
+  | "FINGERTIP_PASS"
+  | "MEDIA_FILL_PASS"
+  | "COMPOUNDING_LOGGED"
+  | "MANUAL_RECOMPUTE";
+
+export interface RecomputeContext {
+  practiceId: string;
+  trigger: RecomputeTrigger;
+  /**
+   * Optional. The recompute is a DERIVED event — the human action is
+   * already captured on the parent ALLERGY_*_PASSED / ALLERGY_COMPOUNDING_LOGGED
+   * row that fired this projection. Default `null` matches the existing
+   * pattern in track.ts for cascading derived events.
+   */
+  actorUserId?: string | null;
+}
+
+/**
+ * Build a human-readable reason for why isFullyQualified just flipped.
+ * Pure helper — exported for tests; called by recomputeIsFullyQualified.
+ */
+export function buildQualificationReason(args: {
+  trigger: RecomputeTrigger;
+  nextQualified: boolean;
+  fingertipNeeded: number;
+  fingertipPassCount: number;
+  isInactive: boolean;
+}): string {
+  const { trigger, nextQualified, fingertipNeeded, fingertipPassCount, isInactive } =
+    args;
+
+  if (nextQualified) {
+    // Going false → true. Identify the trigger that completed the §21.3
+    // three-component requirement (or cleared the inactivity wall).
+    switch (trigger) {
+      case "QUIZ_PASS":
+        return "Quiz pass completed the §21.3 three-component requirement; compounder is now fully qualified";
+      case "FINGERTIP_PASS":
+        return "Fingertip test pass completed the §21.3 three-component requirement; compounder is now fully qualified";
+      case "MEDIA_FILL_PASS":
+        return "Media fill pass completed the §21.3 three-component requirement; compounder is now fully qualified";
+      case "COMPOUNDING_LOGGED":
+        return "Recent compounding session cleared the USP §21 6-month inactivity flag; compounder is now fully qualified";
+      case "MANUAL_RECOMPUTE":
+      default:
+        return "Recompute determined the §21.3 three-component requirement is met; compounder is now fully qualified";
+    }
+  }
+
+  // Going true → false. Diagnose which §21 condition tripped.
+  if (isInactive) {
+    return "USP §21 6-month inactivity rule triggered; compounder requires re-qualification";
+  }
+  if (fingertipNeeded === 3 && fingertipPassCount < 3) {
+    return `USP §21.3 strict year-1 requalification required: 3 fingertip passes needed (currently ${fingertipPassCount})`;
+  }
+  // General fallback — one of the three components went missing or the
+  // year-1 strict path tightened the bar in a way the more specific
+  // diagnostics above didn't catch.
+  return "USP §21.3 three-component requirement no longer met; re-qualification required";
+}
+
+/**
+ * Recompute AllergyCompetency.isFullyQualified per USP §21:
+ *   - Initial year: 3 fingertip passes required
+ *   - Renewal year (prior year had isFullyQualified=true): 1 pass required
+ *   - 6-month inactivity rule may flip qualified → false at any time
+ *
+ * When `context` is provided AND isFullyQualified actually changes, emits
+ * an ALLERGY_QUALIFICATION_RECOMPUTED event for the audit trail.
+ * Replay-safe: a second invocation finds the row already in the new state
+ * and emits no event.
+ */
 export async function recomputeIsFullyQualified(
   tx: Prisma.TransactionClient,
   competencyId: string,
+  context?: RecomputeContext,
 ): Promise<void> {
   const c = await tx.allergyCompetency.findUniqueOrThrow({
     where: { id: competencyId },
@@ -126,6 +213,36 @@ export async function recomputeIsFullyQualified(
       where: { id: competencyId },
       data: { isFullyQualified: qualified },
     });
+
+    // Audit #21 IM-11 — record the flip in the event log for state
+    // pharmacy board audit defensibility. Skip when no context (e.g.
+    // legacy tests calling recompute directly without a projection
+    // wrapper) — the helper is still useful for that case but produces
+    // no audit row.
+    if (context) {
+      const reason = buildQualificationReason({
+        trigger: context.trigger,
+        nextQualified: qualified,
+        fingertipNeeded,
+        fingertipPassCount: c.fingertipPassCount,
+        isInactive,
+      });
+      await tx.eventLog.create({
+        data: {
+          practiceId: context.practiceId,
+          actorUserId: context.actorUserId ?? null,
+          type: "ALLERGY_QUALIFICATION_RECOMPUTED",
+          schemaVersion: 1,
+          payload: {
+            practiceUserId: c.practiceUserId,
+            year: c.year,
+            previousQualified: c.isFullyQualified,
+            nextQualified: qualified,
+            reason,
+          },
+        },
+      });
+    }
   }
 }
 
@@ -210,7 +327,10 @@ export async function projectAllergyQuizCompleted(
       where: { id: compId },
       data: { quizAttemptId: attempt.id, quizPassedAt: new Date() },
     });
-    await recomputeIsFullyQualified(tx, compId);
+    await recomputeIsFullyQualified(tx, compId, {
+      practiceId,
+      trigger: "QUIZ_PASS",
+    });
     await rederiveRequirementStatus(
       tx,
       practiceId,
@@ -238,7 +358,10 @@ export async function projectAllergyFingertipTestPassed(
       fingertipNotes: payload.notes ?? null,
     },
   });
-  await recomputeIsFullyQualified(tx, compId);
+  await recomputeIsFullyQualified(tx, compId, {
+    practiceId,
+    trigger: "FINGERTIP_PASS",
+  });
   await rederiveRequirementStatus(tx, practiceId, "ALLERGY_COMPETENCY");
 }
 
@@ -260,7 +383,10 @@ export async function projectAllergyMediaFillPassed(
       mediaFillNotes: payload.notes ?? null,
     },
   });
-  await recomputeIsFullyQualified(tx, compId);
+  await recomputeIsFullyQualified(tx, compId, {
+    practiceId,
+    trigger: "MEDIA_FILL_PASS",
+  });
   await rederiveRequirementStatus(tx, practiceId, "ALLERGY_COMPETENCY");
 }
 
@@ -285,7 +411,10 @@ export async function projectAllergyCompoundingLogged(
     where: { id: compId },
     data: { lastCompoundedAt: new Date(payload.loggedAt) },
   });
-  await recomputeIsFullyQualified(tx, compId);
+  await recomputeIsFullyQualified(tx, compId, {
+    practiceId,
+    trigger: "COMPOUNDING_LOGGED",
+  });
   await rederiveRequirementStatus(tx, practiceId, "ALLERGY_COMPETENCY");
 }
 
