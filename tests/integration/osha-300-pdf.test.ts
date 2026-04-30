@@ -142,7 +142,7 @@ describe("GET /api/audit/osha-300", () => {
           discoveredAt: new Date("2025-06-15T10:00:00Z"),
           reportedByUserId: user.id,
           oshaInjuryNature: "Old injury 2025",
-          oshaOutcome: "FIRST_AID",
+          oshaOutcome: "DAYS_AWAY",
         },
         {
           practiceId: practice.id,
@@ -155,7 +155,7 @@ describe("GET /api/audit/osha-300", () => {
           discoveredAt: new Date("2026-03-01T10:00:00Z"),
           reportedByUserId: user.id,
           oshaInjuryNature: "Recent injury 2026",
-          oshaOutcome: "FIRST_AID",
+          oshaOutcome: "DAYS_AWAY",
         },
       ],
     });

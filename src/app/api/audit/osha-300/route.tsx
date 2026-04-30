@@ -47,6 +47,9 @@ export async function GET(req: Request) {
       practiceId: pu.practiceId,
       type: "OSHA_RECORDABLE",
       discoveredAt: { gte: yearStart, lt: yearEnd },
+      // §1904.7(b)(5): first-aid-only injuries are NOT recordable on
+      // Form 300. Excluded here so they never reach the rendered PDF.
+      oshaOutcome: { not: "FIRST_AID" },
     },
     orderBy: { discoveredAt: "asc" },
     select: {

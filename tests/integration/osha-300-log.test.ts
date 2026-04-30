@@ -113,18 +113,20 @@ describe("OSHA_300_LOG → INCIDENT:OSHA_RECORDABLE derivation", () => {
   it("OSHA_RECORDABLE incident flips OSHA_300_LOG to COMPLIANT", async () => {
     const { user, practice, req } = await seed();
     const id = `inc-${Math.random().toString(36).slice(2, 10)}`;
+    // §1904.7(b)(5): FIRST_AID outcomes don't count toward Form 300.
+    // Use DAYS_AWAY (lost-time) so the rule sees a recordable case.
     const payload = {
       incidentId: id,
-      title: "Needlestick during venipuncture",
-      description: "RN sustained a needlestick",
+      title: "Slipped on wet floor — lost-time injury",
+      description: "Staff member slipped and was sent home",
       type: "OSHA_RECORDABLE" as const,
       severity: "MEDIUM" as const,
       phiInvolved: false,
       affectedCount: 0,
       discoveredAt: new Date().toISOString(),
-      oshaBodyPart: "Finger",
-      oshaInjuryNature: "Needlestick",
-      oshaOutcome: "FIRST_AID" as const,
+      oshaBodyPart: "Knee",
+      oshaInjuryNature: "Sprain",
+      oshaOutcome: "DAYS_AWAY" as const,
     };
     await appendEventAndApply(
       {
