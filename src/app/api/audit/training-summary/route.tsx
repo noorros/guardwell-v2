@@ -25,30 +25,47 @@ export async function GET() {
   if (!pu) {
     return NextResponse.json({ error: "No practice" }, { status: 401 });
   }
+  // Audit HIPAA I-8: the training-summary PDF lists every staff
+  // member's training completions (a §164.308(a)(5)(i) audit-trail
+  // artifact). STAFF/VIEWER are read-only program participants and
+  // should not be able to download a roster PDF cataloguing
+  // colleagues' completion gaps.
+  if (pu.role !== "OWNER" && pu.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   // TrainingCompletion has no `user` relation in v2's schema (userId is
   // a plain FK to identity User.id); same for course. Fetch users +
   // courses in parallel and join in memory.
-  const [completions, totalStaff, users, courses, practiceUsers] =
-    await Promise.all([
-      db.trainingCompletion.findMany({
-        where: { practiceId: pu.practiceId, passed: true },
-        orderBy: { expiresAt: "asc" },
-      }),
-      db.practiceUser.count({
-        where: { practiceId: pu.practiceId, removedAt: null },
-      }),
-      db.user.findMany({
-        select: { id: true, firstName: true, lastName: true, email: true },
-      }),
-      db.trainingCourse.findMany({
-        select: { id: true, code: true, title: true },
-      }),
-      db.practiceUser.findMany({
-        where: { practiceId: pu.practiceId },
-        select: { userId: true, role: true },
-      }),
-    ]);
+  // Audit HIPAA I-8: the user query was previously unbounded
+  // (db.user.findMany with no where clause), pulling identity rows for
+  // every user across every tenant. Scope to users in this practice
+  // via the practiceUsers list — that's the only set the rendered
+  // rows can reference, since `completions` are already filtered by
+  // practiceId and we look up `userById` only for those completions.
+  const practiceUsers = await db.practiceUser.findMany({
+    where: { practiceId: pu.practiceId },
+    select: { userId: true, role: true },
+  });
+  const practiceUserIds = practiceUsers.map((s) => s.userId);
+  const [completions, totalStaff, users, courses] = await Promise.all([
+    db.trainingCompletion.findMany({
+      where: { practiceId: pu.practiceId, passed: true },
+      orderBy: { expiresAt: "asc" },
+    }),
+    db.practiceUser.count({
+      where: { practiceId: pu.practiceId, removedAt: null },
+    }),
+    practiceUserIds.length
+      ? db.user.findMany({
+          where: { id: { in: practiceUserIds } },
+          select: { id: true, firstName: true, lastName: true, email: true },
+        })
+      : Promise.resolve([]),
+    db.trainingCourse.findMany({
+      select: { id: true, code: true, title: true },
+    }),
+  ]);
 
   const userById = new Map(users.map((u) => [u.id, u]));
   const courseById = new Map(courses.map((c) => [c.id, c]));

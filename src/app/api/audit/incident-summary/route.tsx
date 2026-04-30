@@ -25,6 +25,14 @@ export async function GET() {
   if (!pu) {
     return NextResponse.json({ error: "No practice" }, { status: 401 });
   }
+  // Audit HIPAA C-3: the incident-summary PDF reveals every incident
+  // for the practice (titles, types, breach status, affected counts) —
+  // a HIPAA §164.530(d) audit-trail artifact. STAFF/VIEWER are read-
+  // only program participants and should not exfiltrate the practice
+  // incident register.
+  if (pu.role !== "OWNER" && pu.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const incidents = await db.incident.findMany({
     where: { practiceId: pu.practiceId },

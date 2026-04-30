@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
-import { getPracticeUser } from "@/lib/rbac";
+import { requireRole } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { appendEventAndApply } from "@/lib/events";
 import { projectPhishingDrillLogged } from "@/lib/events/projections/phishingDrill";
@@ -30,8 +30,11 @@ export async function logPhishingDrillAction(
   input: z.infer<typeof PhishingInput>,
 ) {
   const user = await requireUser();
-  const pu = await getPracticeUser();
-  if (!pu) throw new Error("Unauthorized");
+  // Audit OSHA I-10: phishing drill results feed the HIPAA Security
+  // Awareness training requirement (§164.308(a)(5)(ii)(B)) and the
+  // SRA. STAFF/VIEWER must not be able to log fictitious drill stats
+  // that auto-derive HIPAA_SECURITY_AWARENESS to COMPLIANT.
+  const pu = await requireRole("ADMIN");
   const parsed = PhishingInput.parse(input);
   if (parsed.clickedCount > parsed.totalRecipients) {
     throw new Error("Clicked count cannot exceed total recipients");
@@ -90,8 +93,11 @@ export async function recordMfaEnrollmentAction(
   input: z.infer<typeof MfaInput>,
 ) {
   const user = await requireUser();
-  const pu = await getPracticeUser();
-  if (!pu) throw new Error("Unauthorized");
+  // Audit OSHA I-10: MFA enrollment feeds the HIPAA Access Control
+  // §164.312(d) requirement. STAFF must not flip their own (or each
+  // other's) enrollment bit and short-circuit the audit-required
+  // attestation that the officer reviewed enrollment.
+  const pu = await requireRole("ADMIN");
   const parsed = MfaInput.parse(input);
 
   // Cross-practice guard: the target PracticeUser must belong to the
@@ -146,8 +152,11 @@ export async function logBackupVerificationAction(
   input: z.infer<typeof BackupInput>,
 ) {
   const user = await requireUser();
-  const pu = await getPracticeUser();
-  if (!pu) throw new Error("Unauthorized");
+  // Audit OSHA I-10: backup verification logs feed §164.308(a)(7)(ii)(D)
+  // (data backup contingency plan testing). A STAFF-logged "successful"
+  // restore would auto-derive a HIPAA Contingency-Plan requirement to
+  // COMPLIANT without anyone with sign-off authority involved.
+  const pu = await requireRole("ADMIN");
   const parsed = BackupInput.parse(input);
 
   const backupVerificationId = randomUUID();

@@ -6,6 +6,10 @@
 // non-OWNER/non-ADMIN callers — and that the deliberately-open paths
 // (incident report, policy ack, allergy quiz submission) remain open.
 //
+// Audit batch-2 (2026-04-30): seven additional sites flagged in the
+// cross-area audit follow-up. Tests appended at the bottom of the
+// describe block, mirroring the existing STAFF-rejection patterns.
+//
 // Coverage:
 //   Credentials
 //     - addCredentialAction (STAFF rejected, OWNER allowed)
@@ -531,6 +535,216 @@ describe("Audit C-2 role-gate sweep", () => {
     const { GET } = await import("@/app/api/audit/osha-301/[id]/route");
     const req = new Request(`http://test.test/api/audit/osha-301/${incident.id}`);
     const res = await GET(req, { params: Promise.resolve({ id: incident.id }) });
+    expect(res.status).toBe(403);
+  });
+
+  // ────────────────────────────────────────────────────────────────────
+  // Audit batch-2 (2026-04-30): closes seven sites missed by PR #201.
+  //   Credentials CR-2 — credentials-register PDF (sibling of CSV)
+  //   Credentials CR-3 — license-number redaction in activity log
+  //   HIPAA C-2       — completeSraAction + saveSraDraftAction
+  //   HIPAA C-3 (a)   — incident-breach-memo PDF
+  //   HIPAA C-3 (b)   — incident-summary PDF
+  //   OSHA I-10       — phishing/MFA/backup cybersecurity actions
+  //   HIPAA I-8       — training-summary PDF
+  // ────────────────────────────────────────────────────────────────────
+
+  // Credentials CR-2: GET /api/audit/credentials-register
+  it("GET /api/audit/credentials-register rejects STAFF callers (returns 403)", async () => {
+    await seed("STAFF");
+    const { GET } = await import("@/app/api/audit/credentials-register/route");
+    const res = await GET();
+    expect(res.status).toBe(403);
+  });
+
+  it("GET /api/audit/credentials-register allows ADMIN callers (returns 200 + PDF)", async () => {
+    await seed("ADMIN");
+    const { GET } = await import("@/app/api/audit/credentials-register/route");
+    const res = await GET();
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("application/pdf");
+  });
+
+  // Credentials CR-3: license-number redaction in activity-log formatter
+  it("formatEventForActivityLog redacts CREDENTIAL_UPSERTED license number for STAFF/VIEWER", async () => {
+    const { formatEventForActivityLog } = await import(
+      "@/lib/audit/format-event"
+    );
+    const evt = {
+      type: "CREDENTIAL_UPSERTED",
+      payload: {
+        credentialTypeCode: "DEA_NUMBER",
+        licenseNumber: "BR1234567",
+      },
+    };
+    // STAFF/VIEWER must not see the license number.
+    const staffView = formatEventForActivityLog(evt, "STAFF");
+    expect(staffView.summary).toBe("DEA_NUMBER");
+    expect(staffView.detail).not.toContain("BR1234567");
+    const viewerView = formatEventForActivityLog(evt, "VIEWER");
+    expect(viewerView.detail).not.toContain("BR1234567");
+    // OWNER/ADMIN see the full detail with the #-prefixed number.
+    const ownerView = formatEventForActivityLog(evt, "OWNER");
+    expect(ownerView.detail).toContain("BR1234567");
+    const adminView = formatEventForActivityLog(evt, "ADMIN");
+    expect(adminView.detail).toContain("BR1234567");
+    // Default (no role passed) is treated as STAFF for safety.
+    const defaultView = formatEventForActivityLog(evt);
+    expect(defaultView.detail).not.toContain("BR1234567");
+  });
+
+  // HIPAA C-2: completeSraAction
+  it("completeSraAction rejects STAFF callers", async () => {
+    await seed("STAFF");
+    // Seed at least one SRA question so validateQuestionCodes() doesn't
+    // pre-empt the role gate. Even though requireRole runs first, the
+    // test should fail the gate cleanly without any other branch firing.
+    await db.sraQuestion.upsert({
+      where: { code: "RG_SRA_Q1" },
+      update: {},
+      create: {
+        code: "RG_SRA_Q1",
+        category: "ADMINISTRATIVE",
+        subcategory: "Security Management Process",
+        title: "RG Question 1",
+        description: "Test question for role-gate sweep.",
+        lookFor: [],
+      },
+    });
+    const { completeSraAction } = await import(
+      "@/app/(dashboard)/programs/risk/actions"
+    );
+    await expect(
+      completeSraAction({
+        answers: [{ questionCode: "RG_SRA_Q1", answer: "YES", notes: null }],
+      }),
+    ).rejects.toThrow(/admin|owner|requires/i);
+  });
+
+  it("saveSraDraftAction rejects STAFF callers", async () => {
+    await seed("STAFF");
+    await db.sraQuestion.upsert({
+      where: { code: "RG_SRA_Q2" },
+      update: {},
+      create: {
+        code: "RG_SRA_Q2",
+        category: "ADMINISTRATIVE",
+        subcategory: "Security Management Process",
+        title: "RG Question 2",
+        description: "Test question for role-gate sweep draft.",
+        lookFor: [],
+      },
+    });
+    const { saveSraDraftAction } = await import(
+      "@/app/(dashboard)/programs/risk/actions"
+    );
+    await expect(
+      saveSraDraftAction({
+        currentStep: 0,
+        answers: [{ questionCode: "RG_SRA_Q2", answer: "NO", notes: null }],
+      }),
+    ).rejects.toThrow(/admin|owner|requires/i);
+  });
+
+  // HIPAA C-3 (a): GET /api/audit/incident-breach-memo/[id]
+  it("GET /api/audit/incident-breach-memo/[id] rejects STAFF callers (returns 403)", async () => {
+    const { practice, ownerUser } = await seed("STAFF");
+    // Seed a determined incident so the route would otherwise succeed.
+    const incident = await db.incident.create({
+      data: {
+        practiceId: practice.id,
+        title: "Mailing-room mis-routing",
+        description: "Wrong-address statements",
+        type: "PRIVACY",
+        severity: "HIGH",
+        phiInvolved: true,
+        discoveredAt: new Date(),
+        reportedByUserId: ownerUser.id,
+        factor1Score: 4,
+        factor2Score: 3,
+        factor3Score: 4,
+        factor4Score: 2,
+        overallRiskScore: 65,
+        isBreach: true,
+        ocrNotifyRequired: true,
+        breachDeterminedAt: new Date(),
+        breachDeterminationMemo: "Memo text.",
+      },
+    });
+    const { GET } = await import(
+      "@/app/api/audit/incident-breach-memo/[id]/route"
+    );
+    const res = await GET(new Request("http://test.test"), {
+      params: Promise.resolve({ id: incident.id }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  // HIPAA C-3 (b): GET /api/audit/incident-summary
+  it("GET /api/audit/incident-summary rejects STAFF callers (returns 403)", async () => {
+    await seed("STAFF");
+    const { GET } = await import("@/app/api/audit/incident-summary/route");
+    const res = await GET();
+    expect(res.status).toBe(403);
+  });
+
+  // OSHA I-10: phishing / MFA / backup cybersecurity actions
+  it("logPhishingDrillAction rejects STAFF callers", async () => {
+    await seed("STAFF");
+    const { logPhishingDrillAction } = await import(
+      "@/app/(dashboard)/programs/cybersecurity/actions"
+    );
+    await expect(
+      logPhishingDrillAction({
+        conductedAtIso: new Date().toISOString(),
+        totalRecipients: 10,
+        clickedCount: 1,
+        reportedCount: 5,
+      }),
+    ).rejects.toThrow(/admin|owner|requires/i);
+  });
+
+  it("recordMfaEnrollmentAction rejects STAFF callers", async () => {
+    const { practice } = await seed("STAFF");
+    const otherUser = await db.user.create({
+      data: {
+        firebaseUid: `mfa-${Math.random().toString(36).slice(2, 10)}`,
+        email: `mfa-${Math.random().toString(36).slice(2, 8)}@test.test`,
+      },
+    });
+    const target = await db.practiceUser.create({
+      data: { userId: otherUser.id, practiceId: practice.id, role: "STAFF" },
+    });
+    const { recordMfaEnrollmentAction } = await import(
+      "@/app/(dashboard)/programs/cybersecurity/actions"
+    );
+    await expect(
+      recordMfaEnrollmentAction({
+        practiceUserId: target.id,
+        enrolled: true,
+      }),
+    ).rejects.toThrow(/admin|owner|requires/i);
+  });
+
+  it("logBackupVerificationAction rejects STAFF callers", async () => {
+    await seed("STAFF");
+    const { logBackupVerificationAction } = await import(
+      "@/app/(dashboard)/programs/cybersecurity/actions"
+    );
+    await expect(
+      logBackupVerificationAction({
+        verifiedAtIso: new Date().toISOString(),
+        scope: "Patient charts",
+        success: true,
+      }),
+    ).rejects.toThrow(/admin|owner|requires/i);
+  });
+
+  // HIPAA I-8: GET /api/audit/training-summary
+  it("GET /api/audit/training-summary rejects STAFF callers (returns 403)", async () => {
+    await seed("STAFF");
+    const { GET } = await import("@/app/api/audit/training-summary/route");
+    const res = await GET();
     expect(res.status).toBe(403);
   });
 });
