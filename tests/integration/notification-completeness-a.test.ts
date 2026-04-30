@@ -140,7 +140,7 @@ describe("generatePolicyReviewDueNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generatePolicyReviewDueNotifications(tx, practice.id, [user.id], "UTC"),
+      generatePolicyReviewDueNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     expect(proposals).toHaveLength(1);
@@ -167,7 +167,7 @@ describe("generatePolicyReviewDueNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generatePolicyReviewDueNotifications(tx, practice.id, [user.id], "UTC"),
+      generatePolicyReviewDueNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     expect(proposals).toHaveLength(0);
@@ -186,7 +186,7 @@ describe("generatePolicyReviewDueNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generatePolicyReviewDueNotifications(tx, practice.id, [user.id], "UTC"),
+      generatePolicyReviewDueNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     expect(proposals).toHaveLength(0);
@@ -217,7 +217,7 @@ describe("generatePolicyReviewDueNotifications", () => {
         owner.id,
         admin.id,
         staff.id,
-      ], "UTC"),
+      ], "UTC", null),
     );
 
     const recipientIds = new Set(proposals.map((p) => p.userId));
@@ -245,7 +245,7 @@ describe("generatePolicyReviewDueNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generatePolicyReviewDueNotifications(tx, practice.id, [user.id], "UTC"),
+      generatePolicyReviewDueNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     expect(proposals).toHaveLength(0);
@@ -396,7 +396,7 @@ describe("generateCmsEnrollmentNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateCmsEnrollmentNotifications(tx, practice.id, [user.id], "UTC"),
+      generateCmsEnrollmentNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     // Audit #21 IM-7: fires for every milestone in [90, 60, 30, 7] where
@@ -434,7 +434,7 @@ describe("generateCmsEnrollmentNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateCmsEnrollmentNotifications(tx, practice.id, [user.id], "UTC"),
+      generateCmsEnrollmentNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     expect(proposals).toHaveLength(0);
@@ -456,7 +456,7 @@ describe("generateCmsEnrollmentNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateCmsEnrollmentNotifications(tx, practice.id, [user.id], "UTC"),
+      generateCmsEnrollmentNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     // Audit #21 IM-7: 60 days out → milestones 90 and 60 fire.
@@ -490,7 +490,7 @@ describe("generateCmsEnrollmentNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateCmsEnrollmentNotifications(tx, practice.id, [user.id], "UTC"),
+      generateCmsEnrollmentNotifications(tx, practice.id, [user.id], "UTC", null),
     );
 
     expect(proposals).toHaveLength(0);

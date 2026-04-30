@@ -8,16 +8,22 @@
 
 export type LeadTimeCategory =
   | "credentials"
+  | "cmsEnrollment"
   | "training"
+  | "trainingExpiring"
   | "policies"
+  | "policyReview"
   | "baa"
   | "incidents"
   | "deaInventory";
 
 export const DEFAULT_LEAD_TIMES: Record<LeadTimeCategory, number[]> = {
   credentials: [90, 60, 30, 7],
+  cmsEnrollment: [90, 60, 30, 7],
   training: [14, 7, 3, 1],
+  trainingExpiring: [30, 14, 7],
   policies: [30, 7],
+  policyReview: [90, 60, 30],
   baa: [60, 30, 7],
   incidents: [30, 14, 3],
   deaInventory: [60, 14, 1],
@@ -25,8 +31,11 @@ export const DEFAULT_LEAD_TIMES: Record<LeadTimeCategory, number[]> = {
 
 export interface PracticeReminderSettings {
   credentials?: number[];
+  cmsEnrollment?: number[];
   training?: number[];
+  trainingExpiring?: number[];
   policies?: number[];
+  policyReview?: number[];
   baa?: number[];
   incidents?: number[];
   deaInventory?: number[];

@@ -43,7 +43,13 @@ export async function runNotificationDigest(): Promise<DigestRunSummary> {
 
   const practices = await db.practice.findMany({
     where: { deletedAt: null },
-    select: { id: true, name: true, primaryState: true, timezone: true },
+    select: {
+      id: true,
+      name: true,
+      primaryState: true,
+      timezone: true,
+      reminderSettings: true,
+    },
   });
 
   const baseUrl =
@@ -71,6 +77,7 @@ export async function runNotificationDigest(): Promise<DigestRunSummary> {
         practice.id,
         userIds,
         practice.timezone ?? "UTC",
+        practice.reminderSettings,
       );
 
       // Dedup: pull existing (userId, type, entityKey) tuples and skip

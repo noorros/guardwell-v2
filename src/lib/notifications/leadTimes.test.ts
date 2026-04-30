@@ -84,4 +84,40 @@ describe("getEffectiveLeadTimes", () => {
     // Order preserved on the original; only the returned copy is sorted.
     expect(original).toEqual([7, 60, 30]);
   });
+
+  it("returns defaults for new cmsEnrollment category", () => {
+    expect(getEffectiveLeadTimes(undefined, "cmsEnrollment")).toEqual(
+      DEFAULT_LEAD_TIMES.cmsEnrollment,
+    );
+    expect(DEFAULT_LEAD_TIMES.cmsEnrollment).toEqual([90, 60, 30, 7]);
+  });
+
+  it("returns defaults for new trainingExpiring category", () => {
+    expect(getEffectiveLeadTimes(undefined, "trainingExpiring")).toEqual(
+      DEFAULT_LEAD_TIMES.trainingExpiring,
+    );
+    expect(DEFAULT_LEAD_TIMES.trainingExpiring).toEqual([30, 14, 7]);
+  });
+
+  it("returns defaults for new policyReview category", () => {
+    expect(getEffectiveLeadTimes(undefined, "policyReview")).toEqual(
+      DEFAULT_LEAD_TIMES.policyReview,
+    );
+    expect(DEFAULT_LEAD_TIMES.policyReview).toEqual([90, 60, 30]);
+  });
+
+  it("honors overrides for the new categories", () => {
+    const settings = {
+      cmsEnrollment: [120, 90],
+      trainingExpiring: [45, 21],
+      policyReview: [120, 60, 30],
+    };
+    expect(getEffectiveLeadTimes(settings, "cmsEnrollment")).toEqual([120, 90]);
+    expect(getEffectiveLeadTimes(settings, "trainingExpiring")).toEqual([
+      45, 21,
+    ]);
+    expect(getEffectiveLeadTimes(settings, "policyReview")).toEqual([
+      120, 60, 30,
+    ]);
+  });
 });
