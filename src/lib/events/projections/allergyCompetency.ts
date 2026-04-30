@@ -15,6 +15,7 @@
 import type { Prisma } from "@prisma/client";
 import type { PayloadFor } from "../registry";
 import { rederiveRequirementStatus } from "@/lib/compliance/derivation/rederive";
+import { assertProjectionPracticeOwned } from "./guards";
 
 type QuizPayload = PayloadFor<"ALLERGY_QUIZ_COMPLETED", 1>;
 type FingertipPayload = PayloadFor<"ALLERGY_FINGERTIP_TEST_PASSED", 1>;
@@ -26,6 +27,25 @@ async function ensureCompetency(
   tx: Prisma.TransactionClient,
   args: { practiceId: string; practiceUserId: string; year: number },
 ): Promise<string> {
+  // Audit C-1: gate on practiceUserId — without this guard, a forged
+  // event could create a competency row with our practiceId pointing
+  // to another practice's PracticeUser (FK invariant break) AND
+  // mutate another practice's compounder's competency totals via the
+  // (practiceUserId, year) unique key.
+  const targetUser = await tx.practiceUser.findUnique({
+    where: { id: args.practiceUserId },
+    select: { practiceId: true },
+  });
+  if (!targetUser) {
+    throw new Error(
+      `Allergy projection refused: practiceUser ${args.practiceUserId} not found`,
+    );
+  }
+  assertProjectionPracticeOwned(targetUser, args.practiceId, {
+    table: "practiceUser",
+    id: args.practiceUserId,
+  });
+
   const existing = await tx.allergyCompetency.findUnique({
     where: {
       practiceUserId_year: {
@@ -93,6 +113,21 @@ export async function projectAllergyQuizCompleted(
   args: { practiceId: string; payload: QuizPayload },
 ): Promise<void> {
   const { practiceId, payload } = args;
+
+  // Audit C-1: refuse a forged ALLERGY_QUIZ_COMPLETED carrying another
+  // practice's attemptId — without this guard, an existing attempt in
+  // Practice B could be overwritten with attacker-supplied score /
+  // passed flag. The ensureCompetency call below also guards the
+  // practiceUserId path.
+  const existingAttempt = await tx.allergyQuizAttempt.findUnique({
+    where: { id: payload.attemptId },
+    select: { practiceId: true },
+  });
+  assertProjectionPracticeOwned(existingAttempt, practiceId, {
+    table: "allergyQuizAttempt",
+    id: payload.attemptId,
+  });
+
   // Idempotent on attemptId: upsert the AllergyQuizAttempt row.
   const attempt = await tx.allergyQuizAttempt.upsert({
     where: { id: payload.attemptId },
@@ -233,6 +268,24 @@ export async function projectAllergyRequirementToggled(
   args: { practiceId: string; payload: RequirementTogglePayload },
 ): Promise<void> {
   const { practiceId, payload } = args;
+
+  // Audit C-1: gate on practiceUserId — without this guard, a forged
+  // ALLERGY_REQUIREMENT_TOGGLED could flip another practice's user
+  // requiresAllergyCompetency flag, mutating their compliance state.
+  const targetUser = await tx.practiceUser.findUnique({
+    where: { id: payload.practiceUserId },
+    select: { practiceId: true },
+  });
+  if (!targetUser) {
+    throw new Error(
+      `ALLERGY_REQUIREMENT_TOGGLED refused: practiceUser ${payload.practiceUserId} not found`,
+    );
+  }
+  assertProjectionPracticeOwned(targetUser, practiceId, {
+    table: "practiceUser",
+    id: payload.practiceUserId,
+  });
+
   await tx.practiceUser.update({
     where: { id: payload.practiceUserId },
     data: { requiresAllergyCompetency: payload.required },
