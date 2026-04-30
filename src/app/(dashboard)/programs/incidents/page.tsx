@@ -8,6 +8,7 @@ import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { CITATIONS } from "@/lib/regulations/citations";
 import { EmptyState } from "@/components/gw/EmptyState";
 import { IncidentStatusBadge, IncidentBreachBadge } from "./IncidentBadges";
 import { formatPracticeDate } from "@/lib/audit/format";
@@ -60,9 +61,10 @@ export default async function IncidentsPage() {
         <div className="flex-1 space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Incidents</h1>
           <p className="text-sm text-muted-foreground">
-            Report privacy/security/OSHA events, run the HIPAA §164.402 four-factor
-            breach determination, and track resolution. Incidents with
-            isBreach=true that stay unresolved flip HIPAA_BREACH_RESPONSE to GAP.
+            Report privacy/security/OSHA events, run the{" "}
+            {CITATIONS.HIPAA_BREACH_DEFINITION.display} four-factor breach
+            determination, and track resolution. Incidents with isBreach=true
+            that stay unresolved flip HIPAA_BREACH_RESPONSE to GAP.
           </p>
         </div>
         <Button asChild size="sm">
@@ -102,7 +104,7 @@ export default async function IncidentsPage() {
           <EmptyState
             icon={AlertTriangle}
             title="No incidents reported yet"
-            description="Workforce members should report privacy, security, or OSHA-recordable events as soon as they're discovered. Every report walks through the HIPAA §164.402 four-factor breach determination so reportability isn't guessed."
+            description={`Workforce members should report privacy, security, or OSHA-recordable events as soon as they're discovered. Every report walks through the ${CITATIONS.HIPAA_BREACH_DEFINITION.display} four-factor breach determination so reportability isn't guessed.`}
             action={{
               label: "Report your first incident",
               href: "/programs/incidents/new",

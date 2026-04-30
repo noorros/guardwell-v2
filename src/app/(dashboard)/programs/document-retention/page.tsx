@@ -8,6 +8,7 @@ import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/gw/EmptyState";
+import { CITATIONS } from "@/lib/regulations/citations";
 import { NewDestructionForm } from "./NewDestructionForm";
 import { formatPracticeDate } from "@/lib/audit/format";
 
@@ -90,10 +91,10 @@ export default async function DocumentRetentionPage() {
             Document retention
           </h1>
           <p className="text-sm text-muted-foreground">
-            HIPAA §164.530(j) requires you to retain required documentation
-            for ≥6 years AND securely destroy it once retention expires.
-            Each destruction event recorded here is your audit record that
-            the cadence is real, not theoretical.
+            {CITATIONS.HIPAA_DOC_RETENTION.display} requires you to retain
+            required documentation for ≥6 years AND securely destroy it
+            once retention expires. Each destruction event recorded here
+            is your audit record that the cadence is real, not theoretical.
           </p>
           <p
             className="text-xs"

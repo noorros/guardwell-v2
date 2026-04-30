@@ -8,6 +8,7 @@ import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { CITATIONS } from "@/lib/regulations/citations";
 import { SraAssessmentBadge } from "./SraAssessmentBadge";
 
 export const metadata = { title: "Risk · My Programs" };
@@ -50,7 +51,7 @@ export default async function RiskPage() {
         <div className="flex-1">
           <h1 className="text-2xl font-semibold tracking-tight">Risk</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            HIPAA §164.308(a)(1)(ii)(A) requires every covered entity to
+            {CITATIONS.HIPAA_SRA.display} requires every covered entity to
             conduct a thorough, documented Security Risk Assessment — and to
             update it whenever significant changes occur (and at least annually).
             Completing an SRA here auto-updates HIPAA_SRA on your module page.

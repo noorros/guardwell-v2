@@ -9,6 +9,7 @@ import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MajorBreachBanner } from "@/components/gw/MajorBreachBanner";
+import { CITATIONS } from "@/lib/regulations/citations";
 import {
   IncidentStatusBadge,
   IncidentBreachBadge,
@@ -164,7 +165,7 @@ export default async function IncidentDetailPage({ params }: PageProps) {
           <CardContent className="space-y-2 p-6">
             <h2 className="text-sm font-semibold">Breach determination</h2>
             <p className="text-xs text-muted-foreground">
-              HIPAA §164.402 four-factor risk score:{" "}
+              {CITATIONS.HIPAA_BREACH_DEFINITION.display} four-factor risk score:{" "}
               <span className="font-medium">
                 {incident.overallRiskScore ?? 0}/100
               </span>{" "}
