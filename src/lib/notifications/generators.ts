@@ -783,6 +783,425 @@ export async function generateTrainingOverdueNotifications(
   return proposals;
 }
 
+// ---------------------------------------------------------------------------
+// Phase 4 PR 8 — assignment-driven training notifications
+// ---------------------------------------------------------------------------
+//
+// Four generators wired to the TrainingAssignment / TrainingCompletion
+// schema added in Phase 4. They COEXIST with generateTrainingOverdueNotifications
+// and generateTrainingEscalationNotifications above; entityKey prefixes are
+// strictly disambiguated so dedup never collides between the completion-based
+// existing generator and the assignment-based new ones.
+//
+//   - training-assigned:{assignmentId}:{userId}            — once per (assignment, user)
+//   - training-due-soon:{assignmentId}:{userId}:{m}        — milestones 14/7/3/1 days pre-due
+//   - training-overdue-assignment:{assignmentId}:{userId}:{week}
+//                                                         — week-since-due index, 0+
+//   - training-expiring:{completionId}:{m}                 — milestones 30/14/7 days pre-expiry
+//
+// Recipient resolution (assignedToUserId / assignedToRole / assignedToCategory)
+// mirrors src/lib/training/resolveAssignments.ts. assignedToCategory is
+// honored against PracticeUser.category once that column lands; today no
+// PracticeUser carries a category, so a category-only assignment resolves
+// to zero recipients (same as resolveGrid's behavior).
+
+const TRAINING_DUE_SOON_MILESTONES = [14, 7, 3, 1] as const;
+const TRAINING_EXPIRING_MILESTONES = [30, 14, 7] as const;
+
+interface AssignmentRecipientRow {
+  id: string;
+  courseId: string;
+  dueDate: Date | null;
+  assignedToUserId: string | null;
+  assignedToRole: string | null;
+  assignedToCategory: string | null;
+  course: { id: string; title: string };
+}
+
+interface AssignmentRecipientContext {
+  assignments: AssignmentRecipientRow[];
+  exclusionsByAssignment: Map<string, Set<string>>;
+  // PracticeUser rows for active members: userId → role. (category is plumbed
+  // through but currently always null — see resolveGrid.ts comment.)
+  members: Array<{ userId: string; role: string; category: string | null }>;
+  // Latest passing completion per (userId, courseId) — used to suppress
+  // notifications for users who already satisfy the assignment.
+  passByUserCourse: Map<string, { id: string; expiresAt: Date }>;
+}
+
+/**
+ * Single shared fetcher for the three assignment-driven generators. Pulls
+ * active assignments + exclusions + member roster + latest passing
+ * completions in 4 round trips, regardless of how many assignments exist.
+ */
+async function loadAssignmentRecipientContext(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<AssignmentRecipientContext> {
+  const [assignments, exclusions, members, allPasses] = await Promise.all([
+    tx.trainingAssignment.findMany({
+      where: { practiceId, revokedAt: null },
+      select: {
+        id: true,
+        courseId: true,
+        dueDate: true,
+        assignedToUserId: true,
+        assignedToRole: true,
+        assignedToCategory: true,
+        course: { select: { id: true, title: true } },
+      },
+    }),
+    tx.assignmentExclusion.findMany({
+      where: { assignment: { practiceId } },
+      select: { assignmentId: true, userId: true },
+    }),
+    tx.practiceUser.findMany({
+      where: { practiceId, removedAt: null },
+      select: { userId: true, role: true },
+    }),
+    tx.trainingCompletion.findMany({
+      where: { practiceId, passed: true },
+      select: {
+        id: true,
+        userId: true,
+        courseId: true,
+        completedAt: true,
+        expiresAt: true,
+      },
+    }),
+  ]);
+
+  const exclusionsByAssignment = new Map<string, Set<string>>();
+  for (const ex of exclusions) {
+    const set = exclusionsByAssignment.get(ex.assignmentId);
+    if (set) {
+      set.add(ex.userId);
+    } else {
+      exclusionsByAssignment.set(ex.assignmentId, new Set([ex.userId]));
+    }
+  }
+
+  // Latest passing completion per (userId, courseId). Caller wants the
+  // freshest because validity windows roll forward — an old expired
+  // completion shouldn't shadow a recent one.
+  const passByUserCourse = new Map<string, { id: string; expiresAt: Date }>();
+  for (const c of allPasses) {
+    const key = `${c.userId}:${c.courseId}`;
+    const prior = passByUserCourse.get(key);
+    if (!prior || c.expiresAt > prior.expiresAt) {
+      passByUserCourse.set(key, { id: c.id, expiresAt: c.expiresAt });
+    }
+  }
+
+  return {
+    assignments,
+    exclusionsByAssignment,
+    members: members.map((m) => ({
+      userId: m.userId,
+      role: m.role,
+      category: null, // PracticeUser has no per-user category column today
+    })),
+    passByUserCourse,
+  };
+}
+
+/**
+ * Resolve the eligible recipient userIds for a single assignment, given the
+ * shared context. Mirrors resolveAssignmentsForUser's eligibility predicate:
+ *   - assignedToUserId === user.id, OR
+ *   - assignedToRole === user.role (and role is non-null on assignment), OR
+ *   - assignedToCategory === user.category (and both non-null)
+ *   - AND user is not in exclusionsByAssignment for this assignment
+ */
+function resolveAssignmentRecipients(
+  assignment: AssignmentRecipientRow,
+  ctx: AssignmentRecipientContext,
+): string[] {
+  const excluded = ctx.exclusionsByAssignment.get(assignment.id);
+  const recipients: string[] = [];
+  for (const m of ctx.members) {
+    const isMatch =
+      assignment.assignedToUserId === m.userId ||
+      (assignment.assignedToRole !== null &&
+        assignment.assignedToRole === m.role) ||
+      (assignment.assignedToCategory !== null &&
+        m.category !== null &&
+        assignment.assignedToCategory === m.category);
+    if (!isMatch) continue;
+    if (excluded?.has(m.userId)) continue;
+    recipients.push(m.userId);
+  }
+  return recipients;
+}
+
+/**
+ * Fires once per (assignment, eligible-user) — entityKey embeds both ids
+ * so a re-assignment (different assignment row) starts a fresh dedup
+ * window, but a digest re-run for the same assignment is a no-op.
+ *
+ * Skips users who already have a passing-non-expired completion for the
+ * course (no point welcoming them to a course they already finished).
+ */
+export async function generateTrainingAssignedNotifications(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  // userIds is the digest recipient pool, but recipients here are computed
+  // per-assignment from the assignedToUserId/Role/Category resolver.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  userIds: string[],
+  practiceTimezone: string,
+): Promise<NotificationProposal[]> {
+  const ctx = await loadAssignmentRecipientContext(tx, practiceId);
+  if (ctx.assignments.length === 0) return [];
+
+  const now = new Date();
+  const proposals: NotificationProposal[] = [];
+
+  for (const a of ctx.assignments) {
+    const recipients = resolveAssignmentRecipients(a, ctx);
+    if (recipients.length === 0) continue;
+
+    const dueStr = a.dueDate
+      ? `Due ${formatPracticeDate(a.dueDate, practiceTimezone)}.`
+      : "No due date set.";
+    const title = `New training assigned: ${a.course.title}`;
+    const body = `You've been assigned ${a.course.title}. ${dueStr}`;
+
+    for (const uid of recipients) {
+      // Suppress for users who already hold an unexpired passing completion.
+      const pass = ctx.passByUserCourse.get(`${uid}:${a.courseId}`);
+      if (pass && pass.expiresAt > now) continue;
+
+      proposals.push({
+        userId: uid,
+        practiceId,
+        type: "TRAINING_ASSIGNED" as NotificationType,
+        severity: "INFO" as NotificationSeverity,
+        title,
+        body,
+        href: `/programs/training/${a.courseId}`,
+        entityKey: `training-assigned:${a.id}:${uid}`,
+      });
+    }
+  }
+  return proposals;
+}
+
+/**
+ * Fires at milestones 14 / 7 / 3 / 1 days before an assignment's dueDate.
+ * Matches generateCredentialRenewalNotifications' deterministic semantic
+ * (audit #21 IM-7): `days <= m` — every milestone the assignment is
+ * inside of fires once, dedupes on entityKey embedding the milestone day.
+ *
+ * Skips:
+ *   - assignments with no dueDate (nothing to remind against)
+ *   - already-overdue assignments (generateTrainingOverdueAssignmentNotifications handles past-due)
+ *   - users with a passing-non-expired completion for the course
+ */
+export async function generateTrainingDueSoonNotifications(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  userIds: string[],
+  practiceTimezone: string,
+): Promise<NotificationProposal[]> {
+  const ctx = await loadAssignmentRecipientContext(tx, practiceId);
+  if (ctx.assignments.length === 0) return [];
+
+  const now = new Date();
+  const proposals: NotificationProposal[] = [];
+
+  for (const a of ctx.assignments) {
+    if (!a.dueDate) continue;
+    const days = daysUntil(a.dueDate);
+    if (days === null) continue;
+    if (days <= 0) continue; // Past due — overdue generator territory.
+
+    const matched = TRAINING_DUE_SOON_MILESTONES.filter((m) => days <= m);
+    if (matched.length === 0) continue;
+
+    const recipients = resolveAssignmentRecipients(a, ctx);
+    if (recipients.length === 0) continue;
+
+    const dueStr = formatPracticeDate(a.dueDate, practiceTimezone);
+
+    for (const m of matched) {
+      const severity: NotificationSeverity =
+        m <= 3 ? "WARNING" : "INFO";
+      const title = `${a.course.title} — due in ${days} day${days === 1 ? "" : "s"}`;
+      const body = `${a.course.title} is due ${dueStr}. Complete it before the deadline.`;
+
+      for (const uid of recipients) {
+        const pass = ctx.passByUserCourse.get(`${uid}:${a.courseId}`);
+        if (pass && pass.expiresAt > now) continue;
+
+        proposals.push({
+          userId: uid,
+          practiceId,
+          type: "TRAINING_DUE_SOON" as NotificationType,
+          severity,
+          title,
+          body,
+          href: `/programs/training/${a.courseId}`,
+          entityKey: `training-due-soon:${a.id}:${uid}:${m}`,
+        });
+      }
+    }
+  }
+  return proposals;
+}
+
+/**
+ * Fires for assignments past their dueDate where the user has no
+ * passing-non-expired completion. EntityKey embeds a `weekIndex` =
+ * floor((now - dueDate) / 7d) so we re-emit weekly: weekIndex 0 covers
+ * day 1–7 post-due, weekIndex 1 covers 8–14, etc. Anchoring to dueDate
+ * (not the calendar week) keeps the cadence stable across year-end and
+ * regardless of which day of the week the cron runs.
+ *
+ * Distinct from generateTrainingOverdueNotifications above — that one is
+ * keyed on TrainingCompletion id (a previously-passed cert that has
+ * since expired). This one is keyed on a TrainingAssignment that the user
+ * never completed in the first place. The entityKey prefixes
+ * (training-completion: vs training-overdue-assignment:) keep the dedup
+ * windows independent.
+ */
+export async function generateTrainingOverdueAssignmentNotifications(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  userIds: string[],
+  practiceTimezone: string,
+): Promise<NotificationProposal[]> {
+  const ctx = await loadAssignmentRecipientContext(tx, practiceId);
+  if (ctx.assignments.length === 0) return [];
+
+  const now = new Date();
+  const nowMs = now.getTime();
+  const proposals: NotificationProposal[] = [];
+
+  for (const a of ctx.assignments) {
+    if (!a.dueDate) continue;
+    if (a.dueDate.getTime() >= nowMs) continue; // Not yet due — DueSoon territory.
+
+    const msSinceDue = nowMs - a.dueDate.getTime();
+    const weekIndex = Math.floor(msSinceDue / (7 * DAY_MS));
+    // weekIndex 0 fires on dueDate + 1 day (exact dueDate already filtered
+    // above). Subsequent weekIndex values continue weekly.
+
+    const recipients = resolveAssignmentRecipients(a, ctx);
+    if (recipients.length === 0) continue;
+
+    const dueStr = formatPracticeDate(a.dueDate, practiceTimezone);
+    const daysOverdue = Math.floor(msSinceDue / DAY_MS);
+    const severity: NotificationSeverity =
+      weekIndex >= 4 ? "CRITICAL" : "WARNING";
+    const title = `${a.course.title} — overdue ${daysOverdue} day${daysOverdue === 1 ? "" : "s"}`;
+    const body = `${a.course.title} was due ${dueStr} and hasn't been completed. Take it now to stay compliant.`;
+
+    for (const uid of recipients) {
+      const pass = ctx.passByUserCourse.get(`${uid}:${a.courseId}`);
+      if (pass && pass.expiresAt > now) continue;
+
+      proposals.push({
+        userId: uid,
+        practiceId,
+        type: "TRAINING_OVERDUE" as NotificationType,
+        severity,
+        title,
+        body,
+        href: `/programs/training/${a.courseId}`,
+        entityKey: `training-overdue-assignment:${a.id}:${uid}:${weekIndex}`,
+      });
+    }
+  }
+  return proposals;
+}
+
+/**
+ * Fires at milestones 30 / 14 / 7 days before a passing TrainingCompletion's
+ * expiresAt. Recipient is the user who completed the course (not admins —
+ * the affected staffer is the actor). Matches the deterministic milestone
+ * semantic from generateCredentialRenewalNotifications.
+ *
+ * Distinct from generateTrainingOverdueNotifications (which fires AFTER
+ * a completion's expiry has lapsed by 90+ days). This one is the proactive
+ * pre-expiry nudge.
+ */
+export async function generateTrainingExpiringNotifications(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  // userIds is the digest recipient pool, but the target is the user who
+  // earned the completion.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  userIds: string[],
+  practiceTimezone: string,
+): Promise<NotificationProposal[]> {
+  // Pull ALL future-expiring passing completions per (userId, courseId) so
+  // the latest-wins map can see a newer roll-forward row even when its
+  // expiresAt lies outside the 30-day horizon. Filtering at SQL with `lte:
+  // horizon` would drop the newer row and leave the older expiring row as
+  // a false "latest", incorrectly nudging users who've already renewed.
+  const completions = await tx.trainingCompletion.findMany({
+    where: {
+      practiceId,
+      passed: true,
+      expiresAt: { gt: new Date() },
+    },
+    select: {
+      id: true,
+      userId: true,
+      courseId: true,
+      expiresAt: true,
+      course: { select: { title: true } },
+    },
+  });
+  if (completions.length === 0) return [];
+
+  // For each (userId, courseId), use only the LATEST passing completion.
+  // A user with two passing rows for the same course has rolled forward;
+  // remind on the freshest expiry, not stale ones.
+  const latestByUserCourse = new Map<string, (typeof completions)[number]>();
+  for (const c of completions) {
+    const key = `${c.userId}:${c.courseId}`;
+    const prior = latestByUserCourse.get(key);
+    if (!prior || c.expiresAt > prior.expiresAt) {
+      latestByUserCourse.set(key, c);
+    }
+  }
+
+  const proposals: NotificationProposal[] = [];
+  for (const c of latestByUserCourse.values()) {
+    const days = daysUntil(c.expiresAt);
+    if (days === null) continue;
+    if (days < 0) continue; // Already expired — TRAINING_OVERDUE handles past-expiry.
+
+    const matched = TRAINING_EXPIRING_MILESTONES.filter((m) => days <= m);
+    if (matched.length === 0) continue;
+
+    const courseTitle = c.course?.title ?? "Required training";
+    const expiryStr = formatPracticeDate(c.expiresAt, practiceTimezone);
+
+    for (const m of matched) {
+      const severity: NotificationSeverity =
+        m <= 7 ? "WARNING" : "INFO";
+      const title = `${courseTitle} — expires in ${days} day${days === 1 ? "" : "s"}`;
+      const body = `Your ${courseTitle} certification expires ${expiryStr}. Retake before the deadline to avoid a compliance gap.`;
+      proposals.push({
+        userId: c.userId,
+        practiceId,
+        type: "TRAINING_EXPIRING" as NotificationType,
+        severity,
+        title,
+        body,
+        href: `/programs/training/${c.courseId}`,
+        entityKey: `training-expiring:${c.id}:${m}`,
+      });
+    }
+  }
+  return proposals;
+}
+
 /**
  * Medicare/Medicaid revalidation reminder. Mirrors
  * generateCredentialRenewalNotifications' milestone-cross logic but
@@ -1303,6 +1722,10 @@ export async function generateAllNotifications(
     policies,
     training,
     trainingEscalation,
+    trainingAssigned,
+    trainingDueSoon,
+    trainingOverdueAssignment,
+    trainingExpiring,
     osha,
     allergy,
     allergyCompetency,
@@ -1318,6 +1741,10 @@ export async function generateAllNotifications(
     generatePolicyReviewDueNotifications(tx, practiceId, userIds, practiceTimezone),
     generateTrainingOverdueNotifications(tx, practiceId, userIds, practiceTimezone),
     generateTrainingEscalationNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateTrainingAssignedNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateTrainingDueSoonNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateTrainingOverdueAssignmentNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateTrainingExpiringNotifications(tx, practiceId, userIds, practiceTimezone),
     generateOshaPostingReminderNotifications(tx, practiceId, userIds, practiceTimezone),
     generateAllergyNotifications(tx, practiceId, userIds, practiceTimezone),
     generateAllergyCompetencyDueNotifications(tx, practiceId, userIds, practiceTimezone),
@@ -1334,6 +1761,10 @@ export async function generateAllNotifications(
     ...policies,
     ...training,
     ...trainingEscalation,
+    ...trainingAssigned,
+    ...trainingDueSoon,
+    ...trainingOverdueAssignment,
+    ...trainingExpiring,
     ...osha,
     ...allergy,
     ...allergyCompetency,
