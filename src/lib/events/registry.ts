@@ -173,6 +173,29 @@ export const EVENT_TYPES = [
   // default thread list). Idempotent — re-archiving is a no-op on the
   // existing archivedAt timestamp.
   "CONCIERGE_THREAD_ARCHIVED",
+  // ────────────────────────────────────────────────────────────────────
+  // Phase 4 — Training assignment + course CRUD events
+  // (docs/plans/2026-04-30-phase-4-training-depth.md PR 1)
+  // ────────────────────────────────────────────────────────────────────
+  // Course directive: "this user/role/category must complete this course
+  // by this date." Materializes a TrainingAssignment row.
+  "TRAINING_ASSIGNED",
+  // Soft-revoke of an assignment. Sets revokedAt + reason; preserves
+  // the audit trail (no DELETE).
+  "TRAINING_ASSIGNMENT_REVOKED",
+  // Per-user opt-out from a role/category-wide assignment. Materializes
+  // an AssignmentExclusion row keyed by (assignmentId, userId).
+  "STAFF_EXCLUDED_FROM_ASSIGNMENT",
+  // Custom course authored by a practice (BYOV ships in PR 6; PR 2 is
+  // the first caller for course CRUD). Idempotent on courseId.
+  "TRAINING_COURSE_CREATED",
+  // Course content/title/duration updated. Bumps version monotonically
+  // so completions of older versions remain auditable.
+  "TRAINING_COURSE_UPDATED",
+  // Soft-retire of a course. TrainingCourse has no retiredAt column
+  // today; the projection sets sortOrder=9999 as the soft-retire signal
+  // until a follow-up schema migration adds the column.
+  "TRAINING_COURSE_RETIRED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -1537,6 +1560,89 @@ export const EVENT_SCHEMAS = {
   CONCIERGE_THREAD_ARCHIVED: {
     1: z.object({
       threadId: z.string().min(1),
+    }),
+  },
+  // ────────────────────────────────────────────────────────────────────
+  // Phase 4 — Training assignment + course CRUD events
+  // (docs/plans/2026-04-30-phase-4-training-depth.md PR 1)
+  // ────────────────────────────────────────────────────────────────────
+  // Exactly one of assignedToUserId / assignedToRole / assignedToCategory
+  // is non-null. The .refine() makes this an explicit registry-side
+  // invariant in addition to action-layer validation.
+  TRAINING_ASSIGNED: {
+    1: z
+      .object({
+        assignmentId: z.string().min(1),
+        courseId: z.string().min(1),
+        // Exactly one of these three is set.
+        assignedToUserId: z.string().min(1).nullable(),
+        assignedToRole: z.enum(["OWNER", "ADMIN", "STAFF", "VIEWER"]).nullable(),
+        assignedToCategory: z
+          .enum(["CLINICAL", "ADMINISTRATIVE", "MANAGEMENT", "OTHER"])
+          .nullable(),
+        dueDate: z.string().datetime().nullable(),
+        requiredFlag: z.boolean(),
+      })
+      .refine(
+        (p) => {
+          const set = [p.assignedToUserId, p.assignedToRole, p.assignedToCategory].filter(
+            (v) => v !== null,
+          );
+          return set.length === 1;
+        },
+        {
+          message:
+            "Exactly one of assignedToUserId / assignedToRole / assignedToCategory must be set",
+        },
+      ),
+  },
+  // Soft-revoke of an assignment. Projection stamps revokedAt + reason
+  // + revokedByUserId (from event.actorUserId).
+  TRAINING_ASSIGNMENT_REVOKED: {
+    1: z.object({
+      assignmentId: z.string().min(1),
+      reason: z.string().max(500).nullable(),
+    }),
+  },
+  // Per-user opt-out from a role/category assignment. reason is required
+  // because audit trail "this user was excluded" needs justification.
+  STAFF_EXCLUDED_FROM_ASSIGNMENT: {
+    1: z.object({
+      assignmentId: z.string().min(1),
+      userId: z.string().min(1),
+      reason: z.string().max(500),
+    }),
+  },
+  // Custom-course creation. Projection writes a TrainingCourse row with
+  // isRequired=false, version=1, sortOrder=999, lessonContent="" — these
+  // are the customer-authored defaults; PR 2's createCustomCourseAction
+  // is the first caller.
+  TRAINING_COURSE_CREATED: {
+    1: z.object({
+      courseId: z.string().min(1),
+      code: z.string().min(1).max(60),
+      title: z.string().min(1).max(200),
+      type: z.string().min(1).max(40),
+      durationMinutes: z.number().int().min(0).max(600).nullable(),
+      passingScore: z.number().int().min(0).max(100),
+      isCustom: z.boolean(),
+    }),
+  },
+  // Course content/title/duration updated. Projection bumps version on
+  // the TrainingCourse row; older completions retain their courseVersion
+  // pointer for audit fidelity. changedFields is a free-form audit hint.
+  TRAINING_COURSE_UPDATED: {
+    1: z.object({
+      courseId: z.string().min(1),
+      version: z.number().int().min(1),
+      changedFields: z.array(z.string()),
+    }),
+  },
+  // Soft-retire. TrainingCourse has no retiredAt column today; the
+  // projection sets sortOrder=9999 as the soft-retire signal.
+  TRAINING_COURSE_RETIRED: {
+    1: z.object({
+      courseId: z.string().min(1),
     }),
   },
 } as const;
