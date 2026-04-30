@@ -14,6 +14,7 @@ import {
   StyleSheet,
 } from "@react-pdf/renderer";
 import { formatPracticeDate } from "@/lib/audit/format";
+import { EXPIRING_SOON_DAYS, getCredentialStatus } from "@/lib/credentials/status";
 
 const s = StyleSheet.create({
   page: {
@@ -99,17 +100,24 @@ export interface CredentialsRegisterInput {
   credentials: CredentialRow[];
 }
 
-const SOON_MS = 60 * 24 * 60 * 60 * 1000;
-
-function statusFor(c: CredentialRow, now: number): {
+// Audit #16: window now sourced from src/lib/credentials/status.ts so
+// this PDF + the dashboard page + the notification generator all agree
+// on EXPIRING_SOON_DAYS=90.
+function statusFor(c: CredentialRow, nowDate: Date): {
   label: string;
   style: { color?: string };
 } {
-  if (!c.expiryDate) return { label: "No expiry", style: s.noExpiry };
-  const t = c.expiryDate.getTime();
-  if (t < now) return { label: "EXPIRED", style: s.expired };
-  if (t < now + SOON_MS) return { label: "Expiring soon", style: s.expiringSoon };
-  return { label: "Current", style: s.current };
+  const status = getCredentialStatus(c.expiryDate, nowDate);
+  switch (status) {
+    case "NO_EXPIRY":
+      return { label: "No expiry", style: s.noExpiry };
+    case "EXPIRED":
+      return { label: "EXPIRED", style: s.expired };
+    case "EXPIRING_SOON":
+      return { label: "Expiring soon", style: s.expiringSoon };
+    case "ACTIVE":
+      return { label: "Current", style: s.current };
+  }
 }
 
 export function CredentialsRegisterDocument({
@@ -117,15 +125,12 @@ export function CredentialsRegisterDocument({
 }: {
   input: CredentialsRegisterInput;
 }) {
-  const now = input.generatedAt.getTime();
+  const nowDate = input.generatedAt;
   const expired = input.credentials.filter(
-    (c) => c.expiryDate && c.expiryDate.getTime() < now,
+    (c) => getCredentialStatus(c.expiryDate, nowDate) === "EXPIRED",
   ).length;
   const expiringSoon = input.credentials.filter(
-    (c) =>
-      c.expiryDate &&
-      c.expiryDate.getTime() >= now &&
-      c.expiryDate.getTime() < now + SOON_MS,
+    (c) => getCredentialStatus(c.expiryDate, nowDate) === "EXPIRING_SOON",
   ).length;
 
   // Group by holder, preserving the first-occurrence order so the
@@ -154,7 +159,8 @@ export function CredentialsRegisterDocument({
           {input.credentials.length === 1 ? "" : "s"}
         </Text>
         <Text style={s.meta}>
-          Status: {expired} expired · {expiringSoon} expiring within 60 days
+          Status: {expired} expired · {expiringSoon} expiring within{" "}
+          {EXPIRING_SOON_DAYS} days
         </Text>
 
         {input.credentials.length === 0 && (
@@ -174,7 +180,7 @@ export function CredentialsRegisterDocument({
               <Text style={s.cellExpires}>Expires</Text>
             </View>
             {rows.map((c, i) => {
-              const status = statusFor(c, now);
+              const status = statusFor(c, nowDate);
               return (
                 <View key={i} style={s.row}>
                   <Text style={s.cellTitle}>{c.title}</Text>

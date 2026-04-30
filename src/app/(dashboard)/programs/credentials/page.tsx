@@ -8,19 +8,9 @@ import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AddCredentialForm, type HolderOption, type CredentialTypeOption } from "./AddCredentialForm";
-import { CredentialStatusBadge, type CredentialStatus } from "./CredentialStatusBadge";
+import { CredentialStatusBadge } from "./CredentialStatusBadge";
 import { CredentialActions } from "./CredentialActions";
-
-const EXPIRING_SOON_DAYS = 90;
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function deriveStatus(expiryDate: Date | null, now: Date): CredentialStatus {
-  if (!expiryDate) return "NO_EXPIRY";
-  const ms = expiryDate.getTime() - now.getTime();
-  if (ms < 0) return "EXPIRED";
-  if (ms / DAY_MS <= EXPIRING_SOON_DAYS) return "EXPIRING_SOON";
-  return "ACTIVE";
-}
+import { getCredentialStatus } from "@/lib/credentials/status";
 
 export const metadata = { title: "Credentials · My Programs" };
 
@@ -166,7 +156,7 @@ export default async function CredentialsPage() {
                               {c.credentialType.category.replaceAll("_", " ")}
                             </Badge>
                             <CredentialStatusBadge
-                              status={deriveStatus(c.expiryDate, now)}
+                              status={getCredentialStatus(c.expiryDate, now)}
                               expiryDate={c.expiryDate ? c.expiryDate.toISOString() : null}
                             />
                           </div>
