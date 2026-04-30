@@ -76,8 +76,8 @@ async function main() {
       `    keep:    ${keepId} ${keepRetired ? "(retired)" : "(active)"}`,
     );
     for (let i = 0; i < dupIds.length; i++) {
-      const id = dupIds[i];
-      const retired = g.retiredFlags[i + 1];
+      const id = dupIds[i]!;
+      const retired = g.retiredFlags[i + 1] ?? false;
       const suffix = `-DUP-${id.slice(0, 8)}`;
       console.log(
         `    suffix:  ${id} ${retired ? "(retired)" : "(active)"} → ${g.licenseNumber}${suffix}`,
