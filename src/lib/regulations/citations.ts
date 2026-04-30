@@ -134,6 +134,41 @@ export const CITATIONS = {
     "DEA",
     "Theft / significant loss reporting",
   ),
+  DEA_INITIAL_REGISTRATION: citation(
+    "21 CFR §1301.11",
+    "DEA",
+    "Persons required to register (initial DEA registration)",
+  ),
+  DEA_TERM_RENEWAL: citation(
+    "21 CFR §1301.13",
+    "DEA",
+    "Application for registration; term + renewal cycle",
+  ),
+  DEA_REGISTRATION_CHANGES: citation(
+    "21 CFR §1301.51",
+    "DEA",
+    "Modification, transfer, or termination of registration",
+  ),
+
+  // ── State medical board licensure ─────────────────────────────────
+  // Generic FSMB-pointer baseline. Per-state code (e.g., a NY-overlay
+  // page) can render this entry alongside its own state-specific
+  // citation — the registry currently has no per-state overlays, but
+  // the title intentionally says "see state board" so a future per-
+  // state specialization (e.g., STATE_MEDICAL_LICENSURE_CA) reads as
+  // a refinement, not a replacement.
+  STATE_MEDICAL_LICENSURE: citation(
+    "State medical practice act",
+    "State board",
+    "State medical board licensure (renewal cycle varies by state — see FSMB)",
+  ),
+
+  // ── CMS / Medicare ────────────────────────────────────────────────
+  CMS_REVALIDATION_CYCLE: citation(
+    "42 CFR §424.515",
+    "CMS",
+    "5-year provider revalidation cycle (3-year for DMEPOS suppliers)",
+  ),
 
   // ── USP 797 §21 (Allergy compounding) ─────────────────────────────
   USP_797_21: citation(
@@ -144,3 +179,60 @@ export const CITATIONS = {
 } as const satisfies Record<string, Citation>;
 
 export type CitationKey = keyof typeof CITATIONS;
+
+// ── Credential-type → citation lookup ────────────────────────────────
+//
+// Audit #21 IM-8 (PR-C6): so the Concierge `list_credentials` tool can
+// surface the underlying regulation alongside each credential row, map
+// known CredentialType.code values to their primary citation. Falls
+// back to category for the long tail of state-licensure codes
+// (MD_STATE_LICENSE, DO_STATE_LICENSE, NP_STATE_LICENSE, …) so adding
+// a new state license code doesn't require touching this file.
+//
+// `null` means "no specific federal/state citation worth surfacing"
+// (e.g., insurance, internal training cards) — the lookup is
+// intentionally explicit-null rather than omitted, so a future audit
+// of "what's covered" can grep for `null` and decide.
+
+const CITATIONS_BY_CREDENTIAL_TYPE_CODE: Record<string, Citation | null> = {
+  // DEA
+  DEA_CONTROLLED_SUBSTANCE_REGISTRATION: CITATIONS.DEA_TERM_RENEWAL,
+  // CMS
+  NPI_REGISTRATION: CITATIONS.CMS_REVALIDATION_CYCLE,
+  MEDICARE_PECOS_ENROLLMENT: CITATIONS.CMS_REVALIDATION_CYCLE,
+  MEDICARE_PROVIDER_ENROLLMENT: CITATIONS.CMS_REVALIDATION_CYCLE,
+  MEDICARE_ADVANTAGE_CREDENTIALING: CITATIONS.CMS_REVALIDATION_CYCLE,
+  MEDICAID_PROVIDER_ENROLLMENT: CITATIONS.CMS_REVALIDATION_CYCLE,
+};
+
+const CITATIONS_BY_CREDENTIAL_TYPE_CATEGORY: Record<
+  string,
+  Citation | null
+> = {
+  CLINICAL_LICENSE: CITATIONS.STATE_MEDICAL_LICENSURE,
+  DEA_REGISTRATION: CITATIONS.DEA_TERM_RENEWAL,
+  MEDICARE_MEDICAID: CITATIONS.CMS_REVALIDATION_CYCLE,
+};
+
+/**
+ * Resolve the most-applicable citation for a credential type. Looks up
+ * by exact `CredentialType.code` first (so DEA + CMS get their precise
+ * federal citation); falls back to `CredentialType.category` for the
+ * long tail of state licensure codes; returns null when no
+ * federal/state citation is meaningfully attached (insurance,
+ * internal CPR cards, etc.).
+ *
+ * Audit #21 IM-8 (PR-C6).
+ */
+export function getCitationForCredentialType(
+  code: string | null | undefined,
+  category?: string | null | undefined,
+): Citation | null {
+  if (code && code in CITATIONS_BY_CREDENTIAL_TYPE_CODE) {
+    return CITATIONS_BY_CREDENTIAL_TYPE_CODE[code] ?? null;
+  }
+  if (category && category in CITATIONS_BY_CREDENTIAL_TYPE_CATEGORY) {
+    return CITATIONS_BY_CREDENTIAL_TYPE_CATEGORY[category] ?? null;
+  }
+  return null;
+}

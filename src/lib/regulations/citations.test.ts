@@ -5,7 +5,7 @@
 // citation" PR doesn't silently break every page that renders it.
 
 import { describe, it, expect } from "vitest";
-import { CITATIONS } from "./citations";
+import { CITATIONS, getCitationForCredentialType } from "./citations";
 
 describe("CITATIONS registry", () => {
   it("every entry has non-empty code, display, title", () => {
@@ -37,5 +37,121 @@ describe("CITATIONS registry", () => {
     expect(CITATIONS.OSHA_RECORDKEEPING.code).toBe("29 CFR §1904");
     expect(CITATIONS.OSHA_BLOODBORNE_PATHOGENS.code).toBe("§1910.1030");
     expect(CITATIONS.USP_797_21.code).toBe("USP 797 §21");
+  });
+
+  // Audit #21 IM-8 (PR-C6).
+  describe("DEA / state-board / CMS expansion", () => {
+    it("DEA term + renewal cycle resolves to 21 CFR §1301.13", () => {
+      expect(CITATIONS.DEA_TERM_RENEWAL.code).toBe("21 CFR §1301.13");
+      expect(CITATIONS.DEA_TERM_RENEWAL.display).toBe(
+        "DEA 21 CFR §1301.13",
+      );
+    });
+
+    it("DEA initial registration resolves to 21 CFR §1301.11", () => {
+      expect(CITATIONS.DEA_INITIAL_REGISTRATION.code).toBe("21 CFR §1301.11");
+    });
+
+    it("DEA registration changes resolves to 21 CFR §1301.51", () => {
+      expect(CITATIONS.DEA_REGISTRATION_CHANGES.code).toBe("21 CFR §1301.51");
+    });
+
+    it("State medical licensure baseline points at the state practice act", () => {
+      expect(CITATIONS.STATE_MEDICAL_LICENSURE.code).toBe(
+        "State medical practice act",
+      );
+      // Display should render under the "State board" framework so a
+      // tooltip / aria string reads "State board State medical
+      // practice act" — verify both halves are present.
+      expect(CITATIONS.STATE_MEDICAL_LICENSURE.display).toContain("State board");
+      expect(CITATIONS.STATE_MEDICAL_LICENSURE.display).toContain(
+        "State medical practice act",
+      );
+    });
+
+    it("CMS revalidation cycle resolves to 42 CFR §424.515", () => {
+      expect(CITATIONS.CMS_REVALIDATION_CYCLE.code).toBe("42 CFR §424.515");
+      expect(CITATIONS.CMS_REVALIDATION_CYCLE.display).toBe(
+        "CMS 42 CFR §424.515",
+      );
+    });
+  });
+});
+
+// Audit #21 IM-8 (PR-C6): credential-type → citation lookup wired into
+// Concierge `list_credentials`. These tests guard the mapping table so
+// a future "let me rename CredentialType.code DEA_CONTROLLED…" PR
+// doesn't silently strip the regulation column from Concierge output.
+describe("getCitationForCredentialType()", () => {
+  it("DEA controlled-substance registration → 21 CFR §1301.13", () => {
+    const c = getCitationForCredentialType(
+      "DEA_CONTROLLED_SUBSTANCE_REGISTRATION",
+      "DEA_REGISTRATION",
+    );
+    expect(c).not.toBeNull();
+    expect(c?.code).toBe("21 CFR §1301.13");
+  });
+
+  it("Medicare PECOS enrollment → 42 CFR §424.515", () => {
+    const c = getCitationForCredentialType(
+      "MEDICARE_PECOS_ENROLLMENT",
+      "MEDICARE_MEDICAID",
+    );
+    expect(c?.code).toBe("42 CFR §424.515");
+  });
+
+  it("NPI registration → 42 CFR §424.515", () => {
+    const c = getCitationForCredentialType(
+      "NPI_REGISTRATION",
+      "MEDICARE_MEDICAID",
+    );
+    expect(c?.code).toBe("42 CFR §424.515");
+  });
+
+  it("MD state license falls back to STATE_MEDICAL_LICENSURE via CLINICAL_LICENSE category", () => {
+    const c = getCitationForCredentialType("MD_STATE_LICENSE", "CLINICAL_LICENSE");
+    expect(c).not.toBeNull();
+    expect(c?.code).toBe("State medical practice act");
+  });
+
+  it("DO state license + NP state license + RN license all resolve to state board baseline via category", () => {
+    // Spot-check the long tail — these codes aren't enumerated in the
+    // by-code map, but CLINICAL_LICENSE category is. The point of the
+    // category fall-through is that adding a new state license code
+    // doesn't require touching the registry.
+    for (const code of [
+      "DO_STATE_LICENSE",
+      "NURSE_PRACTITIONER_NP_LICENSE",
+      "REGISTERED_NURSE_RN_LICENSE",
+      "DDS_DMD_LICENSE",
+      "LVN_LPN_LICENSE",
+    ]) {
+      const c = getCitationForCredentialType(code, "CLINICAL_LICENSE");
+      expect(c?.code, `${code} should resolve via CLINICAL_LICENSE`).toBe(
+        "State medical practice act",
+      );
+    }
+  });
+
+  it("Insurance + non-regulatory credentials return null (no specific federal/state cite)", () => {
+    expect(
+      getCitationForCredentialType(
+        "PROFESSIONAL_LIABILITY_INSURANCE",
+        "MALPRACTICE_INSURANCE",
+      ),
+    ).toBeNull();
+    expect(getCitationForCredentialType("BLS_CERTIFICATION_AHA", "CPR_BLS_ACLS")).toBeNull();
+  });
+
+  it("returns null for null/undefined inputs without throwing", () => {
+    expect(getCitationForCredentialType(null, null)).toBeNull();
+    expect(getCitationForCredentialType(undefined, undefined)).toBeNull();
+    expect(getCitationForCredentialType("", "")).toBeNull();
+  });
+
+  it("returns null for an unknown code with no recognised category", () => {
+    expect(
+      getCitationForCredentialType("SOME_FUTURE_CODE", "SOME_FUTURE_CATEGORY"),
+    ).toBeNull();
   });
 });

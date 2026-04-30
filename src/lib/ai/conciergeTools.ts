@@ -18,6 +18,7 @@ import {
   getCredentialStatus,
   type CredentialStatus as SharedCredentialStatus,
 } from "@/lib/credentials/status";
+import { getCitationForCredentialType } from "@/lib/regulations/citations";
 
 export interface ToolHandler {
   name: string;
@@ -255,10 +256,19 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
       const nowDate = new Date();
       const rows = await db.credential.findMany({
         where: { practiceId, retiredAt: null },
-        include: { credentialType: { select: { code: true } } },
+        include: {
+          credentialType: { select: { code: true, category: true } },
+        },
       });
       const allCredentials = rows.map((c) => {
         const status = getCredentialStatus(c.expiryDate, nowDate);
+        // Audit #21 IM-8 (PR-C6): surface the underlying federal/state
+        // citation so the Concierge LLM has an anchor to cite when the
+        // user asks "why does this credential need to be on file".
+        const citation = getCitationForCredentialType(
+          c.credentialType.code,
+          c.credentialType.category,
+        );
         return {
           credentialTypeCode: c.credentialType.code,
           holderId: c.holderId,
@@ -267,6 +277,9 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
             ? formatPracticeDate(c.expiryDate, practiceTimezone)
             : null,
           status,
+          regulation: citation
+            ? { code: citation.code, display: citation.display, title: citation.title }
+            : null,
         };
       });
       allCredentials.sort(
