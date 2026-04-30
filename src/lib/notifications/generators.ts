@@ -11,6 +11,7 @@
 // inserts the new ones.
 
 import type { Prisma, NotificationType, NotificationSeverity } from "@prisma/client";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export interface NotificationProposal {
   userId: string;
@@ -40,6 +41,7 @@ export async function generateSraNotifications(
   tx: Prisma.TransactionClient,
   practiceId: string,
   userIds: string[],
+  practiceTimezone: string,
 ): Promise<NotificationProposal[]> {
   const latest = await tx.practiceSraAssessment.findFirst({
     where: { practiceId, isDraft: false, completedAt: { not: null } },
@@ -71,8 +73,8 @@ export async function generateSraNotifications(
       : `SRA expires in ${daysLeft} days`;
   const body =
     daysLeft <= 0
-      ? `Your most recent Security Risk Assessment was completed ${latest.completedAt.toISOString().slice(0, 10)} and is now past the 365-day obligation window. Run a fresh SRA to restore HIPAA_SRA compliance.`
-      : `Your most recent SRA was completed ${latest.completedAt.toISOString().slice(0, 10)}. Plan the next one — HIPAA_SRA flips GAP on ${dueDate.toISOString().slice(0, 10)}.`;
+      ? `Your most recent Security Risk Assessment was completed ${formatPracticeDate(latest.completedAt, practiceTimezone)} and is now past the 365-day obligation window. Run a fresh SRA to restore HIPAA_SRA compliance.`
+      : `Your most recent SRA was completed ${formatPracticeDate(latest.completedAt, practiceTimezone)}. Plan the next one — HIPAA_SRA flips GAP on ${formatPracticeDate(dueDate, practiceTimezone)}.`;
 
   // entityKey includes the source SRA id so a replacement SRA resets the
   // dedup and users get a fresh notification cycle for the new window.
@@ -99,6 +101,7 @@ export async function generateCredentialNotifications(
   tx: Prisma.TransactionClient,
   practiceId: string,
   userIds: string[],
+  practiceTimezone: string,
 ): Promise<NotificationProposal[]> {
   const horizon = new Date(Date.now() + 60 * DAY_MS);
   const credentials = await tx.credential.findMany({
@@ -125,7 +128,8 @@ export async function generateCredentialNotifications(
       daysLeft <= 0
         ? `${c.title} expired`
         : `${c.title} expires in ${daysLeft} days`;
-    const body = `${c.title}${c.licenseNumber ? ` (${c.licenseNumber})` : ""} expires ${c.expiryDate.toISOString().slice(0, 10)}. Update /programs/credentials before it lapses.`;
+    const body = `${c.title}${c.licenseNumber ? ` (${c.licenseNumber})` : ""} expires ${formatPracticeDate(c.expiryDate, practiceTimezone)}. Update /programs/credentials before it lapses.`;
+    // entityKey is a UTC-stable dedup hash — do NOT replace with formatPracticeDate
     const entityKey = `credential:${c.id}:${c.expiryDate.toISOString().slice(0, 10)}`;
     for (const userId of userIds) {
       proposals.push({
@@ -157,6 +161,7 @@ export async function generateCredentialRenewalNotifications(
   tx: Prisma.TransactionClient,
   practiceId: string,
   userIds: string[],
+  practiceTimezone: string,
 ): Promise<NotificationProposal[]> {
   const credentials = await tx.credential.findMany({
     where: {
@@ -207,7 +212,7 @@ export async function generateCredentialRenewalNotifications(
           : "INFO";
     const entityKey = `credential:${cred.id}:milestone:${matchedMilestone}`;
     const title = `${cred.title} — renewal in ${days} day${days === 1 ? "" : "s"}`;
-    const body = `This credential expires ${cred.expiryDate.toISOString().slice(0, 10)}. Plan the renewal now to avoid a compliance gap.`;
+    const body = `This credential expires ${formatPracticeDate(cred.expiryDate, practiceTimezone)}. Plan the renewal now to avoid a compliance gap.`;
 
     for (const uid of userIds) {
       proposals.push({
@@ -232,6 +237,7 @@ export async function generateVendorBaaNotifications(
   tx: Prisma.TransactionClient,
   practiceId: string,
   userIds: string[],
+  practiceTimezone: string,
 ): Promise<NotificationProposal[]> {
   const horizon = new Date(Date.now() + 60 * DAY_MS);
   const vendors = await tx.vendor.findMany({
@@ -254,7 +260,8 @@ export async function generateVendorBaaNotifications(
       daysLeft <= 0
         ? `BAA with ${v.name} has expired`
         : `BAA with ${v.name} expires in ${daysLeft} days`;
-    const body = `The Business Associate Agreement with ${v.name} expires ${v.baaExpiresAt.toISOString().slice(0, 10)}. Renew before expiry to keep HIPAA_BAAS compliant.`;
+    const body = `The Business Associate Agreement with ${v.name} expires ${formatPracticeDate(v.baaExpiresAt, practiceTimezone)}. Renew before expiry to keep HIPAA_BAAS compliant.`;
+    // entityKey is a UTC-stable dedup hash — do NOT replace with formatPracticeDate
     const entityKey = `vendor-baa:${v.id}:${v.baaExpiresAt.toISOString().slice(0, 10)}`;
     for (const userId of userIds) {
       proposals.push({
@@ -281,6 +288,7 @@ export async function generateIncidentNotifications(
   tx: Prisma.TransactionClient,
   practiceId: string,
   userIds: string[],
+  practiceTimezone: string,
 ): Promise<NotificationProposal[]> {
   const openIncidents = await tx.incident.findMany({
     where: {
@@ -341,7 +349,7 @@ export async function generateIncidentNotifications(
         title: isMajor
           ? `Major breach unresolved — HHS notice in ${deadlineDaysLeft} days`
           : `Breach unresolved — HHS notice in ${deadlineDaysLeft} days`,
-        body: `"${inc.title}" was determined a breach on ${inc.discoveredAt.toISOString().slice(0, 10)}. HHS OCR notification deadline is ${deadlineDaysLeft} days away. ${isMajor ? "Major-breach media notice is also required." : ""}`.trim(),
+        body: `"${inc.title}" was determined a breach on ${formatPracticeDate(inc.discoveredAt, practiceTimezone)}. HHS OCR notification deadline is ${deadlineDaysLeft} days away. ${isMajor ? "Major-breach media notice is also required." : ""}`.trim(),
         href: `/programs/incidents/${inc.id}`,
         entityKey,
       });
@@ -371,6 +379,11 @@ export async function generateAllergyNotifications(
   tx: Prisma.TransactionClient,
   practiceId: string,
   userIds: string[],
+  // No date renders in this generator's body/title strings — practiceTimezone
+  // is kept for signature consistency so generateAllNotifications can pass it
+  // uniformly. Future date renders in allergy bodies should use it.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  practiceTimezone: string,
 ): Promise<NotificationProposal[]> {
   const enabled = await tx.practiceFramework.findFirst({
     where: {
@@ -490,6 +503,10 @@ export async function generateAllergyCompetencyDueNotifications(
   tx: Prisma.TransactionClient,
   practiceId: string,
   userIds: string[],
+  // No date renders in this generator's body/title strings — kept for
+  // signature consistency. See generateAllergyNotifications comment.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  practiceTimezone: string,
 ): Promise<NotificationProposal[]> {
   const enabled = await tx.practiceFramework.findFirst({
     where: {
@@ -588,8 +605,8 @@ export async function generatePolicyReviewDueNotifications(
   // userIds (digest recipient pool) is intentionally ignored — these
   // generators compute their own owner/admin recipient list. Kept for
   // signature consistency with the rest of the generators.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   userIds: string[],
+  practiceTimezone: string,
 ): Promise<NotificationProposal[]> {
   const adminIds = await ownerAdminUserIds(tx, practiceId);
   if (adminIds.length === 0) return [];
@@ -624,8 +641,8 @@ export async function generatePolicyReviewDueNotifications(
     );
     if (matched === undefined) continue;
 
-    const reviewedDate = p.lastReviewedAt.toISOString().slice(0, 10);
-    const dueStr = dueDate.toISOString().slice(0, 10);
+    const reviewedDate = formatPracticeDate(p.lastReviewedAt, practiceTimezone);
+    const dueStr = formatPracticeDate(dueDate, practiceTimezone);
     const title = `Annual review due in ${days} day${days === 1 ? "" : "s"}: ${p.policyCode}`;
     const body = `${p.policyCode} was last reviewed ${reviewedDate}. Annual review is required by ${dueStr}.`;
     const entityKey = `policy:${p.id}:milestone:${matched}`;
@@ -656,8 +673,8 @@ export async function generateTrainingOverdueNotifications(
   practiceId: string,
   // userIds is the digest recipient pool, but this generator targets the
   // staff member who took the training instead. Kept for signature parity.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   userIds: string[],
+  practiceTimezone: string,
 ): Promise<NotificationProposal[]> {
   const cutoff = new Date(Date.now() - TRAINING_OVERDUE_GRACE_DAYS * DAY_MS);
   const overdueCompletions = await tx.trainingCompletion.findMany({
@@ -729,7 +746,7 @@ export async function generateTrainingOverdueNotifications(
     );
     if (newerPass) continue;
 
-    const expiredOn = c.expiresAt.toISOString().slice(0, 10);
+    const expiredOn = formatPracticeDate(c.expiresAt, practiceTimezone);
     const courseTitle = c.course?.title ?? "Required training";
     proposals.push({
       userId: c.userId,
@@ -755,8 +772,8 @@ export async function generateCmsEnrollmentNotifications(
   tx: Prisma.TransactionClient,
   practiceId: string,
   // Owner/admin-only — see comment on generatePolicyReviewDueNotifications.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   userIds: string[],
+  practiceTimezone: string,
 ): Promise<NotificationProposal[]> {
   const adminIds = await ownerAdminUserIds(tx, practiceId);
   if (adminIds.length === 0) return [];
@@ -797,7 +814,7 @@ export async function generateCmsEnrollmentNotifications(
 
     const isPecos = cred.credentialType.code === "MEDICARE_PECOS_ENROLLMENT";
     const flavor = isPecos ? "PECOS" : "provider";
-    const expiryStr = cred.expiryDate.toISOString().slice(0, 10);
+    const expiryStr = formatPracticeDate(cred.expiryDate, practiceTimezone);
     const title = `Medicare ${flavor} enrollment expires in ${days} day${days === 1 ? "" : "s"}`;
     const body = `Revalidation must be completed via PECOS before ${expiryStr}.`;
     const entityKey = `cms-enrollment:${cred.id}:milestone:${matched}`;
@@ -834,8 +851,8 @@ export async function generateBreachDeterminationDeadlineNotifications(
   tx: Prisma.TransactionClient,
   practiceId: string,
   // Owner/admin-only — see comment on generatePolicyReviewDueNotifications.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   userIds: string[],
+  practiceTimezone: string,
 ): Promise<NotificationProposal[]> {
   const adminIds = await ownerAdminUserIds(tx, practiceId);
   if (adminIds.length === 0) return [];
@@ -865,8 +882,8 @@ export async function generateBreachDeterminationDeadlineNotifications(
     const deadline = new Date(
       inc.discoveredAt.getTime() + BREACH_DETERMINATION_WINDOW_DAYS * DAY_MS,
     );
-    const discoveredStr = inc.discoveredAt.toISOString().slice(0, 10);
-    const deadlineStr = deadline.toISOString().slice(0, 10);
+    const discoveredStr = formatPracticeDate(inc.discoveredAt, practiceTimezone);
+    const deadlineStr = formatPracticeDate(deadline, practiceTimezone);
     const title = `Breach determination due in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`;
     const body = `Incident "${inc.title}" discovered ${discoveredStr} requires HIPAA breach determination by ${deadlineStr}. Complete the breach risk assessment.`;
     const entityKey = `breach-deadline:${inc.id}`;
@@ -900,6 +917,10 @@ export async function generateOshaPostingReminderNotifications(
   // Owner/admin-only — see comment on generatePolicyReviewDueNotifications.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   userIds: string[],
+  // No date renders in this generator's body/title strings — kept for
+  // signature consistency. See generateAllergyNotifications comment.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  practiceTimezone: string,
 ): Promise<NotificationProposal[]> {
   const enabled = await tx.practiceFramework.findFirst({
     where: {
@@ -984,6 +1005,10 @@ export async function generateTrainingEscalationNotifications(
   // Owner/admin-only — see comment on generatePolicyReviewDueNotifications.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   userIds: string[],
+  // No date renders in this generator's body/title strings — kept for
+  // signature consistency. See generateAllergyNotifications comment.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  practiceTimezone: string,
 ): Promise<NotificationProposal[]> {
   const adminIds = await ownerAdminUserIds(tx, practiceId);
   if (adminIds.length === 0) return [];
@@ -1122,8 +1147,8 @@ export async function generateCredentialEscalationNotifications(
   tx: Prisma.TransactionClient,
   practiceId: string,
   // Owner/admin-only — see comment on generatePolicyReviewDueNotifications.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   userIds: string[],
+  practiceTimezone: string,
 ): Promise<NotificationProposal[]> {
   const adminIds = await ownerAdminUserIds(tx, practiceId);
   if (adminIds.length === 0) return [];
@@ -1197,6 +1222,7 @@ export async function generateCredentialEscalationNotifications(
     // a new id and won't match `seen` anyway.)
     const originalDateStr = seen.get(cred.id);
     if (!originalDateStr) continue;
+    // entityKey is a UTC-stable dedup hash — do NOT replace with formatPracticeDate
     const currentDateStr = cred.expiryDate.toISOString().slice(0, 10);
     if (currentDateStr !== originalDateStr) continue; // renewed in place
 
@@ -1207,7 +1233,7 @@ export async function generateCredentialEscalationNotifications(
       "Unassigned credential";
     const credentialTypeName =
       cred.credentialType?.name ?? cred.title ?? "Credential";
-    const expiryStr = cred.expiryDate.toISOString().slice(0, 10);
+    const expiryStr = formatPracticeDate(cred.expiryDate, practiceTimezone);
     const entityKey = `credential-escalation:${cred.id}`;
     const title = `Credential expiring without action: ${holderName} — ${credentialTypeName}`;
     const body = `${holderName}'s ${credentialTypeName} expiring on ${expiryStr} hasn't been addressed for ${ESCALATION_THRESHOLD_DAYS} days. Renew or follow up.`;
@@ -1237,6 +1263,7 @@ export async function generateAllNotifications(
   tx: Prisma.TransactionClient,
   practiceId: string,
   userIds: string[],
+  practiceTimezone: string,
 ): Promise<NotificationProposal[]> {
   if (userIds.length === 0) return [];
   const [
@@ -1255,20 +1282,20 @@ export async function generateAllNotifications(
     allergy,
     allergyCompetency,
   ] = await Promise.all([
-    generateSraNotifications(tx, practiceId, userIds),
-    generateCredentialNotifications(tx, practiceId, userIds),
-    generateCredentialRenewalNotifications(tx, practiceId, userIds),
-    generateCredentialEscalationNotifications(tx, practiceId, userIds),
-    generateCmsEnrollmentNotifications(tx, practiceId, userIds),
-    generateVendorBaaNotifications(tx, practiceId, userIds),
-    generateIncidentNotifications(tx, practiceId, userIds),
-    generateBreachDeterminationDeadlineNotifications(tx, practiceId, userIds),
-    generatePolicyReviewDueNotifications(tx, practiceId, userIds),
-    generateTrainingOverdueNotifications(tx, practiceId, userIds),
-    generateTrainingEscalationNotifications(tx, practiceId, userIds),
-    generateOshaPostingReminderNotifications(tx, practiceId, userIds),
-    generateAllergyNotifications(tx, practiceId, userIds),
-    generateAllergyCompetencyDueNotifications(tx, practiceId, userIds),
+    generateSraNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateCredentialNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateCredentialRenewalNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateCredentialEscalationNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateCmsEnrollmentNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateVendorBaaNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateIncidentNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateBreachDeterminationDeadlineNotifications(tx, practiceId, userIds, practiceTimezone),
+    generatePolicyReviewDueNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateTrainingOverdueNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateTrainingEscalationNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateOshaPostingReminderNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateAllergyNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateAllergyCompetencyDueNotifications(tx, practiceId, userIds, practiceTimezone),
   ]);
   return [
     ...sra,

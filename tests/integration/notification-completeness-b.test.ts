@@ -119,7 +119,7 @@ describe("generateTrainingEscalationNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateTrainingEscalationNotifications(tx, practice.id, [owner.id, staff.id]),
+      generateTrainingEscalationNotifications(tx, practice.id, [owner.id, staff.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(1);
@@ -179,7 +179,7 @@ describe("generateTrainingEscalationNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateTrainingEscalationNotifications(tx, practice.id, [owner.id, staff.id]),
+      generateTrainingEscalationNotifications(tx, practice.id, [owner.id, staff.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -217,7 +217,7 @@ describe("generateTrainingEscalationNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateTrainingEscalationNotifications(tx, practice.id, [owner.id, staff.id]),
+      generateTrainingEscalationNotifications(tx, practice.id, [owner.id, staff.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -254,7 +254,7 @@ describe("generateTrainingEscalationNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateTrainingEscalationNotifications(tx, practice.id, [owner.id, staff.id]),
+      generateTrainingEscalationNotifications(tx, practice.id, [owner.id, staff.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -298,7 +298,7 @@ describe("generateTrainingEscalationNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateTrainingEscalationNotifications(tx, practice.id, [owner.id, staff.id]),
+      generateTrainingEscalationNotifications(tx, practice.id, [owner.id, staff.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -335,7 +335,7 @@ describe("generateTrainingEscalationNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateTrainingEscalationNotifications(tx, practice.id, [owner.id, staff.id]),
+      generateTrainingEscalationNotifications(tx, practice.id, [owner.id, staff.id], "UTC"),
     );
 
     const recipientIds = new Set(proposals.map((p) => p.userId));
@@ -383,7 +383,7 @@ describe("generateCredentialEscalationNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateCredentialEscalationNotifications(tx, practice.id, [owner.id, staff.id]),
+      generateCredentialEscalationNotifications(tx, practice.id, [owner.id, staff.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(1);
@@ -433,7 +433,7 @@ describe("generateCredentialEscalationNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateCredentialEscalationNotifications(tx, practice.id, [owner.id, staff.id]),
+      generateCredentialEscalationNotifications(tx, practice.id, [owner.id, staff.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -475,7 +475,7 @@ describe("generateCredentialEscalationNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateCredentialEscalationNotifications(tx, practice.id, [owner.id, staff.id]),
+      generateCredentialEscalationNotifications(tx, practice.id, [owner.id, staff.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -516,7 +516,7 @@ describe("generateCredentialEscalationNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateCredentialEscalationNotifications(tx, practice.id, [owner.id, staff.id]),
+      generateCredentialEscalationNotifications(tx, practice.id, [owner.id, staff.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -556,7 +556,7 @@ describe("generateCredentialEscalationNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateCredentialEscalationNotifications(tx, practice.id, [owner.id, staff.id]),
+      generateCredentialEscalationNotifications(tx, practice.id, [owner.id, staff.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -601,7 +601,7 @@ describe("generateCredentialEscalationNotifications", () => {
     });
 
     const proposals = await db.$transaction((tx) =>
-      generateCredentialEscalationNotifications(tx, practice.id, [owner.id, staff.id]),
+      generateCredentialEscalationNotifications(tx, practice.id, [owner.id, staff.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);

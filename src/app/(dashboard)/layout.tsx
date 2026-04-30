@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { AppShell } from "@/components/gw/AppShell";
 import { ConciergeTrigger } from "@/components/gw/ConciergeDrawer/ConciergeTrigger";
 import { getUserNotificationsSummary } from "@/lib/notifications/get-user-notifications";
+import { PracticeTimezoneProvider } from "@/lib/timezone/PracticeTimezoneContext";
 
 export default async function DashboardLayout({
   children,
@@ -23,21 +24,26 @@ export default async function DashboardLayout({
   const pu = await getPracticeUser();
   if (!pu) redirect("/onboarding/create-practice");
 
+  // Single fetch for all Practice metadata we need in this layout.
+  // Hoisted before the role gate so we only make one DB round-trip regardless
+  // of role. STAFF/VIEWER pay the cost of fetching subscriptionStatus they
+  // don't use, but it's a single extra column on the same row — negligible.
+  const practiceMeta = await db.practice.findUniqueOrThrow({
+    where: { id: pu.practiceId },
+    select: { subscriptionStatus: true, timezone: true },
+  });
+
   // Subscription gate (Phase C). INCOMPLETE = sign-up done but no
   // Stripe Checkout completed yet → bounce to /sign-up/payment.
   // PAST_DUE / CANCELED → bounce to /account/locked.
   // TRIALING / ACTIVE → fall through to compliance-profile + dashboard.
   if (pu.role === "OWNER" || pu.role === "ADMIN") {
-    const sub = await db.practice.findUniqueOrThrow({
-      where: { id: pu.practiceId },
-      select: { subscriptionStatus: true },
-    });
-    if (sub.subscriptionStatus === "INCOMPLETE") {
+    if (practiceMeta.subscriptionStatus === "INCOMPLETE") {
       redirect("/sign-up/payment" as Route);
     }
     if (
-      sub.subscriptionStatus === "PAST_DUE" ||
-      sub.subscriptionStatus === "CANCELED"
+      practiceMeta.subscriptionStatus === "PAST_DUE" ||
+      practiceMeta.subscriptionStatus === "CANCELED"
     ) {
       redirect("/account/locked" as Route);
     }
@@ -54,6 +60,8 @@ export default async function DashboardLayout({
     });
     if (!profile) redirect("/onboarding/compliance-profile" as Route);
   }
+
+  const practiceTimezone = practiceMeta.timezone;
 
   // Enabled frameworks only — the practice's "My Compliance" list. Ordered by
   // the framework-level sortOrder so HIPAA/OSHA/OIG stay at the top regardless
@@ -106,7 +114,7 @@ export default async function DashboardLayout({
   const notificationSummary = await getUserNotificationsSummary(pu.userId);
 
   return (
-    <>
+    <PracticeTimezoneProvider value={practiceTimezone}>
       <AppShell
         practice={{ name: pu.practice.name }}
         user={{ email: pu.dbUser.email }}
@@ -120,6 +128,6 @@ export default async function DashboardLayout({
        *  trigger is fixed-position so DOM placement here doesn't affect
        *  layout. Lazy-mounts the drawer on first open. */}
       <ConciergeTrigger />
-    </>
+    </PracticeTimezoneProvider>
   );
 }

@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/gw/EmptyState";
 import { StartSessionForm } from "./StartSessionForm";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export const metadata = { title: "Audit Prep · Audit & Insights" };
 export const dynamic = "force-dynamic";
@@ -22,6 +23,7 @@ const STATUS_TONE: Record<string, string> = {
 export default async function AuditPrepPage() {
   const pu = await getPracticeUser();
   if (!pu) return null;
+  const tz = pu.practice.timezone ?? "UTC";
 
   const sessions = await db.auditPrepSession.findMany({
     where: { practiceId: pu.practiceId },
@@ -85,7 +87,7 @@ export default async function AuditPrepPage() {
                         className="text-sm font-medium text-foreground hover:underline"
                       >
                         {s.mode.replace(/_/g, " ")} ·{" "}
-                        {s.startedAt.toISOString().slice(0, 10)}
+                        {formatPracticeDate(s.startedAt, tz)}
                       </Link>
                       <Badge
                         variant="outline"

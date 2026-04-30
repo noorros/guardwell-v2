@@ -30,6 +30,7 @@ import {
   type UpcomingDeadline,
   type DeadlineSeverity,
 } from "@/lib/calendar/upcoming";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export const metadata = { title: "Compliance calendar · Audit" };
 export const dynamic = "force-dynamic";
@@ -81,6 +82,7 @@ function daysFromNow(date: Date): { absDays: number; relative: string } {
 export default async function CompliancecalendarPage() {
   const pu = await getPracticeUser();
   if (!pu) return null;
+  const tz = pu.practice.timezone ?? "UTC";
 
   const deadlines = await loadUpcomingDeadlines(db, pu.practiceId, {
     horizonDays: 365, // surface up to a year out
@@ -208,7 +210,7 @@ export default async function CompliancecalendarPage() {
                     <ul className="divide-y">
                       {b.items.map((d) => {
                         const Icon = KIND_ICONS[d.kind];
-                        const dueIso = d.dueAt.toISOString().slice(0, 10);
+                        const dueIso = formatPracticeDate(d.dueAt, tz);
                         const { relative } = daysFromNow(d.dueAt);
                         return (
                           <li

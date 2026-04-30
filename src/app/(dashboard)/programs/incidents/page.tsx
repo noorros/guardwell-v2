@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/gw/EmptyState";
 import { IncidentStatusBadge, IncidentBreachBadge } from "./IncidentBadges";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export const metadata = { title: "Incidents · My Programs" };
 export const dynamic = "force-dynamic";
@@ -34,6 +35,7 @@ const SEVERITY_LABELS: Record<string, string> = {
 export default async function IncidentsPage() {
   const pu = await getPracticeUser();
   if (!pu) return null;
+  const tz = pu.practice.timezone ?? "UTC";
 
   const incidents = await db.incident.findMany({
     where: { practiceId: pu.practiceId },
@@ -181,7 +183,7 @@ export default async function IncidentsPage() {
                         {TYPE_LABELS[i.type] ?? i.type}
                       </Badge>{" "}
                       · {SEVERITY_LABELS[i.severity] ?? i.severity} · Discovered{" "}
-                      {i.discoveredAt.toISOString().slice(0, 10)}
+                      {formatPracticeDate(i.discoveredAt, tz)}
                     </p>
                   </div>
                   <Button asChild size="sm" variant="ghost">

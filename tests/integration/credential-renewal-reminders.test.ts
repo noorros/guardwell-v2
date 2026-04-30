@@ -56,7 +56,7 @@ describe("generateCredentialRenewalNotifications", () => {
     });
 
     const proposals = await db.$transaction(async (tx) =>
-      generateCredentialRenewalNotifications(tx, practice.id, [user.id]),
+      generateCredentialRenewalNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(1);
@@ -91,7 +91,7 @@ describe("generateCredentialRenewalNotifications", () => {
     });
 
     const proposals = await db.$transaction(async (tx) =>
-      generateCredentialRenewalNotifications(tx, practice.id, [user.id]),
+      generateCredentialRenewalNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(1);
@@ -123,7 +123,7 @@ describe("generateCredentialRenewalNotifications", () => {
     });
 
     const proposals = await db.$transaction(async (tx) =>
-      generateCredentialRenewalNotifications(tx, practice.id, [user.id]),
+      generateCredentialRenewalNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     expect(proposals).toHaveLength(0);
@@ -142,7 +142,7 @@ describe("generateCredentialRenewalNotifications", () => {
     });
 
     const proposals = await db.$transaction(async (tx) =>
-      generateCredentialRenewalNotifications(tx, practice.id, [user.id]),
+      generateCredentialRenewalNotifications(tx, practice.id, [user.id], "UTC"),
     );
 
     // No CREDENTIAL_RENEWAL_DUE — past-expiry handled by CREDENTIAL_EXPIRING.

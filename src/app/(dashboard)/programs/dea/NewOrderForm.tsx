@@ -8,12 +8,15 @@ import {
   SCHEDULE_LABELS,
 } from "@/lib/dea/labels";
 import { recordOrderAction } from "./actions";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 const FIELD_CLASS =
   "mt-1 block w-full rounded-md border bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 export function NewOrderForm() {
-  const today = new Date().toISOString().slice(0, 10);
+  const tz = usePracticeTimezone();
+  const today = formatPracticeDate(new Date(), tz);
 
   const [supplierName, setSupplierName] = useState("");
   const [supplierDeaNumber, setSupplierDeaNumber] = useState("");

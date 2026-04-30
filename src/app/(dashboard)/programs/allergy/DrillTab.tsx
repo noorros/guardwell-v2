@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { CompetencyTabProps } from "./CompetencyTab";
 import { logDrillAction } from "./actions";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export interface DrillTabProps {
   canManage: boolean;
@@ -25,15 +27,12 @@ export interface DrillTabProps {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function fmtDate(iso: string): string {
-  return iso.slice(0, 10);
-}
-
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
 // ── Overdue Banner ────────────────────────────────────────────────────────────
 
 function OverdueBanner({ drills }: { drills: DrillTabProps["drills"] }) {
+  const tz = usePracticeTimezone();
   const latest = drills[0] ?? null;
   const now = Date.now();
 
@@ -55,7 +54,8 @@ function OverdueBanner({ drills }: { drills: DrillTabProps["drills"] }) {
       <div className="flex items-start gap-3 rounded-lg border border-amber-500/50 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
         <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
         <span>
-          Anaphylaxis drill overdue — last drill was {fmtDate(latest.conductedAt)} ({daysAgo} days
+          Anaphylaxis drill overdue — last drill was{" "}
+          {formatPracticeDate(new Date(latest.conductedAt), tz)} ({daysAgo} days
           ago).
         </span>
       </div>
@@ -68,7 +68,8 @@ function OverdueBanner({ drills }: { drills: DrillTabProps["drills"] }) {
 // ── Log Drill Form ────────────────────────────────────────────────────────────
 
 function LogDrillForm({ members }: { members: DrillTabProps["members"] }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const tz = usePracticeTimezone();
+  const today = formatPracticeDate(new Date(), tz);
   const [conductedAt, setConductedAt] = useState(today);
   const [scenario, setScenario] = useState("");
   const [participantIds, setParticipantIds] = useState<Set<string>>(new Set());
@@ -288,6 +289,7 @@ function DrillRow({
   drill: DrillTabProps["drills"][number];
   members: DrillTabProps["members"];
 }) {
+  const tz = usePracticeTimezone();
   const [expanded, setExpanded] = useState(false);
   const memberMap = new Map(members.map((m) => [m.id, m.name]));
 
@@ -305,7 +307,7 @@ function DrillRow({
       >
         <div className="min-w-0 flex-1 space-y-0.5">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="text-sm font-medium tabular-nums">{fmtDate(drill.conductedAt)}</span>
+            <span className="text-sm font-medium tabular-nums">{formatPracticeDate(new Date(drill.conductedAt), tz)}</span>
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <Users className="h-3 w-3" aria-hidden="true" />
               {drill.participantIds.length} participant
@@ -361,7 +363,7 @@ function DrillRow({
               <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Next drill due
               </span>
-              <p className="mt-0.5 text-sm">{fmtDate(drill.nextDrillDue)}</p>
+              <p className="mt-0.5 text-sm">{formatPracticeDate(new Date(drill.nextDrillDue), tz)}</p>
             </div>
           )}
         </div>

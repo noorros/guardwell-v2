@@ -64,6 +64,7 @@ export async function GET() {
       input={{
         practiceName: pu.practice.name,
         practiceState: pu.practice.primaryState,
+        practiceTimezone: pu.practice.timezone ?? "UTC",
         generatedAt: new Date(),
         credentials: rows,
       }}

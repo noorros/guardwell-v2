@@ -32,6 +32,8 @@ export interface RunConciergeTurnArgs {
     name: string;
     primaryState: string;
     providerCount: string | null;
+    /** Coerce to "UTC" before calling if the practice has no timezone set. */
+    timezone: string;
   };
   threadId: string;
   actorUserId: string;

@@ -301,7 +301,7 @@ export default async function ModulePage({
           <h2 className="text-lg font-semibold text-foreground">
             Cybersecurity readiness
           </h2>
-          <CyberReadinessPanel practiceId={pu.practiceId} />
+          <CyberReadinessPanel practiceId={pu.practiceId} practiceTimezone={pu.practice.timezone ?? "UTC"} />
         </section>
       )}
       {(() => {

@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/gw/EmptyState";
 import { NewDestructionForm } from "./NewDestructionForm";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export const metadata = { title: "Document retention · My Programs" };
 export const dynamic = "force-dynamic";
@@ -33,6 +34,7 @@ const RETENTION_WINDOW_MS = 365 * 24 * 60 * 60 * 1000;
 export default async function DocumentRetentionPage() {
   const pu = await getPracticeUser();
   if (!pu) return null;
+  const tz = pu.practice.timezone ?? "UTC";
 
   const [logs, performers, evidenceCounts] = await Promise.all([
     db.destructionLog.findMany({
@@ -66,7 +68,7 @@ export default async function DocumentRetentionPage() {
       ? "Cadence not yet established"
       : recentCount > 0
         ? `${recentCount} event${recentCount === 1 ? "" : "s"} in the last 12 months`
-        : `Last event ${logs[0]!.destroyedAt.toISOString().slice(0, 10)} — over a year ago`;
+        : `Last event ${formatPracticeDate(logs[0]!.destroyedAt, tz)} — over a year ago`;
   const cadenceTone =
     logs.length === 0
       ? "var(--gw-color-setup)"
@@ -144,7 +146,7 @@ export default async function DocumentRetentionPage() {
                         href={`/programs/document-retention/${l.id}` as Route}
                         className="text-sm font-medium text-foreground hover:underline"
                       >
-                        {l.destroyedAt.toISOString().slice(0, 10)} ·{" "}
+                        {formatPracticeDate(l.destroyedAt, tz)} ·{" "}
                         {DOC_TYPE_LABELS[l.documentType] ?? l.documentType}
                       </Link>
                       <Badge variant="secondary" className="text-[10px]">

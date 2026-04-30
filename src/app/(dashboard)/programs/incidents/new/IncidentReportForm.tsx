@@ -7,6 +7,8 @@ import type { Route } from "next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { reportIncidentAction } from "../actions";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 type IncidentType =
   | "PRIVACY"
@@ -26,6 +28,7 @@ export function IncidentReportForm({
   primaryState: string;
   operatingStates: string[];
 }) {
+  const tz = usePracticeTimezone();
   const [type, setType] = useState<IncidentType>("PRIVACY");
   const [severity, setSeverity] = useState<Severity>("MEDIUM");
   const [title, setTitle] = useState("");
@@ -33,7 +36,7 @@ export function IncidentReportForm({
   const [phiInvolved, setPhiInvolved] = useState(false);
   const [affectedCountStr, setAffectedCountStr] = useState("");
   const [discoveredAt, setDiscoveredAt] = useState(
-    new Date().toISOString().slice(0, 10),
+    () => formatPracticeDate(new Date(), tz),
   );
   const jurisdictions = Array.from(
     new Set([primaryState, ...operatingStates]),

@@ -15,12 +15,14 @@ import { scoreToColorToken } from "@/lib/utils";
 
 export interface CyberReadinessPanelProps {
   practiceId: string;
+  practiceTimezone?: string;
 }
 
 export async function CyberReadinessPanel({
   practiceId,
+  practiceTimezone = "UTC",
 }: CyberReadinessPanelProps) {
-  const snapshot = await computeCyberReadiness(db, practiceId);
+  const snapshot = await computeCyberReadiness(db, practiceId, practiceTimezone);
   const scoreColor = scoreToColorToken(snapshot.total);
 
   return (

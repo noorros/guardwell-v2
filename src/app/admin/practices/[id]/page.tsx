@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PracticeOverrides } from "./PracticeOverrides";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export const dynamic = "force-dynamic";
 
@@ -122,7 +123,7 @@ export default async function AdminPracticeDetailPage({ params }: PageProps) {
             {practice.primaryState}
           </Badge>
           <span className="text-muted-foreground">
-            Created {practice.createdAt.toISOString().slice(0, 10)}
+            Created {formatPracticeDate(practice.createdAt, practice.timezone ?? "UTC")}
           </span>
         </div>
       </header>

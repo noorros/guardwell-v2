@@ -11,6 +11,8 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export function CliaExtras() {
   return (
@@ -74,6 +76,7 @@ function WaivedTestQuickRef() {
 }
 
 function QcLogBuilder() {
+  const tz = usePracticeTimezone();
   const [analyte, setAnalyte] = useState("");
   const [lot, setLot] = useState("");
   const [exp, setExp] = useState("");
@@ -81,7 +84,7 @@ function QcLogBuilder() {
   const [level2, setLevel2] = useState("");
   const [tech, setTech] = useState("");
   const [pass, setPass] = useState<"yes" | "no" | "">("");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = formatPracticeDate(new Date(), tz);
   const ready = analyte && lot && tech && pass;
   const line = ready
     ? `${today} · ${analyte} · Lot ${lot}${exp ? ` (exp ${exp})` : ""} · L1 ${level1 || "—"} · L2 ${level2 || "—"} · Tech ${tech} · ${pass === "yes" ? "Within range" : "OUT OF RANGE — corrective action recorded"}`

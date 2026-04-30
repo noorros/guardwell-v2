@@ -14,6 +14,7 @@ import { SpecialtyCombobox } from "@/components/gw/SpecialtyCombobox";
 import { StateMultiSelect } from "@/components/gw/StateMultiSelect";
 import { EhrCombobox } from "@/components/gw/EhrCombobox";
 import type { PracticeProfileInput, PracticeProfileFormProps } from "./types";
+import { SUPPORTED_TIMEZONES, defaultTimezoneForState } from "@/lib/timezone/stateDefaults";
 
 const inputClass =
   "mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm";
@@ -38,7 +39,16 @@ export function PracticeProfileForm({
     key: K,
     value: PracticeProfileInput[K],
   ) {
-    setState((prev) => ({ ...prev, [key]: value }));
+    setState((prev) => {
+      const next = { ...prev, [key]: value } as PracticeProfileInput;
+      if (key === "primaryState" && typeof value === "string") {
+        const priorDefault = defaultTimezoneForState(prev.primaryState);
+        if (prev.timezone === null || prev.timezone === priorDefault) {
+          next.timezone = defaultTimezoneForState(value);
+        }
+      }
+      return next;
+    });
     setFieldErrors((prev) => ({ ...prev, [key]: undefined }));
     if (key === "specialty" && onSpecialtyChange) {
       onSpecialtyChange((value ?? null) as string | null);
@@ -177,6 +187,26 @@ export function PracticeProfileForm({
             onChange={(next) => update("operatingStates", next)}
             className="mt-1"
           />
+        </div>
+        <div>
+          <label htmlFor="timezone" className={labelClass}>
+            Display timezone
+          </label>
+          <select
+            id="timezone"
+            value={state.timezone ?? defaultTimezoneForState(state.primaryState)}
+            onChange={(e) => update("timezone", e.target.value)}
+            className={inputClass}
+          >
+            {SUPPORTED_TIMEZONES.map((tz) => (
+              <option key={tz} value={tz}>
+                {tz}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Used for dates on PDFs, notification emails, and badges. Defaults from your primary state — change if your office is in a different zone.
+          </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>

@@ -6,15 +6,18 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { logPhishingDrillAction } from "./actions";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export function PhishingDrillForm() {
   const router = useRouter();
+  const tz = usePracticeTimezone();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
   const [conductedAt, setConductedAt] = useState(
-    new Date().toISOString().slice(0, 10),
+    () => formatPracticeDate(new Date(), tz),
   );
   const [vendor, setVendor] = useState("");
   const [totalRecipients, setTotalRecipients] = useState("");

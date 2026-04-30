@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { appendEventAndApply } from "@/lib/events";
+import { defaultTimezoneForState } from "@/lib/timezone/stateDefaults";
 
 const Schema = z.object({
   name: z.string().min(1).max(200),
@@ -19,7 +20,11 @@ export async function createPracticeAction(formData: FormData) {
   });
 
   const practice = await db.practice.create({
-    data: { name: parsed.name, primaryState: parsed.primaryState },
+    data: {
+      name: parsed.name,
+      primaryState: parsed.primaryState,
+      timezone: defaultTimezoneForState(parsed.primaryState),
+    },
   });
 
   await appendEventAndApply(

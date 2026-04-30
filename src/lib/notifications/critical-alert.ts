@@ -12,6 +12,13 @@
 // the email is best-effort. Failure to email never throws — the row
 // still shows in the inbox.
 
+// Timezone sweep (audit #10, 2026-04-29): this file was evaluated for
+// date-render call sites and found clean. The CRITICAL alert body
+// embeds numeric counts (daysSinceDiscovery, daysLeft) rather than
+// formatted dates, so no formatPracticeDate threading is needed here.
+// If a future change adds a Date render to the alert body, accept
+// practiceTimezone: string and call formatPracticeDate(d, tz).
+
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email/send";
 import { renderEmailHtml } from "@/lib/email/template";

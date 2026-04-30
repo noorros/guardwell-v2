@@ -165,6 +165,7 @@ export async function GET() {
       primaryState: pu.practice.primaryState,
       operatingStates: pu.practice.operatingStates,
     },
+    practiceTimezone: pu.practice.timezone ?? "UTC",
     generatedAt: new Date(),
     generatedByEmail: user.email,
     overallScore,

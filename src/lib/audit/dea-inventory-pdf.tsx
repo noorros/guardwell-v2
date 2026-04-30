@@ -13,6 +13,7 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import { formatPracticeDate, formatPracticeDateTime } from "@/lib/audit/format";
 
 const s = StyleSheet.create({
   page: {
@@ -122,6 +123,7 @@ export interface DeaInventoryItemRow {
 export interface DeaInventoryInput {
   practiceName: string;
   practiceState: string;
+  practiceTimezone: string;
   generatedAt: Date;
   inventory: {
     asOfDate: Date;
@@ -130,14 +132,6 @@ export interface DeaInventoryInput {
     notes: string | null;
     items: DeaInventoryItemRow[];
   };
-}
-
-function formatDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-function formatDateTime(d: Date): string {
-  return d.toISOString().replace("T", " ").slice(0, 16) + " UTC";
 }
 
 function dash(value: string | null | undefined): string {
@@ -152,7 +146,7 @@ export function DeaInventoryDocument({
   const { inventory } = input;
   return (
     <Document
-      title={`DEA Controlled Substance Inventory — ${formatDate(inventory.asOfDate)}`}
+      title={`DEA Controlled Substance Inventory — ${formatPracticeDate(inventory.asOfDate, input.practiceTimezone)}`}
       author="GuardWell"
       subject="DEA Controlled Substance Inventory (21 CFR §1304.11)"
     >
@@ -170,7 +164,7 @@ export function DeaInventoryDocument({
         <Text style={s.sectionTitle}>Inventory Information</Text>
         <View style={s.metaRow}>
           <Text style={s.metaLabel}>As-of date</Text>
-          <Text style={s.metaValue}>{formatDate(inventory.asOfDate)}</Text>
+          <Text style={s.metaValue}>{formatPracticeDate(inventory.asOfDate, input.practiceTimezone)}</Text>
         </View>
         <View style={s.metaRow}>
           <Text style={s.metaLabel}>Conducted by</Text>
@@ -229,7 +223,7 @@ export function DeaInventoryDocument({
 
         {/* 6. Footer */}
         <Text style={s.footer} fixed>
-          Generated {formatDateTime(input.generatedAt)} · GuardWell · Confidential
+          Generated {formatPracticeDateTime(input.generatedAt, input.practiceTimezone)} · GuardWell · Confidential
         </Text>
       </Page>
     </Document>

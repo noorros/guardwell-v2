@@ -15,6 +15,8 @@ import { useState, useSyncExternalStore } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export function DeaExtras() {
   return (
@@ -26,6 +28,7 @@ export function DeaExtras() {
 }
 
 function PerpetualInventoryWorksheet() {
+  const tz = usePracticeTimezone();
   const [drug, setDrug] = useState("");
   const [opening, setOpening] = useState("");
   const [received, setReceived] = useState("");
@@ -37,7 +40,7 @@ function PerpetualInventoryWorksheet() {
   const ds = Number.parseInt(destroyed, 10) || 0;
   const closing = o + r - d - ds;
   const hasInput = drug || opening || received || dispensed || destroyed;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = formatPracticeDate(new Date(), tz);
 
   return (
     <Card>
@@ -138,6 +141,7 @@ function getServerNowMs() {
 }
 
 function BiennialInventoryReminder() {
+  const tz = usePracticeTimezone();
   const stored = useSyncExternalStore(
     subscribeStorage,
     getStoredDate,
@@ -203,7 +207,7 @@ function BiennialInventoryReminder() {
             }}
           >
             <p className="font-medium">
-              Next biennial inventory due {next.toISOString().slice(0, 10)}
+              Next biennial inventory due {formatPracticeDate(next, tz)}
             </p>
             <p className="text-muted-foreground">
               {overdue
