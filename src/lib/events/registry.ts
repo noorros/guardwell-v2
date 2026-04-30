@@ -651,7 +651,7 @@ export const EVENT_SCHEMAS = {
   AUDIT_PREP_SESSION_OPENED: {
     1: z.object({
       auditPrepSessionId: z.string().min(1),
-      mode: z.enum(["HHS_OCR_HIPAA", "OSHA", "CMS", "DEA"]),
+      mode: z.enum(["HHS_OCR_HIPAA", "OSHA", "CMS", "DEA", "ALLERGY"]),
       protocolCount: z.number().int().min(1),
       startedByUserId: z.string().min(1),
     }),

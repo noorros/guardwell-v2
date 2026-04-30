@@ -12,9 +12,9 @@ export function StartSessionForm() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<"HHS_OCR_HIPAA" | "OSHA" | "CMS" | "DEA">(
-    "HHS_OCR_HIPAA",
-  );
+  const [mode, setMode] = useState<
+    "HHS_OCR_HIPAA" | "OSHA" | "CMS" | "DEA" | "ALLERGY"
+  >("HHS_OCR_HIPAA");
 
   const handleStart = () => {
     setError(null);
@@ -35,8 +35,8 @@ export function StartSessionForm() {
       <CardContent className="space-y-3 p-5">
         <h2 className="text-sm font-semibold">Start a new session</h2>
         <p className="text-xs text-muted-foreground">
-          Pick the audit type. HHS OCR HIPAA, OSHA, CMS, and DEA modes
-          are all live.
+          Pick the audit type. HHS OCR HIPAA, OSHA, CMS, DEA, and state
+          pharmacy board (allergen extract compounding) modes are all live.
         </p>
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex-1 space-y-1 text-xs font-medium text-foreground">
@@ -45,7 +45,12 @@ export function StartSessionForm() {
               value={mode}
               onChange={(e) =>
                 setMode(
-                  e.target.value as "HHS_OCR_HIPAA" | "OSHA" | "CMS" | "DEA",
+                  e.target.value as
+                    | "HHS_OCR_HIPAA"
+                    | "OSHA"
+                    | "CMS"
+                    | "DEA"
+                    | "ALLERGY",
                 )
               }
               className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
@@ -54,6 +59,7 @@ export function StartSessionForm() {
               <option value="OSHA">OSHA inspection</option>
               <option value="CMS">CMS / Medicare audit</option>
               <option value="DEA">DEA inspection</option>
+              <option value="ALLERGY">State pharmacy board (allergy / USP §21)</option>
             </select>
           </label>
           <Button onClick={handleStart} size="sm" disabled={isPending}>

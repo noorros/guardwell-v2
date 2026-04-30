@@ -1394,6 +1394,9 @@ enum AuditPrepMode {
   OSHA
   CMS
   DEA
+  // State pharmacy board allergen-extract compounding inspections
+  // (USP 797 §21). Added 2026-04-30 — closes audit #21 IM-3.
+  ALLERGY
 }
 
 enum AuditPrepStatus {
