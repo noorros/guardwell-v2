@@ -253,3 +253,73 @@ export async function revokeTrainingAssignmentAction(
   revalidatePath("/programs/training/assignments");
   return { assignmentId: parsed.assignmentId };
 }
+
+const ExcludeInput = z.object({
+  assignmentId: z.string().min(1),
+  userId: z.string().min(1),
+  reason: z.string().min(1).max(500),
+});
+
+/**
+ * ADMIN-gated. Excludes a specific user from a role/category-wide
+ * assignment. Cross-tenant guards on BOTH:
+ *   1. assignmentId — must belong to the caller's practice.
+ *   2. userId — must be an active PracticeUser of the caller's practice.
+ * Both checks happen at the action layer; the projection ALSO checks
+ * the assignment's practiceId (defense in depth).
+ */
+export async function excludeFromAssignmentAction(
+  input: z.infer<typeof ExcludeInput>,
+) {
+  const pu = await requireRole("ADMIN");
+  const parsed = ExcludeInput.parse(input);
+
+  const assignment = await db.trainingAssignment.findUnique({
+    where: { id: parsed.assignmentId },
+    select: { practiceId: true },
+  });
+  if (!assignment) throw new Error("Assignment not found");
+  if (assignment.practiceId !== pu.practiceId) {
+    throw new Error("Unauthorized: assignment is not in your practice");
+  }
+
+  const member = await db.practiceUser.findFirst({
+    where: {
+      userId: parsed.userId,
+      practiceId: pu.practiceId,
+      removedAt: null,
+    },
+  });
+  if (!member) {
+    throw new Error(
+      "Unauthorized: target user is not an active member of your practice",
+    );
+  }
+
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: pu.dbUser.id,
+      type: "STAFF_EXCLUDED_FROM_ASSIGNMENT",
+      payload: {
+        assignmentId: parsed.assignmentId,
+        userId: parsed.userId,
+        reason: parsed.reason,
+      },
+    },
+    async (tx) =>
+      projectStaffExcludedFromAssignment(tx, {
+        practiceId: pu.practiceId,
+        actorUserId: pu.dbUser.id,
+        payload: {
+          assignmentId: parsed.assignmentId,
+          userId: parsed.userId,
+          reason: parsed.reason,
+        },
+      }),
+  );
+
+  revalidatePath("/programs/training");
+  revalidatePath("/programs/training/assignments");
+  return { assignmentId: parsed.assignmentId, userId: parsed.userId };
+}

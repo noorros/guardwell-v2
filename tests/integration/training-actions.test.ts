@@ -272,3 +272,168 @@ describe("revokeTrainingAssignmentAction (Phase 4 PR 2)", () => {
     expect(callerUser.id).not.toBe(otherUser.id);
   });
 });
+
+describe("excludeFromAssignmentAction (Phase 4 PR 2)", () => {
+  it("rejects STAFF callers (requires ADMIN)", async () => {
+    const { practice, user } = await seed("STAFF");
+    const course = await seedCourse();
+    const assignmentId = randomUUID();
+    await db.trainingAssignment.create({
+      data: {
+        id: assignmentId,
+        practiceId: practice.id,
+        courseId: course.id,
+        assignedToRole: "STAFF",
+        requiredFlag: true,
+        createdByUserId: user.id,
+      },
+    });
+    // Target = a different staff member in the same practice
+    const targetUser = await db.user.create({
+      data: {
+        firebaseUid: `ta-ex-${Math.random().toString(36).slice(2, 10)}`,
+        email: `ta-ex-${Math.random().toString(36).slice(2, 8)}@test.test`,
+      },
+    });
+    await db.practiceUser.create({
+      data: { userId: targetUser.id, practiceId: practice.id, role: "STAFF" },
+    });
+    const { excludeFromAssignmentAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+    await expect(
+      excludeFromAssignmentAction({
+        assignmentId,
+        userId: targetUser.id,
+        reason: "On medical leave",
+      }),
+    ).rejects.toThrow(/admin|owner|requires/i);
+  });
+
+  it("excludes a user as ADMIN (creates AssignmentExclusion)", async () => {
+    const { practice, user } = await seed("ADMIN");
+    const course = await seedCourse();
+    const assignmentId = randomUUID();
+    await db.trainingAssignment.create({
+      data: {
+        id: assignmentId,
+        practiceId: practice.id,
+        courseId: course.id,
+        assignedToRole: "STAFF",
+        requiredFlag: true,
+        createdByUserId: user.id,
+      },
+    });
+    const targetUser = await db.user.create({
+      data: {
+        firebaseUid: `ta-ex-${Math.random().toString(36).slice(2, 10)}`,
+        email: `ta-ex-${Math.random().toString(36).slice(2, 8)}@test.test`,
+      },
+    });
+    await db.practiceUser.create({
+      data: { userId: targetUser.id, practiceId: practice.id, role: "STAFF" },
+    });
+    const { excludeFromAssignmentAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+    await excludeFromAssignmentAction({
+      assignmentId,
+      userId: targetUser.id,
+      reason: "On medical leave",
+    });
+    const row = await db.assignmentExclusion.findUniqueOrThrow({
+      where: {
+        assignmentId_userId: { assignmentId, userId: targetUser.id },
+      },
+    });
+    expect(row.reason).toBe("On medical leave");
+    expect(row.excludedByUserId).toBe(user.id);
+  });
+
+  it("rejects when target user belongs to a different practice (cross-tenant guard)", async () => {
+    const { practice, user } = await seed("ADMIN");
+    const course = await seedCourse();
+    const assignmentId = randomUUID();
+    await db.trainingAssignment.create({
+      data: {
+        id: assignmentId,
+        practiceId: practice.id,
+        courseId: course.id,
+        assignedToRole: "STAFF",
+        requiredFlag: true,
+        createdByUserId: user.id,
+      },
+    });
+    const otherUser = await db.user.create({
+      data: {
+        firebaseUid: `ta-ex-other-${Math.random().toString(36).slice(2, 10)}`,
+        email: `ta-ex-other-${Math.random().toString(36).slice(2, 8)}@test.test`,
+      },
+    });
+    const otherPractice = await db.practice.create({
+      data: { name: "Other Practice", primaryState: "TX" },
+    });
+    await db.practiceUser.create({
+      data: { userId: otherUser.id, practiceId: otherPractice.id, role: "STAFF" },
+    });
+    const { excludeFromAssignmentAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+    await expect(
+      excludeFromAssignmentAction({
+        assignmentId,
+        userId: otherUser.id,
+        reason: "Forged target",
+      }),
+    ).rejects.toThrow(/active member|not.*practice|unauthorized/i);
+  });
+
+  it("rejects when assignment belongs to a different practice (cross-tenant guard)", async () => {
+    const { practice } = await seed("ADMIN");
+    const otherUser = await db.user.create({
+      data: {
+        firebaseUid: `ta-ex-fa-${Math.random().toString(36).slice(2, 10)}`,
+        email: `ta-ex-fa-${Math.random().toString(36).slice(2, 8)}@test.test`,
+      },
+    });
+    const otherPractice = await db.practice.create({
+      data: { name: "Foreign Practice", primaryState: "TX" },
+    });
+    await db.practiceUser.create({
+      data: { userId: otherUser.id, practiceId: otherPractice.id, role: "OWNER" },
+    });
+    const course = await seedCourse();
+    const assignmentId = randomUUID();
+    // Assignment owned by the OTHER practice.
+    await db.trainingAssignment.create({
+      data: {
+        id: assignmentId,
+        practiceId: otherPractice.id,
+        courseId: course.id,
+        assignedToRole: "STAFF",
+        requiredFlag: true,
+        createdByUserId: otherUser.id,
+      },
+    });
+    // Target user in caller's practice (so the user-side guard would pass).
+    const targetUser = await db.user.create({
+      data: {
+        firebaseUid: `ta-ex-tu-${Math.random().toString(36).slice(2, 10)}`,
+        email: `ta-ex-tu-${Math.random().toString(36).slice(2, 8)}@test.test`,
+      },
+    });
+    await db.practiceUser.create({
+      data: { userId: targetUser.id, practiceId: practice.id, role: "STAFF" },
+    });
+    const { excludeFromAssignmentAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+    await expect(
+      excludeFromAssignmentAction({
+        assignmentId,
+        userId: targetUser.id,
+        reason: "Forged assignment",
+      }),
+    ).rejects.toThrow(/different practice|not in your practice|unauthorized/i);
+  });
+});
