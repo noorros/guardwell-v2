@@ -93,4 +93,22 @@ describe("formatEventForActivityLog", () => {
     expect(reported.verb).toBe("Reported");
     expect(reported.summary).toContain("Stolen laptop");
   });
+
+  // Audit CR-3: license-number redaction in CREDENTIAL_UPSERTED detail
+  it("redacts CREDENTIAL_UPSERTED licenseNumber for STAFF/VIEWER viewers", () => {
+    const evt = {
+      type: "CREDENTIAL_UPSERTED",
+      payload: { credentialTypeCode: "DEA_NUMBER", licenseNumber: "BR1234567" },
+    };
+    expect(
+      formatEventForActivityLog(evt, "STAFF").detail,
+    ).not.toContain("BR1234567");
+    expect(
+      formatEventForActivityLog(evt, "VIEWER").detail,
+    ).not.toContain("BR1234567");
+    expect(formatEventForActivityLog(evt, "OWNER").detail).toBe("#BR1234567");
+    expect(formatEventForActivityLog(evt, "ADMIN").detail).toBe("#BR1234567");
+    // Default — no role passed — is treated as restricted (safe default).
+    expect(formatEventForActivityLog(evt).detail).not.toContain("BR1234567");
+  });
 });

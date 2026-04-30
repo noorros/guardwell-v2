@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
-import { getPracticeUser } from "@/lib/rbac";
+import { requireRole } from "@/lib/rbac";
 import { appendEventAndApply } from "@/lib/events";
 import { projectSraCompleted } from "@/lib/events/projections/sraCompleted";
 import { projectSraDraftSaved } from "@/lib/events/projections/sraDraftSaved";
@@ -56,8 +56,11 @@ export async function completeSraAction(
   input: z.infer<typeof CompleteInput>,
 ): Promise<SraSubmitResult> {
   const user = await requireUser();
-  const pu = await getPracticeUser();
-  if (!pu) throw new Error("Unauthorized");
+  // Audit HIPAA C-2: HIPAA §164.308(a)(1)(ii)(A) requires a "thorough,
+  // accurate" risk analysis. STAFF/VIEWER must not be able to flip
+  // HIPAA_SRA to COMPLIANT — only the OWNER or designated security
+  // officer (ADMIN) can complete the SRA on the practice's behalf.
+  const pu = await requireRole("ADMIN");
   const parsed = CompleteInput.parse(input);
 
   await validateQuestionCodes(parsed.answers.map((a) => a.questionCode));
@@ -104,8 +107,11 @@ export async function saveSraDraftAction(
   input: z.infer<typeof DraftInput>,
 ): Promise<SraDraftSaveResult> {
   const user = await requireUser();
-  const pu = await getPracticeUser();
-  if (!pu) throw new Error("Unauthorized");
+  // Audit HIPAA C-2: same gate as completeSraAction — drafts must be
+  // authored by an OWNER/ADMIN since the wizard promotes a draft into
+  // a completed SRA without re-auth and a STAFF-authored draft would
+  // bypass the role check.
+  const pu = await requireRole("ADMIN");
   const parsed = DraftInput.parse(input);
 
   await validateQuestionCodes(parsed.answers.map((a) => a.questionCode));

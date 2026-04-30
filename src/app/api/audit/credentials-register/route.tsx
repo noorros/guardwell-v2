@@ -25,6 +25,14 @@ export async function GET() {
   if (!pu) {
     return NextResponse.json({ error: "No practice" }, { status: 401 });
   }
+  // Audit CR-2: the credentials register PDF is the sibling of the CSV
+  // export (gated in audit #3 / PR #201). It bundles every active
+  // credential's license number, holder, issuing body, and expiry —
+  // STAFF/VIEWER are read-only program participants and should not
+  // exfiltrate the full credentials register, in any format.
+  if (pu.role !== "OWNER" && pu.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const credentials = await db.credential.findMany({
     where: { practiceId: pu.practiceId, retiredAt: null },

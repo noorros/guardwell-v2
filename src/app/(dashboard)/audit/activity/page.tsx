@@ -277,10 +277,13 @@ export default async function ActivityLogPage({
           ) : (
             <ul className="divide-y">
               {events.map((evt) => {
-                const fmt = formatEventForActivityLog({
-                  type: evt.type,
-                  payload: evt.payload,
-                });
+                const fmt = formatEventForActivityLog(
+                  {
+                    type: evt.type,
+                    payload: evt.payload,
+                  },
+                  pu.role,
+                );
                 const actor =
                   evt.actor?.email ??
                   (evt.actorUserId === null ? "System" : "—");

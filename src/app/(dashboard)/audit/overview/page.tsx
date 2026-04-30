@@ -718,10 +718,13 @@ export default async function AuditOverviewPage() {
             ) : (
               <ul className="divide-y">
                 {recentEvents.map((evt) => {
-                  const fmt = formatEventForActivityLog({
-                    type: evt.type,
-                    payload: evt.payload,
-                  });
+                  const fmt = formatEventForActivityLog(
+                    {
+                      type: evt.type,
+                      payload: evt.payload,
+                    },
+                    pu.role,
+                  );
                   return (
                     <li key={evt.id} className="space-y-1 p-3">
                       <div className="flex items-center justify-between gap-2">

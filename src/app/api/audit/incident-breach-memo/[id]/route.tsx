@@ -30,6 +30,14 @@ export async function GET(
   if (!pu) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+  // Audit HIPAA C-3: the breach-memo PDF is the §164.402 four-factor
+  // determination artifact — narrative description of the incident,
+  // affected-PHI count, attestation chain. STAFF/VIEWER are read-only
+  // program participants and should not be able to download the
+  // memorialized determination memo.
+  if (pu.role !== "OWNER" && pu.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const { id } = await params;
   const incident = await db.incident.findUnique({

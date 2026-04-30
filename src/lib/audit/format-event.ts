@@ -6,12 +6,19 @@
 // activity log. Pure — no DB calls.
 //
 // Usage:
-//   const { verb, summary, detail } = formatEventForActivityLog(evt);
+//   const { verb, summary, detail } = formatEventForActivityLog(evt, viewerRole);
 //   // verb:    "Adopted"              — short action label (for a badge)
 //   // summary: "HIPAA Privacy Policy" — target of the action
 //   // detail:  "version 1"            — optional supporting line
+//
+// `viewerRole` is the role of the user looking at the activity log —
+// passed in so the formatter can redact PII (e.g. credential license
+// numbers in CREDENTIAL_UPSERTED detail) for STAFF/VIEWER while still
+// showing them the audit-trail entries themselves. OWNER/ADMIN see the
+// full detail. Audit CR-3 (2026-04-30).
 
 import type { EventType } from "@/lib/events/registry";
+import type { PracticeRole } from "@prisma/client";
 
 export interface ActivityEntry {
   /** Icon hint ("policy" | "training" | "incident" | ...) for UI rendering. */
@@ -51,12 +58,22 @@ function bool(v: unknown): boolean | null {
   return typeof v === "boolean" ? v : null;
 }
 
-export function formatEventForActivityLog(evt: {
-  type: string;
-  payload: unknown;
-}): ActivityEntry {
+export function formatEventForActivityLog(
+  evt: {
+    type: string;
+    payload: unknown;
+  },
+  viewerRole?: PracticeRole | null,
+): ActivityEntry {
   const type = evt.type as EventType;
   const p = (evt.payload ?? {}) as AnyPayload;
+  // Audit CR-3: STAFF/VIEWER must not see PII in the activity-log
+  // detail (e.g. license numbers exposed via CREDENTIAL_UPSERTED). The
+  // entry itself stays visible so they retain audit-trail visibility,
+  // but the sensitive fields are redacted unless the viewer is at
+  // least ADMIN. `viewerRole` undefined or null is treated as STAFF
+  // for safety (formatter is also used by the SDK / tests).
+  const canSeeFullDetail = viewerRole === "OWNER" || viewerRole === "ADMIN";
 
   switch (type) {
     case "PRACTICE_CREATED":
@@ -166,7 +183,15 @@ export function formatEventForActivityLog(evt: {
         icon: "credential",
         verb: "Saved",
         summary: str(p.credentialTypeCode, "credential"),
-        detail: p.licenseNumber ? `#${String(p.licenseNumber)}` : null,
+        // Audit CR-3: only OWNER/ADMIN see license numbers in the
+        // activity log. STAFF/VIEWER still see the entry, just
+        // without the PII; "details hidden" makes the redaction
+        // visible to the inspector rather than silently swallowed.
+        detail: p.licenseNumber
+          ? canSeeFullDetail
+            ? `#${String(p.licenseNumber)}`
+            : "details hidden"
+          : null,
       };
 
     case "CREDENTIAL_REMOVED":
