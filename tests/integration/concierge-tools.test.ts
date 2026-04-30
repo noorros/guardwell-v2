@@ -241,7 +241,14 @@ describe("Concierge tool registry", () => {
       input: {},
     });
     expect(error).toBeNull();
-    const result = output as { credentials: Array<{ title: string; status: string }> };
+    const result = output as {
+      credentials: Array<{
+        title: string;
+        status: string;
+        credentialTypeCode: string;
+        regulation: { code: string; display: string; title: string } | null;
+      }>;
+    };
     const byTitle = new Map(result.credentials.map((c) => [c.title, c.status]));
     expect(byTitle.get("Active license")).toBe("ACTIVE");
     expect(byTitle.get("Expiring soon license")).toBe("EXPIRING_SOON");
@@ -254,6 +261,88 @@ describe("Concierge tool registry", () => {
       "ACTIVE",
       "NO_EXPIRY",
     ]);
+    // Audit #21 IM-8 (PR-C6): every MD_STATE_LICENSE row should carry
+    // a state-board citation so the Concierge LLM has a regulation to
+    // anchor on when the user asks "why does this need to be on file".
+    for (const cred of result.credentials) {
+      expect(cred.credentialTypeCode).toBe("MD_STATE_LICENSE");
+      expect(cred.regulation).not.toBeNull();
+      expect(cred.regulation?.code).toBe("State medical practice act");
+    }
+  });
+
+  // Audit #21 IM-8 (PR-C6): DEA + CMS credential rows should carry the
+  // appropriate federal citation so the Concierge can anchor its
+  // explanation on the right regulation, not just the credential type
+  // code.
+  it("list_credentials surfaces 21 CFR §1301.13 for DEA + 42 CFR §424.515 for Medicare PECOS", async () => {
+    const { practice } = await seedPractice();
+    const dea = await db.credentialType.findUniqueOrThrow({
+      where: { code: "DEA_CONTROLLED_SUBSTANCE_REGISTRATION" },
+    });
+    const pecos = await db.credentialType.findUniqueOrThrow({
+      where: { code: "MEDICARE_PECOS_ENROLLMENT" },
+    });
+    const insurance = await db.credentialType.findUniqueOrThrow({
+      where: { code: "PROFESSIONAL_LIABILITY_INSURANCE" },
+    });
+    const now = new Date();
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    await db.credential.create({
+      data: {
+        practiceId: practice.id,
+        credentialTypeId: dea.id,
+        title: "DEA registration",
+        expiryDate: new Date(now.getTime() + 200 * DAY_MS),
+      },
+    });
+    await db.credential.create({
+      data: {
+        practiceId: practice.id,
+        credentialTypeId: pecos.id,
+        title: "PECOS enrollment",
+        expiryDate: new Date(now.getTime() + 200 * DAY_MS),
+      },
+    });
+    await db.credential.create({
+      data: {
+        practiceId: practice.id,
+        credentialTypeId: insurance.id,
+        title: "Liability policy",
+        expiryDate: new Date(now.getTime() + 200 * DAY_MS),
+      },
+    });
+
+    const { output, error } = await invokeTool({
+      toolName: "list_credentials",
+      practiceId: practice.id,
+      practiceTimezone: "UTC",
+      input: {},
+    });
+    expect(error).toBeNull();
+    const result = output as {
+      credentials: Array<{
+        title: string;
+        credentialTypeCode: string;
+        regulation: { code: string; display: string } | null;
+      }>;
+    };
+    const byTitle = new Map(result.credentials.map((c) => [c.title, c]));
+    expect(byTitle.get("DEA registration")?.regulation?.code).toBe(
+      "21 CFR §1301.13",
+    );
+    expect(byTitle.get("DEA registration")?.regulation?.display).toBe(
+      "DEA 21 CFR §1301.13",
+    );
+    expect(byTitle.get("PECOS enrollment")?.regulation?.code).toBe(
+      "42 CFR §424.515",
+    );
+    expect(byTitle.get("PECOS enrollment")?.regulation?.display).toBe(
+      "CMS 42 CFR §424.515",
+    );
+    // Insurance has no specific federal citation — `regulation` should
+    // be explicit-null so the Concierge prompt doesn't hallucinate one.
+    expect(byTitle.get("Liability policy")?.regulation).toBeNull();
   });
 
   it("getAnthropicToolDefinitions returns one entry per registered tool", async () => {
