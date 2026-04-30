@@ -134,10 +134,14 @@ export async function completeSignUpAction(
           userId: user.id,
           practiceId: practice.id,
           role: "OWNER",
-          // Default the OWNER as Privacy + Compliance Officer. They can
-          // delegate later. Mirrors v1's onboarding behavior. The first-
-          // run wizard (Phase D) confirms or reassigns.
+          // Default the OWNER as Privacy + Security + Compliance Officer.
+          // Mirrors v1's onboarding behavior; the first-run wizard
+          // (Phase D) confirms or reassigns. Audit #18 (HIPAA B-2):
+          // isSecurityOfficer added so HIPAA §164.308(a)(2)(ii) is
+          // satisfied at practice creation rather than appearing as a
+          // GAP until the owner finds the toggle.
           isPrivacyOfficer: true,
+          isSecurityOfficer: true,
           isComplianceOfficer: true,
         },
       });
