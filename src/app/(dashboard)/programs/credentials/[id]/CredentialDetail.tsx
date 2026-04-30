@@ -67,7 +67,12 @@ export interface CredentialDetailProps {
     enabled: boolean;
     milestoneDays: number[];
   } | null;
-  initialEvidence: EvidenceItem[];
+  /**
+   * `null` means evidence is restricted for this viewer (STAFF/VIEWER —
+   * audit #21 MN-6). Renders a "Restricted" placeholder instead of the
+   * upload + download list.
+   */
+  initialEvidence: EvidenceItem[] | null;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -152,31 +157,47 @@ export function CredentialDetail({
       </Card>
 
       {/* ── Evidence ─────────────────────────────────────────────────── */}
+      {/* STAFF/VIEWER receive `initialEvidence === null` from the page —
+          render a "Restricted" placeholder instead of the upload + list.
+          See src/app/(dashboard)/programs/credentials/[id]/page.tsx for
+          the gate (audit #21 MN-6). */}
       <Card>
         <CardContent className="space-y-3 p-6">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold">Evidence</h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                Upload a scan of the license, board certification, or any
-                supporting documentation.
-                {credentialType.requiresEvidenceByDefault && (
-                  <>
-                    {" "}
-                    <span className="font-medium text-foreground">
-                      This credential type expects evidence.
-                    </span>
-                  </>
-                )}
+                {initialEvidence === null
+                  ? "Evidence files attached to this credential are restricted to administrators."
+                  : "Upload a scan of the license, board certification, or any supporting documentation."}
+                {initialEvidence !== null &&
+                  credentialType.requiresEvidenceByDefault && (
+                    <>
+                      {" "}
+                      <span className="font-medium text-foreground">
+                        This credential type expects evidence.
+                      </span>
+                    </>
+                  )}
               </p>
             </div>
           </div>
-          <EvidenceUpload
-            entityType="CREDENTIAL"
-            entityId={credentialId}
-            initialEvidence={initialEvidence}
-            canManage={canManage}
-          />
+          {initialEvidence !== null ? (
+            <EvidenceUpload
+              entityType="CREDENTIAL"
+              entityId={credentialId}
+              initialEvidence={initialEvidence}
+              canManage={canManage}
+            />
+          ) : (
+            <p
+              className="rounded-md border border-dashed bg-muted/30 px-3 py-4 text-center text-xs text-muted-foreground"
+              data-testid="evidence-restricted"
+            >
+              Restricted — only practice administrators can view evidence files
+              attached to credentials.
+            </p>
+          )}
         </CardContent>
       </Card>
 

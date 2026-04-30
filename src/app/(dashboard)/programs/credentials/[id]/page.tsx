@@ -33,7 +33,14 @@ export default async function CredentialDetailPage({ params }: PageProps) {
 
   if (!credential || credential.practiceId !== pu.practiceId) notFound();
 
-  // Fetch CEU activities (most recent 50, non-retired) + reminder config + evidence
+  const canManage = pu.role === "OWNER" || pu.role === "ADMIN";
+
+  // Fetch CEU activities (most recent 50, non-retired) + reminder config.
+  // Evidence list is OWNER/ADMIN-only (audit #21 MN-6) — STAFF/VIEWER could
+  // otherwise enumerate credential ids from the activity log and view/download
+  // HR-sensitive evidence (DEA cert PDFs, malpractice insurance certs,
+  // license cards). Defense-in-depth pairs with the role gate on
+  // /api/evidence/[id]/download for entityType=CREDENTIAL.
   const [ceuActivities, reminderConfig, evidence] = await Promise.all([
     db.ceuActivity.findMany({
       where: { credentialId: id, retiredAt: null },
@@ -54,18 +61,18 @@ export default async function CredentialDetailPage({ params }: PageProps) {
     db.credentialReminderConfig.findUnique({
       where: { credentialId: id },
     }),
-    db.evidence.findMany({
-      where: {
-        practiceId: pu.practiceId,
-        entityType: "CREDENTIAL",
-        entityId: id,
-        deletedAt: null,
-      },
-      orderBy: { uploadedAt: "desc" },
-    }),
+    canManage
+      ? db.evidence.findMany({
+          where: {
+            practiceId: pu.practiceId,
+            entityType: "CREDENTIAL",
+            entityId: id,
+            deletedAt: null,
+          },
+          orderBy: { uploadedAt: "desc" },
+        })
+      : Promise.resolve(null),
   ]);
-
-  const canManage = pu.role === "OWNER" || pu.role === "ADMIN";
   const holderName = credential.holder
     ? [credential.holder.user.firstName, credential.holder.user.lastName]
         .filter(Boolean)
@@ -134,14 +141,18 @@ export default async function CredentialDetailPage({ params }: PageProps) {
               }
             : null
         }
-        initialEvidence={evidence.map((e) => ({
-          id: e.id,
-          fileName: e.fileName,
-          mimeType: e.mimeType,
-          fileSizeBytes: e.fileSizeBytes,
-          uploadedAt: e.uploadedAt.toISOString(),
-          status: e.status,
-        }))}
+        initialEvidence={
+          evidence
+            ? evidence.map((e) => ({
+                id: e.id,
+                fileName: e.fileName,
+                mimeType: e.mimeType,
+                fileSizeBytes: e.fileSizeBytes,
+                uploadedAt: e.uploadedAt.toISOString(),
+                status: e.status,
+              }))
+            : null
+        }
       />
     </main>
   );
