@@ -10,6 +10,7 @@ import type { PayloadFor } from "../registry";
 import { rederiveRequirementStatus } from "@/lib/compliance/derivation/rederive";
 import { evidenceCodeForPolicy } from "@/lib/compliance/policies";
 import type { PolicyCode } from "@/lib/compliance/policies";
+import { assertProjectionPracticeOwned } from "./guards";
 
 type AdoptedPayload = PayloadFor<"POLICY_ADOPTED", 1>;
 type RetiredPayload = PayloadFor<"POLICY_RETIRED", 1>;
@@ -20,6 +21,21 @@ export async function projectPolicyAdopted(
   args: { practiceId: string; payload: AdoptedPayload },
 ): Promise<void> {
   const { practiceId, payload } = args;
+
+  // Audit C-1: refuse a forged POLICY_ADOPTED carrying another
+  // practice's practicePolicyId — without this guard, version /
+  // policyCode / lastReviewedAt on Practice B's row could be
+  // overwritten, AND a PolicyVersion baseline could be appended to
+  // Practice B's policy.
+  const existing = await tx.practicePolicy.findUnique({
+    where: { id: payload.practicePolicyId },
+    select: { practiceId: true },
+  });
+  assertProjectionPracticeOwned(existing, practiceId, {
+    table: "practicePolicy",
+    id: payload.practicePolicyId,
+  });
+
   const now = new Date();
   await tx.practicePolicy.upsert({
     where: { id: payload.practicePolicyId },
@@ -86,6 +102,20 @@ export async function projectPolicyRetired(
   args: { practiceId: string; payload: RetiredPayload },
 ): Promise<void> {
   const { practiceId, payload } = args;
+
+  // Audit C-1: refuse a forged POLICY_RETIRED carrying another
+  // practice's practicePolicyId — without this guard, retiredAt could
+  // be set on Practice B's policy.
+  const existing = await tx.practicePolicy.findUnique({
+    where: { id: payload.practicePolicyId },
+    select: { practiceId: true },
+  });
+  if (!existing) return;
+  assertProjectionPracticeOwned(existing, practiceId, {
+    table: "practicePolicy",
+    id: payload.practicePolicyId,
+  });
+
   await tx.practicePolicy.update({
     where: { id: payload.practicePolicyId },
     data: { retiredAt: new Date() },
@@ -107,6 +137,21 @@ export async function projectPolicyReviewed(
   args: { practiceId: string; payload: ReviewedPayload },
 ): Promise<void> {
   const { practiceId, payload } = args;
+
+  // Audit C-1: refuse a forged POLICY_REVIEWED carrying another
+  // practice's practicePolicyId — without this guard, lastReviewedAt
+  // on Practice B's policy could be bumped to "now" (faking annual
+  // review compliance for a foreign practice).
+  const existing = await tx.practicePolicy.findUnique({
+    where: { id: payload.practicePolicyId },
+    select: { practiceId: true },
+  });
+  if (!existing) return;
+  assertProjectionPracticeOwned(existing, practiceId, {
+    table: "practicePolicy",
+    id: payload.practicePolicyId,
+  });
+
   await tx.practicePolicy.update({
     where: { id: payload.practicePolicyId },
     data: { lastReviewedAt: new Date() },

@@ -12,6 +12,7 @@
 
 import type { Prisma } from "@prisma/client";
 import type { PayloadFor } from "../registry";
+import { assertProjectionPracticeOwned } from "./guards";
 
 type DraftUploadedPayload = PayloadFor<"BAA_DRAFT_UPLOADED", 1>;
 type SentPayload = PayloadFor<"BAA_SENT_TO_VENDOR", 1>;
@@ -24,6 +25,19 @@ export async function projectBaaDraftUploaded(
   args: { practiceId: string; payload: DraftUploadedPayload },
 ): Promise<void> {
   const { practiceId, payload } = args;
+
+  // Audit C-1: refuse a forged BAA_DRAFT_UPLOADED carrying another
+  // practice's baaRequestId — without this guard, vendor / draft
+  // pointer / status on Practice B's BaaRequest could be overwritten.
+  const existing = await tx.baaRequest.findUnique({
+    where: { id: payload.baaRequestId },
+    select: { practiceId: true },
+  });
+  assertProjectionPracticeOwned(existing, practiceId, {
+    table: "baaRequest",
+    id: payload.baaRequestId,
+  });
+
   await tx.baaRequest.upsert({
     where: { id: payload.baaRequestId },
     create: {
@@ -48,6 +62,27 @@ export async function projectBaaSentToVendor(
   args: { practiceId: string; payload: SentPayload },
 ): Promise<void> {
   const { practiceId, payload } = args;
+
+  // Audit C-1: refuse a forged BAA_SENT_TO_VENDOR carrying another
+  // practice's baaRequestId — without this guard, status / sentAt /
+  // recipientEmail on Practice B's BaaRequest could be overwritten,
+  // any active acceptance token on B's request could be revoked, AND a
+  // new acceptance token would be created under our practice but tied
+  // to B's request (FK invariant break).
+  const existing = await tx.baaRequest.findUnique({
+    where: { id: payload.baaRequestId },
+    select: { practiceId: true },
+  });
+  if (!existing) {
+    throw new Error(
+      `BAA_SENT_TO_VENDOR refused: baaRequest ${payload.baaRequestId} not found`,
+    );
+  }
+  assertProjectionPracticeOwned(existing, practiceId, {
+    table: "baaRequest",
+    id: payload.baaRequestId,
+  });
+
   // Revoke any prior unconsumed tokens for this BaaRequest before
   // creating the new one, so only one active token at a time.
   await tx.baaAcceptanceToken.updateMany({
@@ -82,13 +117,20 @@ export async function projectBaaAcknowledgedByVendor(
   tx: Prisma.TransactionClient,
   args: { practiceId: string; payload: AcknowledgedPayload },
 ): Promise<void> {
-  const { payload } = args;
+  const { practiceId, payload } = args;
   // Idempotent — only update on first acknowledgment.
+  // Audit C-1: also gate on practice ownership so a forged
+  // BAA_ACKNOWLEDGED_BY_VENDOR carrying another practice's baaRequestId
+  // can't bump status / acknowledgedAt on Practice B's request.
   const existing = await tx.baaRequest.findUnique({
     where: { id: payload.baaRequestId },
-    select: { status: true, acknowledgedAt: true },
+    select: { practiceId: true, status: true, acknowledgedAt: true },
   });
   if (!existing) return;
+  assertProjectionPracticeOwned(existing, practiceId, {
+    table: "baaRequest",
+    id: payload.baaRequestId,
+  });
   if (existing.acknowledgedAt) return; // already acknowledged
   await tx.baaRequest.update({
     where: { id: payload.baaRequestId },
@@ -103,12 +145,26 @@ export async function projectBaaExecutedByVendor(
   tx: Prisma.TransactionClient,
   args: { practiceId: string; payload: ExecutedPayload },
 ): Promise<void> {
-  const { payload } = args;
+  const { practiceId, payload } = args;
+  // Audit C-1: gate on practice ownership so a forged
+  // BAA_EXECUTED_BY_VENDOR carrying another practice's baaRequestId
+  // can't flip status / executedAt / signature data on Practice B's
+  // request — and cannot consume B's acceptance token or update B's
+  // Vendor row's baaExecutedAt.
   const baaRequest = await tx.baaRequest.findUnique({
     where: { id: payload.baaRequestId },
-    select: { vendorId: true, status: true, executedAt: true },
+    select: {
+      practiceId: true,
+      vendorId: true,
+      status: true,
+      executedAt: true,
+    },
   });
   if (!baaRequest) return;
+  assertProjectionPracticeOwned(baaRequest, practiceId, {
+    table: "baaRequest",
+    id: payload.baaRequestId,
+  });
   if (baaRequest.executedAt) return; // already executed (idempotent)
 
   // Update the BaaRequest row with execution fields.
@@ -145,12 +201,20 @@ export async function projectBaaRejectedByVendor(
   tx: Prisma.TransactionClient,
   args: { practiceId: string; payload: RejectedPayload },
 ): Promise<void> {
-  const { payload } = args;
+  const { practiceId, payload } = args;
+  // Audit C-1: gate on practice ownership so a forged
+  // BAA_REJECTED_BY_VENDOR carrying another practice's baaRequestId
+  // can't flip status / rejectedAt / rejectionReason on Practice B's
+  // request and cannot consume B's acceptance token.
   const existing = await tx.baaRequest.findUnique({
     where: { id: payload.baaRequestId },
-    select: { rejectedAt: true },
+    select: { practiceId: true, rejectedAt: true },
   });
   if (!existing) return;
+  assertProjectionPracticeOwned(existing, practiceId, {
+    table: "baaRequest",
+    id: payload.baaRequestId,
+  });
   if (existing.rejectedAt) return; // already rejected
 
   await tx.baaRequest.update({

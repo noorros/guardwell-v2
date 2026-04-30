@@ -12,6 +12,7 @@
 import type { Prisma } from "@prisma/client";
 import type { PayloadFor } from "../registry";
 import { rederiveRequirementStatus } from "@/lib/compliance/derivation/rederive";
+import { assertProjectionPracticeOwned } from "./guards";
 
 type Payload = PayloadFor<"POLICY_ACKNOWLEDGED", 1>;
 
@@ -20,6 +21,26 @@ export async function projectPolicyAcknowledged(
   args: { practiceId: string; payload: Payload },
 ): Promise<void> {
   const { practiceId, payload } = args;
+
+  // Audit C-1: refuse a forged POLICY_ACKNOWLEDGED carrying another
+  // practice's practicePolicyId — without this guard, an acknowledgment
+  // row would be created against Practice B's policy under our practice
+  // (FK invariant break) AND poison Practice B's
+  // HIPAA_POLICY_ACKNOWLEDGMENT_COVERAGE rederive on a future trigger.
+  const existing = await tx.practicePolicy.findUnique({
+    where: { id: payload.practicePolicyId },
+    select: { practiceId: true },
+  });
+  if (!existing) {
+    throw new Error(
+      `POLICY_ACKNOWLEDGED refused: policy ${payload.practicePolicyId} not found`,
+    );
+  }
+  assertProjectionPracticeOwned(existing, practiceId, {
+    table: "practicePolicy",
+    id: payload.practicePolicyId,
+  });
+
   await tx.policyAcknowledgment.create({
     data: {
       practicePolicyId: payload.practicePolicyId,
