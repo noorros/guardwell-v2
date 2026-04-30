@@ -225,7 +225,7 @@ describe("projectStaffExcludedFromAssignment", () => {
       where: { assignmentId },
     });
     expect(rows).toHaveLength(1);
-    expect(rows[0].reason).toBe("Second");
+    expect(rows[0]!.reason).toBe("Second");
   });
 });
 
