@@ -5,7 +5,12 @@ import { Thermometer, Package, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { logEquipmentCheckAction } from "./actions";
+import {
+  deleteEquipmentCheckAction,
+  logEquipmentCheckAction,
+  updateEquipmentCheckAction,
+} from "./actions";
+import { HistoryRowActions } from "@/components/gw/HistoryRowActions";
 
 export interface EquipmentTabProps {
   canManage: boolean;
@@ -267,6 +272,239 @@ function RefrigeratorForm() {
   );
 }
 
+// ── Edit Emergency Kit ────────────────────────────────────────────────────────
+
+function EditEmergencyKitForm({
+  check,
+  onCancel,
+}: {
+  check: EquipmentTabProps["checks"][number];
+  onCancel: () => void;
+}) {
+  const [epiExpiryDate, setEpiExpiryDate] = useState(
+    check.epiExpiryDate ? check.epiExpiryDate.slice(0, 10) : "",
+  );
+  const [epiLotNumber, setEpiLotNumber] = useState(check.epiLotNumber ?? "");
+  const [allItemsPresent, setAllItemsPresent] = useState(
+    check.allItemsPresent ?? true,
+  );
+  const [itemsReplaced, setItemsReplaced] = useState(check.itemsReplaced ?? "");
+  const [notes, setNotes] = useState(check.notes ?? "");
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function handleSave() {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await updateEquipmentCheckAction({
+          equipmentCheckId: check.id,
+          epiExpiryDate: epiExpiryDate || null,
+          epiLotNumber: epiLotNumber || null,
+          allItemsPresent,
+          itemsReplaced: itemsReplaced || null,
+          notes: notes || null,
+        });
+        onCancel();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to save");
+      }
+    });
+  }
+
+  const idPrefix = `edit-kit-${check.id}`;
+
+  return (
+    <div className="rounded-lg border bg-card p-4 space-y-4">
+      <h3 className="text-sm font-semibold">Edit emergency kit check</h3>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <label htmlFor={`${idPrefix}-expiry`} className="text-xs font-medium">
+            Epi expiry date
+          </label>
+          <input
+            id={`${idPrefix}-expiry`}
+            type="date"
+            value={epiExpiryDate}
+            onChange={(e) => setEpiExpiryDate(e.target.value)}
+            disabled={isPending}
+            className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor={`${idPrefix}-lot`} className="text-xs font-medium">
+            Lot number
+          </label>
+          <input
+            id={`${idPrefix}-lot`}
+            type="text"
+            value={epiLotNumber}
+            onChange={(e) => setEpiLotNumber(e.target.value)}
+            disabled={isPending}
+            className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </div>
+      </div>
+      <label className="flex cursor-pointer items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={allItemsPresent}
+          onChange={(e) => setAllItemsPresent(e.target.checked)}
+          disabled={isPending}
+          className="h-4 w-4 cursor-pointer accent-[color:var(--gw-color-compliant)]"
+        />
+        All items present
+      </label>
+      <div className="space-y-1.5">
+        <label htmlFor={`${idPrefix}-replaced`} className="text-xs font-medium">
+          Items replaced <span className="font-normal text-muted-foreground">(optional)</span>
+        </label>
+        <textarea
+          id={`${idPrefix}-replaced`}
+          rows={2}
+          value={itemsReplaced}
+          onChange={(e) => setItemsReplaced(e.target.value)}
+          disabled={isPending}
+          className="w-full rounded-md border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor={`${idPrefix}-notes`} className="text-xs font-medium">
+          Notes <span className="font-normal text-muted-foreground">(optional)</span>
+        </label>
+        <textarea
+          id={`${idPrefix}-notes`}
+          rows={2}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          disabled={isPending}
+          className="w-full rounded-md border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+      </div>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      <div className="flex items-center gap-2">
+        <Button onClick={handleSave} disabled={isPending} size="sm">
+          {isPending ? "Saving…" : "Save changes"}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={isPending}
+          onClick={onCancel}
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Edit Refrigerator Temp ────────────────────────────────────────────────────
+
+function EditRefrigeratorForm({
+  check,
+  onCancel,
+}: {
+  check: EquipmentTabProps["checks"][number];
+  onCancel: () => void;
+}) {
+  const [temperatureC, setTemperatureC] = useState(
+    check.temperatureC != null ? String(check.temperatureC) : "",
+  );
+  const [notes, setNotes] = useState(check.notes ?? "");
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  const tempNum = parseFloat(temperatureC);
+  const inRange = !isNaN(tempNum) ? tempNum >= 2 && tempNum <= 8 : null;
+
+  function handleSave() {
+    if (isNaN(tempNum)) {
+      setError("Please enter a valid temperature.");
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      try {
+        await updateEquipmentCheckAction({
+          equipmentCheckId: check.id,
+          temperatureC: tempNum,
+          inRange: inRange ?? false,
+          notes: notes || null,
+        });
+        onCancel();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to save");
+      }
+    });
+  }
+
+  const idPrefix = `edit-temp-${check.id}`;
+
+  return (
+    <tr className="border-t bg-muted/40">
+      <td colSpan={5} className="px-4 py-3">
+        <div className="space-y-3 text-sm">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Edit reading
+          </h3>
+          <div className="grid gap-3 sm:grid-cols-2 items-end">
+            <div className="space-y-1.5">
+              <label htmlFor={`${idPrefix}-temp`} className="text-xs font-medium">
+                Temperature (°C)
+              </label>
+              <input
+                id={`${idPrefix}-temp`}
+                type="number"
+                step="0.1"
+                value={temperatureC}
+                onChange={(e) => setTemperatureC(e.target.value)}
+                disabled={isPending}
+                className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </div>
+            {temperatureC !== "" && inRange !== null && (
+              <div className="pb-1.5">
+                <InRangeBadge inRange={inRange} />
+                <p className="mt-1 text-xs text-muted-foreground">Acceptable range: 2–8°C</p>
+              </div>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor={`${idPrefix}-notes`} className="text-xs font-medium">
+              Notes <span className="font-normal text-muted-foreground">(optional)</span>
+            </label>
+            <textarea
+              id={`${idPrefix}-notes`}
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              disabled={isPending}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <div className="flex items-center gap-2">
+            <Button onClick={handleSave} disabled={isPending} size="sm">
+              {isPending ? "Saving…" : "Save changes"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={isPending}
+              onClick={onCancel}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 // ── EquipmentTab ──────────────────────────────────────────────────────────────
 
 export function EquipmentTab({ canManage, checks }: EquipmentTabProps) {
@@ -276,6 +514,8 @@ export function EquipmentTab({ canManage, checks }: EquipmentTabProps) {
     .slice(0, 10);
 
   const latestKit = kitChecks[0] ?? null;
+  const [editingKitId, setEditingKitId] = useState<string | null>(null);
+  const [editingTempId, setEditingTempId] = useState<string | null>(null);
 
   return (
     <div className="space-y-8">
@@ -286,8 +526,27 @@ export function EquipmentTab({ canManage, checks }: EquipmentTabProps) {
           <h2 className="text-base font-semibold">Emergency kit</h2>
         </div>
 
-        {latestKit ? (
+        {latestKit && editingKitId === latestKit.id ? (
+          <EditEmergencyKitForm
+            check={latestKit}
+            onCancel={() => setEditingKitId(null)}
+          />
+        ) : latestKit ? (
           <div className="rounded-lg border bg-card p-4 space-y-3">
+            {canManage && (
+              <div className="flex justify-end">
+                <HistoryRowActions
+                  canManage={canManage}
+                  onEdit={() => setEditingKitId(latestKit.id)}
+                  onDelete={async () => {
+                    await deleteEquipmentCheckAction({
+                      equipmentCheckId: latestKit.id,
+                    });
+                  }}
+                  deleteConfirmText={`Delete this kit check from ${fmtDate(latestKit.checkedAt)}? It stays in the audit log but stops counting toward ALLERGY_EMERGENCY_KIT_CURRENT.`}
+                />
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
               <div>
                 <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground block mb-0.5">
@@ -344,7 +603,7 @@ export function EquipmentTab({ canManage, checks }: EquipmentTabProps) {
           </p>
         )}
 
-        {canManage && <EmergencyKitForm />}
+        {canManage && editingKitId === null && <EmergencyKitForm />}
       </section>
 
       {/* ── Refrigerator Temperature ──────────────────────────────────────── */}
@@ -372,26 +631,53 @@ export function EquipmentTab({ canManage, checks }: EquipmentTabProps) {
                   <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground hidden sm:table-cell">
                     Notes
                   </th>
+                  {canManage && (
+                    <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground">
+                      <span className="sr-only">Actions</span>
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
-                {tempChecks.map((c, i) => (
-                  <tr
-                    key={c.id}
-                    className={cn("border-t", i % 2 === 0 ? "bg-background" : "bg-muted/20")}
-                  >
-                    <td className="px-4 py-2.5 tabular-nums">{fmtDate(c.checkedAt)}</td>
-                    <td className="px-4 py-2.5 tabular-nums font-mono">
-                      {c.temperatureC !== null ? c.temperatureC.toFixed(1) : "—"}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <InRangeBadge inRange={c.inRange} />
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">
-                      {c.notes ?? "—"}
-                    </td>
-                  </tr>
-                ))}
+                {tempChecks.map((c, i) =>
+                  editingTempId === c.id ? (
+                    <EditRefrigeratorForm
+                      key={c.id}
+                      check={c}
+                      onCancel={() => setEditingTempId(null)}
+                    />
+                  ) : (
+                    <tr
+                      key={c.id}
+                      className={cn("border-t", i % 2 === 0 ? "bg-background" : "bg-muted/20")}
+                    >
+                      <td className="px-4 py-2.5 tabular-nums">{fmtDate(c.checkedAt)}</td>
+                      <td className="px-4 py-2.5 tabular-nums font-mono">
+                        {c.temperatureC !== null ? c.temperatureC.toFixed(1) : "—"}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <InRangeBadge inRange={c.inRange} />
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-muted-foreground hidden sm:table-cell">
+                        {c.notes ?? "—"}
+                      </td>
+                      {canManage && (
+                        <td className="px-4 py-2.5 text-right">
+                          <HistoryRowActions
+                            canManage={canManage}
+                            onEdit={() => setEditingTempId(c.id)}
+                            onDelete={async () => {
+                              await deleteEquipmentCheckAction({
+                                equipmentCheckId: c.id,
+                              });
+                            }}
+                            deleteConfirmText={`Delete the ${fmtDate(c.checkedAt)} reading${c.temperatureC != null ? ` (${c.temperatureC.toFixed(1)}°C)` : ""}? It stays in the audit log but stops counting toward ALLERGY_REFRIGERATOR_LOG.`}
+                          />
+                        </td>
+                      )}
+                    </tr>
+                  ),
+                )}
               </tbody>
             </table>
           </div>
@@ -401,7 +687,7 @@ export function EquipmentTab({ canManage, checks }: EquipmentTabProps) {
           </p>
         )}
 
-        {canManage && <RefrigeratorForm />}
+        {canManage && editingTempId === null && <RefrigeratorForm />}
       </section>
     </div>
   );

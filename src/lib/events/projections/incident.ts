@@ -28,6 +28,7 @@ type NotifiedAffectedPayload = PayloadFor<
 >;
 type NotifiedMediaPayload = PayloadFor<"INCIDENT_NOTIFIED_MEDIA", 1>;
 type NotifiedStateAgPayload = PayloadFor<"INCIDENT_NOTIFIED_STATE_AG", 1>;
+type OshaOutcomeUpdatedPayload = PayloadFor<"INCIDENT_OSHA_OUTCOME_UPDATED", 1>;
 
 export async function projectIncidentReported(
   tx: Prisma.TransactionClient,
@@ -273,6 +274,53 @@ export async function projectIncidentNotifiedStateAg(
     practiceId,
     "INCIDENT:NOTIFIED_STATE_AG",
   );
+}
+
+/**
+ * Audit #15: ADMIN typo correction on the OSHA recordable fields of an
+ * existing Incident. Refuses if the row is missing or in another practice.
+ * Re-rederives INCIDENT:OSHA_RECORDABLE because §1904.7 inclusion depends
+ * on oshaOutcome (FIRST_AID rows are excluded from Form 300), and shifting
+ * the outcome must trip the rule recompute.
+ */
+export async function projectIncidentOshaOutcomeUpdated(
+  tx: Prisma.TransactionClient,
+  args: { practiceId: string; payload: OshaOutcomeUpdatedPayload },
+): Promise<void> {
+  const { practiceId, payload } = args;
+  const existing = await tx.incident.findUnique({
+    where: { id: payload.incidentId },
+    select: { practiceId: true, type: true },
+  });
+  if (!existing) {
+    throw new Error(
+      `INCIDENT_OSHA_OUTCOME_UPDATED refused: incident ${payload.incidentId} not found`,
+    );
+  }
+  if (existing.practiceId !== practiceId) {
+    throw new Error(
+      `INCIDENT_OSHA_OUTCOME_UPDATED refused: incident ${payload.incidentId} belongs to a different practice`,
+    );
+  }
+  await tx.incident.update({
+    where: { id: payload.incidentId },
+    data: {
+      oshaBodyPart: payload.oshaBodyPart ?? null,
+      oshaInjuryNature: payload.oshaInjuryNature ?? null,
+      oshaOutcome: payload.oshaOutcome ?? null,
+      oshaDaysAway: payload.oshaDaysAway ?? null,
+      oshaDaysRestricted: payload.oshaDaysRestricted ?? null,
+      sharpsDeviceType: payload.sharpsDeviceType ?? null,
+      injuredUserId: payload.injuredUserId ?? null,
+    },
+  });
+  if (existing.type === "OSHA_RECORDABLE") {
+    await rederiveRequirementStatus(
+      tx,
+      practiceId,
+      "INCIDENT:OSHA_RECORDABLE",
+    );
+  }
 }
 
 // HIPAA audit-trail no-op projection: emitted whenever a signed-in

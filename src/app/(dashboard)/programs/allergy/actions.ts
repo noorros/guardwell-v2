@@ -14,8 +14,16 @@ import {
   projectAllergyCompoundingLogged,
   projectAllergyRequirementToggled,
 } from "@/lib/events/projections/allergyCompetency";
-import { projectAllergyEquipmentCheckLogged } from "@/lib/events/projections/allergyEquipment";
-import { projectAllergyDrillLogged } from "@/lib/events/projections/allergyDrill";
+import {
+  projectAllergyEquipmentCheckLogged,
+  projectAllergyEquipmentCheckUpdated,
+  projectAllergyEquipmentCheckDeleted,
+} from "@/lib/events/projections/allergyEquipment";
+import {
+  projectAllergyDrillLogged,
+  projectAllergyDrillUpdated,
+  projectAllergyDrillDeleted,
+} from "@/lib/events/projections/allergyDrill";
 import { db } from "@/lib/db";
 import { gradeAllergyQuizAttempt, type QuizReviewItem } from "./grade";
 
@@ -308,6 +316,195 @@ export async function logDrillAction(input: z.infer<typeof DrillInput>) {
       payload,
     },
     async (tx) => projectAllergyDrillLogged(tx, { practiceId: pu.practiceId, payload }),
+  );
+  revalidatePath("/programs/allergy");
+  revalidatePath("/modules/allergy");
+}
+
+const UpdateDrillInput = DrillInput.extend({
+  drillId: z.string().min(1),
+});
+
+/**
+ * Audit #15: typo correction on an existing drill row. ADMIN-gated +
+ * cross-tenant checked at both the action layer (here, via practiceId
+ * match) and the projection layer (via assertProjectionPracticeOwned).
+ */
+export async function updateDrillAction(input: z.infer<typeof UpdateDrillInput>) {
+  const { user, pu } = await requireAdmin();
+  const parsed = UpdateDrillInput.parse(input);
+  const existing = await db.allergyDrill.findUnique({
+    where: { id: parsed.drillId },
+    select: { practiceId: true, retiredAt: true },
+  });
+  if (!existing || existing.practiceId !== pu.practiceId) {
+    throw new Error("Drill not found");
+  }
+  if (existing.retiredAt) {
+    throw new Error("Cannot edit a retired drill");
+  }
+  const payload = {
+    drillId: parsed.drillId,
+    editedByUserId: pu.id,
+    conductedAt: new Date(parsed.conductedAt).toISOString(),
+    scenario: parsed.scenario,
+    participantIds: parsed.participantIds,
+    durationMinutes: parsed.durationMinutes ?? null,
+    observations: parsed.observations ?? null,
+    correctiveActions: parsed.correctiveActions ?? null,
+    nextDrillDue: parsed.nextDrillDue
+      ? new Date(parsed.nextDrillDue).toISOString()
+      : null,
+  };
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: user.id,
+      type: "ALLERGY_DRILL_UPDATED",
+      payload,
+    },
+    async (tx) =>
+      projectAllergyDrillUpdated(tx, { practiceId: pu.practiceId, payload }),
+  );
+  revalidatePath("/programs/allergy");
+  revalidatePath("/modules/allergy");
+}
+
+const DeleteDrillInput = z.object({
+  drillId: z.string().min(1),
+  reason: z.string().max(500).nullable().optional(),
+});
+
+export async function deleteDrillAction(input: z.infer<typeof DeleteDrillInput>) {
+  const { user, pu } = await requireAdmin();
+  const parsed = DeleteDrillInput.parse(input);
+  const existing = await db.allergyDrill.findUnique({
+    where: { id: parsed.drillId },
+    select: { practiceId: true },
+  });
+  if (!existing || existing.practiceId !== pu.practiceId) {
+    throw new Error("Drill not found");
+  }
+  const payload = {
+    drillId: parsed.drillId,
+    deletedByUserId: pu.id,
+    deletedAt: new Date().toISOString(),
+    reason: parsed.reason ?? null,
+  };
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: user.id,
+      type: "ALLERGY_DRILL_DELETED",
+      payload,
+    },
+    async (tx) =>
+      projectAllergyDrillDeleted(tx, { practiceId: pu.practiceId, payload }),
+  );
+  revalidatePath("/programs/allergy");
+  revalidatePath("/modules/allergy");
+}
+
+const UpdateEquipmentInput = z.object({
+  equipmentCheckId: z.string().min(1),
+  // checkType intentionally NOT editable — see registry comment.
+  checkedAt: z.string().datetime().optional(),
+  epiExpiryDate: dateOnlyString.nullable().optional(),
+  epiLotNumber: z.string().max(100).nullable().optional(),
+  allItemsPresent: z.boolean().nullable().optional(),
+  itemsReplaced: z.string().max(2000).nullable().optional(),
+  temperatureC: z.number().min(-20).max(40).nullable().optional(),
+  inRange: z.boolean().nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+});
+
+export async function updateEquipmentCheckAction(
+  input: z.infer<typeof UpdateEquipmentInput>,
+) {
+  const { user, pu } = await requireAdmin();
+  const parsed = UpdateEquipmentInput.parse(input);
+  const existing = await db.allergyEquipmentCheck.findUnique({
+    where: { id: parsed.equipmentCheckId },
+    select: { practiceId: true, retiredAt: true, checkedAt: true },
+  });
+  if (!existing || existing.practiceId !== pu.practiceId) {
+    throw new Error("Equipment check not found");
+  }
+  if (existing.retiredAt) {
+    throw new Error("Cannot edit a retired equipment check");
+  }
+  const payload = {
+    equipmentCheckId: parsed.equipmentCheckId,
+    editedByUserId: pu.id,
+    // checkedAt isn't user-editable in the inline form for now; keep the
+    // original timestamp so audit replay stays stable. If we surface it
+    // in a later iteration, switch to parsed.checkedAt.
+    checkedAt: (parsed.checkedAt
+      ? new Date(parsed.checkedAt)
+      : existing.checkedAt
+    ).toISOString(),
+    epiExpiryDate: parsed.epiExpiryDate
+      ? new Date(parsed.epiExpiryDate).toISOString()
+      : null,
+    epiLotNumber: parsed.epiLotNumber ?? null,
+    allItemsPresent: parsed.allItemsPresent ?? null,
+    itemsReplaced: parsed.itemsReplaced ?? null,
+    temperatureC: parsed.temperatureC ?? null,
+    inRange: parsed.inRange ?? null,
+    notes: parsed.notes ?? null,
+  };
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: user.id,
+      type: "ALLERGY_EQUIPMENT_CHECK_UPDATED",
+      payload,
+    },
+    async (tx) =>
+      projectAllergyEquipmentCheckUpdated(tx, {
+        practiceId: pu.practiceId,
+        payload,
+      }),
+  );
+  revalidatePath("/programs/allergy");
+  revalidatePath("/modules/allergy");
+}
+
+const DeleteEquipmentInput = z.object({
+  equipmentCheckId: z.string().min(1),
+  reason: z.string().max(500).nullable().optional(),
+});
+
+export async function deleteEquipmentCheckAction(
+  input: z.infer<typeof DeleteEquipmentInput>,
+) {
+  const { user, pu } = await requireAdmin();
+  const parsed = DeleteEquipmentInput.parse(input);
+  const existing = await db.allergyEquipmentCheck.findUnique({
+    where: { id: parsed.equipmentCheckId },
+    select: { practiceId: true },
+  });
+  if (!existing || existing.practiceId !== pu.practiceId) {
+    throw new Error("Equipment check not found");
+  }
+  const payload = {
+    equipmentCheckId: parsed.equipmentCheckId,
+    deletedByUserId: pu.id,
+    deletedAt: new Date().toISOString(),
+    reason: parsed.reason ?? null,
+  };
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: user.id,
+      type: "ALLERGY_EQUIPMENT_CHECK_DELETED",
+      payload,
+    },
+    async (tx) =>
+      projectAllergyEquipmentCheckDeleted(tx, {
+        practiceId: pu.practiceId,
+        payload,
+      }),
   );
   revalidatePath("/programs/allergy");
   revalidatePath("/modules/allergy");

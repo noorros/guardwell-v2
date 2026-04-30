@@ -15,6 +15,7 @@ import {
   projectIncidentNotifiedAffectedIndividuals,
   projectIncidentNotifiedMedia,
   projectIncidentNotifiedStateAg,
+  projectIncidentOshaOutcomeUpdated,
 } from "@/lib/events/projections/incident";
 import { emitCriticalBreachAlert } from "@/lib/notifications/critical-alert";
 import { db } from "@/lib/db";
@@ -402,4 +403,72 @@ export async function recordIncidentNotificationAction(
   revalidatePath("/modules/hipaa");
 
   return { kind: parsed.kind, notifiedAt };
+}
+
+const UpdateOshaOutcomeInput = z.object({
+  incidentId: z.string().min(1),
+  oshaBodyPart: z.string().max(200).nullable().optional(),
+  oshaInjuryNature: z.string().max(200).nullable().optional(),
+  oshaOutcome: OshaOutcomeEnum.nullable().optional(),
+  oshaDaysAway: z.number().int().min(0).nullable().optional(),
+  oshaDaysRestricted: z.number().int().min(0).nullable().optional(),
+  sharpsDeviceType: z.string().max(200).nullable().optional(),
+  injuredUserId: z.string().min(1).nullable().optional(),
+});
+
+/**
+ * Audit #15: ADMIN typo correction on the OSHA recordable fields of an
+ * existing Incident. Cross-tenant guarded at action layer (here, by
+ * matching practiceId before emit) and at projection layer. The
+ * Incident itself isn't soft-deleted via this event — only the OSHA
+ * fields mutate. Form 300 / 301 PDFs read fresh on next render so any
+ * change is reflected immediately on the next download.
+ */
+export async function updateIncidentOshaOutcomeAction(
+  input: z.infer<typeof UpdateOshaOutcomeInput>,
+): Promise<void> {
+  const pu = await requireRole("ADMIN");
+  const user = pu.dbUser;
+  const parsed = UpdateOshaOutcomeInput.parse(input);
+
+  const existing = await db.incident.findUnique({
+    where: { id: parsed.incidentId },
+    select: { practiceId: true, type: true },
+  });
+  if (!existing || existing.practiceId !== pu.practiceId) {
+    throw new Error("Incident not found");
+  }
+  if (existing.type !== "OSHA_RECORDABLE") {
+    throw new Error("OSHA outcome edits are only valid for OSHA_RECORDABLE incidents");
+  }
+
+  const payload = {
+    incidentId: parsed.incidentId,
+    editedByUserId: pu.id,
+    oshaBodyPart: parsed.oshaBodyPart ?? null,
+    oshaInjuryNature: parsed.oshaInjuryNature ?? null,
+    oshaOutcome: parsed.oshaOutcome ?? null,
+    oshaDaysAway: parsed.oshaDaysAway ?? null,
+    oshaDaysRestricted: parsed.oshaDaysRestricted ?? null,
+    sharpsDeviceType: parsed.sharpsDeviceType ?? null,
+    injuredUserId: parsed.injuredUserId ?? null,
+  };
+
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: user.id,
+      type: "INCIDENT_OSHA_OUTCOME_UPDATED",
+      payload,
+    },
+    async (tx) =>
+      projectIncidentOshaOutcomeUpdated(tx, {
+        practiceId: pu.practiceId,
+        payload,
+      }),
+  );
+
+  revalidatePath("/programs/incidents");
+  revalidatePath(`/programs/incidents/${parsed.incidentId}`);
+  revalidatePath("/modules/osha");
 }
