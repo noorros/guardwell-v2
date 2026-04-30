@@ -1,65 +1,50 @@
 // src/app/(dashboard)/programs/training/page.tsx
-import Link from "next/link";
-import type { Route } from "next";
+//
+// Phase 4 PR 3 — assignment-driven Training landing. Replaces the
+// pre-Phase-4 view (every isRequired course, regardless of who it
+// applies to) with: KPI band + tabs orchestrator. The "My Training"
+// tab shows the user's resolved assignments — direct + role-wide +
+// category-wide, minus exclusions.
+//
+// canManage gates the admin-only "Manage Courses" and "Assignments"
+// tabs; the placeholder content inside each points to the dedicated
+// routes that land in PRs 4 + 5.
+
+import { redirect } from "next/navigation";
 import { GraduationCap } from "lucide-react";
-import { db } from "@/lib/db";
-import { getPracticeUser } from "@/lib/rbac";
 import { requireUser } from "@/lib/auth";
+import { getPracticeUser } from "@/lib/rbac";
+import { db } from "@/lib/db";
 import { Breadcrumb } from "@/components/gw/Breadcrumb";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { TrainingStatusBadge } from "./TrainingStatusBadge";
+import { TrainingDashboard } from "./TrainingDashboard";
+import { resolveAssignmentsForUser } from "@/lib/training/resolveAssignments";
 
 export const metadata = { title: "Training · My Programs" };
+export const dynamic = "force-dynamic";
 
 export default async function TrainingPage() {
   const user = await requireUser();
   const pu = await getPracticeUser();
-  if (!pu) return null;
+  if (!pu) redirect("/dashboard");
 
-  const courses = await db.trainingCourse.findMany({
-    where: { isRequired: true },
-    orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
-    select: {
-      id: true,
-      code: true,
-      title: true,
-      description: true,
-      type: true,
-      durationMinutes: true,
-      passingScore: true,
-      _count: { select: { quizQuestions: true } },
-    },
-  });
+  const canManage = pu.role === "OWNER" || pu.role === "ADMIN";
 
-  const completions = await db.trainingCompletion.findMany({
-    where: {
+  const { assignments, completed, inProgress, toDo } =
+    await resolveAssignmentsForUser({
       practiceId: pu.practiceId,
       userId: user.id,
-      courseId: { in: courses.map((c) => c.id) },
-    },
-    orderBy: { completedAt: "desc" },
-    select: {
-      courseId: true,
-      score: true,
-      passed: true,
-      completedAt: true,
-      expiresAt: true,
-    },
+      role: pu.role,
+    });
+
+  // Practice-wide "team completions" KPI — count of every passing
+  // completion in the practice, ever. Multi-tenant: practiceId scope is
+  // mandatory.
+  const teamCompletions = await db.trainingCompletion.count({
+    where: { practiceId: pu.practiceId, passed: true },
   });
 
-  // Latest completion per course for the current user.
-  const latestByCourse = new Map<
-    string,
-    (typeof completions)[number]
-  >();
-  for (const c of completions) {
-    if (!latestByCourse.has(c.courseId)) latestByCourse.set(c.courseId, c);
-  }
-
   return (
-    <main className="mx-auto max-w-4xl space-y-6 p-6">
+    <main className="mx-auto max-w-7xl space-y-6 p-6">
       <Breadcrumb items={[{ label: "My Programs" }, { label: "Training" }]} />
       <header className="flex items-start gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-accent-foreground">
@@ -68,68 +53,18 @@ export default async function TrainingPage() {
         <div className="flex-1">
           <h1 className="text-2xl font-semibold tracking-tight">Training</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Complete required training to satisfy HIPAA workforce-training
+            Complete training assigned to you to satisfy HIPAA workforce-training
             obligations. Your completions auto-update the matching HIPAA
             requirements on your module page.
           </p>
         </div>
       </header>
 
-      {courses.length === 0 ? (
-        <Card>
-          <CardContent className="p-6 text-sm text-muted-foreground">
-            No required training courses are configured yet.
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="p-0">
-            <ul className="divide-y">
-              {courses.map((course) => {
-                const latest = latestByCourse.get(course.id);
-                return (
-                  <li
-                    key={course.id}
-                    className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-medium text-foreground">
-                          {course.title}
-                        </p>
-                        <Badge variant="secondary" className="text-[10px]">
-                          {course.type}
-                        </Badge>
-                        <TrainingStatusBadge latest={latest ?? null} />
-                      </div>
-                      {course.description && (
-                        <p className="text-xs text-muted-foreground">
-                          {course.description}
-                        </p>
-                      )}
-                      <p className="text-[11px] text-muted-foreground">
-                        {course._count.quizQuestions} questions · pass {course.passingScore}% ·
-                        {course.durationMinutes ? ` ~${course.durationMinutes} min` : " self-paced"}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button asChild size="sm" variant={latest?.passed && new Date(latest.expiresAt) > new Date() ? "outline" : "default"}>
-                        <Link
-                          href={
-                            `/programs/training/${course.id}` as Route
-                          }
-                        >
-                          {latest?.passed ? "Retake" : "Start"}
-                        </Link>
-                      </Button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
+      <TrainingDashboard
+        canManage={canManage}
+        myProgress={{ completed, inProgress, toDo, teamCompletions }}
+        myAssignments={assignments}
+      />
     </main>
   );
 }
