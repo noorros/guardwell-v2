@@ -12,6 +12,9 @@
 import type { Prisma } from "@prisma/client";
 import { HIPAA_PP_POLICY_SET, type HipaaPolicyCode } from "@/lib/compliance/policies";
 import {
+  addBusinessDays as addBusinessDaysCore,
+} from "@/lib/dates/federalHolidays";
+import {
   courseCompletionThresholdRule,
   multipleCoursesCompletionThresholdRule,
 } from "./shared";
@@ -192,8 +195,9 @@ export async function hipaaBaaRule(
  * windowDays=null → "most expedient time possible"; no fixed numeric
  *   deadline. Used by states that codify the obligation but not a clock.
  * windowDays=N → fixed calendar-day deadline.
- * useBusinessDays=true → calendar excludes weekends (CA only). Federal
- *   holidays aren't tracked.
+ * useBusinessDays=true → calendar excludes weekends AND observed US
+ *   federal holidays (CA only). Holiday handling lives in
+ *   `src/lib/dates/federalHolidays.ts` (audit #21 HIPAA M-3).
  */
 export interface StateBreachWindow {
   windowDays: number | null;
@@ -298,10 +302,12 @@ export function computeStateBreachDeadline(
  * of a notification as compliance and absence as a gap. The user
  * judges whether their notice was timely; we surface the obligation.
  *
- * useBusinessDays=true skips weekends when computing the deadline (CA's
- * 15-business-day rule). Federal holidays aren't tracked, so the
- * computation is a slight overestimate of the real deadline — conservative
- * for the practice in the borderline case.
+ * useBusinessDays=true skips weekends AND observed US federal holidays
+ * (CA's 15-business-day rule). Audit #21 HIPAA M-3 (Wave-4 D4) wired in
+ * federal-holiday awareness via `src/lib/dates/federalHolidays.ts`; before
+ * that fix the computation was a slight under-estimate of the real
+ * deadline (a Memorial Day weekend during a 15-bday window pulled the
+ * deadline earlier than the statute allows).
  */
 function stateBreachNotificationRule(
   stateCode: string,
@@ -376,21 +382,18 @@ function addCalendarDays(from: Date, n: number): Date {
 }
 
 /**
- * Pure helper. Returns the date that is `n` business days after `from`
- * (skipping weekends only — federal holiday calendar isn't tracked yet,
- * so the result is a slight overestimate of the actual statutory deadline.
- * Conservative for the practice: a true holiday-aware computation would
- * push the deadline LATER, never sooner).
+ * Pure helper. Returns the date that is `n` business days after `from`,
+ * skipping both weekends and observed US federal holidays. Federal-holiday
+ * support landed in audit #21 HIPAA M-3 (Wave-4 D4) — prior to that fix
+ * a CA 15-business-day breach window straddling Memorial Day weekend
+ * resolved a deadline three days earlier than the statute allows.
+ *
+ * Implementation lives in `src/lib/dates/federalHolidays.ts`. We call
+ * through with `{ skipHolidays: true }` so the breach-clock callers
+ * get holiday-aware arithmetic without any further wiring.
  */
 function addBusinessDays(from: Date, n: number): Date {
-  const result = new Date(from);
-  let added = 0;
-  while (added < n) {
-    result.setDate(result.getDate() + 1);
-    const day = result.getDay(); // 0 = Sun, 6 = Sat
-    if (day !== 0 && day !== 6) added += 1;
-  }
-  return result;
+  return addBusinessDaysCore(from, n, { skipHolidays: true });
 }
 
 /**
