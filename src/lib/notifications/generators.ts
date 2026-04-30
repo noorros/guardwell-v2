@@ -12,6 +12,7 @@
 
 import type { Prisma, NotificationType, NotificationSeverity } from "@prisma/client";
 import { formatPracticeDate } from "@/lib/audit/format";
+import { EXPIRING_SOON_DAYS } from "@/lib/credentials/status";
 
 export interface NotificationProposal {
   userId: string;
@@ -93,9 +94,14 @@ export async function generateSraNotifications(
 }
 
 /**
- * Credentials expiring within 60 days. One notification per credential
- * per holder. Entity key includes the credential id so a renewed
- * credential (new id) produces a fresh notification cycle.
+ * Credentials expiring within EXPIRING_SOON_DAYS. One notification per
+ * credential per holder. Entity key includes the credential id so a
+ * renewed credential (new id) produces a fresh notification cycle.
+ *
+ * Audit #16: window now sourced from src/lib/credentials/status.ts so
+ * the dashboard badge, the register PDF, and these notifications all
+ * agree on the 90-day threshold (the page+Concierge had been showing
+ * EXPIRING_SOON 30 days before the email even fired).
  */
 export async function generateCredentialNotifications(
   tx: Prisma.TransactionClient,
@@ -103,7 +109,7 @@ export async function generateCredentialNotifications(
   userIds: string[],
   practiceTimezone: string,
 ): Promise<NotificationProposal[]> {
-  const horizon = new Date(Date.now() + 60 * DAY_MS);
+  const horizon = new Date(Date.now() + EXPIRING_SOON_DAYS * DAY_MS);
   const credentials = await tx.credential.findMany({
     where: {
       practiceId,

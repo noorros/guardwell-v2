@@ -14,6 +14,10 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { computeOverallScore } from "@/lib/compliance/overallScore";
 import { formatPracticeDate } from "@/lib/audit/format";
+import {
+  getCredentialStatus,
+  type CredentialStatus as SharedCredentialStatus,
+} from "@/lib/credentials/status";
 
 export interface ToolHandler {
   name: string;
@@ -40,8 +44,7 @@ const EMPTY_INPUT_SCHEMA_JSON = {
 // Sort order for list_credentials so the rows most needing attention show
 // up first (and survive the 100-row cap). EXPIRED is most urgent;
 // NO_EXPIRY rows have no deadline so they're least actionable.
-type CredentialStatus = "EXPIRED" | "EXPIRING_SOON" | "ACTIVE" | "NO_EXPIRY";
-const STATUS_PRIORITY: Record<CredentialStatus, number> = {
+const STATUS_PRIORITY: Record<SharedCredentialStatus, number> = {
   EXPIRED: 0,
   EXPIRING_SOON: 1,
   ACTIVE: 2,
@@ -238,8 +241,9 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
     inputSchema: EMPTY_INPUT_SCHEMA,
     inputSchemaJson: EMPTY_INPUT_SCHEMA_JSON,
     async handle({ practiceId, practiceTimezone }) {
-      // SCHEMA NOTE: Credential has no `status` column — derive from expiryDate.
-      // Credential.credentialTypeId is an FK; resolve to .code via include.
+      // SCHEMA NOTE: Credential has no `status` column — derive from
+      // expiryDate via the shared helper (audit #16). Credential
+      // .credentialTypeId is an FK; resolve to .code via include.
       //
       // Fetch all rows (no DB-side cap), derive status, sort by
       // STATUS_PRIORITY so the most actionable rows surface first
@@ -248,22 +252,13 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
       // clipping NO_EXPIRY rows when a practice has >100 credentials.
       // Performance: typical practice has <50 credentials; even 500 rows
       // are a single fast query, then in-memory sort.
-      const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
-      const now = Date.now();
+      const nowDate = new Date();
       const rows = await db.credential.findMany({
         where: { practiceId, retiredAt: null },
         include: { credentialType: { select: { code: true } } },
       });
       const allCredentials = rows.map((c) => {
-        let status: "ACTIVE" | "EXPIRING_SOON" | "EXPIRED" | "NO_EXPIRY" = "NO_EXPIRY";
-        if (c.expiryDate) {
-          const t = c.expiryDate.getTime();
-          if (t < now) status = "EXPIRED";
-          // <= so a credential expiring exactly on the 90-day mark is
-          // EXPIRING_SOON (the actionable warning), not ACTIVE.
-          else if (t - now <= NINETY_DAYS_MS) status = "EXPIRING_SOON";
-          else status = "ACTIVE";
-        }
+        const status = getCredentialStatus(c.expiryDate, nowDate);
         return {
           credentialTypeCode: c.credentialType.code,
           holderId: c.holderId,
