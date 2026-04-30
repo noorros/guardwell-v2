@@ -2,6 +2,7 @@
 import type { Prisma } from "@prisma/client";
 import type { PayloadFor } from "../registry";
 import { rederiveRequirementStatus } from "@/lib/compliance/derivation/rederive";
+import { assertProjectionPracticeOwned } from "./guards";
 
 type Payload = PayloadFor<"ALLERGY_EQUIPMENT_CHECK_LOGGED", 1>;
 
@@ -10,6 +11,19 @@ export async function projectAllergyEquipmentCheckLogged(
   args: { practiceId: string; payload: Payload },
 ): Promise<void> {
   const { practiceId, payload } = args;
+
+  // Audit C-1: refuse a forged ALLERGY_EQUIPMENT_CHECK_LOGGED carrying
+  // another practice's equipmentCheckId — without this guard, the row's
+  // temperature reading or epi-pen lot could be overwritten.
+  const existing = await tx.allergyEquipmentCheck.findUnique({
+    where: { id: payload.equipmentCheckId },
+    select: { practiceId: true },
+  });
+  assertProjectionPracticeOwned(existing, practiceId, {
+    table: "allergyEquipmentCheck",
+    id: payload.equipmentCheckId,
+  });
+
   await tx.allergyEquipmentCheck.upsert({
     where: { id: payload.equipmentCheckId },
     create: {

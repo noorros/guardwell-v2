@@ -6,6 +6,7 @@
 
 import type { Prisma } from "@prisma/client";
 import type { PayloadFor } from "../registry";
+import { assertProjectionPracticeOwned } from "./guards";
 
 type Payload = PayloadFor<"SRA_DRAFT_SAVED", 1>;
 
@@ -49,11 +50,12 @@ export async function projectSraDraftSaved(
       `SRA_DRAFT_SAVED refused: assessment ${payload.assessmentId} is already completed`,
     );
   }
-  if (existing && existing.practiceId !== practiceId) {
-    throw new Error(
-      `SRA_DRAFT_SAVED refused: assessment ${payload.assessmentId} belongs to a different practice`,
-    );
-  }
+  // Audit C-1: cross-tenant guard via shared helper (this projection
+  // was the original reference pattern that the helper hoisted).
+  assertProjectionPracticeOwned(existing, practiceId, {
+    table: "practiceSraAssessment",
+    id: payload.assessmentId,
+  });
 
   await tx.practiceSraAssessment.upsert({
     where: { id: payload.assessmentId },
