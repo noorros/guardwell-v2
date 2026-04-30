@@ -71,6 +71,13 @@ export default async function IncidentDetailPage({ params }: PageProps) {
 
   const canManage = pu.role === "OWNER" || pu.role === "ADMIN";
   const hasDetermined = incident.isBreach !== null;
+  // Audit #21 (OSHA C-2 / B-4): the HIPAA §164.402 4-factor breach
+  // determination only applies to PRIVACY/SECURITY incidents. OSHA
+  // recordables, near misses, DEA theft/loss, etc. are not "breaches"
+  // and showing the wizard for them was conceptual noise + a
+  // regulatory mismatch.
+  const breachDeterminationApplies =
+    incident.type === "PRIVACY" || incident.type === "SECURITY";
   const isUnresolvedBreach =
     incident.isBreach === true && incident.resolvedAt === null;
   const reportingDeadline = new Date(
@@ -169,12 +176,12 @@ export default async function IncidentDetailPage({ params }: PageProps) {
         </CardContent>
       </Card>
 
-      {!hasDetermined ? (
+      {breachDeterminationApplies && !hasDetermined ? (
         <BreachDeterminationWizard
           incidentId={incident.id}
           defaultAffectedCount={incident.affectedCount ?? 0}
         />
-      ) : (
+      ) : breachDeterminationApplies && hasDetermined ? (
         <Card>
           <CardContent className="space-y-2 p-6">
             <h2 className="text-sm font-semibold">Breach determination</h2>
@@ -228,7 +235,7 @@ export default async function IncidentDetailPage({ params }: PageProps) {
             </div>
           </CardContent>
         </Card>
-      )}
+      ) : null}
 
       {hasDetermined && incident.isBreach === true && (
         <NotificationLog
