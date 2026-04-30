@@ -35,6 +35,12 @@ export interface QuizResult {
   correctCount: number;
   totalCount: number;
   passingScore: number;
+  // Phase 4 PR 7 — TrainingCompletion id, present only when passed=true.
+  // QuizRunner reads this to render the "Download certificate" link to
+  // /api/training/certificate/[id]. Optional + only-on-pass means
+  // existing callers ignoring it stay backward-compatible and the type
+  // makes the conditional explicit at the call site.
+  trainingCompletionId?: string;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -110,6 +116,11 @@ export async function submitQuizAction(
     correctCount,
     totalCount,
     passingScore: course.passingScore,
+    // Only surface the certificate id on a pass — failed attempts have a
+    // TrainingCompletion row too (per the projection contract) but
+    // shouldn't get a downloadable certificate. Keeping the field
+    // undefined on fail is the simplest type-level gate.
+    trainingCompletionId: passed ? trainingCompletionId : undefined,
   };
 }
 
