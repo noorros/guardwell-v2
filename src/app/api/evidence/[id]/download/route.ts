@@ -4,6 +4,7 @@
 // The client is redirected directly; no server-side buffering.
 
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
 import { getPracticeUser } from "@/lib/rbac";
 import { getDownloadUrl } from "@/lib/storage/evidence";
 
@@ -18,6 +19,25 @@ export async function GET(
     const pu = await getPracticeUser();
     if (!pu) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Audit #21 MN-6: STAFF/VIEWER are blocked from downloading evidence
+    // attached to CREDENTIAL rows (DEA cert PDFs, malpractice insurance,
+    // license cards). Pairs with the page-level gate in
+    // src/app/(dashboard)/programs/credentials/[id]/page.tsx and the CR-3
+    // activity-log redaction (PR #215). Other entityTypes (POLICY,
+    // INCIDENT, DESTRUCTION_LOG, etc.) keep their existing role contracts.
+    const evidenceRow = await db.evidence.findUnique({
+      where: { id },
+      select: { practiceId: true, entityType: true },
+    });
+    if (
+      evidenceRow &&
+      evidenceRow.practiceId === pu.practiceId &&
+      evidenceRow.entityType === "CREDENTIAL" &&
+      (pu.role === "STAFF" || pu.role === "VIEWER")
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const result = await getDownloadUrl({
