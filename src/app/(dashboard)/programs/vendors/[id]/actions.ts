@@ -112,6 +112,10 @@ export async function startBaaDraftAction(
 
   revalidatePath("/programs/vendors");
   revalidatePath(`/programs/vendors/${parsed.vendorId}`);
+  // Audit #21 M-4 (2026-04-30): the HIPAA module page surfaces vendor /
+  // BAA state as part of the §164.502(e) compliance roll-up, so any BAA
+  // lifecycle write needs to invalidate it too.
+  revalidatePath("/modules/hipaa");
   return { baaRequestId: parsed.baaRequestId };
 }
 
@@ -240,6 +244,9 @@ export async function sendBaaAction(
 
   revalidatePath("/programs/vendors");
   revalidatePath(`/programs/vendors/${baaRequest.vendorId}`);
+  // Audit #21 M-4 (2026-04-30): module-level rollup needs to see the
+  // SENT transition immediately.
+  revalidatePath("/modules/hipaa");
 
   return {
     tokenId: parsed.tokenId,

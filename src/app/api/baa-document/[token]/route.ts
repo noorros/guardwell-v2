@@ -14,10 +14,20 @@
 //      the practice the BaaRequest belongs to — token's practiceId is
 //      load-bearing here for cross-tenant safety).
 //   4. 302-redirect the browser directly to GCS.
+//
+// Audit #21 C-4 + M-5 (2026-04-30): rate-limit + rejected-attempt
+// logging on this surface mirror the /accept-baa/[token] page hardening.
 
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { getDownloadUrl } from "@/lib/storage/evidence";
+import { assertBaaTokenRateLimit } from "@/lib/baa/rateLimit";
+import { extractClientIp } from "@/lib/baa/tokenAudit";
+import {
+  logRejectedKnownToken,
+  logRejectedUnknownToken,
+} from "@/lib/baa/logRejected";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +36,19 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
+
+  const hdrs = await headers();
+  const ip = extractClientIp(hdrs);
+  const userAgent = hdrs.get("user-agent");
+
+  // 10 attempts / 5 min per IP. Soft-skipped via UPSTASH_DISABLE in tests.
+  try {
+    await assertBaaTokenRateLimit(ip);
+  } catch (err) {
+    logRejectedUnknownToken({ token, ip, userAgent });
+    const message = err instanceof Error ? err.message : "Rate limited";
+    return NextResponse.json({ error: message }, { status: 429 });
+  }
 
   const tokenRow = await db.baaAcceptanceToken.findUnique({
     where: { token },
@@ -41,9 +64,34 @@ export async function GET(
     },
   });
   if (!tokenRow) {
+    logRejectedUnknownToken({ token, ip, userAgent });
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (tokenRow.revokedAt || tokenRow.expiresAt.getTime() < Date.now()) {
+  if (tokenRow.revokedAt) {
+    await logRejectedKnownToken({
+      practiceId: tokenRow.baaRequest.practiceId,
+      baaRequestId: tokenRow.baaRequest.id,
+      tokenId: tokenRow.id,
+      token,
+      reason: "REVOKED",
+      ip,
+      userAgent,
+    });
+    return NextResponse.json(
+      { error: "Link no longer active" },
+      { status: 410 },
+    );
+  }
+  if (tokenRow.expiresAt.getTime() < Date.now()) {
+    await logRejectedKnownToken({
+      practiceId: tokenRow.baaRequest.practiceId,
+      baaRequestId: tokenRow.baaRequest.id,
+      tokenId: tokenRow.id,
+      token,
+      reason: "EXPIRED",
+      ip,
+      userAgent,
+    });
     return NextResponse.json(
       { error: "Link no longer active" },
       { status: 410 },

@@ -4,6 +4,10 @@
 // description, BAA status, expiration window. Used for: HIPAA audit
 // response (the §164.502(e) BA contracts requirement), board reviews,
 // outside-counsel due diligence on PHI flow.
+//
+// Audit #21 M-2 (2026-04-30): also lists vendors retired within the
+// §164.530(j) 6-year retention window in their own section, so the
+// register reflects the full BAA history an inspector expects.
 
 import React from "react";
 import {
@@ -41,6 +45,12 @@ const s = StyleSheet.create({
     borderBottomColor: "#E2E8F0",
     paddingBottom: 3,
   },
+  retiredSectionNote: {
+    fontSize: 9,
+    color: "#64748B",
+    marginBottom: 6,
+    fontStyle: "italic",
+  },
   rowHeader: {
     flexDirection: "row",
     paddingVertical: 5,
@@ -60,10 +70,22 @@ const s = StyleSheet.create({
   cellService: { width: "32%", paddingRight: 6 },
   cellBaa: { width: "20%", paddingRight: 6 },
   cellExpires: { width: "20%" },
+  // Retired layout has an extra "Retired on" column — pull width from
+  // service so the row still sums to 100%.
+  cellRetiredService: { width: "24%", paddingRight: 6 },
+  cellRetiredOn: { width: "16%", paddingRight: 6 },
   expired: { color: "#B91C1C" },
   expiringSoon: { color: "#D97706" },
   current: { color: "#15803D" },
   noBaa: { color: "#B91C1C", fontStyle: "italic" },
+  retiredText: {
+    color: "#94A3B8",
+    textDecoration: "line-through",
+  },
+  retiredLabel: {
+    color: "#64748B",
+    fontStyle: "italic",
+  },
   emptyState: {
     fontSize: 10,
     color: "#94A3B8",
@@ -89,6 +111,10 @@ export interface VendorRow {
   baaDirection: string | null;
   baaExecutedAt: Date | null;
   baaExpiresAt: Date | null;
+  // M-2 (2026-04-30): retired-section rows carry retiredAt; active
+  // rows pass null. Caller-controlled — the document body picks the
+  // right table layout based on which input array the row came from.
+  retiredAt: Date | null;
 }
 
 export interface VendorBaaRegisterInput {
@@ -97,6 +123,10 @@ export interface VendorBaaRegisterInput {
   practiceTimezone: string;
   generatedAt: Date;
   vendors: VendorRow[];
+  // Vendors retired within the 6-year retention window. Optional so
+  // legacy callers (none today) keep working; the route always passes
+  // an array (possibly empty).
+  retiredVendors?: VendorRow[];
 }
 
 const SOON_MS = 60 * 24 * 60 * 60 * 1000;
@@ -128,6 +158,7 @@ export function VendorBaaRegisterDocument({
   const now = input.generatedAt.getTime();
   const phiVendors = input.vendors.filter((v) => v.processesPhi);
   const otherVendors = input.vendors.filter((v) => !v.processesPhi);
+  const retiredVendors = input.retiredVendors ?? [];
 
   const missing = phiVendors.filter((v) => !v.baaExecutedAt).length;
   const expired = phiVendors.filter(
@@ -154,8 +185,9 @@ export function VendorBaaRegisterDocument({
         </Text>
         <Text style={s.meta}>
           Generated {formatPracticeDate(input.generatedAt, input.practiceTimezone)} ·{" "}
-          {input.vendors.length} vendor{input.vendors.length === 1 ? "" : "s"} ·{" "}
-          {phiVendors.length} processes PHI
+          {input.vendors.length} active vendor{input.vendors.length === 1 ? "" : "s"} ·{" "}
+          {phiVendors.length} processes PHI ·{" "}
+          {retiredVendors.length} retired (6-yr retention)
         </Text>
         <Text style={s.meta}>
           BAA status (PHI vendors): {missing} missing · {expired} expired ·{" "}
@@ -184,7 +216,21 @@ export function VendorBaaRegisterDocument({
           </>
         )}
 
-        {input.vendors.length === 0 && (
+        {retiredVendors.length > 0 && (
+          <>
+            <Text style={s.sectionTitle}>Retired BAAs (6-year retention)</Text>
+            <Text style={s.retiredSectionNote}>
+              Retained per §164.530(j). These vendors are no longer active but
+              are included so the register reflects the full BAA history.
+            </Text>
+            <RetiredSectionTable
+              rows={retiredVendors}
+              timezone={input.practiceTimezone}
+            />
+          </>
+        )}
+
+        {input.vendors.length === 0 && retiredVendors.length === 0 && (
           <Text style={s.emptyState}>
             No vendors recorded yet. Add vendors via My Programs › Vendors.
           </Text>
@@ -223,6 +269,49 @@ function SectionTable({ rows, now, timezone }: { rows: VendorRow[]; now: number;
                 : "—"}
             </Text>
             <Text style={[s.cellExpires, status.style]}>{status.label}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function RetiredSectionTable({
+  rows,
+  timezone,
+}: {
+  rows: VendorRow[];
+  timezone: string;
+}) {
+  return (
+    <View>
+      <View style={s.rowHeader}>
+        <Text style={s.cellName}>Vendor</Text>
+        <Text style={s.cellRetiredService}>Service</Text>
+        <Text style={s.cellBaa}>BAA executed</Text>
+        <Text style={s.cellRetiredOn}>Retired on</Text>
+        <Text style={s.cellExpires}>Status</Text>
+      </View>
+      {rows.map((v, i) => {
+        const phiLabel = v.processesPhi ? "PHI vendor" : "Non-PHI";
+        const baaLabel = v.baaExecutedAt
+          ? formatPracticeDate(v.baaExecutedAt, timezone)
+          : "(none)";
+        const retiredLabel = v.retiredAt
+          ? formatPracticeDate(v.retiredAt, timezone)
+          : "—";
+        return (
+          <View key={i} style={s.row}>
+            <Text style={[s.cellName, s.retiredText]}>
+              {v.name}
+              {v.type ? ` (${v.type})` : ""}
+            </Text>
+            <Text style={[s.cellRetiredService, s.retiredText]}>
+              {v.service ?? "—"}
+            </Text>
+            <Text style={[s.cellBaa, s.retiredText]}>{baaLabel}</Text>
+            <Text style={[s.cellRetiredOn, s.retiredLabel]}>{retiredLabel}</Text>
+            <Text style={[s.cellExpires, s.retiredLabel]}>RETIRED · {phiLabel}</Text>
           </View>
         );
       })}
