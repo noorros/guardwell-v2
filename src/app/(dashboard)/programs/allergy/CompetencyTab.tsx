@@ -25,6 +25,8 @@ import {
   formatPracticeDate,
   formatPracticeDateLong,
 } from "@/lib/audit/format";
+// Audit #21 / Allergy MIN-1: SIX_MONTHS_MS lives in src/lib/allergy/constants.ts.
+import { SIX_MONTHS_MS } from "@/lib/allergy/constants";
 
 export interface CompetencyTabProps {
   canManage: boolean;
@@ -202,7 +204,7 @@ function OverallBadge({ competency }: { competency: CompetencyTabProps["competen
 }
 
 // ── 6-month inactivity check (183 days, matching USP §21 + v1 logic) ──────────
-const SIX_MONTHS_MS = 183 * 24 * 60 * 60 * 1000;
+// SIX_MONTHS_MS imported from src/lib/allergy/constants.ts (audit #21 MIN-1).
 function isInactive(lastCompoundedAt: string | null | undefined): boolean {
   if (!lastCompoundedAt) return false;
   return Date.now() - new Date(lastCompoundedAt).getTime() >= SIX_MONTHS_MS;

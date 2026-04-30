@@ -94,6 +94,34 @@ describe("formatEventForActivityLog", () => {
     expect(reported.summary).toContain("Stolen laptop");
   });
 
+  // Audit #21 / OSHA M-8: INCIDENT_OSHA_OUTCOME_UPDATED label
+  it("renders INCIDENT_OSHA_OUTCOME_UPDATED with outcome + days detail", () => {
+    const out = formatEventForActivityLog({
+      type: "INCIDENT_OSHA_OUTCOME_UPDATED",
+      payload: {
+        oshaOutcome: "DAYS_AWAY",
+        oshaDaysAway: 5,
+        oshaDaysRestricted: null,
+      },
+    });
+    expect(out.icon).toBe("incident");
+    expect(out.verb).toBe("Updated");
+    expect(out.summary).toBe("OSHA outcome");
+    expect(out.detail).toContain("days away");
+    expect(out.detail).toContain("5d away");
+  });
+
+  it("falls back gracefully when INCIDENT_OSHA_OUTCOME_UPDATED has empty payload", () => {
+    const out = formatEventForActivityLog({
+      type: "INCIDENT_OSHA_OUTCOME_UPDATED",
+      payload: {},
+    });
+    expect(out.icon).toBe("incident");
+    expect(out.verb).toBe("Updated");
+    expect(out.summary).toBe("OSHA outcome");
+    expect(out.detail).toBeNull();
+  });
+
   // Audit CR-3: license-number redaction in CREDENTIAL_UPSERTED detail
   it("redacts CREDENTIAL_UPSERTED licenseNumber for STAFF/VIEWER viewers", () => {
     const evt = {

@@ -25,6 +25,25 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+// Audit #21 / CHROME-3: per-incident page title so bookmarks +
+// multi-tab juggling can tell incidents apart. Mirrors the per-resource
+// `generateMetadata` pattern in `/modules/[code]/page.tsx`. Falls back
+// to a generic title when the incident isn't found / accessible — the
+// page itself will then render notFound().
+export async function generateMetadata({ params }: PageProps) {
+  const { id } = await params;
+  const pu = await getPracticeUser();
+  if (!pu) return { title: "Incident · GuardWell" };
+  const incident = await db.incident.findUnique({
+    where: { id },
+    select: { practiceId: true, title: true },
+  });
+  if (!incident || incident.practiceId !== pu.practiceId) {
+    return { title: "Incident · GuardWell" };
+  }
+  return { title: `${incident.title} · Incidents | GuardWell` };
+}
+
 // HHS OCR: notification required within 60 days of discovery for <500
 // affected individuals; immediate (within 60 days but effectively ASAP +
 // media notice) for major breaches. Reporting deadline = discovered + 60d.

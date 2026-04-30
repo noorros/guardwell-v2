@@ -38,6 +38,21 @@ export type OshaOutcomeValue =
   | "OTHER_RECORDABLE"
   | "FIRST_AID";
 
+/**
+ * Audit #21 / CHROME-4: render OSHA outcome enums as title-case labels
+ * (matching the form's dropdown labels) instead of the all-caps
+ * underscore-replace fallback ("DAYS AWAY"). Single source of truth for
+ * the view-mode bullet rendering and any future surface that needs to
+ * humanize an OSHA outcome value.
+ */
+export const OSHA_OUTCOME_LABELS: Record<OshaOutcomeValue, string> = {
+  DEATH: "Fatal",
+  DAYS_AWAY: "Days away",
+  RESTRICTED: "Restricted duty",
+  OTHER_RECORDABLE: "Other recordable",
+  FIRST_AID: "First aid only",
+};
+
 export interface OshaOutcomePanelMember {
   userId: string;
   label: string;
@@ -112,7 +127,7 @@ export function OshaOutcomePanel({
           <li>Injury: {initial.oshaInjuryNature}</li>
         )}
         {initial.oshaOutcome && (
-          <li>Outcome: {initial.oshaOutcome.replace(/_/g, " ")}</li>
+          <li>Outcome: {OSHA_OUTCOME_LABELS[initial.oshaOutcome]}</li>
         )}
         {initial.oshaDaysAway != null && (
           <li>Days away: {initial.oshaDaysAway}</li>
@@ -317,11 +332,19 @@ function OshaOutcomeEditForm({
             className={FIELD_CLASS}
           >
             <option value="">Select…</option>
-            <option value="DEATH">Death</option>
+            {/*
+             * Audit #21 / OSHA M-7: ordered by frequency (most common
+             * first) instead of enum order so a typeahead "d" hits
+             * "Days away" — the dominant case — before "Fatal" /
+             * DEATH. Renamed DEATH to "Fatal" (matches OSHA's
+             * own §1904.7 vocabulary) so the alphabetical D-collision
+             * doesn't recur.
+             */}
+            <option value="FIRST_AID">First aid only</option>
             <option value="DAYS_AWAY">Days away</option>
             <option value="RESTRICTED">Restricted duty</option>
             <option value="OTHER_RECORDABLE">Other recordable</option>
-            <option value="FIRST_AID">First aid only</option>
+            <option value="DEATH">Fatal</option>
           </select>
         </div>
         <div>

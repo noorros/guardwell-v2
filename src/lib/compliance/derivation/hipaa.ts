@@ -350,6 +350,18 @@ function stateBreachNotificationRule(
 
 /**
  * California overlay (Cal. Civil Code §56.36 · Health & Safety Code §1280.15).
+ *
+ * Audit #21 / HIPAA M-1: the registry key below
+ * (`HIPAA_CA_BREACH_NOTIFICATION_72HR`) is a legacy code from the initial
+ * state-overlay seed. The actual statutory window is **15 business days**
+ * (Health & Safety Code §1280.15(b)) — NOT 72 hours. Renaming the code
+ * itself requires a coordinated DB migration of `RegulatoryRequirement`
+ * rows and the seed-state-overlays fixture; out of scope for this Wave-4
+ * cosmetic bundle. The user-facing title in
+ * `scripts/seed-state-overlays.ts` is already correctly stated as
+ * "Breach notification within 15 business days (CA)" — only the
+ * machine code is misleadingly named.
+ *
  * Backwards-compatible alias kept as an exported name so the original
  * tests + any external callers continue to work.
  */

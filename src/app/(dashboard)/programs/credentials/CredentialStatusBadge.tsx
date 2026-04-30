@@ -70,16 +70,28 @@ export function CredentialStatusBadge({
     );
   }
 
-  return (
-    <Badge
-      variant="secondary"
-      className="text-[10px]"
-      style={{
-        color: "var(--gw-color-compliant)",
-        borderColor: "var(--gw-color-compliant)",
-      }}
-    >
-      Active · expires {formatted}
-    </Badge>
+  if (status === "ACTIVE") {
+    return (
+      <Badge
+        variant="secondary"
+        className="text-[10px]"
+        style={{
+          color: "var(--gw-color-compliant)",
+          borderColor: "var(--gw-color-compliant)",
+        }}
+      >
+        Active · expires {formatted}
+      </Badge>
+    );
+  }
+
+  // Audit #21 / Credentials MN-9: fail loud on unknown status values
+  // instead of silently rendering as "Active". This forces compile-time
+  // exhaustiveness — adding a new variant to `CredentialStatus` will
+  // surface here as a TS narrowing error against `never`, prompting the
+  // contributor to wire the new case through.
+  const _exhaustive: never = status;
+  throw new Error(
+    `Unknown CredentialStatus: ${String(_exhaustive)}. Update CredentialStatusBadge.`,
   );
 }

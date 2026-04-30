@@ -63,7 +63,13 @@ export async function GET() {
   ]);
 
   const safeName = pu.practice.name.replace(/[^A-Za-z0-9]/g, "-");
-  return new NextResponse(csv, {
+  // Audit #21 / Credentials MN-2: prepend the UTF-8 BOM so Excel
+  // correctly identifies the file as UTF-8 instead of ANSI/Windows-1252.
+  // Without it, non-ASCII characters in holder names, license titles, or
+  // notes (é, ñ, …) get mangled when a CA practice opens the export in
+  // Excel. The BOM is one character (0xFEFF) and stripped by jq, pandas,
+  // and any modern CSV parser.
+  return new NextResponse(`﻿${csv}`, {
     status: 200,
     headers: {
       "Content-Type": "text/csv; charset=utf-8",

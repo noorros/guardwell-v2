@@ -6,11 +6,14 @@ import { db } from "@/lib/db";
 import { getPracticeUser } from "@/lib/rbac";
 import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { AllergyDashboard } from "./AllergyDashboard";
+// Audit #21 / Allergy MIN-1: SIX_MONTHS_MS lives in src/lib/allergy/constants.ts.
+// Page-level history truncation previously used 180 days, while the projection
+// + competency tab used 183. Centralized constant aligns them on 183 (USP §21
+// + v1 authoritative value).
+import { SIX_MONTHS_MS } from "@/lib/allergy/constants";
 
 export const metadata = { title: "Allergy · My Programs" };
 export const dynamic = "force-dynamic";
-
-const SIX_MONTHS_MS = 180 * 24 * 60 * 60 * 1000;
 
 export default async function AllergyProgramPage() {
   const pu = await getPracticeUser();
