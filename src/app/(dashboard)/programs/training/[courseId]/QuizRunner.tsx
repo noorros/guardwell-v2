@@ -80,10 +80,32 @@ export function QuizRunner({ courseId, passingScore, questions, onPass }: QuizRu
               ? " Your HIPAA module score will update automatically."
               : " Review the lesson and retake when ready."}
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {!result.passed && (
               <Button size="sm" onClick={handleRetake}>
                 Retake quiz
+              </Button>
+            )}
+            {/*
+              Phase 4 PR 7 — Download cert link.
+              Rendered only when (a) the attempt passed, (b) the action
+              returned the TrainingCompletion id (it always does on a
+              pass per the action contract). The plan's "don't block on
+              cert generation" requirement is satisfied: this link
+              appears AFTER submitQuizAction resolves, which means the
+              TRAINING_COMPLETED event + projection already landed —
+              the certificate route can find the row.
+            */}
+            {result.passed && result.trainingCompletionId && (
+              <Button asChild variant="outline" size="sm">
+                <a
+                  href={`/api/training/certificate/${result.trainingCompletionId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download
+                >
+                  Download certificate
+                </a>
               </Button>
             )}
           </div>
