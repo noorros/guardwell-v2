@@ -318,8 +318,23 @@ export function SraWizard({ questions, initialState }: SraWizardProps) {
                     placeholder="Optional notes (evidence location, exceptions, remediation plan)"
                     value={notes[q.code] ?? ""}
                     onChange={(e) => setNote(q.code, e.target.value)}
+                    aria-describedby={`${notesId}-phi-hint`}
                     className="w-full rounded-md border bg-background px-2 py-1.5 text-xs"
                   />
+                  {/*
+                    Audit #21 HIPAA M-8 (2026-04-30): SRA notes flow
+                    into the immutable EventLog via 800ms autosave —
+                    once written, the row cannot be redacted. Warn
+                    against PHI here so users describe evidence
+                    *locations* rather than paste patient identifiers.
+                  */}
+                  <p
+                    id={`${notesId}-phi-hint`}
+                    className="text-[11px] text-muted-foreground"
+                  >
+                    Do not include patient names, MRNs, DOBs, or other PHI.
+                    Notes are stored in the immutable audit log.
+                  </p>
                 </li>
               );
             })}

@@ -39,6 +39,26 @@ describe("CITATIONS registry", () => {
     expect(CITATIONS.USP_797_21.code).toBe("USP 797 §21");
   });
 
+  // Audit #21 HIPAA M-9 (2026-04-30): the breach-notification clocks
+  // were previously rendered as one citation under the §164.408 code,
+  // which silently dropped §164.404 (patient notice). Guard the split.
+  it("federal HHS-notification (§164.408) and individual-notification (§164.404) are separate citations", () => {
+    expect(CITATIONS.HIPAA_BREACH_HHS_NOTIFICATION.code).toBe("§164.408");
+    expect(CITATIONS.HIPAA_BREACH_INDIVIDUAL_NOTIFICATION.code).toBe(
+      "§164.404",
+    );
+    // Sanity-check: distinct codes. A future "let me consolidate these"
+    // refactor would silently re-introduce the conflation.
+    expect(
+      CITATIONS.HIPAA_BREACH_HHS_NOTIFICATION.code,
+    ).not.toBe(CITATIONS.HIPAA_BREACH_INDIVIDUAL_NOTIFICATION.code);
+    // Both must be HIPAA-framework displays (federal), not state-overlay.
+    expect(CITATIONS.HIPAA_BREACH_HHS_NOTIFICATION.display).toContain("HIPAA");
+    expect(CITATIONS.HIPAA_BREACH_INDIVIDUAL_NOTIFICATION.display).toContain(
+      "HIPAA",
+    );
+  });
+
   // Audit #21 IM-8 (PR-C6).
   describe("DEA / state-board / CMS expansion", () => {
     it("DEA term + renewal cycle resolves to 21 CFR §1301.13", () => {
