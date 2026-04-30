@@ -13,7 +13,13 @@ import {
   projectTrainingAssignmentRevoked,
   projectStaffExcludedFromAssignment,
   projectTrainingCourseCreated,
+  projectTrainingCourseRetired,
+  projectTrainingCourseRestored,
 } from "@/lib/events/projections/training";
+import {
+  isCustomForPractice,
+  isSystemCourse,
+} from "@/lib/training/courseTenancy";
 import { db } from "@/lib/db";
 
 const Input = z.object({
@@ -542,4 +548,129 @@ export async function createCustomCourseAction(
 
   revalidatePath("/programs/training");
   return { courseId, code: namespacedCode };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Phase 4 PR 4 — retire / restore custom training courses
+// ────────────────────────────────────────────────────────────────────────────
+
+const CourseLifecycleInput = z.object({
+  courseId: z.string().min(1),
+});
+
+/**
+ * ADMIN-gated. Soft-retire a custom training course owned by THIS practice.
+ *
+ * TrainingCourse is a global table — there is no practiceId column.
+ * Tenancy is enforced through the code-prefix convention used by
+ * createCustomCourseAction (`${practiceId}_${userCode}`):
+ *
+ *   - System courses (HIPAA_BASICS, OSHA_HAZCOM, etc.) are rejected
+ *     outright with "System courses cannot be retired" — a single
+ *     practice admin must NOT be able to retire a course that other
+ *     practices rely on.
+ *   - Custom courses owned by a different practice are rejected with
+ *     "Course not found" so we don't leak existence to a tenant who
+ *     could otherwise probe for foreign course IDs.
+ *
+ * The projection sets sortOrder=9999. The catalog page filters
+ * sortOrder<9999 to hide retired rows.
+ */
+export async function retireTrainingCourseAction(
+  input: z.infer<typeof CourseLifecycleInput>,
+) {
+  const pu = await requireRole("ADMIN");
+  const parsed = CourseLifecycleInput.parse(input);
+
+  const course = await db.trainingCourse.findUnique({
+    where: { id: parsed.courseId },
+    select: { id: true, code: true, sortOrder: true },
+  });
+  if (!course) throw new Error("Course not found");
+
+  // Tenancy: a practice may only retire its own custom courses.
+  if (isSystemCourse(course.code)) {
+    throw new Error("System courses cannot be retired");
+  }
+  if (!isCustomForPractice(course.code, pu.practiceId)) {
+    // Don't leak existence — same message a missing row would surface.
+    throw new Error("Course not found");
+  }
+
+  // 9999 is the soft-retire signal per projectTrainingCourseRetired.
+  if (course.sortOrder === 9999) {
+    throw new Error("Course is already retired");
+  }
+
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: pu.dbUser.id,
+      type: "TRAINING_COURSE_RETIRED",
+      payload: { courseId: course.id },
+    },
+    async (tx) =>
+      projectTrainingCourseRetired(tx, {
+        practiceId: pu.practiceId,
+        actorUserId: pu.dbUser.id,
+        payload: { courseId: course.id },
+      }),
+  );
+
+  revalidatePath("/programs/training");
+  revalidatePath("/programs/training/manage");
+  return { courseId: course.id };
+}
+
+/**
+ * ADMIN-gated. Restore a previously-retired custom training course
+ * owned by THIS practice. Mirrors retireTrainingCourseAction's tenancy
+ * guard exactly — same rejection messages so probing-for-existence
+ * yields no signal differing from retire.
+ *
+ * Projection resets sortOrder to 999, the default value
+ * projectTrainingCourseCreated authors for projection-created custom
+ * courses.
+ */
+export async function restoreTrainingCourseAction(
+  input: z.infer<typeof CourseLifecycleInput>,
+) {
+  const pu = await requireRole("ADMIN");
+  const parsed = CourseLifecycleInput.parse(input);
+
+  const course = await db.trainingCourse.findUnique({
+    where: { id: parsed.courseId },
+    select: { id: true, code: true, sortOrder: true },
+  });
+  if (!course) throw new Error("Course not found");
+
+  if (isSystemCourse(course.code)) {
+    throw new Error("System courses cannot be restored");
+  }
+  if (!isCustomForPractice(course.code, pu.practiceId)) {
+    throw new Error("Course not found");
+  }
+
+  if (course.sortOrder !== 9999) {
+    throw new Error("Course is already active");
+  }
+
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: pu.dbUser.id,
+      type: "TRAINING_COURSE_RESTORED",
+      payload: { courseId: course.id },
+    },
+    async (tx) =>
+      projectTrainingCourseRestored(tx, {
+        practiceId: pu.practiceId,
+        actorUserId: pu.dbUser.id,
+        payload: { courseId: course.id },
+      }),
+  );
+
+  revalidatePath("/programs/training");
+  revalidatePath("/programs/training/manage");
+  return { courseId: course.id };
 }
