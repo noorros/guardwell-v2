@@ -270,6 +270,9 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
           c.credentialType.category,
         );
         return {
+          // IM-9 (audit #21): expose `id` so the Concierge LLM can build
+          // click-through links to /credentials/[id].
+          id: c.id,
           credentialTypeCode: c.credentialType.code,
           holderId: c.holderId,
           title: c.title,
@@ -288,6 +291,203 @@ export const TOOL_REGISTRY: Record<string, ToolHandler> = {
       const truncated = allCredentials.length > 100;
       const slice = allCredentials.slice(0, 100);
       return { credentials: slice, _truncated: truncated };
+    },
+  },
+
+  list_allergy_compounders: {
+    name: "list_allergy_compounders",
+    description:
+      "List PracticeUsers flagged as USP 797 §21 allergen-extract compounders (requiresAllergyCompetency=true) with their current-year qualification status (FULLY_QUALIFIED / IN_PROGRESS / NOT_QUALIFIED / not-yet-this-year).",
+    inputSchema: EMPTY_INPUT_SCHEMA,
+    inputSchemaJson: EMPTY_INPUT_SCHEMA_JSON,
+    async handle({ practiceId, practiceTimezone }) {
+      // SCHEMA NOTE: PracticeUser.requiresAllergyCompetency is the
+      // compounder gate. AllergyCompetency is per-(practiceUser, year) —
+      // absence of a current-year row means qualification hasn't started
+      // for this year yet (status: "not-yet-this-year").
+      const year = new Date().getFullYear();
+      const compounders = await db.practiceUser.findMany({
+        where: {
+          practiceId,
+          requiresAllergyCompetency: true,
+          removedAt: null,
+        },
+        include: {
+          user: { select: { firstName: true, lastName: true, email: true } },
+        },
+      });
+      const competencies = await db.allergyCompetency.findMany({
+        where: {
+          practiceId,
+          year,
+          practiceUserId: { in: compounders.map((c) => c.id) },
+        },
+      });
+      const byUser = new Map(competencies.map((c) => [c.practiceUserId, c]));
+      const compoundersOut = compounders.map((m) => {
+        const name =
+          [m.user.firstName, m.user.lastName].filter(Boolean).join(" ") ||
+          m.user.email ||
+          "Unknown";
+        const c = byUser.get(m.id);
+        if (!c) {
+          return {
+            practiceUserId: m.id,
+            name,
+            qualificationStatus: "not-yet-this-year" as const,
+            lastQualifiedAt: null,
+            currentYearProgress: "No competency record for this year yet",
+          };
+        }
+        const quizDone = Boolean(c.quizPassedAt);
+        const mediaFillDone = Boolean(c.mediaFillPassedAt);
+        const fingertipCount = c.fingertipPassCount;
+        // Mirrors recomputeIsFullyQualified() — initial year requires 3
+        // fingertip passes; subsequent (renewal) year only 1.
+        const fingertipNeeded = c.isFullyQualified ? fingertipCount : 3;
+        let qualificationStatus:
+          | "FULLY_QUALIFIED"
+          | "IN_PROGRESS"
+          | "NOT_QUALIFIED";
+        if (c.isFullyQualified) {
+          qualificationStatus = "FULLY_QUALIFIED";
+        } else if (quizDone || fingertipCount > 0 || mediaFillDone) {
+          qualificationStatus = "IN_PROGRESS";
+        } else {
+          qualificationStatus = "NOT_QUALIFIED";
+        }
+        const progress = [
+          `${fingertipCount} of ${fingertipNeeded} fingertip pass(es)`,
+          quizDone ? "quiz passed" : "quiz pending",
+          mediaFillDone ? "media-fill passed" : "media-fill pending",
+        ].join(", ");
+        return {
+          practiceUserId: m.id,
+          name,
+          qualificationStatus,
+          lastQualifiedAt: c.fingertipLastPassedAt
+            ? formatPracticeDate(c.fingertipLastPassedAt, practiceTimezone)
+            : null,
+          currentYearProgress: progress,
+        };
+      });
+      return { compounders: compoundersOut, _truncated: false };
+    },
+  },
+
+  get_allergy_drill_status: {
+    name: "get_allergy_drill_status",
+    description:
+      "Get the latest anaphylaxis drill timing for the practice — last drill date, days since, next drill due, overdue indicator, participant count, and a truncated scenario summary. USP 797 §21 requires an annual drill.",
+    inputSchema: EMPTY_INPUT_SCHEMA,
+    inputSchemaJson: EMPTY_INPUT_SCHEMA_JSON,
+    async handle({ practiceId, practiceTimezone }) {
+      // SCHEMA NOTE: AllergyDrill.retiredAt is the audit-#15 soft-delete
+      // marker — exclude retired rows so the Concierge always reports
+      // the "active" latest drill.
+      const latest = await db.allergyDrill.findFirst({
+        where: { practiceId, retiredAt: null },
+        orderBy: { conductedAt: "desc" },
+      });
+      if (!latest) {
+        return {
+          lastDrillDate: null,
+          daysSinceLastDrill: null,
+          nextDrillDue: null,
+          overdueByDays: null,
+          participantCount: 0,
+          scenarioSummary: null,
+        };
+      }
+      const now = new Date();
+      const DAY_MS = 24 * 60 * 60 * 1000;
+      const daysSinceLastDrill = Math.floor(
+        (now.getTime() - latest.conductedAt.getTime()) / DAY_MS,
+      );
+      const overdueByDays =
+        latest.nextDrillDue && latest.nextDrillDue.getTime() < now.getTime()
+          ? Math.floor(
+              (now.getTime() - latest.nextDrillDue.getTime()) / DAY_MS,
+            )
+          : 0;
+      // Truncate scenario to keep payload small — Concierge can ask for
+      // the full row via /programs/allergy if the user wants details.
+      const SCENARIO_MAX = 200;
+      const scenarioSummary =
+        latest.scenario.length > SCENARIO_MAX
+          ? `${latest.scenario.slice(0, SCENARIO_MAX)}…`
+          : latest.scenario;
+      return {
+        lastDrillDate: formatPracticeDate(latest.conductedAt, practiceTimezone),
+        daysSinceLastDrill,
+        nextDrillDue: latest.nextDrillDue
+          ? formatPracticeDate(latest.nextDrillDue, practiceTimezone)
+          : null,
+        overdueByDays,
+        participantCount: latest.participantIds.length,
+        scenarioSummary,
+      };
+    },
+  },
+
+  get_fridge_readings: {
+    name: "get_fridge_readings",
+    description:
+      "List recent allergen-extract refrigerator temperature readings (latest first). Default 10, max 30. Each reading includes whether it was within the acceptable 2.0–8.0°C range.",
+    inputSchema: z
+      .object({
+        limit: z.number().int().min(1).max(30).optional(),
+      })
+      .strict(),
+    inputSchemaJson: {
+      type: "object",
+      properties: {
+        limit: { type: "number", minimum: 1, maximum: 30 },
+      },
+      additionalProperties: false,
+    },
+    async handle({ practiceId, practiceTimezone, input }) {
+      // SCHEMA NOTE: fridge readings are AllergyEquipmentCheck rows with
+      // checkType=REFRIGERATOR_TEMP. inRange is stored on the row (set at
+      // log time per the 2.0–8.0°C threshold). retiredAt filters out
+      // soft-deleted (audit #15) rows.
+      const { limit } = input as { limit?: number };
+      const take = limit ?? 10;
+      const rows = await db.allergyEquipmentCheck.findMany({
+        where: {
+          practiceId,
+          checkType: "REFRIGERATOR_TEMP",
+          retiredAt: null,
+        },
+        include: {
+          checkedBy: {
+            include: {
+              user: { select: { firstName: true, lastName: true, email: true } },
+            },
+          },
+        },
+        orderBy: { checkedAt: "desc" },
+        take,
+      });
+      const readings = rows.map((r) => {
+        // Privacy: return only display name, never the full user object —
+        // matches the per-row name pattern used in list_incidents.
+        const name =
+          [r.checkedBy.user.firstName, r.checkedBy.user.lastName]
+            .filter(Boolean)
+            .join(" ") ||
+          r.checkedBy.user.email ||
+          "Unknown";
+        return {
+          recordedAt: formatPracticeDate(r.checkedAt, practiceTimezone),
+          recordedBy: name,
+          temperature: r.temperatureC,
+          unit: "C" as const,
+          inRange: r.inRange,
+          notes: r.notes,
+        };
+      });
+      return { readings, _truncated: false };
     },
   },
 
