@@ -69,6 +69,30 @@ export default async function IncidentDetailPage({ params }: PageProps) {
         }))
       : [];
 
+  // Audit #21 / CHROME-1: if the originally-injured user was offboarded
+  // (their PracticeUser is removedAt:not-null and therefore filtered out
+  // of memberOptions above), look the User row up by id so the panel can
+  // render a "(removed)" option that preserves the stored value across
+  // edits. We keep the lookup tight (single id, three columns) and only
+  // do it when the panel will actually render and the gap exists.
+  let injuredUserLabel: string | null = null;
+  if (
+    incident.type === "OSHA_RECORDABLE" &&
+    incident.injuredUserId &&
+    !memberOptions.some((m) => m.userId === incident.injuredUserId)
+  ) {
+    const removedUser = await db.user.findUnique({
+      where: { id: incident.injuredUserId },
+      select: { firstName: true, lastName: true, email: true },
+    });
+    if (removedUser) {
+      injuredUserLabel =
+        [removedUser.firstName, removedUser.lastName].filter(Boolean).join(" ") ||
+        removedUser.email ||
+        null;
+    }
+  }
+
   const canManage = pu.role === "OWNER" || pu.role === "ADMIN";
   const hasDetermined = incident.isBreach !== null;
   const isUnresolvedBreach =
@@ -145,6 +169,7 @@ export default async function IncidentDetailPage({ params }: PageProps) {
               incidentId={incident.id}
               canManage={canManage}
               memberOptions={memberOptions}
+              injuredUserLabel={injuredUserLabel}
               initial={{
                 oshaBodyPart: incident.oshaBodyPart,
                 oshaInjuryNature: incident.oshaInjuryNature,
