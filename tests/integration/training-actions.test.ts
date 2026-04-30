@@ -172,3 +172,103 @@ describe("assignTrainingAction (Phase 4 PR 2)", () => {
     ).rejects.toThrow(/active member|not.*practice|unauthorized/i);
   });
 });
+
+describe("revokeTrainingAssignmentAction (Phase 4 PR 2)", () => {
+  it("rejects STAFF callers (requires ADMIN)", async () => {
+    const { practice, user } = await seed("STAFF");
+    const course = await seedCourse();
+    const assignmentId = randomUUID();
+    await db.trainingAssignment.create({
+      data: {
+        id: assignmentId,
+        practiceId: practice.id,
+        courseId: course.id,
+        assignedToRole: "STAFF",
+        requiredFlag: true,
+        createdByUserId: user.id,
+      },
+    });
+    const { revokeTrainingAssignmentAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+    await expect(
+      revokeTrainingAssignmentAction({
+        assignmentId,
+        reason: "no longer relevant",
+      }),
+    ).rejects.toThrow(/admin|owner|requires/i);
+  });
+
+  it("revokes the assignment as ADMIN (stamps revokedAt + reason + revokedByUserId)", async () => {
+    const { practice, user } = await seed("ADMIN");
+    const course = await seedCourse();
+    const assignmentId = randomUUID();
+    await db.trainingAssignment.create({
+      data: {
+        id: assignmentId,
+        practiceId: practice.id,
+        courseId: course.id,
+        assignedToRole: "STAFF",
+        requiredFlag: true,
+        createdByUserId: user.id,
+      },
+    });
+    const { revokeTrainingAssignmentAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+    await revokeTrainingAssignmentAction({
+      assignmentId,
+      reason: "Course retired",
+    });
+    const row = await db.trainingAssignment.findUniqueOrThrow({
+      where: { id: assignmentId },
+    });
+    expect(row.revokedAt).not.toBeNull();
+    expect(row.revokedReason).toBe("Course retired");
+    expect(row.revokedByUserId).toBe(user.id);
+  });
+
+  it("rejects revoking an assignment from a different practice (cross-tenant guard)", async () => {
+    const { user: callerUser } = await seed("ADMIN");
+    // The caller is set up. Create an assignment owned by a different practice.
+    const otherUser = await db.user.create({
+      data: {
+        firebaseUid: `ta-rv-other-${Math.random().toString(36).slice(2, 10)}`,
+        email: `ta-rv-other-${Math.random().toString(36).slice(2, 8)}@test.test`,
+      },
+    });
+    const otherPractice = await db.practice.create({
+      data: { name: "Other Practice", primaryState: "TX" },
+    });
+    await db.practiceUser.create({
+      data: { userId: otherUser.id, practiceId: otherPractice.id, role: "OWNER" },
+    });
+    const course = await seedCourse();
+    const assignmentId = randomUUID();
+    await db.trainingAssignment.create({
+      data: {
+        id: assignmentId,
+        practiceId: otherPractice.id,
+        courseId: course.id,
+        assignedToRole: "STAFF",
+        requiredFlag: true,
+        createdByUserId: otherUser.id,
+      },
+    });
+    const { revokeTrainingAssignmentAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+    await expect(
+      revokeTrainingAssignmentAction({
+        assignmentId,
+        reason: "Forged",
+      }),
+    ).rejects.toThrow(/different practice|not in your practice|unauthorized/i);
+    // Untouched
+    const row = await db.trainingAssignment.findUniqueOrThrow({
+      where: { id: assignmentId },
+    });
+    expect(row.revokedAt).toBeNull();
+    expect(callerUser.id).not.toBe(otherUser.id);
+  });
+});

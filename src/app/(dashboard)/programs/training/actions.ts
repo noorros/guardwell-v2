@@ -199,3 +199,57 @@ export async function assignTrainingAction(input: z.infer<typeof AssignInput>) {
   revalidatePath("/programs/training/assignments");
   return { assignmentId };
 }
+
+const RevokeInput = z.object({
+  assignmentId: z.string().min(1),
+  reason: z.string().max(500).nullable(),
+});
+
+/**
+ * ADMIN-gated. Soft-revokes a training assignment. Cross-tenant guard:
+ * the assignment must belong to the caller's practice. The PR 1
+ * projection ALSO has its own guard (assertProjectionPracticeOwned) —
+ * defense in depth means both checks stay.
+ */
+export async function revokeTrainingAssignmentAction(
+  input: z.infer<typeof RevokeInput>,
+) {
+  const pu = await requireRole("ADMIN");
+  const parsed = RevokeInput.parse(input);
+
+  const assignment = await db.trainingAssignment.findUnique({
+    where: { id: parsed.assignmentId },
+    select: { practiceId: true },
+  });
+  if (!assignment) throw new Error("Assignment not found");
+  if (assignment.practiceId !== pu.practiceId) {
+    throw new Error(
+      "Unauthorized: assignment is not in your practice",
+    );
+  }
+
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: pu.dbUser.id,
+      type: "TRAINING_ASSIGNMENT_REVOKED",
+      payload: {
+        assignmentId: parsed.assignmentId,
+        reason: parsed.reason,
+      },
+    },
+    async (tx) =>
+      projectTrainingAssignmentRevoked(tx, {
+        practiceId: pu.practiceId,
+        actorUserId: pu.dbUser.id,
+        payload: {
+          assignmentId: parsed.assignmentId,
+          reason: parsed.reason,
+        },
+      }),
+  );
+
+  revalidatePath("/programs/training");
+  revalidatePath("/programs/training/assignments");
+  return { assignmentId: parsed.assignmentId };
+}
