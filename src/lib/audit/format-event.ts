@@ -256,6 +256,31 @@ export function formatEventForActivityLog(
         detail: p.resolution ? String(p.resolution).slice(0, 80) : null,
       };
 
+    // Audit #21 / OSHA M-8: surface admin typo-corrections of OSHA
+    // recordable details (PR #213) in the activity feed instead of
+    // falling through to the generic "Event …" placeholder. Renders
+    // "Updated · OSHA outcome … Days away (5d)" so reviewers can spot
+    // §1904.7 record changes without diffing the raw payload.
+    case "INCIDENT_OSHA_OUTCOME_UPDATED": {
+      const outcome = str(p.oshaOutcome);
+      const daysAway = num(p.oshaDaysAway);
+      const daysRestricted = num(p.oshaDaysRestricted);
+      const detailParts: string[] = [];
+      if (outcome) {
+        detailParts.push(outcome.replace(/_/g, " ").toLowerCase());
+      }
+      if (daysAway != null) detailParts.push(`${daysAway}d away`);
+      if (daysRestricted != null) {
+        detailParts.push(`${daysRestricted}d restricted`);
+      }
+      return {
+        icon: "incident",
+        verb: "Updated",
+        summary: "OSHA outcome",
+        detail: detailParts.length > 0 ? detailParts.join(" · ") : null,
+      };
+    }
+
     case "ALLERGY_QUALIFICATION_RECOMPUTED": {
       const next = bool(p.nextQualified);
       const year = num(p.year);

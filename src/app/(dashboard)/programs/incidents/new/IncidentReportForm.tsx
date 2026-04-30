@@ -336,11 +336,16 @@ export function IncidentReportForm({
                       className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
                     >
                       <option value="">Select…</option>
-                      <option value="DEATH">Death</option>
+                      {/*
+                       * Audit #21 / OSHA M-7: order by frequency (most common
+                       * first) and rename DEATH → "Fatal" so a typeahead
+                       * "d" hits "Days away" instead of fatality.
+                       */}
+                      <option value="FIRST_AID">First aid only</option>
                       <option value="DAYS_AWAY">Days away</option>
                       <option value="RESTRICTED">Restricted duty</option>
                       <option value="OTHER_RECORDABLE">Other recordable</option>
-                      <option value="FIRST_AID">First aid only</option>
+                      <option value="DEATH">Fatal</option>
                     </select>
                   </div>
                   <div>

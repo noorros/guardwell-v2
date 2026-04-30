@@ -7,10 +7,12 @@
 
 import type { Prisma } from "@prisma/client";
 import type { DerivationRule, DerivedStatus } from "./hipaa";
-
-const KIT_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
-const FRIDGE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
-const DRILL_WINDOW_MS = 365 * 24 * 60 * 60 * 1000;
+// Audit #21 / Allergy MIN-2: window constants live in src/lib/allergy/constants.ts.
+import {
+  KIT_WINDOW_MS,
+  FRIDGE_WINDOW_MS,
+  DRILL_WINDOW_MS,
+} from "@/lib/allergy/constants";
 
 /** Are all `requiresAllergyCompetency=true` users isFullyQualified for the current year? */
 export async function deriveAllergyCompetency(

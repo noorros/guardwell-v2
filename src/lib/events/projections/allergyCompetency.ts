@@ -21,6 +21,8 @@ import type { Prisma } from "@prisma/client";
 import type { PayloadFor } from "../registry";
 import { rederiveRequirementStatus } from "@/lib/compliance/derivation/rederive";
 import { assertProjectionPracticeOwned } from "./guards";
+// Audit #21 / Allergy MIN-1: SIX_MONTHS_MS lives in src/lib/allergy/constants.ts.
+import { SIX_MONTHS_MS } from "@/lib/allergy/constants";
 
 type QuizPayload = PayloadFor<"ALLERGY_QUIZ_COMPLETED", 1>;
 type FingertipPayload = PayloadFor<"ALLERGY_FINGERTIP_TEST_PASSED", 1>;
@@ -71,9 +73,6 @@ async function ensureCompetency(
   });
   return created.id;
 }
-
-// 6 months expressed as milliseconds (183 days, matching v1's sixMonthsAgo)
-const SIX_MONTHS_MS = 183 * 24 * 60 * 60 * 1000;
 
 /**
  * Audit #21 IM-11: which projection invoked the recompute. Used to build
