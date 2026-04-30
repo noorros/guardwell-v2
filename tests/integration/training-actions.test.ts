@@ -512,6 +512,82 @@ describe("autoAssignRequiredAction (Phase 4 PR 2)", () => {
     });
     expect(rows).toHaveLength(1);
   });
+
+  it("idempotencyKey closes the TOCTOU race (duplicate-key emit returns existing event without re-projecting)", async () => {
+    // Regression test for the simultaneous-invocation race window where
+    // two find-existing checks both miss and both emit. Pre-emits a
+    // TRAINING_ASSIGNED event with the same idempotencyKey the action
+    // would use, then invokes the action — the action's find-existing
+    // check now sees the row, but even if it didn't, the idempotencyKey
+    // belt-and-braces guard would short-circuit the second emit.
+    const { practice, user } = await seed("ADMIN");
+    const courseA = await seedCourse({ isRequired: true, roles: [] });
+    const { appendEventAndApply } = await import("@/lib/events");
+    const { projectTrainingAssigned } = await import(
+      "@/lib/events/projections/training"
+    );
+    const { autoAssignRequiredAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+
+    // Manually emit one assignment using the SAME idempotencyKey shape
+    // the action will compute. Skip the action's "find existing" check —
+    // we want to assert the idempotencyKey itself prevents the duplicate.
+    const idempotencyKey = `auto-assign:${practice.id}:${courseA.id}:STAFF`;
+    const manualAssignmentId = randomUUID();
+    const manualPayload = {
+      assignmentId: manualAssignmentId,
+      courseId: courseA.id,
+      assignedToUserId: null,
+      assignedToRole: "STAFF" as const,
+      assignedToCategory: null,
+      dueDate: null,
+      requiredFlag: true,
+    };
+    await appendEventAndApply(
+      {
+        practiceId: practice.id,
+        actorUserId: user.id,
+        type: "TRAINING_ASSIGNED",
+        payload: manualPayload,
+        idempotencyKey,
+      },
+      async (tx) =>
+        projectTrainingAssigned(tx, {
+          practiceId: practice.id,
+          actorUserId: user.id,
+          payload: manualPayload,
+        }),
+    );
+
+    // Sanity: one event + one assignment row before the action runs.
+    const eventsBefore = await db.eventLog.findMany({
+      where: { idempotencyKey },
+    });
+    expect(eventsBefore).toHaveLength(1);
+    const rowsBefore = await db.trainingAssignment.findMany({
+      where: { practiceId: practice.id, courseId: courseA.id },
+    });
+    expect(rowsBefore).toHaveLength(1);
+    expect(rowsBefore[0]!.id).toBe(manualAssignmentId);
+
+    // Run the action. Its find-existing check would skip emitting, but
+    // the idempotencyKey is the simultaneous-invocation safeguard — even
+    // if the find missed, the key would short-circuit re-emission.
+    await autoAssignRequiredAction();
+
+    // Still exactly one event for this key, still exactly one assignment.
+    const eventsAfter = await db.eventLog.findMany({
+      where: { idempotencyKey },
+    });
+    expect(eventsAfter).toHaveLength(1);
+    expect(eventsAfter[0]!.id).toBe(eventsBefore[0]!.id);
+    const rowsAfter = await db.trainingAssignment.findMany({
+      where: { practiceId: practice.id, courseId: courseA.id },
+    });
+    expect(rowsAfter).toHaveLength(1);
+    expect(rowsAfter[0]!.id).toBe(manualAssignmentId);
+  });
 });
 
 describe("createCustomCourseAction (Phase 4 PR 2)", () => {
@@ -606,5 +682,110 @@ describe("createCustomCourseAction (Phase 4 PR 2)", () => {
     ).rejects.toThrow(/already exists|duplicate/i);
     // cleanup
     await db.trainingCourse.delete({ where: { id: first.courseId } });
+  });
+
+  it("rolls back the course row when the quiz-question insert fails (atomicity)", async () => {
+    // Regression test for the partial-failure window: the projection
+    // callback now runs projectTrainingCourseCreated AND
+    // tx.quizQuestion.createMany inside the SAME db.$transaction. If
+    // the quiz insert throws, the course upsert MUST also roll back.
+    //
+    // Approach: wrap db.$transaction so the tx handed to the projection
+    // callback is a Proxy whose `quizQuestion.createMany` rejects. The
+    // surrounding $transaction sees the rejection and rolls everything
+    // back. ALSO stub db.quizQuestion.createMany so a regression that
+    // moves the createMany back outside the transaction would still
+    // fail this test (ensures the assertion catches the partial-failure
+    // window we're trying to close).
+    await seed("ADMIN");
+    const userCode = `ATOM_${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    const { createCustomCourseAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+
+    const originalTransaction = db.$transaction.bind(db);
+    const txSpy = vi
+      .spyOn(db, "$transaction")
+      .mockImplementation(((fnOrArr: unknown, options?: unknown) => {
+        if (typeof fnOrArr !== "function") {
+          // Array-form $transaction is not exercised by this action;
+          // pass through untouched.
+          return (originalTransaction as (...args: unknown[]) => unknown)(
+            fnOrArr,
+            options,
+          );
+        }
+        const fn = fnOrArr as (tx: unknown) => Promise<unknown>;
+        return originalTransaction(async (realTx) => {
+          const failingTx = new Proxy(realTx as Record<string, unknown>, {
+            get(target, prop, receiver) {
+              if (prop === "quizQuestion") {
+                const inner = Reflect.get(target, prop, receiver) as Record<
+                  string,
+                  unknown
+                >;
+                return new Proxy(inner, {
+                  get(innerTarget, innerProp, innerReceiver) {
+                    if (innerProp === "createMany") {
+                      return () =>
+                        Promise.reject(
+                          new Error("simulated quiz insert failure"),
+                        );
+                    }
+                    return Reflect.get(innerTarget, innerProp, innerReceiver);
+                  },
+                });
+              }
+              return Reflect.get(target, prop, receiver);
+            },
+          });
+          return fn(failingTx);
+        }, options as Parameters<typeof originalTransaction>[1]);
+      }) as typeof db.$transaction);
+
+    // Also fail the non-tx path. If a future refactor moves createMany
+    // back out of the projection callback, this stub would surface the
+    // regression — the test would still throw, but the course row would
+    // remain (stranded), and the assertions below would catch that.
+    const directSpy = vi
+      .spyOn(db.quizQuestion, "createMany")
+      .mockRejectedValue(new Error("simulated quiz insert failure (direct)"));
+
+    try {
+      await expect(
+        createCustomCourseAction({
+          ...validPayload,
+          code: userCode,
+        }),
+      ).rejects.toThrow(/simulated quiz insert failure/);
+
+      // Course row must NOT exist — the surrounding $transaction rolled
+      // back because the projection callback threw. The action computes
+      // the namespaced code as `${practiceId}_${userCode}`; the test
+      // seed put exactly one PracticeUser for this test user.
+      const practiceUser = await db.practiceUser.findFirstOrThrow({
+        where: { userId: globalThis.__trainingActionsTestUser!.id },
+        select: { practiceId: true },
+      });
+      const namespacedCode = `${practiceUser.practiceId}_${userCode}`;
+      const stranded = await db.trainingCourse.findUnique({
+        where: { code: namespacedCode },
+        select: { id: true },
+      });
+      expect(stranded).toBeNull();
+
+      // And the EventLog row must NOT exist either — appendEventAndApply's
+      // tx.eventLog.create rolls back alongside the projection writes.
+      const events = await db.eventLog.findMany({
+        where: {
+          practiceId: practiceUser.practiceId,
+          type: "TRAINING_COURSE_CREATED",
+        },
+      });
+      expect(events).toHaveLength(0);
+    } finally {
+      txSpy.mockRestore();
+      directSpy.mockRestore();
+    }
   });
 });

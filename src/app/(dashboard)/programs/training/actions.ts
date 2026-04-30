@@ -124,6 +124,7 @@ const AssignInput = z
     dueDate: z.string().datetime().nullable().optional(),
     requiredFlag: z.boolean(),
   })
+  // Duplicates registry refine to fail-fast before DB lookup at registry.ts:1586.
   .refine(
     (p) => {
       const set = [
@@ -386,12 +387,19 @@ export async function autoAssignRequiredAction() {
         requiredFlag: true,
       };
 
+      // idempotencyKey closes a TOCTOU window: if two admin invocations
+      // run concurrently, both can see "no existing row" above and both
+      // would otherwise emit. With this key, appendEventAndApply
+      // (src/lib/events/append.ts:43-48) short-circuits the second emit
+      // and returns the first event without writing again. The "find
+      // existing → skip" check above stays for the skipped-count return.
       await appendEventAndApply(
         {
           practiceId: pu.practiceId,
           actorUserId: pu.dbUser.id,
           type: "TRAINING_ASSIGNED",
           payload,
+          idempotencyKey: `auto-assign:${pu.practiceId}:${course.id}:${role}`,
         },
         async (tx) =>
           projectTrainingAssigned(tx, {
@@ -442,10 +450,11 @@ const CreateCustomCourseInput = z.object({
  * neither can clobber a system code (HIPAA_BASICS etc.).
  *
  * Emits TRAINING_COURSE_CREATED carrying lessonContent verbatim (Phase 4
- * PR 2 prep extended the registry payload). After the projection writes
- * the TrainingCourse row, this action writes the QuizQuestion rows
- * directly via createMany — QuizQuestion isn't a projection table per
- * the lint allowlist (eslint-rules/no-direct-projection-mutation.js).
+ * PR 2 prep extended the registry payload). The projection callback
+ * writes the TrainingCourse row AND the QuizQuestion rows in the SAME
+ * transaction — atomic-or-nothing. QuizQuestion isn't a projection
+ * table per the lint allowlist (eslint-rules/no-direct-projection-mutation.js)
+ * so direct tx.quizQuestion.createMany inside the callback is allowed.
  *
  * Returns { courseId, code: namespacedCode }.
  */
@@ -504,29 +513,32 @@ export async function createCustomCourseAction(
       type: "TRAINING_COURSE_CREATED",
       payload,
     },
-    async (tx) =>
-      projectTrainingCourseCreated(tx, {
+    async (tx) => {
+      await projectTrainingCourseCreated(tx, {
         practiceId: pu.practiceId,
         actorUserId: pu.dbUser.id,
         payload,
-      }),
+      });
+      // QuizQuestion rows: NOT a projection table — direct write inside
+      // the projection callback is allowed and lands in the SAME
+      // transaction as the course row. If the createMany throws, the
+      // surrounding $transaction rolls back the course insert too —
+      // closes a partial-failure window where a quiz insert error left
+      // the course row stranded without questions.
+      if (parsed.quizQuestions.length > 0) {
+        await tx.quizQuestion.createMany({
+          data: parsed.quizQuestions.map((q) => ({
+            courseId,
+            question: q.question,
+            options: q.options,
+            correctIndex: q.correctIndex,
+            explanation: q.explanation ?? null,
+            order: q.order,
+          })),
+        });
+      }
+    },
   );
-
-  // QuizQuestion rows: NOT a projection table — direct write is allowed.
-  // The (courseId, order) pair is enforced unique above so createMany
-  // won't violate any constraint.
-  if (parsed.quizQuestions.length > 0) {
-    await db.quizQuestion.createMany({
-      data: parsed.quizQuestions.map((q) => ({
-        courseId,
-        question: q.question,
-        options: q.options,
-        correctIndex: q.correctIndex,
-        explanation: q.explanation ?? null,
-        order: q.order,
-      })),
-    });
-  }
 
   revalidatePath("/programs/training");
   return { courseId, code: namespacedCode };
