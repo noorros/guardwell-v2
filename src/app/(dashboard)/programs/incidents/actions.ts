@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
-import { getPracticeUser } from "@/lib/rbac";
+import { getPracticeUser, requireRole } from "@/lib/rbac";
 import { appendEventAndApply } from "@/lib/events";
 import {
   projectIncidentReported,
@@ -65,6 +65,14 @@ export interface ReportIncidentResult {
   incidentId: string;
 }
 
+/**
+ * Audit C-2 (HIPAA/OSHA): intentionally open to STAFF/VIEWER. Discovery
+ * of an incident is the moment a staff member is most likely to act —
+ * gating reporting to ADMIN+ would create a perverse incentive to wait
+ * for a manager and miss the §164.408(b) 60-day breach-discovery clock
+ * (or §1904.39 8-hour fatality reporting). The downstream actions
+ * (breach determination, resolve, notification) are gated.
+ */
 export async function reportIncidentAction(
   input: z.infer<typeof ReportInput>,
 ): Promise<ReportIncidentResult> {
@@ -128,12 +136,17 @@ const BreachInput = z.object({
   memoText: z.string().min(40).max(10000).nullable().optional(),
 });
 
+/**
+ * Audit C-2 (HIPAA): gated to ADMIN+. The §164.402 4-factor analysis
+ * is the legal record that decides whether HHS notification is
+ * required — STAFF/VIEWER could falsely score a real breach as
+ * non-reportable to suppress the 60-day clock.
+ */
 export async function completeBreachDeterminationAction(
   input: z.infer<typeof BreachInput>,
 ): Promise<{ isBreach: boolean; overallRiskScore: number }> {
-  const user = await requireUser();
-  const pu = await getPracticeUser();
-  if (!pu) throw new Error("Unauthorized");
+  const pu = await requireRole("ADMIN");
+  const user = pu.dbUser;
   const parsed = BreachInput.parse(input);
 
   // HIPAA §164.402 "low probability of compromise" analysis. Each factor
@@ -218,12 +231,16 @@ const ResolveInput = z.object({
   resolution: z.string().max(2000).nullable().optional(),
 });
 
+/**
+ * Audit C-2 (HIPAA/OSHA): gated to ADMIN+. Marking an incident resolved
+ * removes it from open-gap counts and audit-defense surfaces — STAFF
+ * could prematurely close real findings.
+ */
 export async function resolveIncidentAction(
   input: z.infer<typeof ResolveInput>,
 ): Promise<void> {
-  const user = await requireUser();
-  const pu = await getPracticeUser();
-  if (!pu) throw new Error("Unauthorized");
+  const pu = await requireRole("ADMIN");
+  const user = pu.dbUser;
   const parsed = ResolveInput.parse(input);
 
   await appendEventAndApply(
@@ -270,12 +287,17 @@ const NotificationInput = z.object({
     .optional(),
 });
 
+/**
+ * Audit C-2 (HIPAA): gated to ADMIN+. Recording a notification (HHS,
+ * affected individuals, media, state AG) creates a legal evidence trail
+ * — fabricating an HHS-notified date would mask a real §164.408(b)
+ * timeline violation.
+ */
 export async function recordIncidentNotificationAction(
   input: z.infer<typeof NotificationInput>,
 ): Promise<{ kind: z.infer<typeof NotificationKindEnum>; notifiedAt: string }> {
-  const user = await requireUser();
-  const pu = await getPracticeUser();
-  if (!pu) throw new Error("Unauthorized");
+  const pu = await requireRole("ADMIN");
+  const user = pu.dbUser;
   const parsed = NotificationInput.parse(input);
 
   // Default to "now" so the common case (button click = "I just sent it")

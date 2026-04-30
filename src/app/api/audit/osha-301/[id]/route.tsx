@@ -30,6 +30,13 @@ export async function GET(
   if (!pu) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+  // Audit C-2 (OSHA): the Form 301 incident report carries injured-
+  // employee identification, narrative description, treating physician
+  // — §1904.35(b)(2)(v) privacy-sensitive. STAFF/VIEWER should not
+  // download a single incident's evidentiary PDF.
+  if (pu.role !== "OWNER" && pu.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const { id } = await params;
   const incident = await db.incident.findUnique({

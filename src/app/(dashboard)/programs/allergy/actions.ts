@@ -42,9 +42,19 @@ const FingertipInput = z.object({
   notes: z.string().max(2000).nullable().optional(),
 });
 
+/**
+ * Audit C-2 (Allergy): per-target tenant check mirrors the pattern in
+ * `logCompoundingActivityAction` + `toggleStaffAllergyRequirementAction`.
+ * Without it, an OWNER of Practice A could attest a competency pass
+ * against Practice B's compounder via a forged practiceUserId.
+ */
 export async function attestFingertipTestAction(input: z.infer<typeof FingertipInput>) {
   const { user, pu } = await requireAdmin();
   const parsed = FingertipInput.parse(input);
+  const target = await db.practiceUser.findUnique({ where: { id: parsed.practiceUserId } });
+  if (!target || target.practiceId !== pu.practiceId) {
+    throw new Error("Member not found");
+  }
   const year = new Date().getFullYear();
   const payload = {
     practiceUserId: parsed.practiceUserId,
@@ -70,9 +80,14 @@ const MediaFillInput = z.object({
   notes: z.string().max(2000).nullable().optional(),
 });
 
+/** Audit C-2 (Allergy): per-target tenant check — see attestFingertipTestAction. */
 export async function attestMediaFillTestAction(input: z.infer<typeof MediaFillInput>) {
   const { user, pu } = await requireAdmin();
   const parsed = MediaFillInput.parse(input);
+  const target = await db.practiceUser.findUnique({ where: { id: parsed.practiceUserId } });
+  if (!target || target.practiceId !== pu.practiceId) {
+    throw new Error("Member not found");
+  }
   const year = new Date().getFullYear();
   const payload = {
     practiceUserId: parsed.practiceUserId,
@@ -168,6 +183,14 @@ const QuizSubmitInput = z.object({
   answers: z.array(z.object({ questionId: z.string().min(1), selectedId: z.string().min(1) })),
 });
 
+/**
+ * Audit C-2 (Allergy): intentionally open to STAFF/VIEWER. The compounder
+ * is grading their own quiz attempt — `practiceUserId` is taken from the
+ * caller's session, not from `input`, so per-target tenant escalation is
+ * impossible. The role gate is on the *attestation* actions
+ * (attestFingertipTestAction / attestMediaFillTestAction) which require
+ * an ADMIN to mark a competency complete.
+ */
 export async function submitQuizAttemptAction(
   input: z.infer<typeof QuizSubmitInput>,
 ): Promise<{
