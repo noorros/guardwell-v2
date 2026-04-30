@@ -18,6 +18,7 @@ import {
   projectIncidentOshaOutcomeUpdated,
 } from "@/lib/events/projections/incident";
 import { emitCriticalBreachAlert } from "@/lib/notifications/critical-alert";
+import { triggerCriticalOshaAlert } from "@/lib/notifications/critical-osha-alert";
 import { db } from "@/lib/db";
 // db needed to read incident title + discoveredAt after breach-determination
 // commits, so the critical-alert email can render a practice-specific subject.
@@ -127,6 +128,26 @@ export async function reportIncidentAction(
         payload,
       }),
   );
+
+  // Audit #21 (OSHA I-4): §1904.39 8-hour fatality alert. Fires AFTER
+  // the INCIDENT_REPORTED event commits so the helper can read the
+  // incident row + the EventLog idempotency check works against a
+  // post-commit state. Best-effort — a notification or email failure
+  // never rolls back the incident report.
+  if (parsed.type === "OSHA_RECORDABLE" && parsed.oshaOutcome === "DEATH") {
+    try {
+      await triggerCriticalOshaAlert({
+        practiceId: pu.practiceId,
+        incidentId,
+        oshaOutcome: "DEATH",
+        occurredAt: new Date(parsed.discoveredAt),
+        incidentTitle: parsed.title,
+        actorUserId: user.id,
+      });
+    } catch (err) {
+      console.error("[critical-osha-alert] emit failed", err);
+    }
+  }
 
   revalidatePath("/programs/incidents");
   revalidatePath("/dashboard");
@@ -467,6 +488,32 @@ export async function updateIncidentOshaOutcomeAction(
         payload,
       }),
   );
+
+  // Audit #21 (OSHA I-4): the §1904.39 8-hour clock fires the moment a
+  // fatality is acknowledged — including the "upgrade DAYS_AWAY → DEATH"
+  // path where an outcome is corrected after initial intake. Helper
+  // is idempotent (checks for an existing INCIDENT_OSHA_FATALITY_REPORTED
+  // event), so re-running this action with oshaOutcome=DEATH is safe.
+  if (parsed.oshaOutcome === "DEATH") {
+    try {
+      const incident = await db.incident.findUnique({
+        where: { id: parsed.incidentId },
+        select: { discoveredAt: true, title: true },
+      });
+      if (incident) {
+        await triggerCriticalOshaAlert({
+          practiceId: pu.practiceId,
+          incidentId: parsed.incidentId,
+          oshaOutcome: "DEATH",
+          occurredAt: incident.discoveredAt,
+          incidentTitle: incident.title,
+          actorUserId: user.id,
+        });
+      }
+    } catch (err) {
+      console.error("[critical-osha-alert] emit failed", err);
+    }
+  }
 
   revalidatePath("/programs/incidents");
   revalidatePath(`/programs/incidents/${parsed.incidentId}`);
