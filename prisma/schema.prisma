@@ -372,6 +372,8 @@ model PracticeComplianceProfile {
 // inbox and the digest email don't reference different records.
 enum NotificationType {
   SRA_DUE
+  TRAINING_ASSIGNED
+  TRAINING_DUE_SOON
   TRAINING_EXPIRING
   TRAINING_OVERDUE
   TRAINING_ESCALATION
