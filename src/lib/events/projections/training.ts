@@ -13,6 +13,10 @@
 import type { Prisma } from "@prisma/client";
 import type { PayloadFor } from "../registry";
 import { assertProjectionPracticeOwned } from "./guards";
+import {
+  DEFAULT_CUSTOM_SORT_ORDER,
+  RETIRED_SORT_ORDER,
+} from "@/lib/training/courseTenancy";
 
 type Tx = Prisma.TransactionClient;
 
@@ -159,7 +163,7 @@ export async function projectTrainingCourseCreated(
       passingScore: payload.passingScore,
       isRequired: false,
       version: 1,
-      sortOrder: 999,
+      sortOrder: DEFAULT_CUSTOM_SORT_ORDER,
     },
   });
 }
@@ -197,6 +201,29 @@ export async function projectTrainingCourseRetired(
   const { payload } = args;
   await tx.trainingCourse.update({
     where: { id: payload.courseId },
-    data: { sortOrder: 9999 },
+    data: { sortOrder: RETIRED_SORT_ORDER },
+  });
+}
+
+/**
+ * Reverse a soft-retire by resetting sortOrder to 999 — the default
+ * value `projectTrainingCourseCreated` writes for custom courses. This
+ * is paired with the future-PR `retiredAt` migration: once that column
+ * exists, retire/restore will toggle it instead of the sortOrder hack.
+ *
+ * No tenant guard is needed at the projection layer: the action layer
+ * (restoreTrainingCourseAction) verifies the course belongs to the
+ * caller's practice via the courseTenancy helpers BEFORE emitting this
+ * event. A forged event referencing another practice's course is
+ * blocked one layer up.
+ */
+export async function projectTrainingCourseRestored(
+  tx: Tx,
+  args: Args<PayloadFor<"TRAINING_COURSE_RESTORED", 1>>,
+): Promise<void> {
+  const { payload } = args;
+  await tx.trainingCourse.update({
+    where: { id: payload.courseId },
+    data: { sortOrder: DEFAULT_CUSTOM_SORT_ORDER },
   });
 }

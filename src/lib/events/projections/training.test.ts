@@ -19,6 +19,7 @@ import {
   projectTrainingCourseCreated,
   projectTrainingCourseUpdated,
   projectTrainingCourseRetired,
+  projectTrainingCourseRestored,
 } from "./training";
 
 async function seed() {
@@ -459,6 +460,37 @@ describe("projectTrainingCourseRetired", () => {
       where: { id: courseId },
     });
     expect(row.sortOrder).toBe(9999);
+    await db.trainingCourse.delete({ where: { id: courseId } });
+  });
+});
+
+describe("projectTrainingCourseRestored", () => {
+  it("resets sortOrder to 999 (the projection-created default for custom courses)", async () => {
+    const { actor } = await seed();
+    const courseId = randomUUID();
+    const code = `CUSTOM_${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    // Seed a course in the retired state (sortOrder=9999).
+    await db.trainingCourse.create({
+      data: {
+        id: courseId,
+        code,
+        title: "Restore Me",
+        type: "CUSTOM",
+        lessonContent: "previously retired",
+        sortOrder: 9999,
+      },
+    });
+    await db.$transaction(async (tx) => {
+      await projectTrainingCourseRestored(tx, {
+        practiceId: actor.practiceId,
+        actorUserId: actor.userId,
+        payload: { courseId },
+      });
+    });
+    const row = await db.trainingCourse.findUniqueOrThrow({
+      where: { id: courseId },
+    });
+    expect(row.sortOrder).toBe(999);
     await db.trainingCourse.delete({ where: { id: courseId } });
   });
 });
