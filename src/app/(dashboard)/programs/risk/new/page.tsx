@@ -81,8 +81,8 @@ export default async function NewSraPage({
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {questions.length} safeguards across 3 categories. Answers save
-            automatically as you move between steps — it&apos;s safe to close the
-            tab and come back later.
+            automatically as you go — it&apos;s safe to close the tab and come
+            back later.
           </p>
         </div>
         <Link

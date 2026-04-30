@@ -1,13 +1,18 @@
 // src/app/(dashboard)/programs/risk/new/SraWizard.tsx
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { completeSraAction, saveSraDraftAction } from "../actions";
+
+// Auto-save debounce. Long enough to coalesce rapid radio clicks /
+// keystrokes in the notes textarea, short enough that a user who walks
+// away with one answer entered loses at most a second of work.
+const AUTOSAVE_DEBOUNCE_MS = 800;
 
 type Answer = "YES" | "NO" | "PARTIAL" | "NA";
 type Category = "ADMINISTRATIVE" | "PHYSICAL" | "TECHNICAL";
@@ -66,16 +71,40 @@ export function SraWizard({ questions, initialState }: SraWizardProps) {
   const assessmentIdRef = useRef<string | null>(initialState?.assessmentId ?? null);
   const router = useRouter();
 
+  // Refs that the debounced auto-save effect closes over. Using refs
+  // (instead of including stepIdx in the effect's dep array) avoids
+  // re-firing the timer on every step transition — handleNext/Back
+  // already persist synchronously, and we don't want a stale closure
+  // saving the prior step after the user has moved on.
+  const stepIdxRef = useRef(stepIdx);
+  useEffect(() => {
+    stepIdxRef.current = stepIdx;
+  }, [stepIdx]);
+
+  // Tracks whether the user has actually edited an answer or note.
+  // Initial-state hydration also writes to state (via useState
+  // initializer); without this guard, the very first render would
+  // queue a draft-save burning an SRA_DRAFT_SAVED event for nothing.
+  const hasUserEditedRef = useRef(false);
+
+  // Pending autosave timer — also used by step-transition handlers to
+  // cancel any queued save before they fire their own synchronous one.
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const currentCategory = steps[stepIdx]!;
   const stepQuestions = useMemo(
     () => questions.filter((q) => q.category === currentCategory),
     [questions, currentCategory],
   );
 
-  const setAnswer = (code: string, val: Answer) =>
+  const setAnswer = (code: string, val: Answer) => {
+    hasUserEditedRef.current = true;
     setAnswers((p) => ({ ...p, [code]: val }));
-  const setNote = (code: string, val: string) =>
+  };
+  const setNote = (code: string, val: string) => {
+    hasUserEditedRef.current = true;
     setNotes((p) => ({ ...p, [code]: val }));
+  };
 
   const allAnsweredOnStep = stepQuestions.every((q) => answers[q.code]);
   const totalAnswered = Object.keys(answers).length;
@@ -111,12 +140,41 @@ export function SraWizard({ questions, initialState }: SraWizardProps) {
     }
   };
 
+  // Debounced auto-save — fires AUTOSAVE_DEBOUNCE_MS after the user
+  // stops changing answers/notes. Audit item #4 (2026-04-29): without
+  // this, a user who answers Q1 + types a note + closes the tab loses
+  // both because the previous implementation only saved on step
+  // transition. Step-transition handlers below cancel any pending
+  // timer so we don't double-save.
+  const cancelPendingAutoSave = () => {
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    if (!hasUserEditedRef.current) return;
+    if (Object.keys(answers).length === 0) return;
+    cancelPendingAutoSave();
+    autoSaveTimerRef.current = setTimeout(() => {
+      autoSaveTimerRef.current = null;
+      void persistDraft(stepIdxRef.current);
+    }, AUTOSAVE_DEBOUNCE_MS);
+    return cancelPendingAutoSave;
+    // The effect intentionally watches answers + notes only. stepIdx
+    // is read via stepIdxRef (always current) and persistDraft closes
+    // over the latest answers/notes via React's render-time scoping.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers, notes]);
+
   const handleNext = () => {
     setError(null);
     if (!allAnsweredOnStep) {
       setError("Answer every question in this step before moving on.");
       return;
     }
+    cancelPendingAutoSave();
     const nextIdx = Math.min(stepIdx + 1, steps.length - 1);
     // Optimistically advance; draft-save happens in background. Any save
     // failure surfaces via setError but doesn't block navigation — the
@@ -127,6 +185,7 @@ export function SraWizard({ questions, initialState }: SraWizardProps) {
 
   const handleBack = () => {
     setError(null);
+    cancelPendingAutoSave();
     const prevIdx = Math.max(stepIdx - 1, 0);
     setStepIdx(prevIdx);
     void persistDraft(prevIdx);
@@ -134,6 +193,7 @@ export function SraWizard({ questions, initialState }: SraWizardProps) {
 
   const handleSaveAndExit = () => {
     setError(null);
+    cancelPendingAutoSave();
     startTransition(async () => {
       const ok = await persistDraft(stepIdx);
       if (ok) {
@@ -154,6 +214,7 @@ export function SraWizard({ questions, initialState }: SraWizardProps) {
       );
       return;
     }
+    cancelPendingAutoSave();
     startTransition(async () => {
       try {
         const res = await completeSraAction({
