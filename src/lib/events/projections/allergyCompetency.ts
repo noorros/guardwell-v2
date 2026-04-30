@@ -1,10 +1,13 @@
 // src/lib/events/projections/allergyCompetency.ts
 //
-// Three projections for the AllergyCompetency lifecycle:
+// Five projections for the AllergyCompetency lifecycle:
 //   ALLERGY_QUIZ_COMPLETED        → upsert AllergyQuizAttempt + (if passed)
 //                                   set quizPassedAt on year's competency
 //   ALLERGY_FINGERTIP_TEST_PASSED → increment fingertipPassCount
 //   ALLERGY_MEDIA_FILL_PASSED     → set mediaFillPassedAt
+//   ALLERGY_COMPOUNDING_LOGGED    → set lastCompoundedAt (audit #9)
+//   ALLERGY_REQUIREMENT_TOGGLED   → flip PracticeUser.requiresAllergyCompetency
+//                                   (audit #9)
 // After every write, recomputes isFullyQualified per USP §21:
 //   - Initial year: 3 fingertip passes required
 //   - Renewal year (prior year had isFullyQualified=true): 1 pass required
@@ -16,6 +19,8 @@ import { rederiveRequirementStatus } from "@/lib/compliance/derivation/rederive"
 type QuizPayload = PayloadFor<"ALLERGY_QUIZ_COMPLETED", 1>;
 type FingertipPayload = PayloadFor<"ALLERGY_FINGERTIP_TEST_PASSED", 1>;
 type MediaFillPayload = PayloadFor<"ALLERGY_MEDIA_FILL_PASSED", 1>;
+type CompoundingPayload = PayloadFor<"ALLERGY_COMPOUNDING_LOGGED", 1>;
+type RequirementTogglePayload = PayloadFor<"ALLERGY_REQUIREMENT_TOGGLED", 1>;
 
 async function ensureCompetency(
   tx: Prisma.TransactionClient,
@@ -186,5 +191,54 @@ export async function projectAllergyMediaFillPassed(
     },
   });
   await recomputeIsFullyQualified(tx, compId);
+  await rederiveRequirementStatus(tx, practiceId, "ALLERGY_COMPETENCY");
+}
+
+/**
+ * ALLERGY_COMPOUNDING_LOGGED — admin records a compounding session.
+ * Sets lastCompoundedAt; the recompute call may flip
+ * isFullyQualified back to true if the inactivity wall was the
+ * limiting factor. Audit #9 (2026-04-29) — closes the silent
+ * projection-mutation gap from logCompoundingActivityAction.
+ */
+export async function projectAllergyCompoundingLogged(
+  tx: Prisma.TransactionClient,
+  args: { practiceId: string; payload: CompoundingPayload },
+): Promise<void> {
+  const { practiceId, payload } = args;
+  const compId = await ensureCompetency(tx, {
+    practiceId,
+    practiceUserId: payload.practiceUserId,
+    year: payload.year,
+  });
+  await tx.allergyCompetency.update({
+    where: { id: compId },
+    data: { lastCompoundedAt: new Date(payload.loggedAt) },
+  });
+  await recomputeIsFullyQualified(tx, compId);
+  await rederiveRequirementStatus(tx, practiceId, "ALLERGY_COMPETENCY");
+}
+
+/**
+ * ALLERGY_REQUIREMENT_TOGGLED — admin flips
+ * PracticeUser.requiresAllergyCompetency on/off for a staff member.
+ * Idempotent: if `required` already matches DB state, this is a
+ * no-op (the action layer reads previousValue first to decide
+ * whether to emit, but we still gate here in case of replay).
+ * Audit #9 (2026-04-29) — closes the silent toggleStaffAllergyRequirement
+ * projection-mutation gap.
+ */
+export async function projectAllergyRequirementToggled(
+  tx: Prisma.TransactionClient,
+  args: { practiceId: string; payload: RequirementTogglePayload },
+): Promise<void> {
+  const { practiceId, payload } = args;
+  await tx.practiceUser.update({
+    where: { id: payload.practiceUserId },
+    data: { requiresAllergyCompetency: payload.required },
+  });
+  // Toggling the requirement may flip ALLERGY_COMPETENCY's overall
+  // status — staff who no longer require competency stop counting
+  // toward the gap.
   await rederiveRequirementStatus(tx, practiceId, "ALLERGY_COMPETENCY");
 }
