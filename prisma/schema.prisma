@@ -115,6 +115,12 @@ model Practice {
   // null = use default (PRACTICE_STORAGE_QUOTA_BYTES env var or 5 GB).
   storageQuotaBytes BigInt?
 
+  // Phase 7: per-category lead-time overrides. Defaults live in
+  // src/lib/notifications/leadTimes.ts. Shape:
+  //   { credentials: [90, 60, 30, 7], training: [60, 30, 14], ... }
+  // Missing keys fall back to the helper's default.
+  reminderSettings Json?
+
   practiceUsers       PracticeUser[]
   practicePolicies    PracticePolicy[]
   trainingCompletions TrainingCompletion[]
@@ -394,6 +400,22 @@ enum NotificationType {
   ALLERGY_FRIDGE_OVERDUE
   ALLERGY_KIT_EXPIRING
   ALLERGY_COMPETENCY_DUE
+  // Phase 7 additions
+  POLICY_ACKNOWLEDGMENT_PENDING
+  BAA_SIGNATURE_PENDING
+  BAA_EXECUTED
+  DEA_BIENNIAL_INVENTORY_DUE
+  PHISHING_DRILL_DUE
+  BACKUP_VERIFICATION_OVERDUE
+  DOCUMENT_DESTRUCTION_OVERDUE
+  SUBSCRIPTION_PAST_DUE
+  SUBSCRIPTION_CANCELED
+  SUBSCRIPTION_BILLING_ISSUE
+  SYSTEM_NOTIFICATION
+  WEEKLY_DIGEST_AVAILABLE
+  REGULATORY_ALERT
+  STATE_LAW_UPDATE
+  AUDIT_PREP_SESSION_OPENING
 }
 
 enum NotificationSeverity {
@@ -431,6 +453,12 @@ model NotificationPreference {
   digestEnabled         Boolean  @default(true)
   criticalAlertsEnabled Boolean  @default(true)
   emailEnabled          Boolean  @default(true)
+  // Phase 7 additions
+  cadence               String   @default("DAILY") // INSTANT | DAILY | WEEKLY | NONE
+  channels              String[] @default(["EMAIL", "IN_APP"])
+  categoryFilters       String[] @default([])
+  digestTime            String   @default("08:00")
+  digestDay             String   @default("MON")
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
