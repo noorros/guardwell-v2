@@ -6,6 +6,13 @@
 // shape the server validates; the server is still the source of
 // truth (defense in depth).
 //
+// Phase 4 PR 6 (BYOV) — adds an optional video upload section. The
+// form generates a client-side temporary entityId for the
+// EvidenceUploader (the course doesn't exist yet at upload time);
+// after a successful upload, the resulting evidenceId is stored verbatim
+// in TrainingCourse.videoUrl by the action. Player resolves it via
+// /api/evidence/<id>/download at render time.
+//
 // Audit-#12 ARIA pattern:
 //   - Each quiz question is wrapped in <fieldset><legend>...</legend>
 //   - Required inputs carry aria-required="true"
@@ -18,7 +25,24 @@
 import { useState, useTransition, type FormEvent } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EvidenceUploader } from "@/components/gw/EvidenceUploader";
 import { createCustomCourseAction } from "../actions";
+
+const VIDEO_ACCEPT = "video/mp4,video/webm,video/quicktime";
+const VIDEO_MAX_MB = 500;
+
+// Generated once per form mount (useState lazy initializer side-steps
+// the react-hooks/purity rule that fires when impure helpers run inside
+// render bodies). The course doesn't exist at upload time, so the
+// EvidenceUploader needs a stable pseudo-entityId for this session.
+function mintTempEntityId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  // Fallback for older browsers / jsdom — deliberately impure, only
+  // reached when crypto.randomUUID is unavailable.
+  return `temp-${Math.random().toString(36).slice(2)}-${Date.now()}`;
+}
 
 interface QuestionDraft {
   question: string;
@@ -53,6 +77,14 @@ export function CreateCourseForm({ onSuccess }: CreateCourseFormProps) {
   const [questions, setQuestions] = useState<QuestionDraft[]>([
     emptyQuestion(),
   ]);
+  // Phase 4 PR 6 (BYOV) — optional video upload state.
+  const [videoEvidenceId, setVideoEvidenceId] = useState<string | null>(null);
+  const [videoDurationSec, setVideoDurationSec] = useState<string>("");
+
+  // useState lazy initializer keeps the temp id stable across renders
+  // without triggering the react-hooks/purity rule that fires when an
+  // impure call runs inside the render body.
+  const [tempEntityId] = useState<string>(mintTempEntityId);
 
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -137,6 +169,17 @@ export function CreateCourseForm({ onSuccess }: CreateCourseFormProps) {
     if (lessonContent.length > 50_000) {
       return "Lesson content exceeds 50,000 characters.";
     }
+    // Phase 4 PR 6 — if a video is attached, durationSec is required and
+    // must be 1..36000 (10h cap matches the registry payload).
+    if (videoEvidenceId !== null) {
+      if (videoDurationSec === "") {
+        return "Video duration (in seconds) is required when a video is attached.";
+      }
+      const dur = Number.parseInt(videoDurationSec, 10);
+      if (!Number.isFinite(dur) || dur < 1 || dur > 36_000) {
+        return "Video duration must be between 1 and 36000 seconds (10 hours).";
+      }
+    }
     if (questions.length < 1) {
       return "Add at least one quiz question.";
     }
@@ -188,6 +231,14 @@ export function CreateCourseForm({ onSuccess }: CreateCourseFormProps) {
               q.explanation.trim().length === 0 ? null : q.explanation,
             order: i + 1,
           })),
+          // Phase 4 PR 6 — pass the uploaded video pointer + duration if
+          // present. Both fields together (or both absent) is enforced
+          // at the action layer.
+          videoEvidenceId: videoEvidenceId,
+          videoDurationSec:
+            videoEvidenceId !== null && videoDurationSec !== ""
+              ? Number.parseInt(videoDurationSec, 10)
+              : null,
         });
         onSuccess();
       } catch (err) {
@@ -295,6 +346,81 @@ export function CreateCourseForm({ onSuccess }: CreateCourseFormProps) {
           className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
         />
       </div>
+
+      <fieldset className="space-y-3 rounded-md border p-3">
+        <legend className="px-1 text-xs font-medium">
+          Video lesson (optional, BYOV)
+        </legend>
+        {videoEvidenceId === null ? (
+          <>
+            <p className="text-[11px] text-muted-foreground">
+              Upload an MP4, WebM, or MOV up to {VIDEO_MAX_MB} MB. Staff must
+              watch at least 80% of the video before the quiz unlocks.
+            </p>
+            <EvidenceUploader
+              entityType="TRAINING_VIDEO"
+              entityId={tempEntityId}
+              accept={VIDEO_ACCEPT}
+              maxSizeMb={VIDEO_MAX_MB}
+              onUploaded={(evidenceId) => setVideoEvidenceId(evidenceId)}
+            />
+          </>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-xs text-foreground">
+              Video uploaded.{" "}
+              {/*
+                TODO(phase-4-followup): clicking Remove (or dismissing the Dialog
+                without submitting) leaves the uploaded Evidence row stranded in GCS.
+                The 5GB practice quota check would eventually surface the leak. Two
+                possible fixes:
+                  1) Call a softDelete server action on the prior evidenceId before
+                     replacing or on Dialog cancel.
+                  2) Extend the existing GCS reaper cron (Phase 3) to sweep
+                     TRAINING_VIDEO entityType rows not referenced by any
+                     TrainingCourse.videoUrl after N days.
+                Track via a separate PR; v1 BYOV scale + admin-only access keeps this
+                acceptable in the interim.
+              */}
+              <button
+                type="button"
+                className="text-primary underline"
+                onClick={() => {
+                  setVideoEvidenceId(null);
+                  setVideoDurationSec("");
+                }}
+              >
+                Remove
+              </button>
+            </p>
+            <div className="space-y-1">
+              <label
+                htmlFor="cc-video-duration"
+                className="block text-xs font-medium text-foreground"
+              >
+                Video duration (seconds){" "}
+                <span className="text-destructive" aria-hidden="true">
+                  *
+                </span>
+              </label>
+              <input
+                id="cc-video-duration"
+                type="number"
+                required
+                aria-required="true"
+                min={1}
+                max={36000}
+                value={videoDurationSec}
+                onChange={(e) => setVideoDurationSec(e.target.value)}
+                className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Used to compute the 80% watch threshold. Round up if unsure.
+              </p>
+            </div>
+          </div>
+        )}
+      </fieldset>
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">

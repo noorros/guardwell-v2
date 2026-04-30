@@ -5,7 +5,7 @@
 // the rejection error is correctly surfaced from the high-level entry
 // point.
 import { describe, it, expect } from "vitest";
-import { isAllowedMime, requestUpload } from "@/lib/storage/evidence";
+import { isAllowedMime, getMaxBytes, requestUpload } from "@/lib/storage/evidence";
 
 describe("isAllowedMime (pure helper)", () => {
   it("accepts application/pdf for any known entityType", () => {
@@ -23,11 +23,23 @@ describe("isAllowedMime (pure helper)", () => {
     expect(isAllowedMime("TRAINING_COMPLETION", "image/heic")).toBe(true);
   });
 
-  it("rejects video/mp4 on every entityType seeded today (BYOV is Phase 4)", () => {
+  it("rejects video/mp4 on document/photo entityTypes (only TRAINING_VIDEO accepts video)", () => {
     expect(isAllowedMime("CREDENTIAL", "video/mp4")).toBe(false);
     expect(isAllowedMime("DESTRUCTION_LOG", "video/mp4")).toBe(false);
     expect(isAllowedMime("INCIDENT", "video/mp4")).toBe(false);
     expect(isAllowedMime("VENDOR", "video/mp4")).toBe(false);
+  });
+
+  it("accepts video MIME types on TRAINING_VIDEO (Phase 4 PR 6 BYOV)", () => {
+    expect(isAllowedMime("TRAINING_VIDEO", "video/mp4")).toBe(true);
+    expect(isAllowedMime("TRAINING_VIDEO", "video/webm")).toBe(true);
+    expect(isAllowedMime("TRAINING_VIDEO", "video/quicktime")).toBe(true);
+  });
+
+  it("rejects pdfs/images on TRAINING_VIDEO (videos only)", () => {
+    expect(isAllowedMime("TRAINING_VIDEO", "application/pdf")).toBe(false);
+    expect(isAllowedMime("TRAINING_VIDEO", "image/png")).toBe(false);
+    expect(isAllowedMime("TRAINING_VIDEO", "image/jpeg")).toBe(false);
   });
 
   it("rejects text/csv on every known entityType (no spreadsheet uploads)", () => {
@@ -86,5 +98,18 @@ describe("requestUpload content-type rejection", () => {
         fileSizeBytes: 2048,
       }),
     ).rejects.toThrow(/image\/png.*is not allowed/i);
+  });
+});
+
+describe("getMaxBytes (Phase 4 PR 6 — per-entityType file-size cap)", () => {
+  it("returns 25 MB for default entityTypes", () => {
+    expect(getMaxBytes("CREDENTIAL")).toBe(25 * 1024 * 1024);
+    expect(getMaxBytes("INCIDENT")).toBe(25 * 1024 * 1024);
+    expect(getMaxBytes("DESTRUCTION_LOG")).toBe(25 * 1024 * 1024);
+    expect(getMaxBytes("UNKNOWN_FUTURE_TYPE")).toBe(25 * 1024 * 1024);
+  });
+
+  it("returns 500 MB for TRAINING_VIDEO (BYOV long-form lessons)", () => {
+    expect(getMaxBytes("TRAINING_VIDEO")).toBe(500 * 1024 * 1024);
   });
 });

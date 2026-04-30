@@ -4,11 +4,12 @@ import Link from "next/link";
 import type { Route } from "next";
 import { GraduationCap } from "lucide-react";
 import { db } from "@/lib/db";
+import { requireUser } from "@/lib/auth";
 import { getPracticeUser } from "@/lib/rbac";
 import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { QuizRunner } from "./QuizRunner";
+import { CourseRunner } from "./CourseRunner";
 
 interface PageProps {
   params: Promise<{ courseId: string }>;
@@ -16,6 +17,7 @@ interface PageProps {
 
 export default async function CoursePage({ params }: PageProps) {
   const { courseId } = await params;
+  const user = await requireUser();
   const pu = await getPracticeUser();
   if (!pu) return null;
 
@@ -24,6 +26,32 @@ export default async function CoursePage({ params }: PageProps) {
     include: { quizQuestions: { orderBy: { order: "asc" } } },
   });
   if (!course) notFound();
+
+  // Phase 4 PR 6 (BYOV): if the course has a video, server-side fetch
+  // the user's saved progress so the quiz can unlock on a return visit
+  // without re-watching. The CourseRunner client wrapper picks up where
+  // we leave off and tracks live progress from then on.
+  const videoProgress =
+    course.videoUrl && course.videoDurationSec
+      ? await db.videoProgress.findUnique({
+          where: {
+            practiceId_userId_courseId: {
+              practiceId: pu.practiceId,
+              userId: user.id,
+              courseId: course.id,
+            },
+          },
+          select: { watchedSeconds: true },
+        })
+      : null;
+
+  // The video pointer is an Evidence.id; resolve it to a fresh signed
+  // GCS URL via the existing /api/evidence/<id>/download route. The
+  // browser is redirected (302) on demand by the route — we just hand
+  // the route path to <video src> here.
+  const videoSrc = course.videoUrl
+    ? `/api/evidence/${course.videoUrl}/download`
+    : null;
 
   return (
     <main className="mx-auto max-w-3xl space-y-6 p-6">
@@ -61,7 +89,7 @@ export default async function CoursePage({ params }: PageProps) {
         </CardContent>
       </Card>
 
-      <QuizRunner
+      <CourseRunner
         courseId={course.id}
         passingScore={course.passingScore}
         questions={course.quizQuestions.map((q) => ({
@@ -70,6 +98,9 @@ export default async function CoursePage({ params }: PageProps) {
           options: q.options,
           order: q.order,
         }))}
+        videoSrc={videoSrc}
+        videoDurationSec={course.videoDurationSec ?? 0}
+        initialWatchedSeconds={videoProgress?.watchedSeconds ?? 0}
       />
 
       <div className="flex justify-end">

@@ -200,6 +200,12 @@ export const EVENT_TYPES = [
   // to 999 (the default for projection-created custom courses), which
   // re-includes the row in catalog queries that filter sortOrder<9999.
   "TRAINING_COURSE_RESTORED",
+  // Phase 4 PR 6 (BYOV): the player reports cumulative watchedSeconds
+  // every ~10 seconds. The projection MAX-merges, so out-of-order or
+  // post-rewind reports never decrement progress. High-volume by design
+  // (~360 events per user per 1-hour video at the 10s cadence) — could
+  // be batched to 60s if EventLog growth becomes an issue.
+  "TRAINING_VIDEO_WATCHED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -1621,6 +1627,12 @@ export const EVENT_SCHEMAS = {
   // isRequired=false, version=1, sortOrder=999. lessonContent travels
   // through the event payload (Phase 4 PR 2) so the event log remains
   // the source of truth for course content.
+  //
+  // Phase 4 PR 6 (BYOV) extends the payload with optional videoUrl
+  // (Evidence.id pointer; nullable so non-video custom courses still
+  // type-check) and videoDurationSec (drives the 80% watch gate; capped
+  // at 36000s = 10h to bound abuse). Both fields are .optional() so
+  // events emitted before PR 6 still validate as undefined.
   TRAINING_COURSE_CREATED: {
     1: z.object({
       courseId: z.string().min(1),
@@ -1631,6 +1643,8 @@ export const EVENT_SCHEMAS = {
       passingScore: z.number().int().min(0).max(100),
       lessonContent: z.string().max(50_000),
       isCustom: z.boolean(),
+      videoUrl: z.string().min(1).max(500).nullable().optional(),
+      videoDurationSec: z.number().int().min(0).max(36_000).nullable().optional(),
     }),
   },
   // Course content/title/duration updated. Projection bumps version on
@@ -1655,6 +1669,18 @@ export const EVENT_SCHEMAS = {
   TRAINING_COURSE_RESTORED: {
     1: z.object({
       courseId: z.string().min(1),
+    }),
+  },
+  // Phase 4 PR 6 (BYOV): cumulative watch progress for a course's video
+  // lesson. Projection MAX-merges into VideoProgress.watchedSeconds so
+  // rewind/seek/replays can never decrement. watchedSeconds caps at
+  // 36000 (10h) to bound payload size + match the videoDurationSec
+  // ceiling on the parent course payload.
+  TRAINING_VIDEO_WATCHED: {
+    1: z.object({
+      courseId: z.string().min(1),
+      userId: z.string().min(1),
+      watchedSeconds: z.number().int().min(0).max(36_000),
     }),
   },
 } as const;

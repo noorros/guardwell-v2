@@ -3,6 +3,9 @@
 // Phase 4 PR 4 — DOM regression for the Dialog form. We mock the
 // createCustomCourseAction so this test stays presentational; the
 // action itself is exercised by tests/integration/training-actions.test.ts.
+//
+// Phase 4 PR 6 — adds video upload coverage. The EvidenceUploader is
+// mocked since its 3-step fetch flow is exercised by its own tests.
 
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -14,6 +17,21 @@ import { CreateCourseForm } from "./CreateCourseForm";
 const createMock = vi.fn();
 vi.mock("../actions", () => ({
   createCustomCourseAction: (...args: unknown[]) => createMock(...args),
+}));
+
+// Mock the EvidenceUploader so we don't have to drive its 3-step fetch
+// flow. The test trigger button calls onUploaded with a fake evidenceId
+// to simulate a successful upload.
+vi.mock("@/components/gw/EvidenceUploader", () => ({
+  EvidenceUploader: (props: { onUploaded: (id: string) => void }) => (
+    <button
+      type="button"
+      data-testid="evidence-uploader-mock"
+      onClick={() => props.onUploaded("ev-uploaded-id")}
+    >
+      Mock upload trigger
+    </button>
+  ),
 }));
 
 beforeEach(() => {
@@ -140,5 +158,66 @@ describe("<CreateCourseForm>", () => {
     );
     const results = await axe(container);
     expect(results).toHaveNoViolations();
+  });
+
+  it("submits with videoEvidenceId + videoDurationSec when a video is uploaded (Phase 4 PR 6)", async () => {
+    render(<CreateCourseForm onSuccess={vi.fn()} />);
+    const user = userEvent.setup();
+    await fillRequiredFields(user)();
+    // Simulate the EvidenceUploader's successful upload
+    await user.click(screen.getByTestId("evidence-uploader-mock"));
+    // Now the duration input should be visible
+    const dur = screen.getByLabelText(/video duration/i);
+    await user.type(dur, "600");
+    await user.click(screen.getByRole("button", { name: /create course/i }));
+    expect(createMock).toHaveBeenCalledTimes(1);
+    const call = createMock.mock.calls[0]![0];
+    expect(call.videoEvidenceId).toBe("ev-uploaded-id");
+    expect(call.videoDurationSec).toBe(600);
+  });
+
+  it("submits with videoEvidenceId=null when no video is uploaded", async () => {
+    render(<CreateCourseForm onSuccess={vi.fn()} />);
+    const user = userEvent.setup();
+    await fillRequiredFields(user)();
+    await user.click(screen.getByRole("button", { name: /create course/i }));
+    const call = createMock.mock.calls[0]![0];
+    expect(call.videoEvidenceId).toBeNull();
+    expect(call.videoDurationSec).toBeNull();
+  });
+
+  it("blocks submit when a video is uploaded but duration is empty", async () => {
+    render(<CreateCourseForm onSuccess={vi.fn()} />);
+    const user = userEvent.setup();
+    await fillRequiredFields(user)();
+    await user.click(screen.getByTestId("evidence-uploader-mock"));
+    // Don't fill the duration — submit should fail validation.
+    const form = screen
+      .getByRole("button", { name: /create course/i })
+      .closest("form")!;
+    fireEvent.submit(form);
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/video duration.*required/i);
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("removes the video upload when user clicks Remove (resets duration too)", async () => {
+    render(<CreateCourseForm onSuccess={vi.fn()} />);
+    const user = userEvent.setup();
+    await fillRequiredFields(user)();
+    await user.click(screen.getByTestId("evidence-uploader-mock"));
+    const dur = screen.getByLabelText(/video duration/i) as HTMLInputElement;
+    await user.type(dur, "600");
+    expect(dur.value).toBe("600");
+    // Click Remove
+    await user.click(screen.getByRole("button", { name: /^remove$/i }));
+    // Duration field is gone; uploader is back
+    expect(screen.queryByLabelText(/video duration/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId("evidence-uploader-mock")).toBeInTheDocument();
+    // Submit succeeds with no video
+    await user.click(screen.getByRole("button", { name: /create course/i }));
+    const call = createMock.mock.calls[0]![0];
+    expect(call.videoEvidenceId).toBeNull();
+    expect(call.videoDurationSec).toBeNull();
   });
 });

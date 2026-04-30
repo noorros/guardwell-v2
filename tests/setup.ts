@@ -73,6 +73,11 @@ afterEach(async () => {
   await db.assignmentExclusion.deleteMany();
   await db.trainingAssignment.deleteMany();
   await db.policyTrainingPrereq.deleteMany();
+  // Phase 4 PR 6 (BYOV): VideoProgress rows reference Practice (Cascade)
+  // and TrainingCourse (Cascade). Cascade-on-Practice handles cleanup,
+  // but explicit deletes here mirror the other Phase 4 projections and
+  // keep test setup deterministic.
+  await db.videoProgress.deleteMany();
   await db.practiceUser.deleteMany();
   await db.complianceItem.deleteMany();
   await db.practiceFramework.deleteMany();

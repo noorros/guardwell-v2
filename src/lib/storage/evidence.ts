@@ -36,8 +36,9 @@ function getDefaultQuota(): bigint {
 }
 
 // ── Content-type allowlist by entityType ─────────────────────────────────────
-// Phase 4 (BYOV training videos) will add TRAINING_VIDEO → video/mp4.
-// Phase 9 (Document Hub) will add DOCUMENT → application/pdf only.
+// Phase 4 PR 6 (BYOV training videos) added TRAINING_VIDEO →
+// video/mp4|webm|quicktime. Phase 9 (Document Hub) will add DOCUMENT →
+// application/pdf only.
 const ALLOWED_MIME_BY_ENTITY_TYPE: Record<string, Set<string>> = {
   CREDENTIAL:          new Set(["application/pdf", "image/png", "image/jpeg", "image/heic", "image/heif", "image/webp"]),
   DESTRUCTION_LOG:     new Set(["application/pdf", "image/png", "image/jpeg", "image/heic", "image/heif", "image/webp"]),
@@ -45,6 +46,7 @@ const ALLOWED_MIME_BY_ENTITY_TYPE: Record<string, Set<string>> = {
   VENDOR:              new Set(["application/pdf", "image/png", "image/jpeg", "image/heic", "image/heif", "image/webp"]),
   TECH_ASSET:          new Set(["application/pdf", "image/png", "image/jpeg", "image/heic", "image/heif", "image/webp"]),
   TRAINING_COMPLETION: new Set(["application/pdf", "image/png", "image/jpeg", "image/heic", "image/heif", "image/webp"]),
+  TRAINING_VIDEO:      new Set(["video/mp4", "video/webm", "video/quicktime"]),
   // Default — used when entityType is not listed above. Conservative.
   DEFAULT:             new Set(["application/pdf"]),
 };
@@ -56,7 +58,19 @@ export function isAllowedMime(entityType: string, mimeType: string): boolean {
   return allowed.has(mimeType);
 }
 
-const MAX_BYTES = 25 * 1024 * 1024; // 25 MB per file
+// ── Per-entityType file-size cap ─────────────────────────────────────────────
+// Documents and images cap at 25 MB. Phase 4 PR 6 BYOV videos can be
+// long-form training material — bump TRAINING_VIDEO to 500 MB. The 5 GB
+// per-practice quota check below still applies; this is just the
+// per-file ceiling.
+const MAX_BYTES_BY_ENTITY: Record<string, number> = {
+  TRAINING_VIDEO: 500 * 1024 * 1024, // 500 MB
+  DEFAULT: 25 * 1024 * 1024, // 25 MB
+};
+
+export function getMaxBytes(entityType: string): number {
+  return MAX_BYTES_BY_ENTITY[entityType] ?? MAX_BYTES_BY_ENTITY["DEFAULT"]!;
+}
 
 // ── Quota check (pure, exported for tests) ───────────────────────────────────
 export type QuotaCheckResult =
@@ -131,9 +145,10 @@ export async function requestUpload(
     );
   }
 
-  if (args.fileSizeBytes > MAX_BYTES) {
+  const maxBytes = getMaxBytes(args.entityType);
+  if (args.fileSizeBytes > maxBytes) {
     throw new Error(
-      `File too large: ${args.fileSizeBytes} bytes (max ${MAX_BYTES / 1024 / 1024} MB)`,
+      `File too large: ${args.fileSizeBytes} bytes (max ${maxBytes / 1024 / 1024} MB)`,
     );
   }
 

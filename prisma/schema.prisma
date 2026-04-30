@@ -158,6 +158,8 @@ model Practice {
   // Audit #21 (HIPAA I-1, 2026-04-30): per-state AG notification rows
   // for multi-state breaches. One row per affected state per breach.
   incidentStateAgNotifications IncidentStateAgNotification[]
+  // Phase 4 PR 6 (BYOV): per-(user, course) video watch tracker.
+  videoProgress           VideoProgress[]
 
   @@index([primaryState])
   @@index([subscriptionStatus])
@@ -942,6 +944,12 @@ model TrainingCourse {
   roles           String[] @default([])
   version         Int      @default(1)
   sortOrder       Int      @default(0)
+  // Phase 4 PR 6 (BYOV) — optional video lesson. videoUrl stores the
+  // Evidence.id (entityType=TRAINING_VIDEO); the player resolves it via
+  // /api/evidence/<id>/download for a fresh signed GCS URL per request.
+  // videoDurationSec drives the 80% watch-gate before the quiz unlocks.
+  videoUrl         String?
+  videoDurationSec Int?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -949,6 +957,7 @@ model TrainingCourse {
   completions   TrainingCompletion[]
   assignments   TrainingAssignment[]
   policyPrereqs PolicyTrainingPrereq[]
+  videoProgress VideoProgress[]
 
   @@index([type, sortOrder])
   @@index([isRequired])
@@ -990,6 +999,26 @@ model TrainingCompletion {
 
   @@index([practiceId, userId, courseId])
   @@index([practiceId, courseId, passed, expiresAt])
+}
+
+// Phase 4 PR 6 (BYOV) — per-(practice, user, course) progress tracker for
+// video lessons. Append-only at the application layer: every
+// TRAINING_VIDEO_WATCHED event MAX-merges into watchedSeconds so reports
+// arriving out of order or after a rewind never decrement progress.
+// userId follows the Phase 4 convention (identity User.id, no FK).
+model VideoProgress {
+  id             String   @id @default(cuid())
+  practiceId     String
+  userId         String   // identity User.id
+  courseId       String
+  watchedSeconds Int      @default(0)
+  lastWatchedAt  DateTime @default(now())
+
+  practice Practice       @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  course   TrainingCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([practiceId, userId, courseId])
+  @@index([practiceId, courseId])
 }
 
 // ────────────────────────────────────────────────────────────────────────────

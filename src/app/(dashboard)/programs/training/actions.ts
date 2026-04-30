@@ -15,6 +15,7 @@ import {
   projectTrainingCourseCreated,
   projectTrainingCourseRetired,
   projectTrainingCourseRestored,
+  projectTrainingVideoWatched,
 } from "@/lib/events/projections/training";
 import {
   isCustomForPractice,
@@ -448,6 +449,13 @@ const CreateCustomCourseInput = z.object({
   passingScore: z.number().int().min(0).max(100),
   lessonContent: z.string().max(50_000),
   quizQuestions: z.array(QuizQuestionInput).max(50),
+  // Phase 4 PR 6 (BYOV) — optional video lesson. videoEvidenceId is the
+  // Evidence row id from /api/evidence/upload (entityType=TRAINING_VIDEO);
+  // we store it verbatim in TrainingCourse.videoUrl. videoDurationSec is
+  // user-supplied at form time and drives the 80% watch-gate downstream.
+  // Both nullable+optional so non-BYOV custom courses still validate.
+  videoEvidenceId: z.string().min(1).max(500).nullable().optional(),
+  videoDurationSec: z.number().int().min(0).max(36_000).nullable().optional(),
 });
 
 /**
@@ -501,6 +509,20 @@ export async function createCustomCourseAction(
     orders.add(q.order);
   }
 
+  // Phase 4 PR 6 (BYOV): videoEvidenceId + videoDurationSec are
+  // either both present (a video lesson) or both absent (no video).
+  // Mismatched halves are a UI bug — guard explicitly so the projection
+  // never sees half-set state.
+  const hasVideo =
+    parsed.videoEvidenceId != null && parsed.videoEvidenceId.length > 0;
+  const hasDuration =
+    parsed.videoDurationSec != null && parsed.videoDurationSec > 0;
+  if (hasVideo !== hasDuration) {
+    throw new Error(
+      "Video upload incomplete: provide both the uploaded file and a duration in seconds",
+    );
+  }
+
   const courseId = randomUUID();
   const payload = {
     courseId,
@@ -511,6 +533,8 @@ export async function createCustomCourseAction(
     passingScore: parsed.passingScore,
     lessonContent: parsed.lessonContent,
     isCustom: true,
+    videoUrl: hasVideo ? parsed.videoEvidenceId! : null,
+    videoDurationSec: hasVideo ? parsed.videoDurationSec! : null,
   };
 
   await appendEventAndApply(
@@ -674,4 +698,68 @@ export async function restoreTrainingCourseAction(
   revalidatePath("/programs/training");
   revalidatePath("/programs/training/manage");
   return { courseId: course.id };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Phase 4 PR 6 — BYOV: report video watch progress
+// ────────────────────────────────────────────────────────────────────────────
+
+const ReportVideoWatchedInput = z.object({
+  courseId: z.string().min(1),
+  watchedSeconds: z.number().int().min(0).max(36_000),
+});
+
+/**
+ * STAFF-or-above (any active practice member). Reports cumulative
+ * watchedSeconds for a course's video lesson. The projection MAX-merges
+ * so reports arriving out of order, after rewind, or after a network
+ * retry never decrement progress.
+ *
+ * Refuses spam reports for courses without a video — saves event log
+ * bloat from a misconfigured client and surfaces a clean error to the
+ * caller.
+ *
+ * High-volume by design (~360 events per user per 1-hour video at the
+ * 10s reporting cadence). The action is intentionally lightweight: a
+ * single SELECT for the videoUrl gate, then appendEventAndApply.
+ */
+export async function reportVideoWatchedAction(
+  input: z.infer<typeof ReportVideoWatchedInput>,
+) {
+  const user = await requireUser();
+  const pu = await getPracticeUser();
+  if (!pu) throw new Error("Unauthorized");
+  const parsed = ReportVideoWatchedInput.parse(input);
+
+  // Refuse spam reports for non-video courses. Pulls just videoUrl —
+  // the action layer doesn't need course content here.
+  const course = await db.trainingCourse.findUnique({
+    where: { id: parsed.courseId },
+    select: { videoUrl: true },
+  });
+  if (!course) throw new Error("Course not found");
+  if (!course.videoUrl) throw new Error("Course has no video");
+
+  const payload = {
+    courseId: parsed.courseId,
+    userId: user.id,
+    watchedSeconds: parsed.watchedSeconds,
+  };
+
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: user.id,
+      type: "TRAINING_VIDEO_WATCHED",
+      payload,
+    },
+    async (tx) =>
+      projectTrainingVideoWatched(tx, {
+        practiceId: pu.practiceId,
+        actorUserId: user.id,
+        payload,
+      }),
+  );
+
+  return { ok: true };
 }
