@@ -33,10 +33,28 @@ export const CITATIONS = {
     "HIPAA",
     "Definition of breach + four-factor risk-of-compromise analysis",
   ),
-  HIPAA_BREACH_DISCOVERY_CLOCK: citation(
-    "§164.408(b)",
+  // Audit #21 HIPAA M-9 (2026-04-30): split federal HHS-notification
+  // (§164.408) from federal patient-notification (§164.404) so each
+  // citation reads cleanly when surfaced standalone (e.g., on the breach
+  // memo PDF or in Concierge answers). The two clocks are *both* 60-day
+  // for major breaches but live in separate paragraphs of Subpart D —
+  // §164.408 governs notification to the Secretary (HHS), §164.404
+  // governs notification to affected individuals. Rendering them as one
+  // entry hid the §164.404 citation entirely, which auditors flag.
+  //
+  // State-level breach-notification overlays (state AG / state residents
+  // / state-specific 30/45/60-day clocks) live in `STATE_*` entries
+  // below, kept distinct from federal so multi-state UI can render them
+  // as a labelled second list rather than a flat blend.
+  HIPAA_BREACH_HHS_NOTIFICATION: citation(
+    "§164.408",
     "HIPAA",
-    "60-day breach discovery + HHS notification window",
+    "Notification to the Secretary (HHS) — 60 days for major breaches; annual log for <500",
+  ),
+  HIPAA_BREACH_INDIVIDUAL_NOTIFICATION: citation(
+    "§164.404",
+    "HIPAA",
+    "Notification to affected individuals — 60 days from discovery",
   ),
   HIPAA_PRIVACY_OFFICER: citation(
     "§164.530(a)(1)(i)",

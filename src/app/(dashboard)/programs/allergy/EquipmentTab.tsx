@@ -194,6 +194,15 @@ function RefrigeratorForm() {
 
   const tempNum = parseFloat(temperatureC);
   const inRange = !isNaN(tempNum) ? tempNum >= 2 && tempNum <= 8 : null;
+  // Audit #21 / Allergy MIN-4 (2026-04-30): freezer-thermometer mistakes
+  // (negative °C) and dial-reading typos (Fahrenheit-as-Celsius) sail
+  // through the action's z.number().min(-20).max(40) validator and land
+  // as an "out of range" badge — users cannot tell the difference between
+  // a real fridge failure and a fat-fingered reading. Soft-warn (don't
+  // block) when the entered value falls outside any plausible fridge
+  // range so the user can pause and confirm.
+  const isImplausibleReading =
+    !isNaN(tempNum) && (tempNum < -30 || tempNum > 30);
 
   function handleSubmit() {
     if (isNaN(tempNum)) {
@@ -235,8 +244,24 @@ function RefrigeratorForm() {
             onChange={(e) => setTemperatureC(e.target.value)}
             disabled={isPending}
             placeholder="e.g. 4.5"
+            aria-describedby={isImplausibleReading ? "temp-c-warn" : undefined}
             className="w-full rounded-md border bg-background px-3 py-1.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
+          {/*
+            Audit #21 / Allergy MIN-4: non-blocking soft warning. Submission
+            is still allowed (the user may genuinely have a freezer thermometer
+            and want to record the freezer-malfunction event) — this just
+            asks them to pause and confirm before saving.
+          */}
+          {isImplausibleReading && (
+            <p
+              id="temp-c-warn"
+              role="status"
+              className="text-xs text-[color:var(--gw-color-at-risk)]"
+            >
+              Unusual reading — confirm or correct. Did you mean to use the fridge thermometer (typical 2–8°C)?
+            </p>
+          )}
         </div>
         {temperatureC !== "" && inRange !== null && (
           <div className="pb-1.5">
@@ -433,6 +458,11 @@ function EditRefrigeratorForm({
 
   const tempNum = parseFloat(temperatureC);
   const inRange = !isNaN(tempNum) ? tempNum >= 2 && tempNum <= 8 : null;
+  // Audit #21 / Allergy MIN-4: same soft-warning shape as the new-entry
+  // form so an accidental edit (e.g. dropping a sign character) is
+  // surfaced before the user clicks Save.
+  const isImplausibleReading =
+    !isNaN(tempNum) && (tempNum < -30 || tempNum > 30);
 
   function handleSave() {
     if (isNaN(tempNum)) {
@@ -476,8 +506,20 @@ function EditRefrigeratorForm({
                 value={temperatureC}
                 onChange={(e) => setTemperatureC(e.target.value)}
                 disabled={isPending}
+                aria-describedby={
+                  isImplausibleReading ? `${idPrefix}-temp-warn` : undefined
+                }
                 className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
+              {isImplausibleReading && (
+                <p
+                  id={`${idPrefix}-temp-warn`}
+                  role="status"
+                  className="text-xs text-[color:var(--gw-color-at-risk)]"
+                >
+                  Unusual reading — confirm or correct. Did you mean to use the fridge thermometer (typical 2–8°C)?
+                </p>
+              )}
             </div>
             {temperatureC !== "" && inRange !== null && (
               <div className="pb-1.5">
