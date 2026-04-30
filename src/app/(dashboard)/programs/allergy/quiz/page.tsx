@@ -27,20 +27,30 @@ export default async function AllergyQuizPage() {
     redirect("/dashboard" as Route);
   }
 
-  // Fetch active questions ordered by category then displayOrder
+  // Fetch active questions ordered by category then displayOrder.
+  //
+  // SECURITY (audit #1, 2026-04-29): only select the fields that need
+  // to render BEFORE submission. correctId + explanation stay in the
+  // database; the grading helper fetches them on submit and returns
+  // review items via the server action's response. Never include them
+  // in the page's RSC payload — that's how the answer key leaked.
   const questions = await db.allergyQuizQuestion.findMany({
     where: { isActive: true },
     orderBy: [{ category: "asc" }, { displayOrder: "asc" }],
+    select: {
+      id: true,
+      questionText: true,
+      options: true,
+      category: true,
+    },
   });
 
-  // Serialize: options is JSON in Prisma, cast to the expected shape
+  // Serialize: options is JSON in Prisma, cast to the expected shape.
   type QuizOption = { id: string; text: string };
   const serializedQuestions = questions.map((q) => ({
     id: q.id,
     questionText: q.questionText,
     options: q.options as QuizOption[],
-    correctId: q.correctId,
-    explanation: q.explanation ?? null,
     category: q.category,
   }));
 

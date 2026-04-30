@@ -6,23 +6,27 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { submitQuizAttemptAction } from "./actions";
+import type { QuizReviewItem } from "./grade";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type QuizOption = { id: string; text: string };
 
-export interface QuizQuestion {
+/**
+ * The shape of a question safe to ship to the client BEFORE submission.
+ * Notably absent: `correctId` and `explanation` — those live only in
+ * the DB and the server action's response (audit item #1, 2026-04-29).
+ */
+export interface ClientQuizQuestion {
   id: string;
   questionText: string;
   options: QuizOption[];
-  correctId: string;
-  explanation: string | null;
   category: string;
 }
 
 export interface QuizRunnerProps {
   attemptId: string;
-  questions: QuizQuestion[];
+  questions: ClientQuizQuestion[];
 }
 
 // ── Result types (from action) ────────────────────────────────────────────────
@@ -30,12 +34,9 @@ export interface QuizRunnerProps {
 interface QuizResult {
   score: number;
   passed: boolean;
-  /** annotated answers from local scoring for the review panel */
-  reviewItems: Array<{
-    question: QuizQuestion;
-    selectedId: string;
-    isCorrect: boolean;
-  }>;
+  /** Server-returned review entries — correct option text + explanation
+   *  arrive only AFTER the user submits. */
+  reviewItems: QuizReviewItem[];
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -48,11 +49,11 @@ function categoryLabel(category: string): string {
 }
 
 // Group questions by category
-function groupByCategory(questions: QuizQuestion[]): Array<{
+function groupByCategory(questions: ClientQuizQuestion[]): Array<{
   category: string;
-  questions: QuizQuestion[];
+  questions: ClientQuizQuestion[];
 }> {
-  const map = new Map<string, QuizQuestion[]>();
+  const map = new Map<string, ClientQuizQuestion[]>();
   for (const q of questions) {
     const existing = map.get(q.category);
     if (existing) existing.push(q);
@@ -68,9 +69,11 @@ function groupByCategory(questions: QuizQuestion[]): Array<{
 
 function ResultPanel({
   result,
+  questionsById,
   totalQuestions,
 }: {
   result: QuizResult;
+  questionsById: Map<string, ClientQuizQuestion>;
   totalQuestions: number;
 }) {
   const correct = result.reviewItems.filter((r) => r.isCorrect).length;
@@ -118,15 +121,25 @@ function ResultPanel({
             Review incorrect answers ({incorrect.length})
           </h2>
           <ul className="space-y-4">
-            {incorrect.map(({ question, selectedId }) => {
-              const yourAnswer = question.options.find((o) => o.id === selectedId);
-              const correctAnswer = question.options.find((o) => o.id === question.correctId);
+            {incorrect.map((item) => {
+              const question = questionsById.get(item.questionId);
+              const yourAnswer = question?.options.find(
+                (o) => o.id === item.selectedId,
+              );
               return (
-                <li key={question.id} className="rounded-lg border bg-card p-4 space-y-2">
-                  <p className="text-sm font-medium">{question.questionText}</p>
+                <li
+                  key={item.questionId}
+                  className="rounded-lg border bg-card p-4 space-y-2"
+                >
+                  <p className="text-sm font-medium">
+                    {question?.questionText ?? ""}
+                  </p>
                   <div className="space-y-1">
                     <p className="flex items-start gap-2 text-sm text-destructive">
-                      <XCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+                      <XCircle
+                        className="mt-0.5 h-3.5 w-3.5 flex-shrink-0"
+                        aria-hidden="true"
+                      />
                       <span>
                         <span className="font-medium">Your answer:</span>{" "}
                         {yourAnswer?.text ?? "—"}
@@ -139,13 +152,13 @@ function ResultPanel({
                       />
                       <span>
                         <span className="font-medium">Correct answer:</span>{" "}
-                        {correctAnswer?.text ?? "—"}
+                        {item.correctOption?.text ?? "—"}
                       </span>
                     </p>
                   </div>
-                  {question.explanation && (
+                  {item.explanation && (
                     <p className="rounded bg-muted px-3 py-2 text-xs text-muted-foreground">
-                      {question.explanation}
+                      {item.explanation}
                     </p>
                   )}
                 </li>
@@ -207,21 +220,10 @@ export function QuizRunner({ attemptId, questions }: QuizRunnerProps) {
 
     startTransition(async () => {
       try {
-        const { score, passed } = await submitQuizAttemptAction({
+        const { score, passed, reviewItems } = await submitQuizAttemptAction({
           attemptId,
           answers: submittedAnswers,
         });
-
-        // Build local review items for the result panel
-        const reviewItems = questions.map((q) => {
-          const selectedId = answers[q.id] ?? "";
-          return {
-            question: q,
-            selectedId,
-            isCorrect: selectedId === q.correctId,
-          };
-        });
-
         setResult({ score, passed, reviewItems });
         // Scroll to top of page
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -233,7 +235,14 @@ export function QuizRunner({ attemptId, questions }: QuizRunnerProps) {
 
   // Show result panel after submission
   if (result) {
-    return <ResultPanel result={result} totalQuestions={questions.length} />;
+    const questionsById = new Map(questions.map((q) => [q.id, q]));
+    return (
+      <ResultPanel
+        result={result}
+        questionsById={questionsById}
+        totalQuestions={questions.length}
+      />
+    );
   }
 
   return (
