@@ -85,6 +85,14 @@ export const EVENT_TYPES = [
   "ALLERGY_EQUIPMENT_CHECK_UPDATED",
   "ALLERGY_EQUIPMENT_CHECK_DELETED",
   "INCIDENT_OSHA_OUTCOME_UPDATED",
+  // Audit #21 (OSHA I-4): §1904.39 fatality reporting requires the
+  // employer to call OSHA within 8 hours of an employee fatality
+  // (24 hours for in-patient hospitalization, amputation, or eye loss).
+  // This event is the audit trail proving the alert path fired. The
+  // helper at src/lib/notifications/critical-osha-alert.ts inserts it
+  // alongside CRITICAL Notification rows + email-out, and uses the
+  // event's existence as the idempotency guard so re-emits are no-ops.
+  "INCIDENT_OSHA_FATALITY_REPORTED",
   // Evidence / file uploads — polymorphic across credentials, vendors, etc.
   // see docs/plans/2026-04-27-evidence-ceu-reminders.md
   "EVIDENCE_UPLOAD_REQUESTED",
@@ -1131,6 +1139,32 @@ export const EVENT_SCHEMAS = {
       oshaDaysRestricted: z.number().int().min(0).nullable().optional(),
       sharpsDeviceType: z.string().max(200).nullable().optional(),
       injuredUserId: z.string().min(1).nullable().optional(),
+    }),
+  },
+  // Audit #21 (OSHA I-4): §1904.39 8-hour fatality alert path. Emitted
+  // once per incident the moment the fatality alert helper fires. The
+  // EventLog row IS the audit trail (no projection state to update);
+  // re-emission is suppressed by checking for an existing row keyed on
+  // type + incidentId.
+  INCIDENT_OSHA_FATALITY_REPORTED: {
+    1: z.object({
+      incidentId: z.string().min(1),
+      // The OSHA outcome that triggered the alert. DEATH always fires
+      // the 8-hour clock; the schema also accepts other outcomes so a
+      // future expansion to in-patient hospitalization / amputation /
+      // eye loss (24-hour clock) can re-use this event.
+      oshaOutcome: z.enum([
+        "DEATH",
+        "DAYS_AWAY",
+        "RESTRICTED",
+        "OTHER_RECORDABLE",
+        "FIRST_AID",
+      ]),
+      // Wall-clock incident occurrence — basis for the 8-hour deadline.
+      // Mirrors Incident.discoveredAt.
+      occurredAt: z.string().datetime(),
+      // Computed deadline = occurredAt + 8h (DEATH).
+      deadlineAt: z.string().datetime(),
     }),
   },
   // ────────────────────────────────────────────────────────────────────

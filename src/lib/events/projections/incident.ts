@@ -336,3 +336,11 @@ export async function projectIncidentBreachMemoGenerated(): Promise<void> {
 export async function projectIncidentOshaLogGenerated(): Promise<void> {
   // intentional no-op
 }
+
+// Audit #21 (OSHA I-4) audit-trail no-op projection: emitted by the
+// critical-osha-alert helper alongside CRITICAL Notification rows +
+// admin email. The EventLog row IS the audit trail (and the idempotency
+// key — the helper checks for an existing row before re-firing).
+export async function projectIncidentOshaFatalityReported(): Promise<void> {
+  // intentional no-op
+}

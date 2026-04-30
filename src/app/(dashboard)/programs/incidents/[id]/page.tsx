@@ -9,6 +9,7 @@ import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MajorBreachBanner } from "@/components/gw/MajorBreachBanner";
+import { OshaFatalityBanner } from "@/components/gw/OshaFatalityBanner";
 import { CITATIONS } from "@/lib/regulations/citations";
 import {
   IncidentStatusBadge,
@@ -18,7 +19,7 @@ import { BreachDeterminationWizard } from "./BreachDeterminationWizard";
 import { NotificationLog } from "./NotificationLog";
 import { ResolveButton } from "./ResolveButton";
 import { OshaOutcomePanel } from "./OshaOutcomePanel";
-import { formatPracticeDate } from "@/lib/audit/format";
+import { formatPracticeDate, formatPracticeDateTime } from "@/lib/audit/format";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -108,6 +109,27 @@ export default async function IncidentDetailPage({ params }: PageProps) {
     incident.discoveredAt.getTime() + OCR_WINDOW_MS,
   );
 
+  // Audit #21 (OSHA I-4): if a §1904.39 fatality alert has fired for
+  // this incident, show the deadline banner. Reads the audit-trail
+  // EventLog row written by triggerCriticalOshaAlert.
+  const fatalityEvent =
+    incident.type === "OSHA_RECORDABLE" && incident.oshaOutcome === "DEATH"
+      ? await db.eventLog.findFirst({
+          where: {
+            practiceId: pu.practiceId,
+            type: "INCIDENT_OSHA_FATALITY_REPORTED",
+            payload: { path: ["incidentId"], equals: incident.id },
+          },
+          select: { payload: true },
+        })
+      : null;
+  const fatalityDeadlineAt = fatalityEvent
+    ? new Date(
+        (fatalityEvent.payload as { deadlineAt?: string }).deadlineAt ??
+          incident.discoveredAt.getTime() + 8 * 60 * 60 * 1000,
+      )
+    : null;
+
   return (
     <main className="mx-auto max-w-3xl space-y-6 p-6">
       <Breadcrumb
@@ -125,6 +147,13 @@ export default async function IncidentDetailPage({ params }: PageProps) {
             reportingDeadline={reportingDeadline}
           />
         )}
+
+      {fatalityDeadlineAt && (
+        <OshaFatalityBanner
+          deadlineAt={fatalityDeadlineAt}
+          deadlineLabel={formatPracticeDateTime(fatalityDeadlineAt, tz)}
+        />
+      )}
 
       <header className="flex items-start gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-accent-foreground">
