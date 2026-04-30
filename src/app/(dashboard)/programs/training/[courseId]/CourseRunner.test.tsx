@@ -96,6 +96,32 @@ describe("<CourseRunner>", () => {
     expect(screen.getByTestId("quiz-runner-mock")).toBeInTheDocument();
   });
 
+  it("keeps the quiz unlocked when the player drops back to 0 after a returning user already had >= 80%", () => {
+    // Regression: VideoLessonPlayer fires onProgressChange on every
+    // pct change, INCLUDING the first timeUpdate at currentTime=0
+    // before loadedmetadata sets the resume position. CourseRunner
+    // must MAX-merge against its current state so the gate doesn't
+    // re-lock for a returning user who already had serverPct=90.
+    render(
+      <CourseRunner
+        courseId="c1"
+        passingScore={80}
+        questions={[]}
+        videoSrc="/x"
+        videoDurationSec={100}
+        initialWatchedSeconds={90}
+      />,
+    );
+    // Quiz is unlocked from server-known progress.
+    expect(screen.getByTestId("quiz-runner-mock")).toBeInTheDocument();
+    // Simulate the player's first timeUpdate firing at 0 before resume.
+    act(() => {
+      lastOnProgressChange?.(0);
+    });
+    // Quiz remains unlocked — progress is monotonically non-decreasing.
+    expect(screen.getByTestId("quiz-runner-mock")).toBeInTheDocument();
+  });
+
   it("treats videoSrc set + videoDurationSec=0 as no video (renders quiz immediately)", () => {
     // Defensive: if a course was authored with videoUrl but durationSec
     // 0, we don't strand the user behind a gate they can never pass.

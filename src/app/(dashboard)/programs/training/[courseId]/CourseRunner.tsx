@@ -53,6 +53,17 @@ export function CourseRunner({
 
   const [progressPct, setProgressPct] = useState<number>(initialPct);
 
+  // Monotonically non-decreasing — match the projection's MAX-merge
+  // semantic. The VideoLessonPlayer fires onProgressChange whenever
+  // its internal pct changes, INCLUDING decreases (user scrubs back,
+  // or the very first timeUpdate fires at currentTime=0 before
+  // loadedmetadata sets the resume position). Without Math.max here,
+  // a returning user with serverPct=90 would briefly drop to 0 and
+  // re-lock the gate. See CourseRunner.test.tsx regression case.
+  const handleProgress = (next: number) => {
+    setProgressPct((prev) => Math.max(prev, next));
+  };
+
   const isUnlocked =
     !hasVideo || progressPct >= UNLOCK_THRESHOLD_PCT;
 
@@ -67,7 +78,7 @@ export function CourseRunner({
               videoSrc={videoSrc}
               videoDurationSec={videoDurationSec}
               initialWatchedSeconds={initialWatchedSeconds}
-              onProgressChange={setProgressPct}
+              onProgressChange={handleProgress}
             />
             {!isUnlocked && (
               <p className="text-xs text-muted-foreground">

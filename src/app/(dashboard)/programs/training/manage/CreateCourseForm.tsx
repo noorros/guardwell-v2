@@ -369,6 +369,19 @@ export function CreateCourseForm({ onSuccess }: CreateCourseFormProps) {
           <div className="space-y-2">
             <p className="text-xs text-foreground">
               Video uploaded.{" "}
+              {/*
+                TODO(phase-4-followup): clicking Remove (or dismissing the Dialog
+                without submitting) leaves the uploaded Evidence row stranded in GCS.
+                The 5GB practice quota check would eventually surface the leak. Two
+                possible fixes:
+                  1) Call a softDelete server action on the prior evidenceId before
+                     replacing or on Dialog cancel.
+                  2) Extend the existing GCS reaper cron (Phase 3) to sweep
+                     TRAINING_VIDEO entityType rows not referenced by any
+                     TrainingCourse.videoUrl after N days.
+                Track via a separate PR; v1 BYOV scale + admin-only access keeps this
+                acceptable in the interim.
+              */}
               <button
                 type="button"
                 className="text-primary underline"

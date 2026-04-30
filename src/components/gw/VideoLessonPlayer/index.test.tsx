@@ -173,8 +173,12 @@ describe("<VideoLessonPlayer>", () => {
       />,
     );
     // 'region' is disabled because the player is a fragment (no
-    // landmark) — its parent page provides the <main>. 'video-caption'
-    // is disabled because captions ship in a follow-up PR (PR 7+) —
+    // landmark) — its parent page provides the <main>.
+    //
+    // TODO(phase-4-pr-7-or-later): wire <track kind="captions" src="...">
+    // when captioning UI lands.
+    // jest-axe video-caption rule disabled here; the placeholder <track>
+    // on the player satisfies the markup but lacks a real captions file.
     // BYOV launch lets the practice add their own caption track later.
     const results = await axe(container, {
       rules: {
