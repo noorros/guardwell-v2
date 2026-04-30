@@ -694,7 +694,14 @@ model Credential {
   updatedAt        DateTime  @updatedAt
 
   practice       Practice       @relation(fields: [practiceId], references: [id], onDelete: Cascade)
-  holder         PracticeUser?  @relation(fields: [holderId], references: [id], onDelete: SetNull)
+  // Audit #21 / Credentials IM-10: tighten cascade contract.
+  // MEMBER_REMOVED is a soft-delete (sets PracticeUser.removedAt), so
+  // SetNull never actually fires here — the FK only fires on a hard
+  // delete. Restrict makes that explicit: a future hard-delete of a
+  // PracticeUser must be preceded by an explicit credential-handover
+  // (holder reassign) or retirement (Credential.retiredAt) event,
+  // rather than silently orphaning the credential's audit trail.
+  holder         PracticeUser?  @relation(fields: [holderId], references: [id], onDelete: Restrict)
   credentialType CredentialType @relation(fields: [credentialTypeId], references: [id])
 
   ceuActivities  CeuActivity[]

@@ -11,6 +11,7 @@ import { AddCredentialForm, type HolderOption, type CredentialTypeOption } from 
 import { CredentialStatusBadge } from "./CredentialStatusBadge";
 import { CredentialActions } from "./CredentialActions";
 import { getCredentialStatus } from "@/lib/credentials/status";
+import { buildCredentialGroups, type HolderForGrouping } from "./grouping";
 
 export const metadata = { title: "Credentials · My Programs" };
 
@@ -30,8 +31,17 @@ export default async function CredentialsPage() {
   if (!pu) return null;
 
   const [holders, credentialTypes, credentials] = await Promise.all([
+    // Audit #21 / Credentials CR-4: include removed PracticeUsers so
+    // their credentials still render. MEMBER_REMOVED is a soft-delete
+    // (sets removedAt), which doesn't trigger the FK SetNull cascade —
+    // so the stored Credential.holderId still points at the removed
+    // PracticeUser. Filtering removedAt:null here used to silently hide
+    // those credentials from the UI even though framework-derivation,
+    // CSV exports, and audit PDFs still counted them. Render them under
+    // a "Former staff" label so they remain visible for renewal /
+    // retirement workflows.
     db.practiceUser.findMany({
-      where: { practiceId: pu.practiceId, removedAt: null },
+      where: { practiceId: pu.practiceId },
       include: {
         user: { select: { email: true, firstName: true, lastName: true } },
       },
@@ -48,30 +58,28 @@ export default async function CredentialsPage() {
     }),
   ]);
 
-  const holderOptions: HolderOption[] = (holders as PracticeUserRow[]).map(
-    (h) => ({ id: h.id, name: displayName(h) }),
+  // Active staff feed the Add-credential dropdown; off-boarded users are
+  // excluded so operators can't assign new credentials to them.
+  const activeHolders = (holders as PracticeUserRow[]).filter(
+    (h) => h.removedAt === null,
   );
+  const holderOptions: HolderOption[] = activeHolders.map((h) => ({
+    id: h.id,
+    name: displayName(h),
+  }));
   const typeOptions: CredentialTypeOption[] = credentialTypes;
 
-  // Group credentials by holderId (null → "practice-level").
-  const grouped = new Map<string | null, typeof credentials>();
-  for (const c of credentials) {
-    const key = c.holderId ?? null;
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key)!.push(c);
-  }
-
-  const holderNameById = new Map(
-    (holders as PracticeUserRow[]).map((h) => [h.id, displayName(h)]),
+  // Build the grouped/ordered render plan. Active holders first (in
+  // their listed order), former staff after, practice-level last —
+  // matching the existing convention.
+  const holdersForGrouping: HolderForGrouping[] = (holders as PracticeUserRow[]).map(
+    (h) => ({
+      id: h.id,
+      displayName: displayName(h),
+      removedAt: h.removedAt,
+    }),
   );
-
-  // Show holder sections in the same order as the holders list; put practice-level last.
-  const orderedKeys: Array<string | null> = [
-    ...(holders as PracticeUserRow[])
-      .map((h) => h.id)
-      .filter((id) => grouped.has(id)),
-  ];
-  if (grouped.has(null)) orderedKeys.push(null);
+  const groups = buildCredentialGroups(holdersForGrouping, credentials);
 
   const now = new Date();
 
@@ -123,16 +131,14 @@ export default async function CredentialsPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {orderedKeys.map((key) => {
-            const list = grouped.get(key)!;
-            const heading =
-              key === null ? "Practice-level" : (holderNameById.get(key) ?? "Unknown");
+          {groups.map((group) => {
+            const list = group.credentials;
             return (
-              <Card key={key ?? "practice-level"}>
+              <Card key={group.key}>
                 <CardContent className="p-0">
                   <div className="flex items-center justify-between border-b px-4 py-2">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {heading}
+                      {group.heading}
                     </h3>
                     <span className="text-[10px] text-muted-foreground">
                       {list.length} credential{list.length === 1 ? "" : "s"}
