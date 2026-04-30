@@ -283,19 +283,53 @@ export async function logEquipmentCheckAction(input: z.infer<typeof EquipmentInp
   revalidatePath("/modules/allergy");
 }
 
-const DrillInput = z.object({
-  conductedAt: dateOnlyString,
-  scenario: z.string().min(1).max(2000),
-  participantIds: z.array(z.string().min(1)).min(1),
-  durationMinutes: z.number().int().min(0).nullable().optional(),
-  observations: z.string().max(2000).nullable().optional(),
-  correctiveActions: z.string().max(2000).nullable().optional(),
-  nextDrillDue: dateOnlyString.nullable().optional(),
-});
+const DrillInput = z
+  .object({
+    conductedAt: dateOnlyString,
+    scenario: z.string().min(1).max(2000),
+    // Audit #21 (IM-2): each participantId must be unique within the
+    // submission. Without this refine, a forged POST could duplicate a
+    // single id to inflate the participant count toward ALLERGY_ANNUAL_DRILL.
+    participantIds: z
+      .array(z.string().min(1))
+      .min(1)
+      .refine((ids) => new Set(ids).size === ids.length, {
+        message: "Participants must be unique",
+      }),
+    durationMinutes: z.number().int().min(0).nullable().optional(),
+    observations: z.string().max(2000).nullable().optional(),
+    correctiveActions: z.string().max(2000).nullable().optional(),
+    nextDrillDue: dateOnlyString.nullable().optional(),
+  });
+
+/**
+ * Audit #21 (Allergy IM-2): the participantIds column is a String[] without
+ * FK enforcement, so a forged POST could supply an id from another practice
+ * (cross-tenant data spray) or a removed member. Verify every id resolves
+ * to an active member of the caller's practice before emitting the event.
+ *
+ * Long-term, this column should become a join table (`AllergyDrillParticipant`)
+ * with proper FK + onDelete semantics — see schema TODO on AllergyDrill.
+ */
+async function assertParticipantsActiveMembers(
+  participantIds: string[],
+  practiceId: string,
+): Promise<void> {
+  const members = await db.practiceUser.findMany({
+    where: { id: { in: participantIds }, practiceId, removedAt: null },
+    select: { id: true },
+  });
+  if (members.length !== participantIds.length) {
+    throw new Error(
+      "Some participants are not active members of your practice",
+    );
+  }
+}
 
 export async function logDrillAction(input: z.infer<typeof DrillInput>) {
   const { user, pu } = await requireAdmin();
   const parsed = DrillInput.parse(input);
+  await assertParticipantsActiveMembers(parsed.participantIds, pu.practiceId);
   const drillId = randomUUID();
   const payload = {
     drillId,
@@ -343,6 +377,10 @@ export async function updateDrillAction(input: z.infer<typeof UpdateDrillInput>)
   if (existing.retiredAt) {
     throw new Error("Cannot edit a retired drill");
   }
+  // Audit #21 (Allergy IM-2): same FK-integrity guard as logDrillAction —
+  // an edit that introduces a cross-tenant or removed-member id is just as
+  // bad as creating one with such ids. Apply the same check here.
+  await assertParticipantsActiveMembers(parsed.participantIds, pu.practiceId);
   const payload = {
     drillId: parsed.drillId,
     editedByUserId: pu.id,

@@ -60,6 +60,29 @@ export default async function AllergyProgramPage() {
     }),
   ]);
 
+  // Audit #21 (Allergy IM-2): legacy drills may carry participantIds that
+  // no longer resolve to an active member of this practice (member removed,
+  // or — for very old data created before the FK-integrity guard — an id
+  // from another practice altogether). Fetch any "missing" ids so the UI
+  // can render a "User no longer at practice" label rather than just
+  // dropping them silently or saying "Unknown".
+  const activeMemberIds = new Set(members.map((m) => m.id));
+  const missingParticipantIds = Array.from(
+    new Set(
+      drills.flatMap((d) =>
+        d.participantIds.filter((id) => !activeMemberIds.has(id)),
+      ),
+    ),
+  );
+  const removedParticipants = missingParticipantIds.length
+    ? await db.practiceUser.findMany({
+        where: { id: { in: missingParticipantIds } },
+        include: {
+          user: { select: { firstName: true, lastName: true, email: true } },
+        },
+      })
+    : [];
+
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-6">
       <Breadcrumb items={[{ label: "My Programs" }, { label: "Allergy" }]} />
@@ -119,6 +142,17 @@ export default async function AllergyProgramPage() {
           observations: d.observations,
           correctiveActions: d.correctiveActions,
           nextDrillDue: d.nextDrillDue?.toISOString() ?? null,
+        }))}
+        legacyParticipants={removedParticipants.map((m) => ({
+          id: m.id,
+          name:
+            [m.user.firstName, m.user.lastName].filter(Boolean).join(" ") ||
+            m.user.email ||
+            "Former member",
+          // True when this id belongs to a member who once existed in THIS
+          // practice but has since been removed. False = id belongs to a
+          // different practice entirely (legacy cross-tenant data).
+          sameTenant: m.practiceId === pu.practiceId,
         }))}
       />
     </main>

@@ -1774,6 +1774,14 @@ model AllergyEquipmentCheck {
 /// resolve names with a separate findMany. Acceptable for typical small
 /// staff sizes; revisit with a join table if drills routinely have 20+
 /// participants or "drills participated in by user X" becomes a hot query.
+///
+/// TODO(audit #21 IM-2, future PR): convert `participantIds: String[]` to
+/// a proper join table (`AllergyDrillParticipant { drillId, practiceUserId,
+/// @@id }`) so FK integrity is enforced at the DB layer and "drills for
+/// user X" becomes an indexed lookup. The action layer currently validates
+/// FK integrity via `assertParticipantsActiveMembers` in actions.ts as the
+/// interim guard, plus the DrillTab UI surfaces "User no longer at practice"
+/// for legacy ids that no longer resolve to a current member.
 model AllergyDrill {
   id                String   @id @default(cuid())
   practiceId        String
