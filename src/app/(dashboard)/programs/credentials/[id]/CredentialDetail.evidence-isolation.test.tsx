@@ -26,6 +26,7 @@ const baseProps = {
     ceuRequirementHours: null,
     ceuRequirementWindowMonths: null,
     requiresEvidenceByDefault: true,
+    renewalPeriodDays: null,
   },
   credential: {
     title: "DEA cert",
