@@ -88,7 +88,9 @@ describe("Notification digest", () => {
         practiceId: practice.id,
         credentialTypeId: credType.id,
         title: "AZ MD License",
-        expiryDate: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000),
+        // +1h buffer so Math.floor((20d+1h)/DAY_MS) = 20 even after the
+        // few ms that elapse between create() and daysUntil().
+        expiryDate: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000),
       },
     });
     const summary = await runNotificationDigest();

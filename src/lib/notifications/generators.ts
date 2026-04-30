@@ -31,7 +31,13 @@ const SRA_WARNING_DAYS = 60; // Warn when SRA is within 60 days of expiry
 
 function daysUntil(date: Date | null): number | null {
   if (!date) return null;
-  return Math.round((date.getTime() - Date.now()) / DAY_MS);
+  // Math.floor (not Math.round) so "30.7 days until expiry" → 30, not 31.
+  // Combined with "days <= milestone" matching in the renewal generators,
+  // this makes milestone firing deterministic regardless of when the cron
+  // runs within the boundary day. Without floor, a delayed/retried cron
+  // straddling a milestone day could fire twice (saved by entityKey
+  // dedup) OR skip the milestone entirely. Audit #21 Credentials IM-7.
+  return Math.floor((date.getTime() - Date.now()) / DAY_MS);
 }
 
 /**
@@ -202,35 +208,38 @@ export async function generateCredentialRenewalNotifications(
     if (days === null) continue;
     if (days < 0) continue; // Already expired — CREDENTIAL_EXPIRING handles past-expiry.
 
-    // Find the milestone day that has been crossed in the last 24h
-    // (days <= milestone but days > milestone - 1). Avoids re-firing
-    // every day until expiry — only the day the threshold flips.
-    const matchedMilestone = milestones.find(
-      (m) => days <= m && days > m - 1,
-    );
-    if (matchedMilestone === undefined) continue;
+    // Audit #21 Credentials IM-7: fire every milestone we're inside of
+    // (days <= m), not just the one whose boundary we crossed in the last
+    // 24h. Idempotent by design — the (userId, type, entityKey) unique
+    // constraint dedups across digest runs, where entityKey embeds the
+    // milestone day. A delayed/retried cron at any time of day still
+    // produces exactly one notification per (credential, milestone).
+    const matchedMilestones = milestones.filter((m) => days <= m);
+    if (matchedMilestones.length === 0) continue;
 
-    const severity: NotificationSeverity =
-      matchedMilestone <= 7
-        ? "CRITICAL"
-        : matchedMilestone <= 30
-          ? "WARNING"
-          : "INFO";
-    const entityKey = `credential:${cred.id}:milestone:${matchedMilestone}`;
-    const title = `${cred.title} — renewal in ${days} day${days === 1 ? "" : "s"}`;
-    const body = `This credential expires ${formatPracticeDate(cred.expiryDate, practiceTimezone)}. Plan the renewal now to avoid a compliance gap.`;
+    for (const matchedMilestone of matchedMilestones) {
+      const severity: NotificationSeverity =
+        matchedMilestone <= 7
+          ? "CRITICAL"
+          : matchedMilestone <= 30
+            ? "WARNING"
+            : "INFO";
+      const entityKey = `credential:${cred.id}:milestone:${matchedMilestone}`;
+      const title = `${cred.title} — renewal in ${days} day${days === 1 ? "" : "s"}`;
+      const body = `This credential expires ${formatPracticeDate(cred.expiryDate, practiceTimezone)}. Plan the renewal now to avoid a compliance gap.`;
 
-    for (const uid of userIds) {
-      proposals.push({
-        userId: uid,
-        practiceId,
-        type: "CREDENTIAL_RENEWAL_DUE" as NotificationType,
-        severity,
-        title,
-        body,
-        href: `/programs/credentials/${cred.id}`,
-        entityKey,
-      });
+      for (const uid of userIds) {
+        proposals.push({
+          userId: uid,
+          practiceId,
+          type: "CREDENTIAL_RENEWAL_DUE" as NotificationType,
+          severity,
+          title,
+          body,
+          href: `/programs/credentials/${cred.id}`,
+          entityKey,
+        });
+      }
     }
   }
   return proposals;
@@ -821,27 +830,31 @@ export async function generateCmsEnrollmentNotifications(
     if (days === null) continue;
     if (days < 0) continue;
 
-    const matched = milestones.find((m) => days <= m && days > m - 1);
-    if (matched === undefined) continue;
+    // Audit #21 Credentials IM-7: same fix as generateCredentialRenewalNotifications.
+    // Fire every milestone we're inside of; entityKey dedup prevents repeats.
+    const matchedMilestones = milestones.filter((m) => days <= m);
+    if (matchedMilestones.length === 0) continue;
 
     const isPecos = cred.credentialType.code === "MEDICARE_PECOS_ENROLLMENT";
     const flavor = isPecos ? "PECOS" : "provider";
     const expiryStr = formatPracticeDate(cred.expiryDate, practiceTimezone);
     const title = `Medicare ${flavor} enrollment expires in ${days} day${days === 1 ? "" : "s"}`;
     const body = `Revalidation must be completed via PECOS before ${expiryStr}.`;
-    const entityKey = `cms-enrollment:${cred.id}:milestone:${matched}`;
 
-    for (const uid of adminIds) {
-      proposals.push({
-        userId: uid,
-        practiceId,
-        type: "CMS_ENROLLMENT_EXPIRING" as NotificationType,
-        severity: "INFO" as NotificationSeverity,
-        title,
-        body,
-        href: `/credentials/${cred.id}`,
-        entityKey,
-      });
+    for (const matched of matchedMilestones) {
+      const entityKey = `cms-enrollment:${cred.id}:milestone:${matched}`;
+      for (const uid of adminIds) {
+        proposals.push({
+          userId: uid,
+          practiceId,
+          type: "CMS_ENROLLMENT_EXPIRING" as NotificationType,
+          severity: "INFO" as NotificationSeverity,
+          title,
+          body,
+          href: `/credentials/${cred.id}`,
+          entityKey,
+        });
+      }
     }
   }
   return proposals;
