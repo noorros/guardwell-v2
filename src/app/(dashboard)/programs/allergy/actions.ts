@@ -16,6 +16,7 @@ import {
 import { projectAllergyEquipmentCheckLogged } from "@/lib/events/projections/allergyEquipment";
 import { projectAllergyDrillLogged } from "@/lib/events/projections/allergyDrill";
 import { db } from "@/lib/db";
+import { gradeAllergyQuizAttempt, type QuizReviewItem } from "./grade";
 
 // HTML <input type="date"> emits YYYY-MM-DD; the action converts to a
 // full ISO datetime before forwarding to the event registry (which
@@ -153,37 +154,28 @@ const QuizSubmitInput = z.object({
 
 export async function submitQuizAttemptAction(
   input: z.infer<typeof QuizSubmitInput>,
-): Promise<{ score: number; passed: boolean }> {
+): Promise<{
+  score: number;
+  passed: boolean;
+  reviewItems: QuizReviewItem[];
+}> {
   const user = await requireUser();
   const pu = await getPracticeUser();
   if (!pu) throw new Error("Unauthorized");
   const parsed = QuizSubmitInput.parse(input);
 
-  const questions = await db.allergyQuizQuestion.findMany({
-    where: { id: { in: parsed.answers.map((a) => a.questionId) } },
-    select: { id: true, correctId: true },
-  });
-  const correctMap = new Map(questions.map((q) => [q.id, q.correctId]));
-  let correct = 0;
-  const annotated = parsed.answers.map((a) => {
-    const isCorrect = correctMap.get(a.questionId) === a.selectedId;
-    if (isCorrect) correct += 1;
-    return { questionId: a.questionId, selectedId: a.selectedId, isCorrect };
-  });
-  const total = parsed.answers.length;
-  const score = total === 0 ? 0 : Math.round((correct / total) * 100);
-  const passed = score >= 80;
+  const graded = await gradeAllergyQuizAttempt(db, { answers: parsed.answers });
   const year = new Date().getFullYear();
 
   const payload = {
     attemptId: parsed.attemptId,
     practiceUserId: pu.id,
     year,
-    score,
-    passed,
-    correctAnswers: correct,
-    totalQuestions: total,
-    answers: annotated,
+    score: graded.score,
+    passed: graded.passed,
+    correctAnswers: graded.correctAnswers,
+    totalQuestions: graded.totalQuestions,
+    answers: graded.annotated,
   };
   await appendEventAndApply(
     {
@@ -196,7 +188,11 @@ export async function submitQuizAttemptAction(
   );
   revalidatePath("/programs/allergy");
   revalidatePath("/modules/allergy");
-  return { score, passed };
+  return {
+    score: graded.score,
+    passed: graded.passed,
+    reviewItems: graded.reviewItems,
+  };
 }
 
 const EquipmentInput = z.object({
