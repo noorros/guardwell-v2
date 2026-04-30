@@ -282,7 +282,12 @@ export function IncidentBreachMemoDocument({
             {incident.affectedCount === null
               ? "Unknown"
               : incident.affectedCount.toLocaleString("en-US")}
-            {isMajor ? "  (Major breach — ≥500)" : ""}
+            {/* Audit #17: Helvetica's Latin-1 glyph set does not include
+                U+2265 (≥); @react-pdf falls back to a placeholder, so
+                the breach memo PDF would render "e500" instead of
+                "≥500". Use ASCII ">=500" to render correctly without
+                embedding a Math-symbol font. */}
+            {isMajor ? "  (Major breach — >=500)" : ""}
           </Text>
         </View>
 
@@ -345,7 +350,7 @@ export function IncidentBreachMemoDocument({
           timezone={input.practiceTimezone}
         />
         <NotifRow
-          label="Media (≥500 affected)"
+          label="Media (>=500 affected)"
           notifiedAt={notifications.mediaNotifiedAt}
           required={incident.isBreach && isMajor}
           timezone={input.practiceTimezone}
