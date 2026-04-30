@@ -44,6 +44,11 @@ afterEach(async () => {
   // PracticeUser (no FK). Explicit deletes keep test setup deterministic.
   await db.ceuActivity.deleteMany();
   await db.credentialReminderConfig.deleteMany();
+  // Credential.holder is now onDelete: Restrict (audit #21 IM-10) so
+  // it must be deleted before PracticeUser. Practice -> Credential is
+  // still Cascade, but tests typically delete PracticeUser explicitly
+  // first, which now requires removing credentials by hand.
+  await db.credential.deleteMany();
   // BAA tables reference Vendor (cascade) + Evidence (SetNull) +
   // Practice (cascade). Explicit deletes are safety-belt; child tokens
   // first, then parent BaaRequest rows.
