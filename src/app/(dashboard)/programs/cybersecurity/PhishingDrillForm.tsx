@@ -73,73 +73,149 @@ export function PhishingDrillForm() {
     );
   }
 
+  const errorId = "phishing-drill-error";
+  const errorAttrs = error
+    ? { "aria-invalid": true as const, "aria-describedby": errorId }
+    : {};
+
   return (
     <Card>
-      <CardContent className="space-y-3 p-4">
-        <h3 className="text-sm font-semibold">New phishing drill</h3>
+      <CardContent
+        role="group"
+        aria-labelledby="phishing-drill-heading"
+        className="space-y-3 p-4"
+      >
+        <h3 id="phishing-drill-heading" className="text-sm font-semibold">
+          New phishing drill
+        </h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <label className="space-y-1 text-xs font-medium text-foreground">
-            Conducted at
+          <div className="space-y-1">
+            <label
+              htmlFor="phishing-conducted-at"
+              className="block text-xs font-medium text-foreground"
+            >
+              Conducted at{" "}
+              <span className="text-destructive" aria-hidden="true">
+                *
+              </span>
+            </label>
             <input
+              id="phishing-conducted-at"
               type="date"
+              required
+              aria-required="true"
               value={conductedAt}
               onChange={(e) => setConductedAt(e.target.value)}
               className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
             />
-          </label>
-          <label className="space-y-1 text-xs font-medium text-foreground">
-            Vendor (optional)
+          </div>
+          <div className="space-y-1">
+            <label
+              htmlFor="phishing-vendor"
+              className="block text-xs font-medium text-foreground"
+            >
+              Vendor (optional)
+            </label>
             <input
+              id="phishing-vendor"
               type="text"
               value={vendor}
               onChange={(e) => setVendor(e.target.value)}
               placeholder="KnowBe4, Hoxhunt, Microsoft, Internal…"
               className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
             />
-          </label>
-          <label className="space-y-1 text-xs font-medium text-foreground">
-            Total recipients
+          </div>
+          <div className="space-y-1">
+            <label
+              htmlFor="phishing-total"
+              className="block text-xs font-medium text-foreground"
+            >
+              Total recipients{" "}
+              <span className="text-destructive" aria-hidden="true">
+                *
+              </span>
+            </label>
             <input
+              id="phishing-total"
               type="number"
               min={1}
+              required
+              aria-required="true"
+              {...errorAttrs}
               value={totalRecipients}
               onChange={(e) => setTotalRecipients(e.target.value)}
               className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm tabular-nums"
             />
-          </label>
-          <label className="space-y-1 text-xs font-medium text-foreground">
-            Clicked
+          </div>
+          <div className="space-y-1">
+            <label
+              htmlFor="phishing-clicked"
+              className="block text-xs font-medium text-foreground"
+            >
+              Clicked{" "}
+              <span className="text-destructive" aria-hidden="true">
+                *
+              </span>
+            </label>
             <input
+              id="phishing-clicked"
               type="number"
               min={0}
+              required
+              aria-required="true"
+              {...errorAttrs}
               value={clickedCount}
               onChange={(e) => setClickedCount(e.target.value)}
               className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm tabular-nums"
             />
-          </label>
-          <label className="space-y-1 text-xs font-medium text-foreground">
-            Reported
+          </div>
+          <div className="space-y-1">
+            <label
+              htmlFor="phishing-reported"
+              className="block text-xs font-medium text-foreground"
+            >
+              Reported{" "}
+              <span className="text-destructive" aria-hidden="true">
+                *
+              </span>
+            </label>
             <input
+              id="phishing-reported"
               type="number"
               min={0}
+              required
+              aria-required="true"
+              {...errorAttrs}
               value={reportedCount}
               onChange={(e) => setReportedCount(e.target.value)}
               className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm tabular-nums"
             />
-          </label>
+          </div>
         </div>
-        <label className="block space-y-1 text-xs font-medium text-foreground">
-          Notes (optional)
+        <div className="space-y-1">
+          <label
+            htmlFor="phishing-notes"
+            className="block text-xs font-medium text-foreground"
+          >
+            Notes (optional)
+          </label>
           <textarea
+            id="phishing-notes"
             rows={2}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Template used, follow-up training assigned, repeat clickers, etc."
             className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
           />
-        </label>
+        </div>
         {error && (
-          <p className="text-xs text-[color:var(--gw-color-risk)]">{error}</p>
+          <p
+            id={errorId}
+            role="alert"
+            className="text-xs text-[color:var(--gw-color-risk)]"
+          >
+            {error}
+          </p>
         )}
         <div className="flex gap-2">
           <Button type="button" size="sm" onClick={handleSubmit} disabled={isPending}>

@@ -9,7 +9,7 @@
 // case there already covers that wizard — this file picks up the rest).
 
 import { describe, it, expect, vi } from "vitest";
-import { render, fireEvent } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { axe } from "jest-axe";
 
 vi.mock("next/navigation", () => ({
@@ -40,11 +40,36 @@ vi.mock("@/app/(dashboard)/programs/document-retention/actions", () => ({
   recordDestructionAction: vi.fn(),
 }));
 
+vi.mock("@/app/(dashboard)/programs/policies/actions", () => ({
+  acknowledgePolicyAction: vi.fn(),
+}));
+
+vi.mock("@/app/accept-baa/[token]/actions", () => ({
+  executeBaaAction: vi.fn(),
+}));
+
+vi.mock("@/app/(dashboard)/programs/cybersecurity/actions", () => ({
+  logPhishingDrillAction: vi.fn(),
+  logBackupVerificationAction: vi.fn(),
+  recordMfaEnrollmentAction: vi.fn(),
+}));
+
+vi.mock("@/app/(dashboard)/programs/allergy/actions", () => ({
+  logDrillAction: vi.fn(),
+  updateDrillAction: vi.fn(),
+  deleteDrillAction: vi.fn(),
+}));
+
 import { SraWizard, type SraWizardQuestion } from "./risk/new/SraWizard";
 import { IncidentReportForm } from "./incidents/new/IncidentReportForm";
 import { OshaOutcomePanel } from "./incidents/[id]/OshaOutcomePanel";
 import { AddCredentialForm } from "./credentials/AddCredentialForm";
 import { NewDestructionForm } from "./document-retention/NewDestructionForm";
+import { AcknowledgeForm } from "./policies/[id]/AcknowledgeForm";
+import { AcceptBaaForm } from "@/app/accept-baa/[token]/AcceptBaaForm";
+import { PhishingDrillForm } from "./cybersecurity/PhishingDrillForm";
+import { BackupVerificationForm } from "./cybersecurity/BackupVerificationForm";
+import { LogDrillForm } from "./allergy/DrillTab";
 
 const AXE_OPTS = {
   rules: {
@@ -243,6 +268,152 @@ describe("Audit #12 ARIA / form labelling sweep", () => {
         />,
       );
       fireEvent.click(getByRole("button", { name: /edit/i }));
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+  });
+
+  // ── Batch 2 (PR-B10) ──────────────────────────────────────────────────────
+  // Five forms shipped post-PR-#212 without the audit-12 ARIA pattern.
+  // This sweep brings them up to spec.
+
+  describe("<AcknowledgeForm>", () => {
+    it("not yet acknowledged, no prereqs — sign panel collapsed", async () => {
+      const { container } = render(
+        <AcknowledgeForm
+          practicePolicyId="pp-1"
+          policyTitle="Information Security Policy"
+          policyVersion={3}
+          alreadyAcknowledged={false}
+          acknowledgedAt={null}
+          prerequisites={[]}
+          defaultSignature="Alice Smith"
+        />,
+      );
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+
+    it("with prerequisites listed", async () => {
+      const { container } = render(
+        <AcknowledgeForm
+          practicePolicyId="pp-1"
+          policyTitle="Information Security Policy"
+          policyVersion={3}
+          alreadyAcknowledged={false}
+          acknowledgedAt={null}
+          prerequisites={[
+            { courseCode: "HIPAA_BASICS", courseTitle: "HIPAA Basics", completed: true },
+            { courseCode: "INFOSEC_101", courseTitle: "InfoSec 101", completed: false },
+          ]}
+          defaultSignature="Alice Smith"
+        />,
+      );
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+
+    it("already acknowledged — confirmation card", async () => {
+      const { container } = render(
+        <AcknowledgeForm
+          practicePolicyId="pp-1"
+          policyTitle="Information Security Policy"
+          policyVersion={3}
+          alreadyAcknowledged={true}
+          acknowledgedAt="2026-04-01T00:00:00Z"
+          prerequisites={[]}
+          defaultSignature="Alice Smith"
+        />,
+      );
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+  });
+
+  describe("<AcceptBaaForm>", () => {
+    it("default render with recipient email", async () => {
+      const { container } = render(
+        <AcceptBaaForm
+          token="tok-123"
+          baaRequestId="baa-1"
+          tokenId="tokid-1"
+          recipientEmail="vendor@example.com"
+          practiceName="Smith Family Practice"
+          vendorName="Acme IT Services LLC"
+        />,
+      );
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+
+    it("default render without recipient email pin", async () => {
+      const { container } = render(
+        <AcceptBaaForm
+          token="tok-123"
+          baaRequestId="baa-1"
+          tokenId="tokid-1"
+          recipientEmail={null}
+          practiceName="Smith Family Practice"
+          vendorName="Acme IT Services LLC"
+        />,
+      );
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+  });
+
+  describe("<PhishingDrillForm>", () => {
+    it("expanded form — all fields rendered", async () => {
+      const { container, getByRole } = render(<PhishingDrillForm />);
+      await act(async () => {
+        getByRole("button", { name: /log a phishing drill/i }).click();
+      });
+      expect(container.querySelector("#phishing-conducted-at")).not.toBeNull();
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+  });
+
+  describe("<BackupVerificationForm>", () => {
+    it("expanded form — all fields rendered", async () => {
+      const { container, getByRole } = render(<BackupVerificationForm />);
+      await act(async () => {
+        getByRole("button", { name: /log a backup test/i }).click();
+      });
+      expect(container.querySelector("#backup-verified-at")).not.toBeNull();
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+  });
+
+  describe("<LogDrillForm>", () => {
+    it("default render with members", async () => {
+      const { container } = render(
+        <LogDrillForm
+          members={[
+            {
+              id: "u-1",
+              name: "Alice Doe",
+              role: "CLINICIAN",
+              email: "alice@clinic.com",
+              requiresAllergyCompetency: true,
+            },
+            {
+              id: "u-2",
+              name: "Bob Smith",
+              role: "STAFF",
+              email: null,
+              requiresAllergyCompetency: false,
+            },
+          ]}
+        />,
+      );
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+
+    it("empty members list", async () => {
+      const { container } = render(<LogDrillForm members={[]} />);
       const results = await axe(container, AXE_OPTS);
       expect(results).toHaveNoViolations();
     });
