@@ -2,7 +2,12 @@
 //
 // Audit #15 (2026-04-30): regression guard for the shared history-row
 // edit/delete affordance. Confirms the canManage gate hides the entire
-// component for non-admins and that delete is gated by window.confirm.
+// component for non-admins and that delete is gated by a confirm step.
+//
+// Audit #21 / Allergy IM-12 (2026-04-30): the confirm step now uses a
+// shadcn AlertDialog (replacing native `window.confirm`). Tests updated
+// to interact with the dialog content + buttons rather than the
+// browser confirm.
 
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
@@ -38,11 +43,27 @@ describe("<HistoryRowActions>", () => {
     expect(onEdit).toHaveBeenCalledOnce();
   });
 
-  it("invokes onDelete only after window.confirm() approval", async () => {
-    const onDelete = vi.fn(async () => {});
-    const confirmSpy = vi.spyOn(window, "confirm");
+  it("opens an AlertDialog instead of the native window.confirm", async () => {
+    // Regression guard for IM-12: window.confirm must NOT be invoked.
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(
+      <HistoryRowActions
+        canManage={true}
+        onEdit={() => {}}
+        onDelete={async () => {}}
+        deleteConfirmText="Sure?"
+      />,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /delete/i }));
+    expect(confirmSpy).not.toHaveBeenCalled();
+    // AlertDialog renders with role="alertdialog".
+    expect(await screen.findByRole("alertdialog")).toBeTruthy();
+    confirmSpy.mockRestore();
+  });
 
-    confirmSpy.mockReturnValueOnce(false);
+  it("does not invoke onDelete when Cancel is clicked in the dialog", async () => {
+    const onDelete = vi.fn(async () => {});
     render(
       <HistoryRowActions
         canManage={true}
@@ -53,20 +74,38 @@ describe("<HistoryRowActions>", () => {
     );
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /delete/i }));
+    const dialog = await screen.findByRole("alertdialog");
+    const { getByRole } = await import("@testing-library/react").then((m) => ({
+      getByRole: m.within(dialog).getByRole,
+    }));
+    await user.click(getByRole("button", { name: /cancel/i }));
     expect(onDelete).not.toHaveBeenCalled();
+  });
 
-    // Approve on the second click.
-    confirmSpy.mockReturnValueOnce(true);
+  it("invokes onDelete when the dialog's confirm button is clicked", async () => {
+    const onDelete = vi.fn(async () => {});
+    render(
+      <HistoryRowActions
+        canManage={true}
+        onEdit={() => {}}
+        onDelete={onDelete}
+        deleteConfirmText="Sure?"
+      />,
+    );
+    const user = userEvent.setup();
+    // First click opens the dialog.
     await user.click(screen.getByRole("button", { name: /delete/i }));
+    const dialog = await screen.findByRole("alertdialog");
+    // Second click — the destructive action button inside the dialog.
+    const { within } = await import("@testing-library/react");
+    const confirmButton = within(dialog).getByRole("button", {
+      name: /delete/i,
+    });
+    await user.click(confirmButton);
     expect(onDelete).toHaveBeenCalledOnce();
-
-    confirmSpy.mockRestore();
   });
 
   it("surfaces the onDelete error message inline", async () => {
-    const confirmSpy = vi
-      .spyOn(window, "confirm")
-      .mockReturnValue(true);
     const onDelete = vi.fn(async () => {
       throw new Error("Boom");
     });
@@ -80,8 +119,10 @@ describe("<HistoryRowActions>", () => {
     );
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /delete/i }));
+    const dialog = await screen.findByRole("alertdialog");
+    const { within } = await import("@testing-library/react");
+    await user.click(within(dialog).getByRole("button", { name: /delete/i }));
     expect(await screen.findByText("Boom")).toBeTruthy();
-    confirmSpy.mockRestore();
   });
 
   it("axe-clean (canManage=true)", async () => {

@@ -1,5 +1,4 @@
 // src/app/(dashboard)/programs/allergy/quiz/page.tsx
-import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import type { Route } from "next";
 import { BookOpen, Syringe } from "lucide-react";
@@ -54,8 +53,8 @@ export default async function AllergyQuizPage() {
     category: q.category,
   }));
 
-  // Generate fresh attemptId per page render
-  const attemptId = randomUUID();
+  // Audit #21 / Allergy MIN-5 (2026-04-30): attemptId moved server-side
+  // into submitQuizAttemptAction — see QuizRunner / actions.ts.
 
   if (serializedQuestions.length === 0) {
     return (
@@ -106,10 +105,7 @@ export default async function AllergyQuizPage() {
           </p>
         </div>
       </header>
-      <QuizRunner
-        attemptId={attemptId}
-        questions={serializedQuestions}
-      />
+      <QuizRunner questions={serializedQuestions} />
     </main>
   );
 }

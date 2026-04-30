@@ -1,7 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
-import { AlertTriangle, ChevronDown, ChevronUp, Users } from "lucide-react";
+import {
+  AlertTriangle,
+  Archive,
+  ChevronDown,
+  ChevronUp,
+  Users,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { CompetencyTabProps } from "./CompetencyTab";
@@ -35,11 +42,52 @@ export interface DrillTabProps {
     name: string;
     sameTenant: boolean;
   }>;
+  /**
+   * Audit #21 / Allergy IM-10 (2026-04-30): soft-deleted drills, surfaced
+   * only when an admin opted in via `?showRetired=1` at the page level.
+   * Read-only — no edit/delete actions on retired rows. Useful when
+   * reconstructing why a drill was removed for state pharmacy board
+   * inquiries; the EventLog has the full history but the UI was hiding it.
+   */
+  retiredDrills?: Array<{
+    id: string;
+    conductedAt: string;
+    scenario: string;
+    participantIds: string[];
+    durationMinutes: number | null;
+    observations: string | null;
+    correctiveActions: string | null;
+    nextDrillDue: string | null;
+    retiredAt: string | null;
+  }>;
+  /**
+   * Audit #21 / Allergy IM-10: drives the toggle link's display state
+   * (showing → "Hide retired drills"; hiding → "Show retired drills").
+   * Must come from the page (server-derived from searchParams) so the
+   * link target stays serialisable.
+   */
+  showRetiredDrills?: boolean;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const ONE_YEAR_MS = 365 * DAY_MS;
+
+// Audit #21 / Allergy MIN-6 (2026-04-30): the overdue banner used a single
+// amber tone regardless of how overdue the drill was. USP §21.6 is a hard
+// annual; once past 365 days the practice is out of compliance, and the
+// further past, the more urgent the alert. Three tiers chosen to map the
+// audit risk: 0–30 days late = caution, 30–90 days = needs attention,
+// >90 days = state board would treat this as a sustained gap. Ranges
+// match the credentials EXPIRING_SOON / EXPIRED window precedent.
+type OverdueSeverity = "caution" | "warning" | "critical";
+
+export function classifyOverdueSeverity(daysOverdue: number): OverdueSeverity {
+  if (daysOverdue > 90) return "critical";
+  if (daysOverdue > 30) return "warning";
+  return "caution";
+}
 
 // ── Overdue Banner ────────────────────────────────────────────────────────────
 
@@ -61,9 +109,19 @@ function OverdueBanner({ drills }: { drills: DrillTabProps["drills"] }) {
   const ageMs = now - conductedMs;
 
   if (ageMs > ONE_YEAR_MS) {
-    const daysAgo = Math.floor(ageMs / (24 * 60 * 60 * 1000));
+    const daysAgo = Math.floor(ageMs / DAY_MS);
+    const daysOverdue = daysAgo - 365;
+    const severity = classifyOverdueSeverity(daysOverdue);
+    // Tailwind's JIT can't pick up dynamic class names, so the three
+    // palettes are listed verbatim and selected by ternary.
+    const palette =
+      severity === "critical"
+        ? "border-destructive/50 bg-destructive/10 text-destructive"
+        : severity === "warning"
+          ? "border-orange-500/50 bg-orange-50 dark:bg-orange-950/20 text-orange-700 dark:text-orange-400"
+          : "border-amber-500/50 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400";
     return (
-      <div className="flex items-start gap-3 rounded-lg border border-amber-500/50 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
+      <div className={cn("flex items-start gap-3 rounded-lg border px-4 py-3 text-sm", palette)}>
         <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
         <span>
           Anaphylaxis drill overdue — last drill was{" "}
@@ -684,10 +742,13 @@ export function DrillTab({
   members,
   drills,
   legacyParticipants,
+  retiredDrills,
+  showRetiredDrills,
 }: DrillTabProps) {
   // Default to an empty array — legacyParticipants is optional so older
   // callers (e.g. tests) don't have to thread it through.
   const legacyResolved = legacyParticipants ?? [];
+  const retiredResolved = retiredDrills ?? [];
   return (
     <div className="space-y-6">
       {/* Overdue banner */}
@@ -698,7 +759,28 @@ export function DrillTab({
 
       {/* History */}
       <section className="space-y-3">
-        <h2 className="text-base font-semibold">Drill history</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold">Drill history</h2>
+          {/*
+           * Audit #21 / Allergy IM-10 (2026-04-30): admin-only opt-in
+           * to render retired drills below. Server-side query-string
+           * toggle keeps the URL shareable and avoids client state
+           * for what's an audit-prep edge case.
+           */}
+          {canManage && (
+            <Link
+              href={
+                showRetiredDrills
+                  ? "/programs/allergy"
+                  : "/programs/allergy?showRetired=1"
+              }
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <Archive className="h-3 w-3" aria-hidden="true" />
+              {showRetiredDrills ? "Hide retired drills" : "Show retired drills"}
+            </Link>
+          )}
+        </div>
         {drills.length === 0 ? (
           <p
             className={cn(
@@ -723,6 +805,90 @@ export function DrillTab({
           </div>
         )}
       </section>
+
+      {/* Audit #21 / Allergy IM-10: retired drill history (admin-opt-in). */}
+      {canManage && showRetiredDrills && (
+        <section className="space-y-3">
+          <h2 className="text-base font-semibold text-muted-foreground">
+            Retired drills{" "}
+            <span className="text-xs font-normal">
+              ({retiredResolved.length})
+            </span>
+          </h2>
+          {retiredResolved.length === 0 ? (
+            <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+              No retired drills.
+            </p>
+          ) : (
+            <div className="rounded-lg border bg-muted/20">
+              <ul>
+                {retiredResolved.map((d) => (
+                  <RetiredDrillRow
+                    key={d.id}
+                    drill={d}
+                    members={members}
+                    legacyParticipants={legacyResolved}
+                  />
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      )}
     </div>
+  );
+}
+
+// ── Retired Drill Row ─────────────────────────────────────────────────────────
+//
+// Audit #21 / Allergy IM-10: read-only render of a soft-deleted drill.
+// No HistoryRowActions (Edit / Delete) — retired rows are immutable
+// from the UI; the EventLog is the audit trail.
+
+function RetiredDrillRow({
+  drill,
+  members,
+  legacyParticipants,
+}: {
+  drill: NonNullable<DrillTabProps["retiredDrills"]>[number];
+  members: DrillTabProps["members"];
+  legacyParticipants: NonNullable<DrillTabProps["legacyParticipants"]>;
+}) {
+  const tz = usePracticeTimezone();
+  const memberMap = new Map(members.map((m) => [m.id, m.name]));
+  const legacyMap = new Map(
+    legacyParticipants.map((p) => [
+      p.id,
+      `${p.name} (no longer at practice)`,
+    ]),
+  );
+  const participantNames = drill.participantIds
+    .map(
+      (id) =>
+        memberMap.get(id) ??
+        legacyMap.get(id) ??
+        "User no longer at practice",
+    )
+    .join(", ");
+  return (
+    <li className="border-b last:border-b-0 px-4 py-3 text-sm space-y-1">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="font-medium tabular-nums line-through text-muted-foreground">
+          {formatPracticeDate(new Date(drill.conductedAt), tz)}
+        </span>
+        {drill.retiredAt && (
+          <span className="text-xs text-muted-foreground">
+            retired {formatPracticeDate(new Date(drill.retiredAt), tz)}
+          </span>
+        )}
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Users className="h-3 w-3" aria-hidden="true" />
+          {drill.participantIds.length} participant
+          {drill.participantIds.length !== 1 ? "s" : ""}
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground">{drill.scenario}</p>
+      <p className="text-xs text-muted-foreground">{participantNames || "—"}</p>
+    </li>
   );
 }

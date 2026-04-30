@@ -992,6 +992,12 @@ export const EVENT_SCHEMAS = {
   // gloved-fingertip + thumb sampling. Projection increments
   // fingertipPassCount on the year's AllergyCompetency (creates row
   // if missing) and recomputes isFullyQualified.
+  //
+  // Audit #21 / Allergy MIN-7 (2026-04-30): v2 renames `attestedByUserId`
+  // to `attestedByPracticeUserId` because the action emits `pu.id`
+  // (PracticeUser.id), not the global User.id, and the AllergyCompetency
+  // FK column is `fingertipAttestedById → PracticeUser.id`. v1 retained
+  // verbatim for replay of historical events.
   ALLERGY_FINGERTIP_TEST_PASSED: {
     1: z.object({
       practiceUserId: z.string().min(1),
@@ -999,16 +1005,30 @@ export const EVENT_SCHEMAS = {
       attestedByUserId: z.string().min(1),
       notes: z.string().max(2000).nullable().optional(),
     }),
+    2: z.object({
+      practiceUserId: z.string().min(1),
+      year: z.number().int().min(2024).max(3000),
+      attestedByPracticeUserId: z.string().min(1),
+      notes: z.string().max(2000).nullable().optional(),
+    }),
   },
   // ALLERGY_MEDIA_FILL_PASSED — supervisor attests a passing media
   // fill test (incubated 14 days, no turbidity). Idempotent — the
   // projection only sets mediaFillPassedAt if currently null OR the
   // event date is more recent.
+  //
+  // Audit #21 / Allergy MIN-7 (2026-04-30): v2 — see ALLERGY_FINGERTIP_TEST_PASSED.
   ALLERGY_MEDIA_FILL_PASSED: {
     1: z.object({
       practiceUserId: z.string().min(1),
       year: z.number().int().min(2024).max(3000),
       attestedByUserId: z.string().min(1),
+      notes: z.string().max(2000).nullable().optional(),
+    }),
+    2: z.object({
+      practiceUserId: z.string().min(1),
+      year: z.number().int().min(2024).max(3000),
+      attestedByPracticeUserId: z.string().min(1),
       notes: z.string().max(2000).nullable().optional(),
     }),
   },
