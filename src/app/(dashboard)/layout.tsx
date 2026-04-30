@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import type { Route } from "next";
 import { getCurrentUser } from "@/lib/auth";
-import { getPracticeUser } from "@/lib/rbac";
+import { getPracticeUser, listMembershipsForCurrentUser } from "@/lib/rbac";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/gw/AppShell";
 import { ConciergeTrigger } from "@/components/gw/ConciergeDrawer/ConciergeTrigger";
@@ -113,11 +113,21 @@ export default async function DashboardLayout({
 
   const notificationSummary = await getUserNotificationsSummary(pu.userId);
 
+  // Audit #7: PracticeSwitcher data — only renders in UserMenu when the
+  // user has 2+ memberships. Single-practice users pay one extra DB
+  // round-trip for the membership list (one indexed query by userId).
+  const memberships = (await listMembershipsForCurrentUser()).map((m) => ({
+    practiceId: m.practiceId,
+    practiceName: m.practiceName,
+    role: m.role,
+  }));
+
   return (
     <PracticeTimezoneProvider value={practiceTimezone}>
       <AppShell
-        practice={{ name: pu.practice.name }}
+        practice={{ id: pu.practiceId, name: pu.practice.name }}
         user={{ email: pu.dbUser.email }}
+        memberships={memberships}
         myComplianceItems={myComplianceItems}
         enabledFrameworkCodes={enabledFrameworkCodes}
         notifications={notificationSummary}
