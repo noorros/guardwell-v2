@@ -272,13 +272,20 @@ function RefrigeratorForm() {
 }
 
 // ── Edit Emergency Kit ────────────────────────────────────────────────────────
+//
+// Audit #21 (Allergy IM-6): kit checks now render as a history table (one
+// row per AllergyEquipmentCheck) so audit-prep can demonstrate ongoing
+// competency. The edit form expands inline as a `<tr><td colSpan>` row,
+// matching the `EditRefrigeratorForm` pattern used for fridge readings.
 
 function EditEmergencyKitForm({
   check,
   onCancel,
+  colSpan,
 }: {
   check: EquipmentTabProps["checks"][number];
   onCancel: () => void;
+  colSpan: number;
 }) {
   const tz = usePracticeTimezone();
   // Format the existing expiry as the practice-tz calendar day so the
@@ -317,88 +324,94 @@ function EditEmergencyKitForm({
   const idPrefix = `edit-kit-${check.id}`;
 
   return (
-    <div className="rounded-lg border bg-card p-4 space-y-4">
-      <h3 className="text-sm font-semibold">Edit emergency kit check</h3>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <label htmlFor={`${idPrefix}-expiry`} className="text-xs font-medium">
-            Epi expiry date
+    <tr className="border-t bg-muted/40">
+      <td colSpan={colSpan} className="px-4 py-3">
+        <div className="space-y-3 text-sm">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Edit emergency kit check
+          </h3>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label htmlFor={`${idPrefix}-expiry`} className="text-xs font-medium">
+                Epi expiry date
+              </label>
+              <input
+                id={`${idPrefix}-expiry`}
+                type="date"
+                value={epiExpiryDate}
+                onChange={(e) => setEpiExpiryDate(e.target.value)}
+                disabled={isPending}
+                className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor={`${idPrefix}-lot`} className="text-xs font-medium">
+                Lot number
+              </label>
+              <input
+                id={`${idPrefix}-lot`}
+                type="text"
+                value={epiLotNumber}
+                onChange={(e) => setEpiLotNumber(e.target.value)}
+                disabled={isPending}
+                className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </div>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={allItemsPresent}
+              onChange={(e) => setAllItemsPresent(e.target.checked)}
+              disabled={isPending}
+              className="h-4 w-4 cursor-pointer accent-[color:var(--gw-color-compliant)]"
+            />
+            All items present
           </label>
-          <input
-            id={`${idPrefix}-expiry`}
-            type="date"
-            value={epiExpiryDate}
-            onChange={(e) => setEpiExpiryDate(e.target.value)}
-            disabled={isPending}
-            className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
+          <div className="space-y-1.5">
+            <label htmlFor={`${idPrefix}-replaced`} className="text-xs font-medium">
+              Items replaced <span className="font-normal text-muted-foreground">(optional)</span>
+            </label>
+            <textarea
+              id={`${idPrefix}-replaced`}
+              rows={2}
+              value={itemsReplaced}
+              onChange={(e) => setItemsReplaced(e.target.value)}
+              disabled={isPending}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor={`${idPrefix}-notes`} className="text-xs font-medium">
+              Notes <span className="font-normal text-muted-foreground">(optional)</span>
+            </label>
+            <textarea
+              id={`${idPrefix}-notes`}
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              disabled={isPending}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <div className="flex items-center gap-2">
+            <Button onClick={handleSave} disabled={isPending} size="sm">
+              {isPending ? "Saving…" : "Save changes"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={isPending}
+              onClick={onCancel}
+            >
+              Cancel
+            </Button>
+          </div>
         </div>
-        <div className="space-y-1.5">
-          <label htmlFor={`${idPrefix}-lot`} className="text-xs font-medium">
-            Lot number
-          </label>
-          <input
-            id={`${idPrefix}-lot`}
-            type="text"
-            value={epiLotNumber}
-            onChange={(e) => setEpiLotNumber(e.target.value)}
-            disabled={isPending}
-            className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-        </div>
-      </div>
-      <label className="flex cursor-pointer items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={allItemsPresent}
-          onChange={(e) => setAllItemsPresent(e.target.checked)}
-          disabled={isPending}
-          className="h-4 w-4 cursor-pointer accent-[color:var(--gw-color-compliant)]"
-        />
-        All items present
-      </label>
-      <div className="space-y-1.5">
-        <label htmlFor={`${idPrefix}-replaced`} className="text-xs font-medium">
-          Items replaced <span className="font-normal text-muted-foreground">(optional)</span>
-        </label>
-        <textarea
-          id={`${idPrefix}-replaced`}
-          rows={2}
-          value={itemsReplaced}
-          onChange={(e) => setItemsReplaced(e.target.value)}
-          disabled={isPending}
-          className="w-full rounded-md border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        />
-      </div>
-      <div className="space-y-1.5">
-        <label htmlFor={`${idPrefix}-notes`} className="text-xs font-medium">
-          Notes <span className="font-normal text-muted-foreground">(optional)</span>
-        </label>
-        <textarea
-          id={`${idPrefix}-notes`}
-          rows={2}
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          disabled={isPending}
-          className="w-full rounded-md border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        />
-      </div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      <div className="flex items-center gap-2">
-        <Button onClick={handleSave} disabled={isPending} size="sm">
-          {isPending ? "Saving…" : "Save changes"}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={isPending}
-          onClick={onCancel}
-        >
-          Cancel
-        </Button>
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 }
 
@@ -512,17 +525,27 @@ function EditRefrigeratorForm({
 export function EquipmentTab({ canManage, checks }: EquipmentTabProps) {
   const tz = usePracticeTimezone();
   const fmtDate = (iso: string) => formatPracticeDate(new Date(iso), tz);
-  const kitChecks = checks.filter((c) => c.checkType === "EMERGENCY_KIT");
+  // Pre-sort newest-first defensively. The page query already orders by
+  // checkedAt desc, but a client-side guard keeps the kit history table
+  // stable if a future re-fetch path forgets to sort.
+  const sortedChecks = [...checks].sort((a, b) =>
+    a.checkedAt < b.checkedAt ? 1 : a.checkedAt > b.checkedAt ? -1 : 0,
+  );
+  const kitChecks = sortedChecks.filter((c) => c.checkType === "EMERGENCY_KIT");
   // Cap the visible refrigerator readings at 10 — keeps the page snappy
   // on long-running tenants. Unrelated to the date-formatting sweep, so
   // .slice(0, 10) is left intact (it slices the array, not a date string).
-  const tempChecks = checks
+  const tempChecks = sortedChecks
     .filter((c) => c.checkType === "REFRIGERATOR_TEMP")
     .slice(0, 10);
 
-  const latestKit = kitChecks[0] ?? null;
   const [editingKitId, setEditingKitId] = useState<string | null>(null);
   const [editingTempId, setEditingTempId] = useState<string | null>(null);
+
+  // colSpan tracks "data columns + (actions column if admin)" so the inline
+  // edit row spans the whole table width. Header column count for the kit
+  // table: Date, Items, Epi expiry, Lot, Notes (5 base) + Actions if admin.
+  const kitColCount = 5 + (canManage ? 1 : 0);
 
   return (
     <div className="space-y-8">
@@ -533,76 +556,97 @@ export function EquipmentTab({ canManage, checks }: EquipmentTabProps) {
           <h2 className="text-base font-semibold">Emergency kit</h2>
         </div>
 
-        {latestKit && editingKitId === latestKit.id ? (
-          <EditEmergencyKitForm
-            check={latestKit}
-            onCancel={() => setEditingKitId(null)}
-          />
-        ) : latestKit ? (
-          <div className="rounded-lg border bg-card p-4 space-y-3">
-            {canManage && (
-              <div className="flex justify-end">
-                <HistoryRowActions
-                  canManage={canManage}
-                  onEdit={() => setEditingKitId(latestKit.id)}
-                  onDelete={async () => {
-                    await deleteEquipmentCheckAction({
-                      equipmentCheckId: latestKit.id,
-                    });
-                  }}
-                  deleteConfirmText={`Delete this kit check from ${fmtDate(latestKit.checkedAt)}? It stays in the audit log but stops counting toward ALLERGY_EMERGENCY_KIT_CURRENT.`}
-                />
-              </div>
-            )}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-              <div>
-                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground block mb-0.5">
-                  Last checked
-                </span>
-                <span>{fmtDate(latestKit.checkedAt)}</span>
-              </div>
-              {latestKit.epiExpiryDate && (
-                <div>
-                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground block mb-0.5">
-                    Epi expires
-                  </span>
-                  <span
-                    className={cn(
-                      new Date(latestKit.epiExpiryDate) < new Date()
-                        ? "text-destructive font-medium"
-                        : "",
-                    )}
-                  >
-                    {fmtDate(latestKit.epiExpiryDate)}
-                    {new Date(latestKit.epiExpiryDate) < new Date() && " — EXPIRED"}
-                  </span>
-                </div>
-              )}
-              {latestKit.epiLotNumber && (
-                <div>
-                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground block mb-0.5">
-                    Lot number
-                  </span>
-                  <span>{latestKit.epiLotNumber}</span>
-                </div>
-              )}
-              <div>
-                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground block mb-0.5">
-                  Items
-                </span>
-                <PresentBadge allItemsPresent={latestKit.allItemsPresent} />
-              </div>
-            </div>
-            {latestKit.itemsReplaced && (
-              <p className="text-xs text-muted-foreground">
-                <span className="font-medium">Items replaced:</span> {latestKit.itemsReplaced}
-              </p>
-            )}
-            {latestKit.notes && (
-              <p className="text-xs text-muted-foreground">
-                <span className="font-medium">Notes:</span> {latestKit.notes}
-              </p>
-            )}
+        {kitChecks.length > 0 ? (
+          <div className="rounded-lg border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">
+                    Date
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">
+                    Items
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground hidden sm:table-cell">
+                    Epi expiry
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground hidden md:table-cell">
+                    Lot
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground hidden md:table-cell">
+                    Notes
+                  </th>
+                  {canManage && (
+                    <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground">
+                      <span className="sr-only">Actions</span>
+                    </th>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {kitChecks.map((c, i) => {
+                  const expiryDate = c.epiExpiryDate ? new Date(c.epiExpiryDate) : null;
+                  const isExpired = expiryDate ? expiryDate < new Date() : false;
+                  const replacedSummary =
+                    c.itemsReplaced && c.notes
+                      ? `Replaced: ${c.itemsReplaced} · ${c.notes}`
+                      : c.itemsReplaced
+                        ? `Replaced: ${c.itemsReplaced}`
+                        : c.notes ?? "—";
+
+                  return editingKitId === c.id ? (
+                    <EditEmergencyKitForm
+                      key={c.id}
+                      check={c}
+                      onCancel={() => setEditingKitId(null)}
+                      colSpan={kitColCount}
+                    />
+                  ) : (
+                    <tr
+                      key={c.id}
+                      className={cn("border-t", i % 2 === 0 ? "bg-background" : "bg-muted/20")}
+                    >
+                      <td className="px-4 py-2.5 tabular-nums">
+                        {formatPracticeDate(new Date(c.checkedAt), tz)}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <PresentBadge allItemsPresent={c.allItemsPresent} />
+                      </td>
+                      <td
+                        className={cn(
+                          "px-4 py-2.5 tabular-nums hidden sm:table-cell",
+                          isExpired && "text-destructive font-medium",
+                        )}
+                      >
+                        {expiryDate
+                          ? `${formatPracticeDate(expiryDate, tz)}${isExpired ? " — EXPIRED" : ""}`
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-2.5 hidden md:table-cell">
+                        {c.epiLotNumber ?? "—"}
+                      </td>
+                      <td className="px-4 py-2.5 text-xs text-muted-foreground hidden md:table-cell">
+                        <span className="line-clamp-1">{replacedSummary}</span>
+                      </td>
+                      {canManage && (
+                        <td className="px-4 py-2.5 text-right">
+                          <HistoryRowActions
+                            canManage={canManage}
+                            onEdit={() => setEditingKitId(c.id)}
+                            onDelete={async () => {
+                              await deleteEquipmentCheckAction({
+                                equipmentCheckId: c.id,
+                              });
+                            }}
+                            deleteConfirmText={`Delete this kit check from ${formatPracticeDate(new Date(c.checkedAt), tz)}? It stays in the audit log but stops counting toward ALLERGY_EMERGENCY_KIT_CURRENT.`}
+                          />
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground rounded-lg border border-dashed px-4 py-6 text-center">
@@ -658,7 +702,9 @@ export function EquipmentTab({ canManage, checks }: EquipmentTabProps) {
                       key={c.id}
                       className={cn("border-t", i % 2 === 0 ? "bg-background" : "bg-muted/20")}
                     >
-                      <td className="px-4 py-2.5 tabular-nums">{fmtDate(c.checkedAt)}</td>
+                      <td className="px-4 py-2.5 tabular-nums">
+                        {formatPracticeDate(new Date(c.checkedAt), tz)}
+                      </td>
                       <td className="px-4 py-2.5 tabular-nums font-mono">
                         {c.temperatureC !== null ? c.temperatureC.toFixed(1) : "—"}
                       </td>
@@ -678,7 +724,7 @@ export function EquipmentTab({ canManage, checks }: EquipmentTabProps) {
                                 equipmentCheckId: c.id,
                               });
                             }}
-                            deleteConfirmText={`Delete the ${fmtDate(c.checkedAt)} reading${c.temperatureC != null ? ` (${c.temperatureC.toFixed(1)}°C)` : ""}? It stays in the audit log but stops counting toward ALLERGY_REFRIGERATOR_LOG.`}
+                            deleteConfirmText={`Delete the ${formatPracticeDate(new Date(c.checkedAt), tz)} reading${c.temperatureC != null ? ` (${c.temperatureC.toFixed(1)}°C)` : ""}? It stays in the audit log but stops counting toward ALLERGY_REFRIGERATOR_LOG.`}
                           />
                         </td>
                       )}
