@@ -139,6 +139,10 @@ export async function projectStaffExcludedFromAssignment(
  * replay reconstructs lessonContent verbatim. Subsequent edits flow
  * through projectTrainingCourseUpdated which bumps version monotonically.
  *
+ * Phase 4 PR 6 (BYOV): videoUrl + videoDurationSec land here as nullable
+ * optional fields on the payload. When set, they wire up the
+ * VideoLessonPlayer + 80% watch gate at /programs/training/[courseId].
+ *
  * Idempotent — re-applies safely on replay (upsert with empty update).
  *
  * Note: TrainingCourse is intentionally NOT in the lint rule's
@@ -164,6 +168,8 @@ export async function projectTrainingCourseCreated(
       isRequired: false,
       version: 1,
       sortOrder: DEFAULT_CUSTOM_SORT_ORDER,
+      videoUrl: payload.videoUrl ?? null,
+      videoDurationSec: payload.videoDurationSec ?? null,
     },
   });
 }
@@ -225,5 +231,63 @@ export async function projectTrainingCourseRestored(
   await tx.trainingCourse.update({
     where: { id: payload.courseId },
     data: { sortOrder: DEFAULT_CUSTOM_SORT_ORDER },
+  });
+}
+
+/**
+ * MAX-merge a TRAINING_VIDEO_WATCHED report into the VideoProgress row
+ * keyed by (practiceId, userId, courseId). Watch progress can only ever
+ * increase: if the user rewinds or seeks backward, the next report has
+ * a smaller watchedSeconds, but we keep the existing maximum so the
+ * 80% quiz-unlock gate can't be undone. Reports arriving out of order
+ * (network jitter) are equally safe.
+ *
+ * lastWatchedAt always advances to "now" — it's a "most recent activity"
+ * timestamp, not a "highest watched second observed at" timestamp.
+ *
+ * Idempotent — re-applying the same event is a no-op once the existing
+ * watchedSeconds already meets-or-exceeds the payload value.
+ *
+ * No tenant guard is needed: VideoProgress's compound unique key is
+ * (practiceId, userId, courseId), so the upsert can never write to
+ * another practice's row even if the action layer were forged.
+ */
+export async function projectTrainingVideoWatched(
+  tx: Tx,
+  args: Args<PayloadFor<"TRAINING_VIDEO_WATCHED", 1>>,
+): Promise<void> {
+  const { practiceId, payload } = args;
+
+  const existing = await tx.videoProgress.findUnique({
+    where: {
+      practiceId_userId_courseId: {
+        practiceId,
+        userId: payload.userId,
+        courseId: payload.courseId,
+      },
+    },
+    select: { watchedSeconds: true },
+  });
+  const newSeconds = Math.max(
+    existing?.watchedSeconds ?? 0,
+    payload.watchedSeconds,
+  );
+
+  await tx.videoProgress.upsert({
+    where: {
+      practiceId_userId_courseId: {
+        practiceId,
+        userId: payload.userId,
+        courseId: payload.courseId,
+      },
+    },
+    update: { watchedSeconds: newSeconds, lastWatchedAt: new Date() },
+    create: {
+      practiceId,
+      userId: payload.userId,
+      courseId: payload.courseId,
+      watchedSeconds: newSeconds,
+      lastWatchedAt: new Date(),
+    },
   });
 }

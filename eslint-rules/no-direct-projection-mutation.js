@@ -43,6 +43,11 @@ const PROJECTION_TABLES = new Set([
   "trainingAssignment",
   "assignmentExclusion",
   "policyTrainingPrereq",
+  // Phase 4 PR 6 (BYOV): per-(practice, user, course) video watch
+  // progress. The TRAINING_VIDEO_WATCHED projection MAX-merges; direct
+  // writes outside the events module would let a runaway path drop
+  // existing progress on the floor.
+  "videoProgress",
 ]);
 
 const MUTATING_METHODS = new Set([

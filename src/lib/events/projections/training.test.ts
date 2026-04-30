@@ -20,6 +20,7 @@ import {
   projectTrainingCourseUpdated,
   projectTrainingCourseRetired,
   projectTrainingCourseRestored,
+  projectTrainingVideoWatched,
 } from "./training";
 
 async function seed() {
@@ -491,6 +492,218 @@ describe("projectTrainingCourseRestored", () => {
       where: { id: courseId },
     });
     expect(row.sortOrder).toBe(999);
+    await db.trainingCourse.delete({ where: { id: courseId } });
+  });
+});
+
+describe("projectTrainingVideoWatched (Phase 4 PR 6)", () => {
+  it("creates a VideoProgress row on the first report", async () => {
+    const { practice, course, actor } = await seed();
+    await db.$transaction(async (tx) => {
+      await projectTrainingVideoWatched(tx, {
+        practiceId: practice.id,
+        actorUserId: actor.userId,
+        payload: {
+          courseId: course.id,
+          userId: actor.userId,
+          watchedSeconds: 30,
+        },
+      });
+    });
+    const row = await db.videoProgress.findUniqueOrThrow({
+      where: {
+        practiceId_userId_courseId: {
+          practiceId: practice.id,
+          userId: actor.userId,
+          courseId: course.id,
+        },
+      },
+    });
+    expect(row.watchedSeconds).toBe(30);
+    expect(row.lastWatchedAt).toBeInstanceOf(Date);
+  });
+
+  it("MAX-merges: a smaller subsequent report leaves watchedSeconds unchanged", async () => {
+    // Regression for the rewind/seek-backward case. Once watchedSeconds
+    // is 30, reporting 20 must NOT decrement — the 80% quiz-unlock gate
+    // would otherwise be reversible by rewinding the player.
+    const { practice, course, actor } = await seed();
+    await db.$transaction(async (tx) => {
+      await projectTrainingVideoWatched(tx, {
+        practiceId: practice.id,
+        actorUserId: actor.userId,
+        payload: {
+          courseId: course.id,
+          userId: actor.userId,
+          watchedSeconds: 30,
+        },
+      });
+    });
+    await db.$transaction(async (tx) => {
+      await projectTrainingVideoWatched(tx, {
+        practiceId: practice.id,
+        actorUserId: actor.userId,
+        payload: {
+          courseId: course.id,
+          userId: actor.userId,
+          watchedSeconds: 20,
+        },
+      });
+    });
+    const row = await db.videoProgress.findUniqueOrThrow({
+      where: {
+        practiceId_userId_courseId: {
+          practiceId: practice.id,
+          userId: actor.userId,
+          courseId: course.id,
+        },
+      },
+    });
+    expect(row.watchedSeconds).toBe(30);
+  });
+
+  it("advances watchedSeconds when a larger report arrives", async () => {
+    const { practice, course, actor } = await seed();
+    await db.$transaction(async (tx) => {
+      await projectTrainingVideoWatched(tx, {
+        practiceId: practice.id,
+        actorUserId: actor.userId,
+        payload: {
+          courseId: course.id,
+          userId: actor.userId,
+          watchedSeconds: 30,
+        },
+      });
+    });
+    await db.$transaction(async (tx) => {
+      await projectTrainingVideoWatched(tx, {
+        practiceId: practice.id,
+        actorUserId: actor.userId,
+        payload: {
+          courseId: course.id,
+          userId: actor.userId,
+          watchedSeconds: 90,
+        },
+      });
+    });
+    const row = await db.videoProgress.findUniqueOrThrow({
+      where: {
+        practiceId_userId_courseId: {
+          practiceId: practice.id,
+          userId: actor.userId,
+          courseId: course.id,
+        },
+      },
+    });
+    expect(row.watchedSeconds).toBe(90);
+  });
+
+  it("scopes by (practiceId, userId, courseId) — same userId in two practices doesn't collide", async () => {
+    const a = await seed();
+    const b = await seed();
+    // Both rows reference the SAME courseId since seed() upserts a single
+    // shared course code. We only need distinct practices.
+    await db.$transaction(async (tx) => {
+      await projectTrainingVideoWatched(tx, {
+        practiceId: a.practice.id,
+        actorUserId: a.actor.userId,
+        payload: {
+          courseId: a.course.id,
+          userId: a.actor.userId,
+          watchedSeconds: 50,
+        },
+      });
+    });
+    await db.$transaction(async (tx) => {
+      await projectTrainingVideoWatched(tx, {
+        practiceId: b.practice.id,
+        actorUserId: b.actor.userId,
+        payload: {
+          courseId: b.course.id,
+          userId: b.actor.userId,
+          watchedSeconds: 100,
+        },
+      });
+    });
+    const aRow = await db.videoProgress.findUniqueOrThrow({
+      where: {
+        practiceId_userId_courseId: {
+          practiceId: a.practice.id,
+          userId: a.actor.userId,
+          courseId: a.course.id,
+        },
+      },
+    });
+    const bRow = await db.videoProgress.findUniqueOrThrow({
+      where: {
+        practiceId_userId_courseId: {
+          practiceId: b.practice.id,
+          userId: b.actor.userId,
+          courseId: b.course.id,
+        },
+      },
+    });
+    expect(aRow.watchedSeconds).toBe(50);
+    expect(bRow.watchedSeconds).toBe(100);
+  });
+});
+
+describe("projectTrainingCourseCreated (Phase 4 PR 6 — video fields)", () => {
+  it("persists videoUrl + videoDurationSec when the payload supplies them", async () => {
+    const { actor } = await seed();
+    const courseId = randomUUID();
+    const code = `BYOV_${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    await db.$transaction(async (tx) => {
+      await projectTrainingCourseCreated(tx, {
+        practiceId: actor.practiceId,
+        actorUserId: actor.userId,
+        payload: {
+          courseId,
+          code,
+          title: "BYOV Course",
+          type: "CUSTOM",
+          durationMinutes: 30,
+          passingScore: 80,
+          lessonContent: "lesson body",
+          isCustom: true,
+          videoUrl: "evidence-id-abc",
+          videoDurationSec: 600,
+        },
+      });
+    });
+    const row = await db.trainingCourse.findUniqueOrThrow({
+      where: { id: courseId },
+    });
+    expect(row.videoUrl).toBe("evidence-id-abc");
+    expect(row.videoDurationSec).toBe(600);
+    await db.trainingCourse.delete({ where: { id: courseId } });
+  });
+
+  it("leaves video fields null when the payload omits them (back-compat with non-BYOV courses)", async () => {
+    const { actor } = await seed();
+    const courseId = randomUUID();
+    const code = `NOVID_${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    await db.$transaction(async (tx) => {
+      await projectTrainingCourseCreated(tx, {
+        practiceId: actor.practiceId,
+        actorUserId: actor.userId,
+        payload: {
+          courseId,
+          code,
+          title: "No Video Course",
+          type: "CUSTOM",
+          durationMinutes: 30,
+          passingScore: 80,
+          lessonContent: "lesson body",
+          isCustom: true,
+        },
+      });
+    });
+    const row = await db.trainingCourse.findUniqueOrThrow({
+      where: { id: courseId },
+    });
+    expect(row.videoUrl).toBeNull();
+    expect(row.videoDurationSec).toBeNull();
     await db.trainingCourse.delete({ where: { id: courseId } });
   });
 });
