@@ -11,7 +11,7 @@
 // IN_PROGRESS is intentionally NOT exercised here — PR 6 wires that
 // state through VideoProgress; until then nothing can land in it.
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { db } from "@/lib/db";
 import { resolveAssignmentsForUser } from "@/lib/training/resolveAssignments";
 
@@ -54,6 +54,12 @@ const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
 describe("resolveAssignmentsForUser (Phase 4 PR 3)", () => {
+  afterEach(() => {
+    // Restore real timers in case a test invoked vi.useFakeTimers().
+    // Tests that don't fake the clock are unaffected.
+    vi.useRealTimers();
+  });
+
   it("returns empty arrays for a user with no assignments", async () => {
     const user = await seedUser();
     const practice = await seedPractice();
@@ -291,6 +297,56 @@ describe("resolveAssignmentsForUser (Phase 4 PR 3)", () => {
     expect(result.assignments).toHaveLength(1);
     expect(result.assignments[0]!.status).toBe("TO_DO");
     expect(result.toDo).toBe(1);
+  });
+
+  it("treats expiresAt === now as expired (TO_DO, not COMPLETED)", async () => {
+    // Boundary case: a completion whose expiresAt is exactly the same
+    // instant the resolver evaluates `now`. <TrainingStatusBadge> uses
+    // `<=` for the same boundary ("expired · retake required"), so the
+    // resolver must agree — otherwise the legacy badge and the new
+    // badge would disagree on a row whose cert has just expired.
+    //
+    // We pin `now` with fake timers so the equality is exact, not flaky.
+    const fixedNow = new Date("2026-04-30T12:00:00.000Z");
+    vi.useFakeTimers();
+    vi.setSystemTime(fixedNow);
+
+    const user = await seedUser();
+    const practice = await seedPractice();
+    await db.practiceUser.create({
+      data: { userId: user.id, practiceId: practice.id, role: "STAFF" },
+    });
+    const course = await seedCourse();
+    await db.trainingAssignment.create({
+      data: {
+        practiceId: practice.id,
+        courseId: course.id,
+        assignedToUserId: user.id,
+        requiredFlag: true,
+        createdByUserId: user.id,
+      },
+    });
+    await db.trainingCompletion.create({
+      data: {
+        practiceId: practice.id,
+        userId: user.id,
+        courseId: course.id,
+        courseVersion: 1,
+        score: 90,
+        passed: true,
+        completedAt: new Date(fixedNow.getTime() - 365 * DAY_MS),
+        expiresAt: fixedNow, // exactly === now
+      },
+    });
+    const result = await resolveAssignmentsForUser({
+      practiceId: practice.id,
+      userId: user.id,
+      role: "STAFF",
+    });
+    expect(result.assignments).toHaveLength(1);
+    expect(result.assignments[0]!.status).toBe("TO_DO");
+    expect(result.toDo).toBe(1);
+    expect(result.completed).toBe(0);
   });
 
   it("excludes revokedAt assignments", async () => {

@@ -22,6 +22,9 @@ type StatusFilter =
   | "COMPLETED"
   | "OVERDUE";
 
+// IN_PROGRESS chip surfaces zero rows until PR 6 wires VideoProgress —
+// the resolver currently has no way to derive that status. Listing the
+// chip now keeps the filter UI stable across PR 6's data flip.
 const STATUS_CHIPS: Array<{ value: StatusFilter; label: string }> = [
   { value: "ALL", label: "All" },
   { value: "TO_DO", label: "To Do" },

@@ -6,9 +6,11 @@
 // around pass/fail/expiry/never-started. This badge takes the resolved
 // 4-state status string directly so the dashboard row never has to
 // reason about which TrainingCompletion is "latest" — the
-// resolveAssignmentsForUser helper already did that work. The legacy
-// component stays in the tree (imported by no one currently, but kept
-// for reference and any caller that wants single-completion semantics).
+// resolveAssignmentsForUser helper already did that work.
+//
+// <TrainingStatusBadge> currently has zero callers. Kept temporarily;
+// delete in Phase 4 PR 7 (certificate PDF, last natural touchpoint
+// for old training UI) if no caller emerges by then.
 
 "use client";
 

@@ -26,6 +26,10 @@ interface Args {
   practiceId: string;
   userId: string;
   role: string;
+  // TODO(phase-4-pr-4): page.tsx will pass user.specialtyCategory once
+  // specialty UI lands. Plumbed through here ahead of time so the
+  // resolver can OR in `assignedToCategory` matches without another
+  // refactor when that PR ships.
   category?: string | null;
 }
 
@@ -72,41 +76,49 @@ export async function resolveAssignmentsForUser(args: Args): Promise<{
     include: { course: true },
   });
 
-  // Per-user exclusions on role/category-wide assignments. Direct
-  // single-user assignments don't get excluded — that would be a no-op
-  // here, but we still scope the query so a stray exclusion row from a
-  // legacy data state can't accidentally hide a direct assignment.
-  const exclusions = rows.length
-    ? await db.assignmentExclusion.findMany({
-        where: {
-          userId: args.userId,
-          assignmentId: { in: rows.map((r) => r.id) },
-        },
-      })
-    : [];
+  // Per-user exclusions on role/category-wide assignments AND the latest
+  // passing completions both depend only on `rows`, so we run them in
+  // parallel and post-filter. Over-fetching completions for an excluded
+  // course is harmless: the .find() below scopes to eligible assignments
+  // anyway, and the network round-trip we save is on every page load.
+  //
+  // Direct single-user assignments don't get excluded — that would be a
+  // no-op here, but we still scope the exclusion query so a stray row
+  // from a legacy data state can't accidentally hide a direct assignment.
+  const [exclusions, completions] = rows.length
+    ? await Promise.all([
+        db.assignmentExclusion.findMany({
+          where: {
+            userId: args.userId,
+            assignmentId: { in: rows.map((r) => r.id) },
+          },
+        }),
+        // Only need passing completions — a failed attempt doesn't
+        // satisfy an assignment. Order desc so the .find() below picks
+        // the most recent.
+        db.trainingCompletion.findMany({
+          where: {
+            practiceId: args.practiceId,
+            userId: args.userId,
+            courseId: { in: rows.map((r) => r.courseId) },
+            passed: true,
+          },
+          orderBy: { completedAt: "desc" },
+        }),
+      ])
+    : [[], []];
   const excludedIds = new Set(exclusions.map((e) => e.assignmentId));
   const eligible = rows.filter((r) => !excludedIds.has(r.id));
-
-  // Only need passing completions — a failed attempt doesn't satisfy an
-  // assignment. Order desc so the .find() below picks the most recent.
-  const completions = eligible.length
-    ? await db.trainingCompletion.findMany({
-        where: {
-          practiceId: args.practiceId,
-          userId: args.userId,
-          courseId: { in: eligible.map((r) => r.courseId) },
-          passed: true,
-        },
-        orderBy: { completedAt: "desc" },
-      })
-    : [];
 
   const now = new Date();
   const resolved: ResolvedAssignment[] = eligible.map((a) => {
     const completion = completions.find((c) => c.courseId === a.courseId);
     let status: ResolvedAssignmentStatus = "TO_DO";
     if (completion) {
-      status = completion.expiresAt < now ? "TO_DO" : "COMPLETED";
+      // `<=` mirrors <TrainingStatusBadge>'s "expired" semantic — a cert
+      // that has reached its expiry instant is no longer valid. A
+      // completion at exactly `now` reads as TO_DO (retake required).
+      status = completion.expiresAt <= now ? "TO_DO" : "COMPLETED";
     } else if (a.dueDate && a.dueDate < now) {
       status = "OVERDUE";
     }
