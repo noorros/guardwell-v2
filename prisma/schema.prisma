@@ -547,6 +547,13 @@ model Incident {
   // device type (needle / scalpel / lancet / other) so the sharps log
   // can be filtered out of the broader OSHA 300 view post-launch.
   sharpsDeviceType              String?
+  // Audit #19 (OSHA B-3 / I-5): the user who was INJURED — distinct from
+  // reportedByUserId (the user who clicked Report). §1904.35(b)(2)(v)
+  // privacy rules govern the injured employee, NOT the reporter. Form
+  // 300/301 PDFs prefer this when set; legacy rows (pre-audit) fall back
+  // to reportedByUserId so the inspector view stays populated. Nullable
+  // because non-OSHA incident types don't have an injured employee.
+  injuredUserId                 String?
   // State breach-notification tracking — populated once the wizard confirms
   // isBreach=true for a practice with a non-federal state in scope.
   patientState                  String?
@@ -559,6 +566,7 @@ model Incident {
   @@index([practiceId, status])
   @@index([practiceId, isBreach])
   @@index([practiceId, discoveredAt])
+  @@index([practiceId, injuredUserId])
 }
 
 // Evidence for HIPAA_SRA. One row per completion event. Drafts (isDraft=true)

@@ -153,9 +153,10 @@ export function Osha300Document({ input }: { input: Osha300Input }) {
           GuardWell. Hand-write before submission to OSHA.
         </Text>
         <Text style={s.hint}>
-          The Employee column reflects the user who reported each incident,
-          not necessarily the injured staff member. Verify and hand-correct
-          before filing with OSHA.
+          The Employee column reflects the staff member identified as
+          injured at report time. Pre-2026-04-29 incidents that did not
+          capture this field fall back to the reporter — verify and
+          hand-correct before filing with OSHA.
         </Text>
 
         {input.rows.length === 0 ? (

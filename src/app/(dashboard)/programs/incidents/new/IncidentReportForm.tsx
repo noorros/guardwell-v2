@@ -21,12 +21,19 @@ type IncidentType =
 
 type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 
+export interface IncidentReportFormMember {
+  userId: string;
+  label: string;
+}
+
 export function IncidentReportForm({
   primaryState,
   operatingStates,
+  memberOptions,
 }: {
   primaryState: string;
   operatingStates: string[];
+  memberOptions: IncidentReportFormMember[];
 }) {
   const tz = usePracticeTimezone();
   const [type, setType] = useState<IncidentType>("PRIVACY");
@@ -49,6 +56,10 @@ export function IncidentReportForm({
   const [oshaDaysAway, setOshaDaysAway] = useState("");
   const [oshaDaysRestricted, setOshaDaysRestricted] = useState<string>("");
   const [sharpsDeviceType, setSharpsDeviceType] = useState<string>("");
+  // Audit #19: injured employee selection (OSHA-only). Required when
+  // type=OSHA_RECORDABLE so the Form 300 column reflects the actual
+  // injured staff member per §1904.35(b)(2)(v), not the reporter.
+  const [injuredUserId, setInjuredUserId] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -67,6 +78,12 @@ export function IncidentReportForm({
       : null;
     if (affectedCount !== null && (Number.isNaN(affectedCount) || affectedCount < 0)) {
       setError("Affected count must be a non-negative integer.");
+      return;
+    }
+    if (isOsha && !injuredUserId) {
+      setError(
+        "Select which staff member was injured. OSHA Form 300/301 requires the injured employee, not the reporter.",
+      );
       return;
     }
     startTransition(async () => {
@@ -97,6 +114,7 @@ export function IncidentReportForm({
           sharpsDeviceType: isOsha && sharpsDeviceType.trim()
             ? sharpsDeviceType.trim()
             : null,
+          injuredUserId: isOsha ? injuredUserId : null,
         });
         router.push(`/programs/incidents/${res.incidentId}` as Route);
       } catch (err) {
@@ -226,7 +244,28 @@ export function IncidentReportForm({
                 <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   OSHA recordable details (29 CFR §1904)
                 </p>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block space-y-1 text-xs font-medium text-foreground">
+                  Which staff member was injured?{" "}
+                  <span className="text-muted-foreground">*</span>
+                  <span className="mt-0.5 block text-[10px] font-normal text-muted-foreground">
+                    §1904.35(b)(2)(v) requires the injured employee on
+                    Form 300/301 — distinct from the user reporting.
+                  </span>
+                  <select
+                    value={injuredUserId}
+                    onChange={(e) => setInjuredUserId(e.target.value)}
+                    required={isOsha}
+                    className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
+                  >
+                    <option value="">Select staff member…</option>
+                    {memberOptions.map((m) => (
+                      <option key={m.userId} value={m.userId}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <label className="space-y-1 text-xs font-medium text-foreground">
                     Body part
                     <input

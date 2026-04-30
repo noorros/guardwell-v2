@@ -59,6 +59,10 @@ const ReportInput = z.object({
   oshaDaysAway: z.number().int().min(0).nullable().optional(),
   oshaDaysRestricted: z.number().int().min(0).nullable().optional(),
   sharpsDeviceType: z.string().max(200).nullable().optional(),
+  // Audit #19 (OSHA B-3): the staff member who was injured. Optional —
+  // non-OSHA incidents leave it null; the form makes it required when
+  // type=OSHA_RECORDABLE.
+  injuredUserId: z.string().min(1).nullable().optional(),
 });
 
 export interface ReportIncidentResult {
@@ -81,6 +85,13 @@ export async function reportIncidentAction(
   if (!pu) throw new Error("Unauthorized");
   const parsed = ReportInput.parse(input);
 
+  // Audit #19: when an OSHA_RECORDABLE comes in without injuredUserId,
+  // fall back to the reporter so legacy form versions don't lose data.
+  // Form-submitted callers should always pass it explicitly.
+  const injuredUserId =
+    parsed.injuredUserId ??
+    (parsed.type === "OSHA_RECORDABLE" ? user.id : null);
+
   const incidentId = randomUUID();
   const payload = {
     incidentId,
@@ -98,6 +109,7 @@ export async function reportIncidentAction(
     oshaDaysAway: parsed.oshaDaysAway ?? null,
     oshaDaysRestricted: parsed.oshaDaysRestricted ?? null,
     sharpsDeviceType: parsed.sharpsDeviceType ?? null,
+    injuredUserId,
   };
 
   await appendEventAndApply(

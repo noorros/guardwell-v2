@@ -3,6 +3,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { getPracticeUser } from "@/lib/rbac";
+import { db } from "@/lib/db";
 import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { IncidentReportForm } from "./IncidentReportForm";
 
@@ -11,6 +12,25 @@ export const metadata = { title: "Report incident · My Programs" };
 export default async function NewIncidentPage() {
   const pu = await getPracticeUser();
   if (!pu) return null;
+
+  // Audit #19: members list for the "Which staff member was injured?"
+  // dropdown when type=OSHA_RECORDABLE. Active members only — removed
+  // members can't be back-filled as injured (use plain text in
+  // description for legacy/post-departure cases).
+  const members = await db.practiceUser.findMany({
+    where: { practiceId: pu.practiceId, removedAt: null },
+    select: {
+      userId: true,
+      user: { select: { firstName: true, lastName: true, email: true } },
+    },
+    orderBy: [{ joinedAt: "asc" }],
+  });
+  const memberOptions = members.map((m) => ({
+    userId: m.userId,
+    label:
+      [m.user.firstName, m.user.lastName].filter(Boolean).join(" ").trim() ||
+      m.user.email,
+  }));
 
   return (
     <main className="mx-auto max-w-2xl space-y-6 p-6">
@@ -44,6 +64,7 @@ export default async function NewIncidentPage() {
       <IncidentReportForm
         primaryState={pu.practice.primaryState}
         operatingStates={pu.practice.operatingStates}
+        memberOptions={memberOptions}
       />
     </main>
   );
