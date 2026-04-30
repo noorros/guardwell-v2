@@ -22,7 +22,7 @@
 
 "use client";
 
-import { useMemo, useState, useTransition, type FormEvent } from "react";
+import { useState, useTransition, type FormEvent } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EvidenceUploader } from "@/components/gw/EvidenceUploader";
@@ -30,6 +30,19 @@ import { createCustomCourseAction } from "../actions";
 
 const VIDEO_ACCEPT = "video/mp4,video/webm,video/quicktime";
 const VIDEO_MAX_MB = 500;
+
+// Generated once per form mount (useState lazy initializer side-steps
+// the react-hooks/purity rule that fires when impure helpers run inside
+// render bodies). The course doesn't exist at upload time, so the
+// EvidenceUploader needs a stable pseudo-entityId for this session.
+function mintTempEntityId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  // Fallback for older browsers / jsdom — deliberately impure, only
+  // reached when crypto.randomUUID is unavailable.
+  return `temp-${Math.random().toString(36).slice(2)}-${Date.now()}`;
+}
 
 interface QuestionDraft {
   question: string;
@@ -68,15 +81,10 @@ export function CreateCourseForm({ onSuccess }: CreateCourseFormProps) {
   const [videoEvidenceId, setVideoEvidenceId] = useState<string | null>(null);
   const [videoDurationSec, setVideoDurationSec] = useState<string>("");
 
-  // The course row doesn't exist yet, so the EvidenceUploader needs a
-  // pseudo entityId. We mint one per form-mount with crypto.randomUUID
-  // (falls back to Math.random for older browsers in test envs).
-  const tempEntityId = useMemo(() => {
-    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-      return crypto.randomUUID();
-    }
-    return `temp-${Math.random().toString(36).slice(2)}-${Date.now()}`;
-  }, []);
+  // useState lazy initializer keeps the temp id stable across renders
+  // without triggering the react-hooks/purity rule that fires when an
+  // impure call runs inside the render body.
+  const [tempEntityId] = useState<string>(mintTempEntityId);
 
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();

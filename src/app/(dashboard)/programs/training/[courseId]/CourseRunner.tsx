@@ -89,7 +89,7 @@ export function CourseRunner({
           <CardContent className="space-y-2 p-6">
             <h2 className="text-lg font-semibold">Quiz</h2>
             <p className="text-sm text-muted-foreground">
-              The quiz unlocks once you've watched at least{" "}
+              The quiz unlocks once you&apos;ve watched at least{" "}
               {UNLOCK_THRESHOLD_PCT}% of the video lesson above.
             </p>
           </CardContent>

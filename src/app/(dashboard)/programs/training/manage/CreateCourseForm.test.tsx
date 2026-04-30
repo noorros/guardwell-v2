@@ -22,20 +22,16 @@ vi.mock("../actions", () => ({
 // Mock the EvidenceUploader so we don't have to drive its 3-step fetch
 // flow. The test trigger button calls onUploaded with a fake evidenceId
 // to simulate a successful upload.
-let lastOnUploaded: ((evidenceId: string) => void) | null = null;
 vi.mock("@/components/gw/EvidenceUploader", () => ({
-  EvidenceUploader: (props: { onUploaded: (id: string) => void }) => {
-    lastOnUploaded = props.onUploaded;
-    return (
-      <button
-        type="button"
-        data-testid="evidence-uploader-mock"
-        onClick={() => props.onUploaded("ev-uploaded-id")}
-      >
-        Mock upload trigger
-      </button>
-    );
-  },
+  EvidenceUploader: (props: { onUploaded: (id: string) => void }) => (
+    <button
+      type="button"
+      data-testid="evidence-uploader-mock"
+      onClick={() => props.onUploaded("ev-uploaded-id")}
+    >
+      Mock upload trigger
+    </button>
+  ),
 }));
 
 beforeEach(() => {
@@ -44,7 +40,6 @@ beforeEach(() => {
     courseId: "course-123",
     code: "practice-id_TEST",
   });
-  lastOnUploaded = null;
 });
 
 function fillRequiredFields(user: ReturnType<typeof userEvent.setup>) {
