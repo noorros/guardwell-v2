@@ -35,6 +35,14 @@ const PROJECTION_TABLES = new Set([
   "allergyEquipmentCheck",
   "allergyQuizAttempt",
   "allergyQuizAnswer",
+  // Phase 4 (Training depth): assignments, exclusions, and policy
+  // training prerequisites are all event-projected. TrainingCourse is
+  // intentionally NOT in this set — it's reference data seeded directly
+  // via scripts/seed-training.ts; the course-CRUD projections live in
+  // src/lib/events/projections/ which is in ALLOWED_PATHS.
+  "trainingAssignment",
+  "assignmentExclusion",
+  "policyTrainingPrereq",
 ]);
 
 const MUTATING_METHODS = new Set([

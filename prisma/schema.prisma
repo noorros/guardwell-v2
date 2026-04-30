@@ -118,6 +118,7 @@ model Practice {
   practiceUsers       PracticeUser[]
   practicePolicies    PracticePolicy[]
   trainingCompletions TrainingCompletion[]
+  trainingAssignments TrainingAssignment[]
   vendors             Vendor[]
   credentials         Credential[]
   sraAssessments      PracticeSraAssessment[]
@@ -228,6 +229,7 @@ model PracticePolicy {
   practice        Practice               @relation(fields: [practiceId], references: [id], onDelete: Cascade)
   versions        PolicyVersion[]
   acknowledgments PolicyAcknowledgment[]
+  trainingPrereqs PolicyTrainingPrereq[]
 
   @@unique([practiceId, policyCode])
   @@index([practiceId, retiredAt])
@@ -945,6 +947,8 @@ model TrainingCourse {
 
   quizQuestions QuizQuestion[]
   completions   TrainingCompletion[]
+  assignments   TrainingAssignment[]
+  policyPrereqs PolicyTrainingPrereq[]
 
   @@index([type, sortOrder])
   @@index([isRequired])
@@ -986,6 +990,65 @@ model TrainingCompletion {
 
   @@index([practiceId, userId, courseId])
   @@index([practiceId, courseId, passed, expiresAt])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Training assignment / scheduling layer (Phase 4)
+// ────────────────────────────────────────────────────────────────────────────
+
+// An assignment is a directive: "this user (or this role) must complete this
+// course by this date." Resolves at read-time against TrainingCompletion to
+// compute status. Soft-revoked via revokedAt (audit-trail preserved).
+model TrainingAssignment {
+  id                  String    @id @default(cuid())
+  practiceId          String
+  courseId            String
+  // Exactly one of assignedToUserId / assignedToRole / assignedToCategory is
+  // non-null. Enforced at the action layer + by the projection's Zod refine.
+  assignedToUserId    String?   // when set, single-user assignment
+  assignedToRole      String?   // OWNER|ADMIN|STAFF|VIEWER — role-wide
+  assignedToCategory  String?   // CLINICAL|ADMINISTRATIVE|MANAGEMENT|OTHER
+  dueDate             DateTime?
+  requiredFlag        Boolean   @default(true)
+  createdByUserId     String
+  createdAt           DateTime  @default(now())
+  revokedAt           DateTime?
+  revokedByUserId     String?
+  revokedReason       String?
+
+  practice  Practice       @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  course    TrainingCourse @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  exclusions AssignmentExclusion[]
+
+  @@index([practiceId, revokedAt])
+  @@index([practiceId, courseId, revokedAt])
+  @@index([practiceId, assignedToUserId, revokedAt])
+}
+
+model AssignmentExclusion {
+  id              String   @id @default(cuid())
+  assignmentId    String
+  userId          String   // identity User.id
+  reason          String
+  excludedAt      DateTime @default(now())
+  excludedByUserId String
+
+  assignment TrainingAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, userId])
+  @@index([userId])
+}
+
+model PolicyTrainingPrereq {
+  id                String         @id @default(cuid())
+  practicePolicyId  String
+  trainingCourseId  String
+
+  practicePolicy   PracticePolicy   @relation(fields: [practicePolicyId], references: [id], onDelete: Cascade)
+  trainingCourse   TrainingCourse   @relation(fields: [trainingCourseId], references: [id], onDelete: Restrict)
+
+  @@unique([practicePolicyId, trainingCourseId])
+  @@index([trainingCourseId])
 }
 
 // ────────────────────────────────────────────────────────────────────────────

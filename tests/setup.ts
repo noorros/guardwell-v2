@@ -65,6 +65,14 @@ afterEach(async () => {
   // deterministic test ordering. Messages first (FK on threadId), then threads.
   await db.conversationMessage.deleteMany();
   await db.conversationThread.deleteMany();
+  // Phase 4 (Training depth): assignment rows + their child exclusions
+  // reference TrainingCourse (Restrict) and Practice (Cascade). Exclusions
+  // first (FK on assignmentId), then assignments. PolicyTrainingPrereq
+  // also references TrainingCourse (Restrict) so wipe before any
+  // course-touching tests bring in seed catalog rows.
+  await db.assignmentExclusion.deleteMany();
+  await db.trainingAssignment.deleteMany();
+  await db.policyTrainingPrereq.deleteMany();
   await db.practiceUser.deleteMany();
   await db.complianceItem.deleteMany();
   await db.practiceFramework.deleteMany();
