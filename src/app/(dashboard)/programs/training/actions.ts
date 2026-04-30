@@ -5,9 +5,15 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
-import { getPracticeUser } from "@/lib/rbac";
+import { getPracticeUser, requireRole } from "@/lib/rbac";
 import { appendEventAndApply } from "@/lib/events";
 import { projectTrainingCompleted } from "@/lib/events/projections/trainingCompleted";
+import {
+  projectTrainingAssigned,
+  projectTrainingAssignmentRevoked,
+  projectStaffExcludedFromAssignment,
+  projectTrainingCourseCreated,
+} from "@/lib/events/projections/training";
 import { db } from "@/lib/db";
 
 const Input = z.object({
@@ -97,4 +103,99 @@ export async function submitQuizAction(
     totalCount,
     passingScore: course.passingScore,
   };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Phase 4 PR 2 — assignment + course-CRUD actions
+// ────────────────────────────────────────────────────────────────────────────
+
+const AssignInput = z
+  .object({
+    courseId: z.string().min(1),
+    assignedToUserId: z.string().min(1).nullable().optional(),
+    assignedToRole: z
+      .enum(["OWNER", "ADMIN", "STAFF", "VIEWER"])
+      .nullable()
+      .optional(),
+    assignedToCategory: z
+      .enum(["CLINICAL", "ADMINISTRATIVE", "MANAGEMENT", "OTHER"])
+      .nullable()
+      .optional(),
+    dueDate: z.string().datetime().nullable().optional(),
+    requiredFlag: z.boolean(),
+  })
+  .refine(
+    (p) => {
+      const set = [
+        p.assignedToUserId,
+        p.assignedToRole,
+        p.assignedToCategory,
+      ].filter((v) => v !== null && v !== undefined);
+      return set.length === 1;
+    },
+    {
+      message:
+        "Exactly one of assignedToUserId / assignedToRole / assignedToCategory must be set",
+    },
+  );
+
+/**
+ * ADMIN-gated. Issues a training-assignment directive — exactly one of
+ * assignedToUserId / assignedToRole / assignedToCategory must be set.
+ * Cross-tenant guard: if a single-user assignment is requested, the
+ * target userId must be an active PracticeUser of the caller's practice.
+ */
+export async function assignTrainingAction(input: z.infer<typeof AssignInput>) {
+  const pu = await requireRole("ADMIN");
+  const parsed = AssignInput.parse(input);
+
+  const course = await db.trainingCourse.findUnique({
+    where: { id: parsed.courseId },
+  });
+  if (!course) throw new Error("Course not found");
+
+  if (parsed.assignedToUserId) {
+    const member = await db.practiceUser.findFirst({
+      where: {
+        userId: parsed.assignedToUserId,
+        practiceId: pu.practiceId,
+        removedAt: null,
+      },
+    });
+    if (!member) {
+      throw new Error(
+        "Unauthorized: target user is not an active member of your practice",
+      );
+    }
+  }
+
+  const assignmentId = randomUUID();
+  const payload = {
+    assignmentId,
+    courseId: parsed.courseId,
+    assignedToUserId: parsed.assignedToUserId ?? null,
+    assignedToRole: parsed.assignedToRole ?? null,
+    assignedToCategory: parsed.assignedToCategory ?? null,
+    dueDate: parsed.dueDate ?? null,
+    requiredFlag: parsed.requiredFlag,
+  };
+
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: pu.dbUser.id,
+      type: "TRAINING_ASSIGNED",
+      payload,
+    },
+    async (tx) =>
+      projectTrainingAssigned(tx, {
+        practiceId: pu.practiceId,
+        actorUserId: pu.dbUser.id,
+        payload,
+      }),
+  );
+
+  revalidatePath("/programs/training");
+  revalidatePath("/programs/training/assignments");
+  return { assignmentId };
 }
