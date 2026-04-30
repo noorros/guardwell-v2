@@ -20,7 +20,7 @@ import {
 import { EVIDENCE_LOADERS } from "@/lib/audit-prep/evidence-loaders";
 
 const OpenInput = z.object({
-  mode: z.enum(["HHS_OCR_HIPAA", "OSHA", "CMS", "DEA"]),
+  mode: z.enum(["HHS_OCR_HIPAA", "OSHA", "CMS", "DEA", "ALLERGY"]),
 });
 
 export async function openAuditPrepSessionAction(

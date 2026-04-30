@@ -4,8 +4,9 @@
 // ProtocolDef declares which evidence loader runs at completion + a
 // human-readable "what we'll attach" summary shown in the UI.
 //
-// Live modes: HHS_OCR_HIPAA, OSHA, CMS, DEA. All four audit types
-// supported as of 2026-04-24.
+// Live modes: HHS_OCR_HIPAA, OSHA, CMS, DEA, ALLERGY. ALLERGY added
+// 2026-04-30 — closes audit #21 IM-3 (state pharmacy board inspections
+// of allergen-extract compounding under USP 797 §21).
 
 export interface ProtocolDef {
   code: string;
@@ -348,9 +349,85 @@ const DEA_PROTOCOLS: ProtocolDef[] = [
   },
 ];
 
+// State pharmacy board inspections of practices that compound allergen
+// extracts on-site. The board typically requests evidence covering: the
+// compounder roster + qualification status (USP 797 §21 component A/B/C
+// per active staff member, current + 2 prior years), anaphylaxis drill
+// log, equipment maintenance (emergency kit checks + refrigerator
+// readings), aggregate quiz scoring, and any documented USP §21
+// deviations + the corrective actions taken. Closes audit #21 IM-3.
+const ALLERGY_PROTOCOLS: ProtocolDef[] = [
+  {
+    code: "ALLERGY_COMPOUNDER_QUALIFICATION",
+    title: "Compounder roster + qualification status",
+    citation: "USP 797 §21.2 (Personnel Qualifications)",
+    description:
+      "State pharmacy boards verify that every active compounder has documented annual qualification across the three USP §21 components: written quiz, gloved fingertip + thumb sampling, and media fill test. They typically ask for the current year plus the two prior years to confirm cadence.",
+    evidenceLoaderCode: "ALLERGY_COMPOUNDER_QUALIFICATION",
+    whatWeAttach: [
+      "Active compounder roster (current year)",
+      "Per-compounder qualification status: quiz / fingertip / media fill (current + 2 prior years)",
+      "Former-staff qualification history for the same window (preserves the audit trail)",
+    ],
+  },
+  {
+    code: "ALLERGY_DRILL_LOG",
+    title: "Anaphylaxis drill log",
+    citation: "USP 797 §21.5 (Emergency Preparedness)",
+    description:
+      "Annual minimum cadence per practice. The drill log captures date, scenario, participants, duration, observations, and corrective actions. Inspectors look for ≥1 drill in the last 12 months and that participants are named individually.",
+    evidenceLoaderCode: "ALLERGY_DRILL_LOG",
+    whatWeAttach: [
+      "Drill count in the last 12 months",
+      "Most recent drill date + scenario",
+      "Per-drill participant roster (with removed-staff labels preserved)",
+    ],
+  },
+  {
+    code: "ALLERGY_EQUIPMENT_LOG",
+    title: "Equipment maintenance log",
+    citation: "USP 797 §21.3 (Facilities & Equipment)",
+    description:
+      "Inspectors verify that the emergency anaphylaxis kit (epi pen + supplies) is checked monthly with expiry/lot tracking, AND that any refrigerator used to store allergen extracts is logged at the documented cadence within the 2.0–8.0 °C acceptable range.",
+    evidenceLoaderCode: "ALLERGY_EQUIPMENT_LOG",
+    whatWeAttach: [
+      "Emergency-kit checks in the last 12 months (epi expiry + lot + items present)",
+      "Refrigerator-temperature checks in the last 12 months (in-range vs out-of-range)",
+      "Most recent check of each type",
+    ],
+  },
+  {
+    code: "ALLERGY_QUIZ_ATTEMPTS",
+    title: "Quiz attempts + scoring",
+    citation: "USP 797 §21.2 (Component A — Written Assessment)",
+    description:
+      "Inspectors look at aggregate pass/fail data, not individual answer keys. We surface counts, average score, and pass rate over the last 24 months. Per-attempt detail lists the staff member, date, and score — never the answer key (per audit #1 invariant).",
+    evidenceLoaderCode: "ALLERGY_QUIZ_ATTEMPTS",
+    whatWeAttach: [
+      "Total quiz attempts in the last 24 months",
+      "Pass rate + average score (aggregate, not per-question)",
+      "Per-attempt: staff member + date + score (no answer-key data)",
+    ],
+  },
+  {
+    code: "ALLERGY_USP21_DEVIATIONS",
+    title: "USP §21 deviations + corrective actions",
+    citation: "USP 797 §21.6 (Deviation Documentation)",
+    description:
+      "Any deviation from the practice's compounding SOP must be documented with the corrective action taken. We surface incidents whose title or description references USP §21 / compounding / allergen, plus drills that recorded explicit corrective actions.",
+    evidenceLoaderCode: "ALLERGY_USP21_DEVIATIONS",
+    whatWeAttach: [
+      "Allergy-tagged incident count (last 24 months) + most-recent date",
+      "Drill records that captured corrective actions",
+      "Open vs resolved breakdown",
+    ],
+  },
+];
+
 export const PROTOCOLS_BY_MODE: Record<string, ProtocolDef[]> = {
   HHS_OCR_HIPAA: HHS_OCR_HIPAA_PROTOCOLS,
   OSHA: OSHA_PROTOCOLS,
   CMS: CMS_PROTOCOLS,
   DEA: DEA_PROTOCOLS,
+  ALLERGY: ALLERGY_PROTOCOLS,
 };

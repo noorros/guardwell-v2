@@ -6,6 +6,7 @@
 // even if underlying tables change later.
 
 import type { Prisma } from "@prisma/client";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export interface EvidenceSnapshotBase {
   capturedAt: string;
@@ -186,6 +187,115 @@ export interface DeaTheftLossEvidence extends EvidenceSnapshotBase {
   privacyOfficerDesignated: boolean;
 }
 
+// ────────────────────────────────────────────────────────────────────────
+// ALLERGY-mode evidence (added 2026-04-30, audit #21 IM-3)
+// State pharmacy board inspections of allergen-extract compounding
+// (USP 797 §21).
+// ────────────────────────────────────────────────────────────────────────
+
+/// One compounder + their per-year qualification status across the
+/// 3-year audit window. `isFormerStaff` is true when PracticeUser.removedAt
+/// is non-null — the row still appears so the audit trail covers years
+/// the compounder was active.
+export interface AllergyCompounderQualificationRow {
+  practiceUserId: string;
+  displayName: string;
+  isFormerStaff: boolean;
+  yearStatuses: Array<{
+    year: number;
+    quizPassed: boolean;
+    fingertipPassCount: number;
+    mediaFillPassed: boolean;
+    isFullyQualified: boolean;
+  }>;
+}
+
+export interface AllergyCompounderQualificationEvidence
+  extends EvidenceSnapshotBase {
+  yearWindow: number[]; // [currentYear, currentYear-1, currentYear-2]
+  activeCompounderCount: number;
+  formerCompounderInWindowCount: number;
+  rows: AllergyCompounderQualificationRow[];
+}
+
+export interface AllergyDrillRow {
+  drillId: string;
+  conductedAtIso: string;
+  conductedAtDisplay: string; // YYYY-MM-DD in practice tz
+  scenario: string;
+  conductedByDisplay: string;
+  participantDisplays: string[]; // resolved names; "(removed user)" preserved
+  durationMinutes: number | null;
+  hasCorrectiveAction: boolean;
+}
+
+export interface AllergyDrillLogEvidence extends EvidenceSnapshotBase {
+  drillsLast12Months: number;
+  mostRecentDrillIso: string | null;
+  rows: AllergyDrillRow[]; // newest-first
+}
+
+export interface AllergyKitCheckRow {
+  checkId: string;
+  checkedAtIso: string;
+  checkedAtDisplay: string;
+  checkedByDisplay: string;
+  epiExpiryIso: string | null;
+  epiLotNumber: string | null;
+  allItemsPresent: boolean | null;
+  itemsReplaced: string | null;
+}
+
+export interface AllergyFridgeCheckRow {
+  checkId: string;
+  checkedAtIso: string;
+  checkedAtDisplay: string;
+  checkedByDisplay: string;
+  temperatureC: number | null;
+  inRange: boolean | null;
+}
+
+export interface AllergyEquipmentLogEvidence extends EvidenceSnapshotBase {
+  kitChecksLast12Months: number;
+  fridgeChecksLast12Months: number;
+  mostRecentKitCheckIso: string | null;
+  mostRecentFridgeCheckIso: string | null;
+  kitRows: AllergyKitCheckRow[]; // newest-first
+  fridgeRows: AllergyFridgeCheckRow[]; // newest-first
+}
+
+export interface AllergyQuizAttemptRow {
+  attemptId: string;
+  practiceUserId: string;
+  takenByDisplay: string;
+  isFormerStaff: boolean;
+  completedAtIso: string | null;
+  completedAtDisplay: string | null;
+  score: number | null;
+  passed: boolean | null;
+  // Privacy invariant (audit #1, PR #197): we expose totalQuestions +
+  // correctAnswers as scalars only. We never include answer-key data
+  // (correctId / explanation / per-question selectedId) in this snapshot.
+  totalQuestions: number;
+  correctAnswers: number;
+}
+
+export interface AllergyQuizAttemptsEvidence extends EvidenceSnapshotBase {
+  attemptsLast24Months: number;
+  passedCount: number;
+  passRatePct: number;
+  averageScore: number | null;
+  rows: AllergyQuizAttemptRow[]; // newest-first
+}
+
+export interface AllergyDeviationsEvidence extends EvidenceSnapshotBase {
+  taggedIncidentsLast24Months: number;
+  mostRecentTaggedIncidentIso: string | null;
+  openIncidents: number;
+  resolvedIncidents: number;
+  drillsWithCorrectiveActionsLast24Months: number;
+}
+
 export type EvidenceSnapshot =
   | NppEvidence
   | WorkforceTrainingEvidence
@@ -210,7 +320,12 @@ export type EvidenceSnapshot =
   | DeaSecurityEvidence
   | DeaPdmpEvidence
   | DeaPrescriptionsEvidence
-  | DeaTheftLossEvidence;
+  | DeaTheftLossEvidence
+  | AllergyCompounderQualificationEvidence
+  | AllergyDrillLogEvidence
+  | AllergyEquipmentLogEvidence
+  | AllergyQuizAttemptsEvidence
+  | AllergyDeviationsEvidence;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SIXTY_DAYS_MS = 60 * DAY_MS;
@@ -998,6 +1113,421 @@ export async function loadDeaTheftLossEvidence(
   };
 }
 
+// ────────────────────────────────────────────────────────────────────────
+// ALLERGY-mode loaders (added 2026-04-30, audit #21 IM-3)
+// State pharmacy board inspections of allergen-extract compounding
+// (USP 797 §21).
+// ────────────────────────────────────────────────────────────────────────
+
+const TWENTY_FOUR_MONTHS_MS = 2 * 365 * DAY_MS;
+
+/// Resolve many PracticeUser display names in a single roundtrip.
+/// Returns a "{name} (removed)" suffix when removedAt is non-null so the
+/// audit trail flags former staff without losing the historical record.
+/// Order of the returned Map is not meaningful — callers index by id.
+async function resolveDisplayNames(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  practiceUserIds: string[],
+): Promise<Map<string, { name: string; isFormerStaff: boolean }>> {
+  if (practiceUserIds.length === 0) return new Map();
+  const rows = await tx.practiceUser.findMany({
+    where: { id: { in: practiceUserIds }, practiceId },
+    select: {
+      id: true,
+      removedAt: true,
+      user: { select: { firstName: true, lastName: true, email: true } },
+    },
+  });
+  const out = new Map<string, { name: string; isFormerStaff: boolean }>();
+  for (const r of rows) {
+    const base =
+      [r.user.firstName, r.user.lastName].filter(Boolean).join(" ") ||
+      r.user.email ||
+      "Unknown";
+    out.set(r.id, {
+      name: r.removedAt !== null ? `${base} (removed)` : base,
+      isFormerStaff: r.removedAt !== null,
+    });
+  }
+  return out;
+}
+
+export async function loadAllergyCompounderQualification(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<AllergyCompounderQualificationEvidence> {
+  const currentYear = new Date().getUTCFullYear();
+  const yearWindow = [currentYear, currentYear - 1, currentYear - 2];
+
+  // Pull every competency row in the 3-year window, regardless of
+  // whether the holder is still active. We need former staff to surface
+  // for the years they were active.
+  const competencies = await tx.allergyCompetency.findMany({
+    where: { practiceId, year: { in: yearWindow } },
+    select: {
+      practiceUserId: true,
+      year: true,
+      quizPassedAt: true,
+      fingertipPassCount: true,
+      mediaFillPassedAt: true,
+      isFullyQualified: true,
+    },
+  });
+
+  // Active compounders today (the practice's current roster).
+  const activeMembers = await tx.practiceUser.findMany({
+    where: { practiceId, removedAt: null, requiresAllergyCompetency: true },
+    select: {
+      id: true,
+      user: { select: { firstName: true, lastName: true, email: true } },
+    },
+  });
+
+  // Union of all PracticeUser ids referenced (active OR former with a
+  // competency in the window). Resolve display names for everyone.
+  const allIds = new Set<string>();
+  for (const m of activeMembers) allIds.add(m.id);
+  for (const c of competencies) allIds.add(c.practiceUserId);
+  const nameMap = await resolveDisplayNames(tx, practiceId, [...allIds]);
+
+  // Group competencies by practiceUserId.
+  const byUser = new Map<
+    string,
+    Array<{ year: number; quiz: boolean; ft: number; mf: boolean; q: boolean }>
+  >();
+  for (const c of competencies) {
+    const list = byUser.get(c.practiceUserId) ?? [];
+    list.push({
+      year: c.year,
+      quiz: c.quizPassedAt !== null,
+      ft: c.fingertipPassCount,
+      mf: c.mediaFillPassedAt !== null,
+      q: c.isFullyQualified,
+    });
+    byUser.set(c.practiceUserId, list);
+  }
+
+  const rows: AllergyCompounderQualificationRow[] = [];
+  let formerCount = 0;
+  for (const id of allIds) {
+    const meta = nameMap.get(id) ?? { name: "(unknown)", isFormerStaff: false };
+    if (meta.isFormerStaff) formerCount += 1;
+    const yearRows = byUser.get(id) ?? [];
+    const yearStatuses = yearWindow.map((y) => {
+      const r = yearRows.find((x) => x.year === y);
+      return {
+        year: y,
+        quizPassed: r?.quiz ?? false,
+        fingertipPassCount: r?.ft ?? 0,
+        mediaFillPassed: r?.mf ?? false,
+        isFullyQualified: r?.q ?? false,
+      };
+    });
+    rows.push({
+      practiceUserId: id,
+      displayName: meta.name,
+      isFormerStaff: meta.isFormerStaff,
+      yearStatuses,
+    });
+  }
+
+  // Stable sort: active first, then by name.
+  rows.sort((a, b) => {
+    if (a.isFormerStaff !== b.isFormerStaff) {
+      return a.isFormerStaff ? 1 : -1;
+    }
+    return a.displayName.localeCompare(b.displayName);
+  });
+
+  return {
+    capturedAt: new Date().toISOString(),
+    yearWindow,
+    activeCompounderCount: activeMembers.length,
+    formerCompounderInWindowCount: formerCount,
+    rows,
+  };
+}
+
+export async function loadAllergyDrillLog(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<AllergyDrillLogEvidence> {
+  const practice = await tx.practice.findUniqueOrThrow({
+    where: { id: practiceId },
+    select: { timezone: true },
+  });
+  const tz = practice.timezone;
+  const cutoff = new Date(Date.now() - TWELVE_MONTHS_MS);
+
+  // Audit #15 (PR #213): retiredAt: null hides soft-deleted rows from
+  // history reads. Same rule applies in the audit packet — a deleted
+  // drill should not surface to a state inspector.
+  const drills = await tx.allergyDrill.findMany({
+    where: { practiceId, retiredAt: null },
+    orderBy: { conductedAt: "desc" },
+    select: {
+      id: true,
+      conductedAt: true,
+      scenario: true,
+      conductedById: true,
+      participantIds: true,
+      durationMinutes: true,
+      correctiveActions: true,
+    },
+  });
+
+  // Resolve every PracticeUser id mentioned across all drills in one
+  // pass (conductors + participants).
+  const idsToResolve = new Set<string>();
+  for (const d of drills) {
+    idsToResolve.add(d.conductedById);
+    for (const pid of d.participantIds) idsToResolve.add(pid);
+  }
+  const nameMap = await resolveDisplayNames(tx, practiceId, [...idsToResolve]);
+
+  const rows: AllergyDrillRow[] = drills.map((d) => {
+    const conductor = nameMap.get(d.conductedById) ?? {
+      name: "(unknown)",
+      isFormerStaff: false,
+    };
+    const participantDisplays = d.participantIds.map(
+      (pid) => (nameMap.get(pid) ?? { name: "(unknown)" }).name,
+    );
+    return {
+      drillId: d.id,
+      conductedAtIso: d.conductedAt.toISOString(),
+      conductedAtDisplay: formatPracticeDate(d.conductedAt, tz),
+      scenario: d.scenario,
+      conductedByDisplay: conductor.name,
+      participantDisplays,
+      durationMinutes: d.durationMinutes,
+      hasCorrectiveAction:
+        d.correctiveActions !== null && d.correctiveActions.trim().length > 0,
+    };
+  });
+
+  return {
+    capturedAt: new Date().toISOString(),
+    drillsLast12Months: drills.filter((d) => d.conductedAt >= cutoff).length,
+    mostRecentDrillIso: drills[0]?.conductedAt.toISOString() ?? null,
+    rows,
+  };
+}
+
+export async function loadAllergyEquipmentLog(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<AllergyEquipmentLogEvidence> {
+  const practice = await tx.practice.findUniqueOrThrow({
+    where: { id: practiceId },
+    select: { timezone: true },
+  });
+  const tz = practice.timezone;
+  const cutoff = new Date(Date.now() - TWELVE_MONTHS_MS);
+
+  // Pattern mirrors PR #229 / pattern in src/app/(dashboard)/programs/
+  // allergy/page.tsx: pull both kit + fridge with retiredAt: null
+  // (audit #15 soft-delete) and split by checkType.
+  const checks = await tx.allergyEquipmentCheck.findMany({
+    where: { practiceId, retiredAt: null },
+    orderBy: { checkedAt: "desc" },
+    select: {
+      id: true,
+      checkType: true,
+      checkedAt: true,
+      checkedById: true,
+      epiExpiryDate: true,
+      epiLotNumber: true,
+      allItemsPresent: true,
+      itemsReplaced: true,
+      temperatureC: true,
+      inRange: true,
+    },
+  });
+
+  const ids = new Set<string>();
+  for (const c of checks) ids.add(c.checkedById);
+  const nameMap = await resolveDisplayNames(tx, practiceId, [...ids]);
+
+  const kitRows: AllergyKitCheckRow[] = [];
+  const fridgeRows: AllergyFridgeCheckRow[] = [];
+  let kitWindowCount = 0;
+  let fridgeWindowCount = 0;
+  let mostRecentKit: Date | null = null;
+  let mostRecentFridge: Date | null = null;
+
+  for (const c of checks) {
+    const checkedBy = (nameMap.get(c.checkedById) ?? { name: "(unknown)" }).name;
+    if (c.checkType === "EMERGENCY_KIT") {
+      kitRows.push({
+        checkId: c.id,
+        checkedAtIso: c.checkedAt.toISOString(),
+        checkedAtDisplay: formatPracticeDate(c.checkedAt, tz),
+        checkedByDisplay: checkedBy,
+        epiExpiryIso: c.epiExpiryDate?.toISOString() ?? null,
+        epiLotNumber: c.epiLotNumber,
+        allItemsPresent: c.allItemsPresent,
+        itemsReplaced: c.itemsReplaced,
+      });
+      if (c.checkedAt >= cutoff) kitWindowCount += 1;
+      if (mostRecentKit === null) mostRecentKit = c.checkedAt;
+    } else if (c.checkType === "REFRIGERATOR_TEMP") {
+      fridgeRows.push({
+        checkId: c.id,
+        checkedAtIso: c.checkedAt.toISOString(),
+        checkedAtDisplay: formatPracticeDate(c.checkedAt, tz),
+        checkedByDisplay: checkedBy,
+        temperatureC: c.temperatureC,
+        inRange: c.inRange,
+      });
+      if (c.checkedAt >= cutoff) fridgeWindowCount += 1;
+      if (mostRecentFridge === null) mostRecentFridge = c.checkedAt;
+    }
+    // SKIN_TEST_SUPPLIES omitted from packet (not part of state board ask).
+  }
+
+  return {
+    capturedAt: new Date().toISOString(),
+    kitChecksLast12Months: kitWindowCount,
+    fridgeChecksLast12Months: fridgeWindowCount,
+    mostRecentKitCheckIso: mostRecentKit?.toISOString() ?? null,
+    mostRecentFridgeCheckIso: mostRecentFridge?.toISOString() ?? null,
+    kitRows,
+    fridgeRows,
+  };
+}
+
+export async function loadAllergyQuizAttempts(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<AllergyQuizAttemptsEvidence> {
+  const practice = await tx.practice.findUniqueOrThrow({
+    where: { id: practiceId },
+    select: { timezone: true },
+  });
+  const tz = practice.timezone;
+  const cutoff = new Date(Date.now() - TWENTY_FOUR_MONTHS_MS);
+
+  // Audit #1 invariant (PR #197): the snapshot exposes scalars only —
+  // score, passed, totalQuestions, correctAnswers. We deliberately do
+  // NOT include the AllergyQuizAnswer rows (selectedId / per-question
+  // detail) because that table joins to AllergyQuizQuestion which holds
+  // correctId + explanation. Read shape here cannot leak the answer key.
+  const attempts = await tx.allergyQuizAttempt.findMany({
+    where: {
+      practiceId,
+      completedAt: { gte: cutoff, not: null },
+    },
+    orderBy: { completedAt: "desc" },
+    select: {
+      id: true,
+      practiceUserId: true,
+      completedAt: true,
+      score: true,
+      passed: true,
+      totalQuestions: true,
+      correctAnswers: true,
+    },
+  });
+
+  const ids = new Set<string>();
+  for (const a of attempts) ids.add(a.practiceUserId);
+  const nameMap = await resolveDisplayNames(tx, practiceId, [...ids]);
+
+  const rows: AllergyQuizAttemptRow[] = attempts.map((a) => {
+    const meta = nameMap.get(a.practiceUserId) ?? {
+      name: "(unknown)",
+      isFormerStaff: false,
+    };
+    return {
+      attemptId: a.id,
+      practiceUserId: a.practiceUserId,
+      takenByDisplay: meta.name,
+      isFormerStaff: meta.isFormerStaff,
+      completedAtIso: a.completedAt?.toISOString() ?? null,
+      completedAtDisplay: a.completedAt
+        ? formatPracticeDate(a.completedAt, tz)
+        : null,
+      score: a.score,
+      passed: a.passed,
+      totalQuestions: a.totalQuestions,
+      correctAnswers: a.correctAnswers,
+    };
+  });
+
+  const passedCount = rows.filter((r) => r.passed === true).length;
+  const passRatePct =
+    rows.length === 0 ? 0 : Math.round((passedCount / rows.length) * 100);
+  const scoreSum = rows.reduce((acc, r) => acc + (r.score ?? 0), 0);
+  const averageScore =
+    rows.length === 0 ? null : Math.round(scoreSum / rows.length);
+
+  return {
+    capturedAt: new Date().toISOString(),
+    attemptsLast24Months: rows.length,
+    passedCount,
+    passRatePct,
+    averageScore,
+    rows,
+  };
+}
+
+export async function loadAllergyDeviations(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+): Promise<AllergyDeviationsEvidence> {
+  const cutoff = new Date(Date.now() - TWENTY_FOUR_MONTHS_MS);
+
+  // No dedicated IncidentType for USP §21 in MVP (mirrors the OSHA
+  // needlestick approach in loadOshaNeedlestickEvidence): match by
+  // title/description keywords. Inspectors get a transparent "here's
+  // what we matched" + the user can correct via notes.
+  const tagged = await tx.incident.findMany({
+    where: {
+      practiceId,
+      discoveredAt: { gte: cutoff },
+      OR: [
+        { title: { contains: "USP", mode: "insensitive" } },
+        { title: { contains: "compounding", mode: "insensitive" } },
+        { title: { contains: "allergen", mode: "insensitive" } },
+        { title: { contains: "allergy", mode: "insensitive" } },
+        { description: { contains: "USP", mode: "insensitive" } },
+        { description: { contains: "compounding", mode: "insensitive" } },
+        { description: { contains: "allergen", mode: "insensitive" } },
+        { description: { contains: "allergy", mode: "insensitive" } },
+      ],
+    },
+    orderBy: { discoveredAt: "desc" },
+    select: { discoveredAt: true, status: true },
+  });
+
+  const drillsWithCa = await tx.allergyDrill.count({
+    where: {
+      practiceId,
+      retiredAt: null,
+      conductedAt: { gte: cutoff },
+      correctiveActions: { not: null },
+    },
+  });
+
+  const openIncidents = tagged.filter(
+    (t) => t.status === "OPEN" || t.status === "UNDER_INVESTIGATION",
+  ).length;
+  const resolvedIncidents = tagged.filter(
+    (t) => t.status === "RESOLVED" || t.status === "CLOSED",
+  ).length;
+
+  return {
+    capturedAt: new Date().toISOString(),
+    taggedIncidentsLast24Months: tagged.length,
+    mostRecentTaggedIncidentIso: tagged[0]?.discoveredAt.toISOString() ?? null,
+    openIncidents,
+    resolvedIncidents,
+    drillsWithCorrectiveActionsLast24Months: drillsWithCa,
+  };
+}
+
 export const EVIDENCE_LOADERS: Record<
   string,
   (
@@ -1032,4 +1562,10 @@ export const EVIDENCE_LOADERS: Record<
   DEA_PDMP: loadDeaPdmpEvidence,
   DEA_PRESCRIPTIONS: loadDeaPrescriptionsEvidence,
   DEA_THEFT_LOSS: loadDeaTheftLossEvidence,
+  // ALLERGY mode (added 2026-04-30, audit #21 IM-3)
+  ALLERGY_COMPOUNDER_QUALIFICATION: loadAllergyCompounderQualification,
+  ALLERGY_DRILL_LOG: loadAllergyDrillLog,
+  ALLERGY_EQUIPMENT_LOG: loadAllergyEquipmentLog,
+  ALLERGY_QUIZ_ATTEMPTS: loadAllergyQuizAttempts,
+  ALLERGY_USP21_DEVIATIONS: loadAllergyDeviations,
 };
