@@ -28,14 +28,14 @@ describe("<ModuleSummaryBand>", () => {
       <ModuleSummaryBand
         compliantCount={7}
         totalRequirements={10}
-        gapCount={2}
+        openCount={3}
         deadlineCount={0}
       />,
     );
     expect(screen.getByText("7 of 10")).toBeInTheDocument();
     expect(screen.getByText(/compliant/i)).toBeInTheDocument();
     expect(screen.getByText(/deadlines this month/i)).toBeInTheDocument();
-    expect(screen.getByText(/open gaps/i)).toBeInTheDocument();
+    expect(screen.getByText(/3 to address/i)).toBeInTheDocument();
   });
 
   it("clicking the compliant card pushes ?status=compliant", async () => {
@@ -44,7 +44,7 @@ describe("<ModuleSummaryBand>", () => {
       <ModuleSummaryBand
         compliantCount={7}
         totalRequirements={10}
-        gapCount={2}
+        openCount={3}
         deadlineCount={0}
       />,
     );
@@ -52,18 +52,18 @@ describe("<ModuleSummaryBand>", () => {
     expect(pushMock).toHaveBeenCalledWith("/modules/hipaa?status=compliant");
   });
 
-  it("clicking the gap card pushes ?status=gap", async () => {
+  it("clicking the open card pushes ?status=open (audit #13: covers GAP + NOT_STARTED)", async () => {
     const user = userEvent.setup();
     render(
       <ModuleSummaryBand
         compliantCount={7}
         totalRequirements={10}
-        gapCount={2}
+        openCount={3}
         deadlineCount={0}
       />,
     );
-    await user.click(screen.getByRole("button", { name: /2 open gaps/i }));
-    expect(pushMock).toHaveBeenCalledWith("/modules/hipaa?status=gap");
+    await user.click(screen.getByRole("button", { name: /3 requirements to address/i }));
+    expect(pushMock).toHaveBeenCalledWith("/modules/hipaa?status=open");
   });
 
   it("deadline card has a disabled tooltip and does not push", async () => {
@@ -72,7 +72,7 @@ describe("<ModuleSummaryBand>", () => {
       <ModuleSummaryBand
         compliantCount={7}
         totalRequirements={10}
-        gapCount={2}
+        openCount={3}
         deadlineCount={0}
       />,
     );
@@ -89,29 +89,29 @@ describe("<ModuleSummaryBand>", () => {
     expect(pushMock).not.toHaveBeenCalled();
   });
 
-  it("zero gaps state: gap card is rendered with 0 count", () => {
+  it("zero open state: open card is rendered with 0 count", () => {
     render(
       <ModuleSummaryBand
         compliantCount={10}
         totalRequirements={10}
-        gapCount={0}
+        openCount={0}
         deadlineCount={0}
       />,
     );
     expect(screen.getByText("10 of 10")).toBeInTheDocument();
-    expect(screen.getByText(/0 open gaps/i)).toBeInTheDocument();
+    expect(screen.getByText(/0 to address/i)).toBeInTheDocument();
   });
 
-  it("all-gap state: compliant card shows 0 of N, gap card shows high count", () => {
+  it("all-open state: compliant card shows 0 of N, open card shows high count", () => {
     render(
       <ModuleSummaryBand
         compliantCount={0}
         totalRequirements={10}
-        gapCount={10}
+        openCount={10}
         deadlineCount={0}
       />,
     );
     expect(screen.getByText("0 of 10")).toBeInTheDocument();
-    expect(screen.getByText(/10 open gaps/i)).toBeInTheDocument();
+    expect(screen.getByText(/10 to address/i)).toBeInTheDocument();
   });
 });

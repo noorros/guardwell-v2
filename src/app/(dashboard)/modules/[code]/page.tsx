@@ -78,17 +78,29 @@ export default async function ModulePage({
 
   // Section B counts, computed pre-status-filter so the band always shows the
   // true shape across requirements applicable to this practice.
+  // Audit #13: openCount is everything-not-yet-COMPLIANT (GAP +
+  // NOT_STARTED + IN_PROGRESS) — the prior split between gapCount
+  // (status=GAP only) and the visible NOT_STARTED rows confused users
+  // into seeing "0 open gaps" while the requirements list showed N
+  // un-addressed items.
   const compliantCount = items.filter((i) => i.status === "COMPLIANT").length;
   const totalRequirements = applicableRequirements.length;
-  const gapCount = items.filter((i) => i.status === "GAP").length;
+  const openCount = totalRequirements - compliantCount;
   const deadlineCount = 0; // Placeholder — no deadline source until operational pages.
 
-  // Apply Section-C status filter from Section-B click: ?status=compliant|gap|not-started.
+  // Apply Section-C status filter from Section-B click:
+  //   ?status=compliant|open|gap|not-started.
+  // `open` is the audit-#13 alignment: anything-not-COMPLIANT, matching
+  // the band's "X to address" tile semantic. The narrower legacy `gap`
+  // and `not-started` filters stay supported for direct deep-links.
   // Unknown values fall through to "show all".
   const statusFilter = sp.status?.toLowerCase();
   const filteredRequirements = applicableRequirements.filter((r) => {
     if (statusFilter === "compliant") {
       return byReq.get(r.id)?.status === "COMPLIANT";
+    }
+    if (statusFilter === "open") {
+      return byReq.get(r.id)?.status !== "COMPLIANT";
     }
     if (statusFilter === "gap") {
       return byReq.get(r.id)?.status === "GAP";
@@ -227,7 +239,7 @@ export default async function ModulePage({
       <ModuleSummaryBand
         compliantCount={compliantCount}
         totalRequirements={totalRequirements}
-        gapCount={gapCount}
+        openCount={openCount}
         deadlineCount={deadlineCount}
       />
       <section className="space-y-3">
