@@ -19,6 +19,7 @@ import {
 import {
   isCustomForPractice,
   isSystemCourse,
+  RETIRED_SORT_ORDER,
 } from "@/lib/training/courseTenancy";
 import { db } from "@/lib/db";
 
@@ -597,8 +598,8 @@ export async function retireTrainingCourseAction(
     throw new Error("Course not found");
   }
 
-  // 9999 is the soft-retire signal per projectTrainingCourseRetired.
-  if (course.sortOrder === 9999) {
+  // RETIRED_SORT_ORDER is the soft-retire signal per projectTrainingCourseRetired.
+  if (course.sortOrder === RETIRED_SORT_ORDER) {
     throw new Error("Course is already retired");
   }
 
@@ -651,7 +652,7 @@ export async function restoreTrainingCourseAction(
     throw new Error("Course not found");
   }
 
-  if (course.sortOrder !== 9999) {
+  if (course.sortOrder !== RETIRED_SORT_ORDER) {
     throw new Error("Course is already active");
   }
 

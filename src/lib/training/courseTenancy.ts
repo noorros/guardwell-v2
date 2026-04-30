@@ -22,12 +22,30 @@
 // would otherwise be a privacy leak. The catalog is small (~30 courses)
 // so client-side filtering is acceptable.
 
+/**
+ * sortOrder convention for TrainingCourse soft-retirement (Phase 4):
+ * - System courses: seeded with their natural sort position (e.g. 1-100)
+ * - Custom courses: created with sortOrder=999 (sorts after system)
+ * - Retired courses: sortOrder=9999 (sorts last; treated as filtered-out
+ *   by the catalog page)
+ *
+ * TODO(phase-4-followup): replace with a `retiredAt` column once the
+ * schema migration lands. See projection/training.ts retire/restore
+ * docstrings for the migration plan.
+ */
+export const RETIRED_SORT_ORDER = 9999;
+export const DEFAULT_CUSTOM_SORT_ORDER = 999;
+
 /** Cuid prefix detector: 'c' followed by 20+ lowercase-alphanum chars
  * then an underscore. Conservative — Prisma's default cuid is
  * `c[a-z0-9]{24}` (25 chars total) but we accept ≥20 for forward-compat
  * with shorter cuid variants. The ESLint rule's lint config doesn't
  * allow regex literals at top of files we want to share-import in tests,
  * so we keep this inline. */
+// CUID v1 format: starts with `c` + 24 lowercase alphanumerics. Permissive
+// at {20,} to accept legacy variants. If the schema's @default(cuid())
+// migrates to cuid v2 / nanoid, update this regex AND the test fixtures
+// in courseTenancy.test.ts. See prisma/schema.prisma model Practice.
 const CUID_PREFIX_RE = /^c[a-z0-9]{20,}_/;
 
 /**

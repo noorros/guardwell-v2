@@ -6,7 +6,7 @@
 
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "jest-axe";
 import { CreateCourseForm } from "./CreateCourseForm";
@@ -67,6 +67,26 @@ describe("<CreateCourseForm>", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /create course/i }));
     expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("shows 'Code is required' (not the regex message) for an empty Code", async () => {
+    // Phase 4 PR 4 review I-1: validate() must check empty/length BEFORE
+    // regex so a blank Code surfaces the helpful "Code is required" rather
+    // than the misleading "uppercase letters, digits, or underscore" error.
+    //
+    // The Code <input> has required, so a real browser would block this
+    // submit at the HTML5 layer before our handler runs. We bypass that
+    // by dispatching the submit event directly via fireEvent — this
+    // mirrors what happens if a user disables JS-side validation, and
+    // also exercises validate() as the defense-in-depth backstop.
+    render(<CreateCourseForm onSuccess={vi.fn()} />);
+    const form = screen
+      .getByRole("button", { name: /create course/i })
+      .closest("form")!;
+    fireEvent.submit(form);
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/code is required/i);
+    expect(alert.textContent).not.toMatch(/uppercase letters/i);
   });
 
   it("calls createCustomCourseAction with the parsed input on a valid submit", async () => {

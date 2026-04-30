@@ -24,6 +24,7 @@ import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import {
   isCustomForPractice,
   isSystemCourse,
+  RETIRED_SORT_ORDER,
 } from "@/lib/training/courseTenancy";
 import { ManageCoursesTab } from "./ManageCoursesTab";
 
@@ -69,7 +70,7 @@ export default async function TrainingManagePage() {
     .map((c) => ({
       ...c,
       isCustom: isCustomForPractice(c.code, pu.practiceId),
-      isRetired: c.sortOrder === 9999,
+      isRetired: c.sortOrder === RETIRED_SORT_ORDER,
     }));
 
   return (

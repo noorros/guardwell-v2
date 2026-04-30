@@ -13,6 +13,10 @@
 import type { Prisma } from "@prisma/client";
 import type { PayloadFor } from "../registry";
 import { assertProjectionPracticeOwned } from "./guards";
+import {
+  DEFAULT_CUSTOM_SORT_ORDER,
+  RETIRED_SORT_ORDER,
+} from "@/lib/training/courseTenancy";
 
 type Tx = Prisma.TransactionClient;
 
@@ -159,7 +163,7 @@ export async function projectTrainingCourseCreated(
       passingScore: payload.passingScore,
       isRequired: false,
       version: 1,
-      sortOrder: 999,
+      sortOrder: DEFAULT_CUSTOM_SORT_ORDER,
     },
   });
 }
@@ -197,7 +201,7 @@ export async function projectTrainingCourseRetired(
   const { payload } = args;
   await tx.trainingCourse.update({
     where: { id: payload.courseId },
-    data: { sortOrder: 9999 },
+    data: { sortOrder: RETIRED_SORT_ORDER },
   });
 }
 
@@ -220,6 +224,6 @@ export async function projectTrainingCourseRestored(
   const { payload } = args;
   await tx.trainingCourse.update({
     where: { id: payload.courseId },
-    data: { sortOrder: 999 },
+    data: { sortOrder: DEFAULT_CUSTOM_SORT_ORDER },
   });
 }

@@ -5,7 +5,7 @@
 //
 //   - Title + the course type pill
 //   - Version (informational; bumped by edits via the upcoming PR)
-//   - Status (Active / Retired) — derived from sortOrder===9999
+//   - Status (Active / Retired) — derived from sortOrder===RETIRED_SORT_ORDER
 //   - Actions (em-dash for system rows; Retire/Restore for custom rows)
 //
 // The "Create course" button at the top opens a Dialog hosting the
@@ -79,7 +79,9 @@ export function ManageCoursesTab({ rows }: ManageCoursesTabProps) {
             <DialogHeader>
               <DialogTitle>Create custom course</DialogTitle>
             </DialogHeader>
+            {/* Force remount on Dialog reopen so partial entries don't persist (Phase 4 PR 4 review I-3). */}
             <CreateCourseForm
+              key={createOpen ? "open" : "closed"}
               onSuccess={() => {
                 setCreateOpen(false);
                 router.refresh();

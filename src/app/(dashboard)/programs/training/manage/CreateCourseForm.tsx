@@ -110,11 +110,13 @@ export function CreateCourseForm({ onSuccess }: CreateCourseFormProps) {
   }
 
   function validate(): string | null {
+    // Empty/length check FIRST so an empty Code surfaces "Code is required"
+    // instead of the misleading regex error (Phase 4 PR 4 review I-1).
+    if (code.length === 0 || code.length > 30) {
+      return "Code is required (1–30 chars).";
+    }
     if (!/^[A-Z0-9_]+$/.test(code)) {
       return "Code must be uppercase letters, digits, or underscore.";
-    }
-    if (code.length === 0 || code.length > 30) {
-      return "Code is required (max 30 characters).";
     }
     if (title.trim().length === 0 || title.length > 200) {
       return "Title is required (max 200 characters).";

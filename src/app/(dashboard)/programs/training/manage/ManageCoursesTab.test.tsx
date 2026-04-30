@@ -27,15 +27,29 @@ vi.mock("../actions", () => ({
   retireTrainingCourseAction: (...args: unknown[]) => retireMock(...args),
   restoreTrainingCourseAction: (...args: unknown[]) => restoreMock(...args),
 }));
-vi.mock("./CreateCourseForm", () => ({
-  CreateCourseForm: () => <div data-testid="create-course-form-stub" />,
-}));
+
+// CreateCourseForm mock that records each mount/unmount via useEffect
+// so the I-3 reset-on-reopen test can assert the form is re-instantiated
+// (key change forces a fresh component instance, clearing partial state).
+const createFormMountCounter = { mounts: 0 };
+vi.mock("./CreateCourseForm", async () => {
+  const React = await import("react");
+  return {
+    CreateCourseForm: () => {
+      React.useEffect(() => {
+        createFormMountCounter.mounts += 1;
+      }, []);
+      return <div data-testid="create-course-form-stub" />;
+    },
+  };
+});
 
 beforeEach(() => {
   retireMock.mockReset();
   restoreMock.mockReset();
   retireMock.mockResolvedValue({ courseId: "noop" });
   restoreMock.mockResolvedValue({ courseId: "noop" });
+  createFormMountCounter.mounts = 0;
 });
 
 const fixture: ManageCourseRow[] = [
@@ -137,6 +151,33 @@ describe("<ManageCoursesTab>", () => {
     expect(
       screen.getByText(/no courses in the catalog yet/i),
     ).toBeInTheDocument();
+  });
+
+  it("remounts <CreateCourseForm> on Dialog reopen so partial entries don't persist (I-3)", async () => {
+    // Phase 4 PR 4 review I-3: <CreateCourseForm> carries
+    // key={createOpen ? "open" : "closed"} so React forces a fresh
+    // component instance whenever the Dialog reopens. This test
+    // observes the effect of that key prop by counting mounts of the
+    // mocked form: opening, closing, and reopening produces TWO
+    // separate mount lifecycles (not one persistent instance).
+    render(<ManageCoursesTab rows={fixture} />);
+    const user = userEvent.setup();
+
+    // 1. Open the dialog.
+    await user.click(screen.getByRole("button", { name: /create course/i }));
+    expect(await screen.findByTestId("create-course-form-stub")).toBeTruthy();
+    const mountsAfterFirstOpen = createFormMountCounter.mounts;
+    expect(mountsAfterFirstOpen).toBeGreaterThanOrEqual(1);
+
+    // 2. Close via the Close button rendered by DialogContent.
+    await user.click(screen.getByRole("button", { name: /close/i }));
+
+    // 3. Reopen the dialog.
+    await user.click(screen.getByRole("button", { name: /create course/i }));
+    expect(await screen.findByTestId("create-course-form-stub")).toBeTruthy();
+
+    // The form was mounted again — a fresh instance, not a resumed one.
+    expect(createFormMountCounter.mounts).toBeGreaterThan(mountsAfterFirstOpen);
   });
 
   it("axe-clean (default render)", async () => {
