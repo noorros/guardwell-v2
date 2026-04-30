@@ -165,18 +165,27 @@ export function BulkCsvImport<TRow>(props: BulkCsvImportProps<TRow>) {
     <div className="space-y-4">
       <div className="space-y-2">
         {props.hint && (
-          <p className="text-sm text-muted-foreground">{props.hint}</p>
+          <p id="bulk-csv-hint" className="text-sm text-muted-foreground">
+            {props.hint}
+          </p>
         )}
+        <label htmlFor="bulk-csv-file" className="sr-only">
+          CSV file
+        </label>
         <input
+          id="bulk-csv-file"
           type="file"
           accept=".csv"
+          aria-describedby={
+            props.hint ? "bulk-csv-hint bulk-csv-help" : "bulk-csv-help"
+          }
           onChange={(e) => {
             const f = e.target.files?.[0];
             if (f) void handleFile(f);
           }}
           className="block w-full text-sm"
         />
-        <p className="text-xs text-muted-foreground">
+        <p id="bulk-csv-help" className="text-xs text-muted-foreground">
           <a
             href={templateHref}
             download={`${props.templateFilename}.csv`}

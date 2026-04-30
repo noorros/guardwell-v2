@@ -112,67 +112,85 @@ export function BreachDeterminationWizard({
         </div>
 
         <ol className="space-y-4">
-          {FACTORS.map((f) => (
-            <li key={f.id} className="space-y-2 rounded-md border p-3">
-              <p className="text-sm font-medium text-foreground">
-                Factor {f.id}. {f.title}
-              </p>
-              <p className="text-xs text-muted-foreground">{f.description}</p>
-              <div
-                role="radiogroup"
-                aria-label={`Factor ${f.id} score`}
-                className="flex flex-wrap gap-1"
-              >
-                {[1, 2, 3, 4, 5].map((s) => {
-                  const selected = scores[f.id] === s;
-                  return (
-                    <label
-                      key={s}
-                      className={`inline-flex cursor-pointer items-center rounded-md border px-2 py-1 text-xs font-medium transition-colors ${
-                        selected
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border hover:bg-accent/50"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name={`factor-${f.id}`}
-                        value={s}
-                        checked={selected}
-                        onChange={() =>
-                          setScores((p) => ({ ...p, [f.id]: s }))
-                        }
-                        className="sr-only"
-                      />
-                      {s}
-                    </label>
-                  );
-                })}
-              </div>
-            </li>
-          ))}
+          {FACTORS.map((f) => {
+            const titleId = `factor-${f.id}-title`;
+            const descId = `factor-${f.id}-desc`;
+            return (
+              <li key={f.id} className="space-y-2 rounded-md border p-3">
+                <p id={titleId} className="text-sm font-medium text-foreground">
+                  Factor {f.id}. {f.title}
+                </p>
+                <p id={descId} className="text-xs text-muted-foreground">
+                  {f.description}
+                </p>
+                <div
+                  role="radiogroup"
+                  aria-labelledby={titleId}
+                  aria-describedby={descId}
+                  className="flex flex-wrap gap-1"
+                >
+                  {[1, 2, 3, 4, 5].map((s) => {
+                    const selected = scores[f.id] === s;
+                    const inputId = `factor-${f.id}-score-${s}`;
+                    return (
+                      <label
+                        key={s}
+                        htmlFor={inputId}
+                        aria-label={`Score ${s}`}
+                        className={`inline-flex cursor-pointer items-center rounded-md border px-2 py-1 text-xs font-medium transition-colors ${
+                          selected
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border hover:bg-accent/50"
+                        }`}
+                      >
+                        <input
+                          id={inputId}
+                          type="radio"
+                          name={`factor-${f.id}`}
+                          value={s}
+                          checked={selected}
+                          onChange={() =>
+                            setScores((p) => ({ ...p, [f.id]: s }))
+                          }
+                          className="sr-only"
+                        />
+                        <span aria-hidden="true">{s}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </li>
+            );
+          })}
         </ol>
 
-        <label className="block space-y-1 text-xs font-medium text-foreground">
-          Affected count (individuals whose PHI was involved)
+        <div>
+          <label htmlFor="breach-affected-count" className="block text-xs font-medium text-foreground">
+            Affected count (individuals whose PHI was involved)
+          </label>
           <input
+            id="breach-affected-count"
             type="number"
             min={0}
             value={affectedCount}
             onChange={(e) => setAffectedCount(e.target.value)}
             className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
           />
-        </label>
+        </div>
 
-        <label className="block space-y-1 text-xs font-medium text-foreground">
-          Documented analysis ({CITATIONS.HIPAA_BREACH_DEFINITION.display})
-          <span className="mt-1 block text-[11px] font-normal text-muted-foreground">
+        <div>
+          <label htmlFor="breach-memo-text" className="block text-xs font-medium text-foreground">
+            Documented analysis ({CITATIONS.HIPAA_BREACH_DEFINITION.display})
+          </label>
+          <p id="breach-memo-help" className="mt-1 text-[11px] font-normal text-muted-foreground">
             Briefly describe the nature of the PHI involved, the unauthorized
             recipient, whether PHI was actually viewed/acquired, and the extent
             risk has been mitigated. This memo is rendered on the breach
             determination PDF for audit response.
-          </span>
+          </p>
           <textarea
+            id="breach-memo-text"
+            aria-describedby="breach-memo-help"
             required
             minLength={40}
             maxLength={10000}
@@ -181,7 +199,7 @@ export function BreachDeterminationWizard({
             onChange={(e) => setMemoText(e.target.value)}
             className="mt-1 block w-full resize-y rounded-md border bg-background px-2 py-1.5 text-sm"
           />
-        </label>
+        </div>
 
         {allScored && (
           <div

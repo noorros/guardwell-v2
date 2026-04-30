@@ -1,0 +1,172 @@
+// src/app/(dashboard)/programs/audit-12-aria-sweep.test.tsx
+//
+// Audit #12 (2026-04-29) — ARIA / form labelling sweep.
+// Each form was rewritten to use explicit <label htmlFor>/id pairs (and
+// role="radiogroup" + aria-labelledby on radio groups). These tests
+// run jest-axe against each form to lock the WCAG 2.1 AA compliance in.
+//
+// Reference pattern: client-islands-a11y.test.tsx (the BreachDeterminationWizard
+// case there already covers that wizard — this file picks up the rest).
+
+import { describe, it, expect, vi } from "vitest";
+import { render } from "@testing-library/react";
+import { axe } from "jest-axe";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    refresh: vi.fn(),
+    replace: vi.fn(),
+    back: vi.fn(),
+  }),
+  usePathname: () => "/dashboard",
+}));
+
+vi.mock("@/app/(dashboard)/programs/risk/actions", () => ({
+  saveSraDraftAction: vi.fn(),
+  completeSraAction: vi.fn(),
+}));
+
+vi.mock("@/app/(dashboard)/programs/incidents/actions", () => ({
+  reportIncidentAction: vi.fn(),
+}));
+
+vi.mock("@/app/(dashboard)/programs/credentials/actions", () => ({
+  addCredentialAction: vi.fn(),
+}));
+
+vi.mock("@/app/(dashboard)/programs/document-retention/actions", () => ({
+  recordDestructionAction: vi.fn(),
+}));
+
+import { SraWizard, type SraWizardQuestion } from "./risk/new/SraWizard";
+import { IncidentReportForm } from "./incidents/new/IncidentReportForm";
+import { AddCredentialForm } from "./credentials/AddCredentialForm";
+import { NewDestructionForm } from "./document-retention/NewDestructionForm";
+
+const AXE_OPTS = {
+  rules: {
+    region: { enabled: false },
+  },
+};
+
+const SRA_QUESTIONS: SraWizardQuestion[] = [
+  {
+    code: "ADMIN_001",
+    category: "ADMINISTRATIVE",
+    subcategory: "Risk Management",
+    title: "Risk analysis",
+    description: "Have you conducted an annual risk analysis?",
+    guidance: null,
+    lookFor: ["Documented analysis", "Updated within last 12 months"],
+  },
+  {
+    code: "ADMIN_002",
+    category: "ADMINISTRATIVE",
+    subcategory: "Workforce Security",
+    title: "Workforce sanctions policy",
+    description: "Sanction policy for workforce members who violate HIPAA?",
+    guidance: null,
+    lookFor: [],
+  },
+];
+
+describe("Audit #12 ARIA / form labelling sweep", () => {
+  describe("<SraWizard>", () => {
+    it("default render — no answers", async () => {
+      const { container } = render(<SraWizard questions={SRA_QUESTIONS} />);
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+
+    it("with initial state hydrated (resumed draft)", async () => {
+      const { container } = render(
+        <SraWizard
+          questions={SRA_QUESTIONS}
+          initialState={{
+            assessmentId: "asmt-1",
+            currentStep: 0,
+            answers: { ADMIN_001: "YES" },
+            notes: { ADMIN_001: "Documented in /docs/sra.pdf" },
+          }}
+        />,
+      );
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+  });
+
+  describe("<IncidentReportForm>", () => {
+    it("default (PRIVACY type — no OSHA fields)", async () => {
+      const { container } = render(
+        <IncidentReportForm
+          primaryState="AZ"
+          operatingStates={[]}
+          memberOptions={[
+            { userId: "u-1", label: "Alice (CLINICIAN)" },
+            { userId: "u-2", label: "Bob (STAFF)" },
+          ]}
+        />,
+      );
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+
+    it("multi-state — patient state select rendered when PHI involved", async () => {
+      const { container } = render(
+        <IncidentReportForm
+          primaryState="AZ"
+          operatingStates={["CA", "TX"]}
+          memberOptions={[]}
+        />,
+      );
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+  });
+
+  describe("<AddCredentialForm>", () => {
+    it("default render with credential types and holders", async () => {
+      const { container } = render(
+        <AddCredentialForm
+          holders={[
+            { id: "u-1", name: "Alice" },
+            { id: "u-2", name: "Bob" },
+          ]}
+          credentialTypes={[
+            {
+              code: "MD_STATE_LICENSE",
+              name: "MD State License",
+              category: "MEDICAL_LICENSE",
+              renewalPeriodDays: 365,
+            },
+            {
+              code: "DEA_REGISTRATION",
+              name: "DEA Registration",
+              category: "DEA",
+              renewalPeriodDays: 1095,
+            },
+          ]}
+        />,
+      );
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+
+    it("empty type list still renders without violations", async () => {
+      const { container } = render(
+        <AddCredentialForm holders={[]} credentialTypes={[]} />,
+      );
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+  });
+
+  describe("<NewDestructionForm>", () => {
+    it("default render", async () => {
+      const { container } = render(<NewDestructionForm />);
+      const results = await axe(container, AXE_OPTS);
+      expect(results).toHaveNoViolations();
+    });
+  });
+});

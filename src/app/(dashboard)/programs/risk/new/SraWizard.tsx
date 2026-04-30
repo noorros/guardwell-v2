@@ -248,63 +248,81 @@ export function SraWizard({ questions, initialState }: SraWizardProps) {
             </Badge>
           </div>
           <ol className="space-y-6">
-            {stepQuestions.map((q, i) => (
-              <li key={q.code} className="space-y-2 border-l-2 border-border pl-4">
-                <div className="space-y-1">
-                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                    {q.subcategory}
-                  </p>
-                  <p className="text-sm font-medium text-foreground">
-                    {i + 1}. {q.title}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{q.description}</p>
-                </div>
-                {q.lookFor.length > 0 && (
-                  <details className="text-xs">
-                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                      What auditors look for ({q.lookFor.length})
-                    </summary>
-                    <ul className="ml-5 mt-1 list-disc space-y-0.5 text-muted-foreground">
-                      {q.lookFor.map((item, idx) => (
-                        <li key={idx}>{item}</li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
-                <div className="flex flex-wrap gap-2">
-                  {ANSWER_OPTIONS.map((opt) => {
-                    const selected = answers[q.code] === opt.value;
-                    return (
-                      <label
-                        key={opt.value}
-                        className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-1.5 text-xs transition-colors ${
-                          selected
-                            ? "border-primary bg-accent"
-                            : "border-border hover:bg-accent/50"
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name={`q-${q.code}`}
-                          value={opt.value}
-                          checked={selected}
-                          onChange={() => setAnswer(q.code, opt.value)}
-                          className="h-3.5 w-3.5"
-                        />
-                        <span>{opt.label}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-                <textarea
-                  rows={2}
-                  placeholder="Optional notes (evidence location, exceptions, remediation plan)"
-                  value={notes[q.code] ?? ""}
-                  onChange={(e) => setNote(q.code, e.target.value)}
-                  className="w-full rounded-md border bg-background px-2 py-1.5 text-xs"
-                />
-              </li>
-            ))}
+            {stepQuestions.map((q, i) => {
+              const descId = `q-${q.code}-desc`;
+              const notesId = `q-${q.code}-notes`;
+              return (
+                <li key={q.code} className="space-y-2 border-l-2 border-border pl-4">
+                  <div className="space-y-1">
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                      {q.subcategory}
+                    </p>
+                    <p id={`q-${q.code}-title`} className="text-sm font-medium text-foreground">
+                      {i + 1}. {q.title}
+                    </p>
+                    <p id={descId} className="text-xs text-muted-foreground">
+                      {q.description}
+                    </p>
+                  </div>
+                  {q.lookFor.length > 0 && (
+                    <details className="text-xs">
+                      <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                        What auditors look for ({q.lookFor.length})
+                      </summary>
+                      <ul className="ml-5 mt-1 list-disc space-y-0.5 text-muted-foreground">
+                        {q.lookFor.map((item, idx) => (
+                          <li key={idx}>{item}</li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                  <div
+                    role="radiogroup"
+                    aria-labelledby={`q-${q.code}-title`}
+                    aria-describedby={descId}
+                    className="flex flex-wrap gap-2"
+                  >
+                    {ANSWER_OPTIONS.map((opt) => {
+                      const selected = answers[q.code] === opt.value;
+                      const inputId = `q-${q.code}-${opt.value}`;
+                      return (
+                        <label
+                          key={opt.value}
+                          htmlFor={inputId}
+                          className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-1.5 text-xs transition-colors ${
+                            selected
+                              ? "border-primary bg-accent"
+                              : "border-border hover:bg-accent/50"
+                          }`}
+                        >
+                          <input
+                            id={inputId}
+                            type="radio"
+                            name={`q-${q.code}`}
+                            value={opt.value}
+                            checked={selected}
+                            onChange={() => setAnswer(q.code, opt.value)}
+                            className="h-3.5 w-3.5"
+                          />
+                          <span>{opt.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <label htmlFor={notesId} className="sr-only">
+                    Notes for question {i + 1}: {q.title}
+                  </label>
+                  <textarea
+                    id={notesId}
+                    rows={2}
+                    placeholder="Optional notes (evidence location, exceptions, remediation plan)"
+                    value={notes[q.code] ?? ""}
+                    onChange={(e) => setNote(q.code, e.target.value)}
+                    className="w-full rounded-md border bg-background px-2 py-1.5 text-xs"
+                  />
+                </li>
+              );
+            })}
           </ol>
           {error && (
             <p className="mt-4 text-xs text-[color:var(--gw-color-at-risk)]">
