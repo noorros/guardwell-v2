@@ -128,9 +128,12 @@ export function IncidentReportForm({
       <Card>
         <CardContent className="space-y-4 p-6">
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="space-y-1 text-xs font-medium text-foreground">
-              Type
+            <div>
+              <label htmlFor="incident-type" className="block text-xs font-medium text-foreground">
+                Type
+              </label>
               <select
+                id="incident-type"
                 value={type}
                 onChange={(e) => setType(e.target.value as IncidentType)}
                 required
@@ -144,10 +147,13 @@ export function IncidentReportForm({
                 <option value="CLIA_QC_FAILURE">CLIA QC failure</option>
                 <option value="TCPA_COMPLAINT">TCPA complaint</option>
               </select>
-            </label>
-            <label className="space-y-1 text-xs font-medium text-foreground">
-              Severity
+            </div>
+            <div>
+              <label htmlFor="incident-severity" className="block text-xs font-medium text-foreground">
+                Severity
+              </label>
               <select
+                id="incident-severity"
                 value={severity}
                 onChange={(e) => setSeverity(e.target.value as Severity)}
                 required
@@ -158,12 +164,15 @@ export function IncidentReportForm({
                 <option value="HIGH">High</option>
                 <option value="CRITICAL">Critical</option>
               </select>
-            </label>
+            </div>
           </div>
 
-          <label className="block space-y-1 text-xs font-medium text-foreground">
-            Title <span className="text-muted-foreground">*</span>
+          <div>
+            <label htmlFor="incident-title" className="block text-xs font-medium text-foreground">
+              Title <span className="text-muted-foreground">*</span>
+            </label>
             <input
+              id="incident-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -172,11 +181,14 @@ export function IncidentReportForm({
               placeholder="Short headline, e.g. 'Unencrypted laptop stolen from clinic'"
               className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
             />
-          </label>
+          </div>
 
-          <label className="block space-y-1 text-xs font-medium text-foreground">
-            Description <span className="text-muted-foreground">*</span>
+          <div>
+            <label htmlFor="incident-description" className="block text-xs font-medium text-foreground">
+              Description <span className="text-muted-foreground">*</span>
+            </label>
             <textarea
+              id="incident-description"
               rows={4}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -185,22 +197,28 @@ export function IncidentReportForm({
               placeholder="Facts of the incident: what happened, where, who discovered it, what data was involved."
               className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
             />
-          </label>
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="space-y-1 text-xs font-medium text-foreground">
-              Discovered
+            <div>
+              <label htmlFor="incident-discovered-at" className="block text-xs font-medium text-foreground">
+                Discovered
+              </label>
               <input
+                id="incident-discovered-at"
                 type="date"
                 value={discoveredAt}
                 onChange={(e) => setDiscoveredAt(e.target.value)}
                 required
                 className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
               />
-            </label>
-            <label className="space-y-1 text-xs font-medium text-foreground">
-              Initial affected count (optional)
+            </div>
+            <div>
+              <label htmlFor="incident-affected-count" className="block text-xs font-medium text-foreground">
+                Initial affected count (optional)
+              </label>
               <input
+                id="incident-affected-count"
                 type="number"
                 min={0}
                 value={affectedCountStr}
@@ -208,7 +226,7 @@ export function IncidentReportForm({
                 placeholder="0"
                 className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
               />
-            </label>
+            </div>
           </div>
 
           <label className="flex items-center gap-2 text-xs font-medium text-foreground">
@@ -222,9 +240,12 @@ export function IncidentReportForm({
           </label>
 
           {phiInvolved && jurisdictions.length > 1 && (
-            <label className="space-y-1 text-xs font-medium text-foreground">
-              Patient state (for state-specific notification timing)
+            <div>
+              <label htmlFor="incident-patient-state" className="block text-xs font-medium text-foreground">
+                Patient state (for state-specific notification timing)
+              </label>
               <select
+                id="incident-patient-state"
                 value={patientState}
                 onChange={(e) => setPatientState(e.target.value)}
                 className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
@@ -235,7 +256,7 @@ export function IncidentReportForm({
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
           )}
 
           {isOsha && (
@@ -244,14 +265,18 @@ export function IncidentReportForm({
                 <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   OSHA recordable details (29 CFR §1904)
                 </p>
-                <label className="block space-y-1 text-xs font-medium text-foreground">
-                  Which staff member was injured?{" "}
-                  <span className="text-muted-foreground">*</span>
-                  <span className="mt-0.5 block text-[10px] font-normal text-muted-foreground">
+                <div>
+                  <label htmlFor="osha-injured-user" className="block text-xs font-medium text-foreground">
+                    Which staff member was injured?{" "}
+                    <span className="text-muted-foreground">*</span>
+                  </label>
+                  <p id="osha-injured-user-help" className="mt-0.5 text-[10px] font-normal text-muted-foreground">
                     §1904.35(b)(2)(v) requires the injured employee on
                     Form 300/301 — distinct from the user reporting.
-                  </span>
+                  </p>
                   <select
+                    id="osha-injured-user"
+                    aria-describedby="osha-injured-user-help"
                     value={injuredUserId}
                     onChange={(e) => setInjuredUserId(e.target.value)}
                     required={isOsha}
@@ -264,31 +289,40 @@ export function IncidentReportForm({
                       </option>
                     ))}
                   </select>
-                </label>
+                </div>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <label className="space-y-1 text-xs font-medium text-foreground">
-                    Body part
+                  <div>
+                    <label htmlFor="osha-body-part" className="block text-xs font-medium text-foreground">
+                      Body part
+                    </label>
                     <input
+                      id="osha-body-part"
                       type="text"
                       value={oshaBodyPart}
                       onChange={(e) => setOshaBodyPart(e.target.value)}
                       placeholder="e.g. Hand"
                       className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
                     />
-                  </label>
-                  <label className="space-y-1 text-xs font-medium text-foreground">
-                    Nature of injury
+                  </div>
+                  <div>
+                    <label htmlFor="osha-injury-nature" className="block text-xs font-medium text-foreground">
+                      Nature of injury
+                    </label>
                     <input
+                      id="osha-injury-nature"
                       type="text"
                       value={oshaInjuryNature}
                       onChange={(e) => setOshaInjuryNature(e.target.value)}
                       placeholder="e.g. Needlestick"
                       className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
                     />
-                  </label>
-                  <label className="space-y-1 text-xs font-medium text-foreground">
-                    Outcome
+                  </div>
+                  <div>
+                    <label htmlFor="osha-outcome" className="block text-xs font-medium text-foreground">
+                      Outcome
+                    </label>
                     <select
+                      id="osha-outcome"
                       value={oshaOutcome}
                       onChange={(e) => setOshaOutcome(e.target.value)}
                       className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
@@ -300,41 +334,51 @@ export function IncidentReportForm({
                       <option value="OTHER_RECORDABLE">Other recordable</option>
                       <option value="FIRST_AID">First aid only</option>
                     </select>
-                  </label>
-                  <label className="space-y-1 text-xs font-medium text-foreground">
-                    Days away (if applicable)
+                  </div>
+                  <div>
+                    <label htmlFor="osha-days-away" className="block text-xs font-medium text-foreground">
+                      Days away (if applicable)
+                    </label>
                     <input
+                      id="osha-days-away"
                       type="number"
                       min={0}
                       value={oshaDaysAway}
                       onChange={(e) => setOshaDaysAway(e.target.value)}
                       className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
                     />
-                  </label>
-                  <label className="space-y-1 text-xs font-medium text-foreground">
-                    Days restricted (light duty / restricted work)
+                  </div>
+                  <div>
+                    <label htmlFor="osha-days-restricted" className="block text-xs font-medium text-foreground">
+                      Days restricted (light duty / restricted work)
+                    </label>
                     <input
+                      id="osha-days-restricted"
                       type="number"
                       min={0}
                       value={oshaDaysRestricted}
                       onChange={(e) => setOshaDaysRestricted(e.target.value)}
                       className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
                     />
-                  </label>
-                  <label className="space-y-1 text-xs font-medium text-foreground">
-                    Sharps device involved (if any)
+                  </div>
+                  <div>
+                    <label htmlFor="osha-sharps-device" className="block text-xs font-medium text-foreground">
+                      Sharps device involved (if any)
+                    </label>
                     <input
+                      id="osha-sharps-device"
                       type="text"
                       placeholder="Needle / scalpel / lancet / other"
                       value={sharpsDeviceType}
                       onChange={(e) => setSharpsDeviceType(e.target.value)}
                       maxLength={200}
+                      aria-describedby="osha-sharps-device-help"
                       className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
                     />
-                    <span className="block text-[11px] font-normal text-muted-foreground">
+                    <p id="osha-sharps-device-help" className="mt-1 text-[11px] font-normal text-muted-foreground">
                       Required for the BBP §1910.1030 sharps injury log. Leave blank for non-sharps injuries.
-                    </span>
-                  </label>
+                    </p>
+                  </div>
                 </div>
               </div>
             </>

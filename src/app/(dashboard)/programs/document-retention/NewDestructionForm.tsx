@@ -85,9 +85,12 @@ export function NewDestructionForm() {
         </p>
         <form onSubmit={handleSubmit} className="space-y-2.5">
           <div className="grid grid-cols-2 gap-2">
-            <label className="block text-xs font-medium text-foreground">
-              Document type
+            <div>
+              <label htmlFor="destruction-doc-type" className="block text-xs font-medium text-foreground">
+                Document type
+              </label>
               <select
+                id="destruction-doc-type"
                 value={docType}
                 onChange={(e) =>
                   setDocType(e.target.value as typeof DOC_TYPES[number]["v"])
@@ -100,10 +103,13 @@ export function NewDestructionForm() {
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="block text-xs font-medium text-foreground">
-              Method
+            </div>
+            <div>
+              <label htmlFor="destruction-method" className="block text-xs font-medium text-foreground">
+                Method
+              </label>
               <select
+                id="destruction-method"
                 value={method}
                 onChange={(e) =>
                   setMethod(e.target.value as typeof METHODS[number]["v"])
@@ -116,11 +122,14 @@ export function NewDestructionForm() {
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
           </div>
-          <label className="block text-xs font-medium text-foreground">
-            Description (scope, date range, patient cohort, etc.)
+          <div>
+            <label htmlFor="destruction-description" className="block text-xs font-medium text-foreground">
+              Description (scope, date range, patient cohort, etc.)
+            </label>
             <textarea
+              id="destruction-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
@@ -128,21 +137,27 @@ export function NewDestructionForm() {
               placeholder="e.g. Closed paper charts for patients last seen in 2018 (n=47)"
               className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
             />
-          </label>
+          </div>
           <div className="grid grid-cols-2 gap-2">
-            <label className="block text-xs font-medium text-foreground">
-              Volume estimate
+            <div>
+              <label htmlFor="destruction-volume" className="block text-xs font-medium text-foreground">
+                Volume estimate
+              </label>
               <input
+                id="destruction-volume"
                 type="text"
                 value={volumeEstimate}
                 onChange={(e) => setVolumeEstimate(e.target.value)}
                 placeholder="e.g. 12 boxes"
                 className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
               />
-            </label>
-            <label className="block text-xs font-medium text-foreground">
-              Destruction date
+            </div>
+            <div>
+              <label htmlFor="destruction-date" className="block text-xs font-medium text-foreground">
+                Destruction date
+              </label>
               <input
+                id="destruction-date"
                 type="date"
                 value={destroyedAt}
                 onChange={(e) => setDestroyedAt(e.target.value)}
@@ -150,27 +165,33 @@ export function NewDestructionForm() {
                 max={todayIso}
                 className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
               />
-            </label>
+            </div>
           </div>
-          <label className="block text-xs font-medium text-foreground">
-            Certificate of destruction URL (optional)
+          <div>
+            <label htmlFor="destruction-certificate-url" className="block text-xs font-medium text-foreground">
+              Certificate of destruction URL (optional)
+            </label>
             <input
+              id="destruction-certificate-url"
               type="url"
               value={certificateUrl}
               onChange={(e) => setCertificateUrl(e.target.value)}
               placeholder="https://"
               className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
             />
-          </label>
-          <label className="block text-xs font-medium text-foreground">
-            Notes (optional)
+          </div>
+          <div>
+            <label htmlFor="destruction-notes" className="block text-xs font-medium text-foreground">
+              Notes (optional)
+            </label>
             <textarea
+              id="destruction-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
               className="mt-1 block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
             />
-          </label>
+          </div>
           {error && (
             <p className="text-xs text-[color:var(--gw-color-risk)]">{error}</p>
           )}

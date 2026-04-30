@@ -105,9 +105,12 @@ export function AddCredentialForm({ holders, credentialTypes }: AddCredentialFor
         <h2 className="mb-4 text-sm font-semibold">Add credential</h2>
         <form onSubmit={handleSubmit} className="space-y-3 text-sm">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-muted-foreground">Type *</span>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="add-cred-type" className="text-xs font-medium text-muted-foreground">
+                Type *
+              </label>
               <select
+                id="add-cred-type"
                 value={credentialTypeCode}
                 onChange={(e) => handleTypeChange(e.target.value)}
                 required
@@ -122,10 +125,13 @@ export function AddCredentialForm({ holders, credentialTypes }: AddCredentialFor
                   </optgroup>
                 ))}
               </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-muted-foreground">Holder</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="add-cred-holder" className="text-xs font-medium text-muted-foreground">
+                Holder
+              </label>
               <select
+                id="add-cred-holder"
                 value={holderId}
                 onChange={(e) => setHolderId(e.target.value)}
                 className="rounded-md border bg-background px-2 py-1.5 text-sm"
@@ -135,11 +141,14 @@ export function AddCredentialForm({ holders, credentialTypes }: AddCredentialFor
                   <option key={h.id} value={h.id}>{h.name}</option>
                 ))}
               </select>
-            </label>
+            </div>
           </div>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-muted-foreground">Title *</span>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="add-cred-title" className="text-xs font-medium text-muted-foreground">
+              Title *
+            </label>
             <input
+              id="add-cred-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -147,61 +156,74 @@ export function AddCredentialForm({ holders, credentialTypes }: AddCredentialFor
               className="rounded-md border bg-background px-2 py-1.5 text-sm"
               placeholder="e.g. Arizona Medical License"
             />
-          </label>
+          </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-muted-foreground">License number</span>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="add-cred-license" className="text-xs font-medium text-muted-foreground">
+                License number
+              </label>
               <input
+                id="add-cred-license"
                 type="text"
                 value={licenseNumber}
                 onChange={(e) => setLicenseNumber(e.target.value)}
                 className="rounded-md border bg-background px-2 py-1.5 text-sm"
                 placeholder="e.g. MD-12345"
               />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-muted-foreground">Issuing body</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="add-cred-issuer" className="text-xs font-medium text-muted-foreground">
+                Issuing body
+              </label>
               <input
+                id="add-cred-issuer"
                 type="text"
                 value={issuingBody}
                 onChange={(e) => setIssuingBody(e.target.value)}
                 className="rounded-md border bg-background px-2 py-1.5 text-sm"
                 placeholder="e.g. Arizona Medical Board"
               />
-            </label>
+            </div>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-muted-foreground">Issue date</span>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="add-cred-issue-date" className="text-xs font-medium text-muted-foreground">
+                Issue date
+              </label>
               <input
+                id="add-cred-issue-date"
                 type="date"
                 value={issueDate}
                 onChange={(e) => setIssueDate(e.target.value)}
                 className="rounded-md border bg-background px-2 py-1.5 text-sm"
               />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-muted-foreground">
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="add-cred-expiry-date" className="text-xs font-medium text-muted-foreground">
                 Expiry date {selectedType?.renewalPeriodDays ? `· typical renewal ${selectedType.renewalPeriodDays} days` : ""}
-              </span>
+              </label>
               <input
+                id="add-cred-expiry-date"
                 type="date"
                 value={expiryDate}
                 onChange={(e) => setExpiryDate(e.target.value)}
                 className="rounded-md border bg-background px-2 py-1.5 text-sm"
               />
-            </label>
+            </div>
           </div>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-muted-foreground">Notes</span>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="add-cred-notes" className="text-xs font-medium text-muted-foreground">
+              Notes
+            </label>
             <textarea
+              id="add-cred-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
               className="rounded-md border bg-background px-2 py-1.5 text-sm"
               placeholder="CE requirements met, board action history, anything worth remembering"
             />
-          </label>
+          </div>
           {error && (
             <p className="text-xs text-[color:var(--gw-color-at-risk)]">{error}</p>
           )}
