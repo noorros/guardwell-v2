@@ -160,3 +160,122 @@ describe("Notification digest", () => {
     expect(notes.length).toBeGreaterThan(0);
   });
 });
+
+// ── Audit #21 CR-2: retiredAt cascade to allergy notification generators ──
+// Audit #15 added soft-delete (retiredAt) to AllergyDrill +
+// AllergyEquipmentCheck. The list-page reads filter `retiredAt: null`,
+// the derivation rules filter `retiredAt: null`, but the three allergy
+// notification generators (drill, fridge, kit) were missed — so a
+// soft-deleted log was still being treated as "the latest log" by the
+// digest. CR-2 patches each generator to filter `retiredAt: null` to
+// match the rest of the system.
+
+async function seedAllergyEnabledPractice(label: string) {
+  // Reuse the framework upsert pattern from allergy-end-to-end.test.ts —
+  // these tests need the ALLERGY framework enabled or the generator
+  // short-circuits.
+  const fw = await db.regulatoryFramework.upsert({
+    where: { code: "ALLERGY" },
+    update: {},
+    create: {
+      code: "ALLERGY",
+      name: "Allergy / USP 797 §21",
+      description: "test",
+      sortOrder: 100,
+    },
+  });
+  const owner = await db.user.create({
+    data: {
+      firebaseUid: `notif-allergy-${Math.random().toString(36).slice(2, 10)}`,
+      email: `notif-allergy-${Math.random().toString(36).slice(2, 8)}@test.test`,
+    },
+  });
+  const practice = await db.practice.create({
+    data: { name: `Notif Allergy ${label}`, primaryState: "AZ" },
+  });
+  const ownerPu = await db.practiceUser.create({
+    data: { userId: owner.id, practiceId: practice.id, role: "OWNER" },
+  });
+  await db.practiceFramework.create({
+    data: {
+      practiceId: practice.id,
+      frameworkId: fw.id,
+      enabled: true,
+      enabledAt: new Date(),
+      scoreCache: 0,
+      scoreLabel: "At Risk",
+      lastScoredAt: new Date(),
+    },
+  });
+  return { owner, ownerPu, practice };
+}
+
+describe("Audit #21 CR-2 — retiredAt cascade in allergy notification generators", () => {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  it("Treats a fresh fridge log with retiredAt set as if absent (re-fires ALLERGY_FRIDGE_OVERDUE)", async () => {
+    const { owner, ownerPu, practice } = await seedAllergyEnabledPractice("fridge");
+    // Fresh in-window log, but soft-deleted. Without the CR-2 filter,
+    // this row would suppress the overdue alert.
+    await db.allergyEquipmentCheck.create({
+      data: {
+        practiceId: practice.id,
+        checkedById: ownerPu.id,
+        checkType: "REFRIGERATOR_TEMP",
+        checkedAt: new Date(),
+        temperatureC: 4.2,
+        inRange: true,
+        retiredAt: new Date(),
+      },
+    });
+    await runNotificationDigest();
+    const notes = await ownerNotifications(owner.id);
+    const fridgeNote = notes.find((n) => n.type === "ALLERGY_FRIDGE_OVERDUE");
+    expect(fridgeNote).toBeTruthy();
+  });
+
+  it("Treats a soft-deleted future-due drill as absent (re-fires ALLERGY_DRILL_DUE initial)", async () => {
+    const { owner, ownerPu, practice } = await seedAllergyEnabledPractice("drill");
+    // Drill row is "fresh" but soft-deleted. Without the CR-2 filter,
+    // its nextDrillDue would suppress the warning.
+    await db.allergyDrill.create({
+      data: {
+        practiceId: practice.id,
+        conductedById: ownerPu.id,
+        conductedAt: new Date(),
+        scenario: "Soft-deleted drill",
+        participantIds: [ownerPu.id],
+        nextDrillDue: new Date(Date.now() + 200 * DAY_MS),
+        retiredAt: new Date(),
+      },
+    });
+    await runNotificationDigest();
+    const notes = await ownerNotifications(owner.id);
+    const drillNote = notes.find((n) => n.type === "ALLERGY_DRILL_DUE");
+    expect(drillNote).toBeTruthy();
+    // Initial copy fires when no surviving drill is found.
+    expect(drillNote?.title).toContain("not yet on file");
+  });
+
+  it("Treats a soft-deleted emergency kit check as absent (no ALLERGY_KIT_EXPIRING)", async () => {
+    const { owner, ownerPu, practice } = await seedAllergyEnabledPractice("kit");
+    // Kit row whose epi expires soon — but it's soft-deleted, so it
+    // shouldn't drive a kit-expiring alert. With the CR-2 filter the
+    // generator looks past it and finds nothing.
+    await db.allergyEquipmentCheck.create({
+      data: {
+        practiceId: practice.id,
+        checkedById: ownerPu.id,
+        checkType: "EMERGENCY_KIT",
+        checkedAt: new Date(),
+        epiExpiryDate: new Date(Date.now() + 30 * DAY_MS),
+        allItemsPresent: true,
+        retiredAt: new Date(),
+      },
+    });
+    await runNotificationDigest();
+    const notes = await ownerNotifications(owner.id);
+    const kitNote = notes.find((n) => n.type === "ALLERGY_KIT_EXPIRING");
+    expect(kitNote).toBeUndefined();
+  });
+});

@@ -77,15 +77,36 @@ export async function recomputeIsFullyQualified(
   const c = await tx.allergyCompetency.findUniqueOrThrow({
     where: { id: competencyId },
   });
-  const priorQualified = await tx.allergyCompetency.findFirst({
+  // Audit #21 CR-4 (2026-04-30): USP §21.3 requires re-qualification
+  // (3 fingertips, not 1) after a year off. The previous "any prior
+  // year qualified" lookup let a 2024-qualified compounder skip 2025
+  // entirely and renew with a single fingertip in 2026 — the regulation
+  // treats that as INITIAL, not RENEWAL.
+  //
+  // Strict semantics: only `c.year - 1` counts as the prior-year
+  // qualifying record. Schema has no separate "inactivity flag" column
+  // (the audit had assumed one); presence of `isFullyQualified=true` on
+  // the year-1 row IS the inactivity check — if year-1 was never built
+  // up to qualified, the compounder went a year without competency by
+  // definition.
+  //
+  // Intentional merger: "no year-1 row" and "year-1 row exists but
+  // isFullyQualified=false" are treated identically here — both mean
+  // the compounder was not fully qualified at any point during year-1.
+  // Per USP §21.3 strict reading that requires the initial 3-fingertip
+  // path, not the 1-fingertip renewal. Example: compounder qualified
+  // 2024, did 1 fingertip + media fill in 2025 but never passed the
+  // quiz (year-1 row exists, isFullyQualified=false), wants to renew
+  // with 1 fingertip in 2026 → forced into 3-fingertip initial. Correct.
+  const priorYearQualified = await tx.allergyCompetency.findFirst({
     where: {
       practiceUserId: c.practiceUserId,
-      year: { lt: c.year },
+      year: c.year - 1,
       isFullyQualified: true,
     },
     select: { id: true },
   });
-  const fingertipNeeded = priorQualified ? 1 : 3;
+  const fingertipNeeded = priorYearQualified ? 1 : 3;
 
   // USP §21 inactivity rule: if a compounder has logged at least one
   // session (lastCompoundedAt is set) but hasn't compounded in 6+ months,
@@ -121,12 +142,26 @@ export async function projectAllergyQuizCompleted(
   // practiceUserId path.
   const existingAttempt = await tx.allergyQuizAttempt.findUnique({
     where: { id: payload.attemptId },
-    select: { practiceId: true },
+    select: { practiceId: true, practiceUserId: true },
   });
   assertProjectionPracticeOwned(existingAttempt, practiceId, {
     table: "allergyQuizAttempt",
     id: payload.attemptId,
   });
+  // Audit #21 CR-3 (2026-04-30): same-tenant cross-user overwrite guard.
+  // Tenancy alone isn't enough — STAFF user B inside the same practice
+  // could submit at user A's attemptId and overwrite A's score / passed
+  // / correctAnswers. The existing row's practiceUserId stays correct on
+  // upsert (we don't update it), but the OTHER fields would be replaced
+  // with B's results, silently corrupting A's competency record.
+  if (
+    existingAttempt &&
+    existingAttempt.practiceUserId !== payload.practiceUserId
+  ) {
+    throw new Error(
+      `Projection refused: allergyQuizAttempt ${payload.attemptId} cross-user overwrite forbidden (existing practiceUserId=${existingAttempt.practiceUserId}, payload practiceUserId=${payload.practiceUserId})`,
+    );
+  }
 
   // Idempotent on attemptId: upsert the AllergyQuizAttempt row.
   const attempt = await tx.allergyQuizAttempt.upsert({

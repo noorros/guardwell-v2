@@ -403,8 +403,10 @@ export async function generateAllergyNotifications(
   const proposals: NotificationProposal[] = [];
 
   // ── Drill due ────────────────────────────────────────────────────────────
+  // Audit #21 CR-2 (2026-04-30): filter retiredAt:null so soft-deleted
+  // drills (audit #15) don't keep firing reminders.
   const lastDrill = await tx.allergyDrill.findFirst({
-    where: { practiceId },
+    where: { practiceId, retiredAt: null },
     orderBy: { conductedAt: "desc" },
     select: { id: true, nextDrillDue: true },
   });
@@ -445,8 +447,10 @@ export async function generateAllergyNotifications(
   }
 
   // ── Refrigerator overdue ─────────────────────────────────────────────────
+  // Audit #21 CR-2 (2026-04-30): filter retiredAt:null so soft-deleted
+  // fridge logs (audit #15) don't suppress / reset the overdue timer.
   const lastFridge = await tx.allergyEquipmentCheck.findFirst({
-    where: { practiceId, checkType: "REFRIGERATOR_TEMP" },
+    where: { practiceId, checkType: "REFRIGERATOR_TEMP", retiredAt: null },
     orderBy: { checkedAt: "desc" },
     select: { id: true, checkedAt: true },
   });
@@ -469,8 +473,10 @@ export async function generateAllergyNotifications(
   }
 
   // ── Kit expiring ─────────────────────────────────────────────────────────
+  // Audit #21 CR-2 (2026-04-30): filter retiredAt:null so soft-deleted
+  // kit checks (audit #15) don't keep firing the epi-expiry warning.
   const lastKit = await tx.allergyEquipmentCheck.findFirst({
-    where: { practiceId, checkType: "EMERGENCY_KIT" },
+    where: { practiceId, checkType: "EMERGENCY_KIT", retiredAt: null },
     orderBy: { checkedAt: "desc" },
     select: { id: true, epiExpiryDate: true },
   });

@@ -25,6 +25,16 @@ const PROJECTION_TABLES = new Set([
   // using direct practiceUser writes — they're whitelisted below.
   "allergyCompetency",
   "practiceUser",
+  // Audit #21 CR-1 (2026-04-30): the four allergy tables introduced /
+  // event-projected by audit #15's edit + soft-delete work. Their
+  // mutations belong in projection callbacks (drillEdit / drillDelete /
+  // equipmentCheckEdit / equipmentCheckDelete + the quiz attempt /
+  // answer projections); rule coverage was missed during the audit #15
+  // ship. Adding here closes the regression door.
+  "allergyDrill",
+  "allergyEquipmentCheck",
+  "allergyQuizAttempt",
+  "allergyQuizAnswer",
 ]);
 
 const MUTATING_METHODS = new Set([
