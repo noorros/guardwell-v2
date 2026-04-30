@@ -27,8 +27,9 @@ describe("<AppShell>", () => {
   it("renders the practice name in the top bar", () => {
     render(
       <AppShell
-        practice={{ name: "Acme Primary Care" }}
+        practice={{ id: "p1", name: "Acme Primary Care" }}
         user={{ email: "jane@acme.test" }}
+        memberships={[]}
         myComplianceItems={[]}
       >
         <div>page-content</div>
@@ -40,8 +41,9 @@ describe("<AppShell>", () => {
   it("renders children inside <main id='main'>", () => {
     const { container } = render(
       <AppShell
-        practice={{ name: "Acme" }}
+        practice={{ id: "p1", name: "Acme" }}
         user={{ email: "jane@acme.test" }}
+        memberships={[]}
         myComplianceItems={[]}
       >
         <div data-testid="child-slot">hello</div>
@@ -55,8 +57,9 @@ describe("<AppShell>", () => {
   it("renders the sidebar framework nav items", () => {
     render(
       <AppShell
-        practice={{ name: "Acme" }}
+        practice={{ id: "p1", name: "Acme" }}
         user={{ email: "jane@acme.test" }}
+        memberships={[]}
         myComplianceItems={[
           { code: "HIPAA", name: "HIPAA", score: 82, assessed: true },
           { code: "OSHA", name: "OSHA", score: 54, assessed: true },
@@ -78,8 +81,9 @@ describe("<AppShell>", () => {
   it("renders the avatar in the top bar", () => {
     render(
       <AppShell
-        practice={{ name: "Acme" }}
+        practice={{ id: "p1", name: "Acme" }}
         user={{ email: "jane@acme.test" }}
+        memberships={[]}
         myComplianceItems={[]}
       >
         <div>page-content</div>

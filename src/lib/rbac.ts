@@ -8,6 +8,7 @@
 
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getSelectedPracticeId } from "@/lib/practice-cookie";
 import { PracticeRole } from "@prisma/client";
 
 const ROLE_HIERARCHY: Record<PracticeRole, number> = {
@@ -21,17 +22,58 @@ export async function getPracticeUser(practiceId?: string) {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  const where = practiceId
-    ? { userId: user.id, practiceId, removedAt: null }
-    : { userId: user.id, removedAt: null };
+  // Explicit practiceId arg always wins (e.g. an action targeting a
+  // specific practice). When omitted, prefer the cookie-selected
+  // practice (audit #7 multi-practice support); fall back to the
+  // user's oldest membership if no cookie or the cookie value isn't
+  // a current membership.
+  if (practiceId) {
+    const pu = await db.practiceUser.findFirst({
+      where: { userId: user.id, practiceId, removedAt: null },
+      include: { practice: true },
+    });
+    return pu ? { ...pu, dbUser: user } : null;
+  }
+
+  const cookieValue = await getSelectedPracticeId();
+  if (cookieValue) {
+    const pu = await db.practiceUser.findFirst({
+      where: { userId: user.id, practiceId: cookieValue, removedAt: null },
+      include: { practice: true },
+    });
+    if (pu) return { ...pu, dbUser: user };
+    // Cookie points to a practice the user no longer belongs to (left,
+    // removed, deleted). Fall through to oldest-membership lookup so
+    // the page renders rather than 404'ing.
+  }
 
   const pu = await db.practiceUser.findFirst({
-    where,
+    where: { userId: user.id, removedAt: null },
     include: { practice: true },
     orderBy: { joinedAt: "asc" },
   });
 
   return pu ? { ...pu, dbUser: user } : null;
+}
+
+/**
+ * Returns every practice the user currently belongs to, ordered by
+ * joinedAt (oldest first). Used by the PracticeSwitcher dropdown.
+ */
+export async function listMembershipsForCurrentUser() {
+  const user = await getCurrentUser();
+  if (!user) return [];
+  const memberships = await db.practiceUser.findMany({
+    where: { userId: user.id, removedAt: null },
+    include: { practice: { select: { id: true, name: true } } },
+    orderBy: { joinedAt: "asc" },
+  });
+  return memberships.map((m) => ({
+    practiceUserId: m.id,
+    practiceId: m.practiceId,
+    practiceName: m.practice.name,
+    role: m.role,
+  }));
 }
 
 export async function requireRole(minRole: PracticeRole, practiceId?: string) {

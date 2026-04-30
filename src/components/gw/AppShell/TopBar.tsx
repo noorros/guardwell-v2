@@ -5,12 +5,14 @@ import {
   NotificationBell,
   type NotificationBellItem,
 } from "./NotificationBell";
-import { UserMenu } from "./UserMenu";
+import { UserMenu, type UserMenuMembership } from "./UserMenu";
 
 export interface TopBarProps {
   practiceName: string;
   userEmail: string;
   userInitials: string;
+  memberships: UserMenuMembership[];
+  currentPracticeId: string;
   mobileTrigger?: ReactNode;
   notifications?: {
     unreadCount: number;
@@ -23,6 +25,8 @@ export function TopBar({
   practiceName,
   userEmail,
   userInitials,
+  memberships,
+  currentPracticeId,
   mobileTrigger,
   notifications,
   className,
@@ -47,6 +51,8 @@ export function TopBar({
           userEmail={userEmail}
           practiceName={practiceName}
           userInitials={userInitials}
+          memberships={memberships}
+          currentPracticeId={currentPracticeId}
         />
       </div>
     </header>

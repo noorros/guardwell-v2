@@ -5,11 +5,14 @@ import { Sidebar, type MyComplianceItem } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { MobileSidebarTrigger } from "./MobileSidebarTrigger";
 import type { NotificationBellItem } from "./NotificationBell";
+import type { UserMenuMembership } from "./UserMenu";
 
 export interface AppShellProps {
   children: ReactNode;
-  practice: { name: string };
+  practice: { id: string; name: string };
   user: { email: string };
+  /** All practices the user belongs to (audit #7 multi-practice). */
+  memberships: UserMenuMembership[];
   myComplianceItems: MyComplianceItem[];
   /** Uppercase framework codes the practice has enabled (e.g. ["ALLERGY"]). Used to gate sidebar program entries. */
   enabledFrameworkCodes?: string[];
@@ -31,6 +34,7 @@ export function AppShell({
   children,
   practice,
   user,
+  memberships,
   myComplianceItems,
   enabledFrameworkCodes,
   notifications,
@@ -41,6 +45,8 @@ export function AppShell({
         practiceName={practice.name}
         userEmail={user.email}
         userInitials={computeUserInitials(user.email)}
+        memberships={memberships}
+        currentPracticeId={practice.id}
         mobileTrigger={
           <MobileSidebarTrigger
             myComplianceItems={myComplianceItems}

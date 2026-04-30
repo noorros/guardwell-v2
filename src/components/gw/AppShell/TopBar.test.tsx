@@ -14,6 +14,8 @@ describe("<TopBar>", () => {
         practiceName="Acme Primary Care"
         userEmail="jane@acme.test"
         userInitials="JA"
+        memberships={[]}
+        currentPracticeId="p1"
       />,
     );
     expect(screen.getByText("Acme Primary Care")).toBeInTheDocument();
@@ -25,6 +27,8 @@ describe("<TopBar>", () => {
         practiceName="Acme"
         userEmail="jane@acme.test"
         userInitials="JA"
+        memberships={[]}
+        currentPracticeId="p1"
         mobileTrigger={<span data-testid="mobile-trigger" />}
       />,
     );
@@ -37,6 +41,8 @@ describe("<TopBar>", () => {
         practiceName="Acme"
         userEmail="alice@example.com"
         userInitials="AL"
+        memberships={[]}
+        currentPracticeId="p1"
       />,
     );
     expect(screen.queryByText("alice@example.com")).not.toBeInTheDocument();
@@ -48,6 +54,8 @@ describe("<TopBar>", () => {
         practiceName="Acme"
         userEmail="alice@example.com"
         userInitials="AL"
+        memberships={[]}
+        currentPracticeId="p1"
       />,
     );
     expect(screen.getByRole("button", { name: /open user menu/i })).toHaveTextContent("AL");
@@ -59,6 +67,8 @@ describe("<TopBar>", () => {
         practiceName="Acme"
         userEmail="alice@example.com"
         userInitials="AL"
+        memberships={[]}
+        currentPracticeId="p1"
       />,
     );
     // Top bar should not have a directly-visible "Sign out" button anymore.

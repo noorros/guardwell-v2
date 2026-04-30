@@ -10,6 +10,10 @@ vi.mock("@/app/(auth)/sign-out/actions", () => ({
   signOutAction: vi.fn(async () => undefined),
 }));
 
+vi.mock("@/app/(dashboard)/settings/switch-practice/actions", () => ({
+  switchPracticeAction: vi.fn(async () => undefined),
+}));
+
 // Radix DropdownMenu in jsdom needs these PointerEvent APIs that jsdom
 // doesn't ship. Stub them so the trigger's pointer-down handler can run
 // (Radix bails out otherwise and the menu never opens).
@@ -33,6 +37,19 @@ describe("UserMenu", () => {
     userEmail: "alice@example.com",
     practiceName: "Acme Family Medicine",
     userInitials: "AL",
+    memberships: [],
+    currentPracticeId: "p1",
+  };
+
+  // Audit #7: a separate baseline with multi-practice memberships so the
+  // switcher branch is exercised.
+  const multiPracticeProps = {
+    ...baseProps,
+    currentPracticeId: "p1",
+    memberships: [
+      { practiceId: "p1", practiceName: "Acme Family Medicine", role: "OWNER" },
+      { practiceId: "p2", practiceName: "Beta Clinic", role: "ADMIN" },
+    ],
   };
 
   it("renders the avatar trigger with the initials", () => {
@@ -81,5 +98,54 @@ describe("UserMenu", () => {
     await screen.findByText("alice@example.com");
     const results = await axe(container);
     expect(results).toHaveNoViolations();
+  });
+
+  // ────────────────────────────────────────────────────────────────────
+  // Audit #7 — Practice switcher (HIPAA B-3)
+  // ────────────────────────────────────────────────────────────────────
+
+  it("does NOT render the Switch practice section when only 1 membership", async () => {
+    const user = userEvent.setup();
+    render(
+      <UserMenu
+        {...baseProps}
+        memberships={[{ practiceId: "p1", practiceName: "Solo", role: "OWNER" }]}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /open user menu/i }));
+    await screen.findByText("alice@example.com");
+    expect(screen.queryByText(/switch practice/i)).not.toBeInTheDocument();
+  });
+
+  it("renders the Switch practice section when 2+ memberships", async () => {
+    const user = userEvent.setup();
+    render(<UserMenu {...multiPracticeProps} />);
+    await user.click(screen.getByRole("button", { name: /open user menu/i }));
+    expect(await screen.findByText(/switch practice/i)).toBeInTheDocument();
+    // Both practice names rendered as buttons in the switcher.
+    expect(screen.getByRole("button", { name: /acme family medicine/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /beta clinic/i })).toBeInTheDocument();
+  });
+
+  it("disables the current practice and enables the others", async () => {
+    const user = userEvent.setup();
+    render(<UserMenu {...multiPracticeProps} />);
+    await user.click(screen.getByRole("button", { name: /open user menu/i }));
+    await screen.findByText(/switch practice/i);
+    const current = screen.getByRole("button", { name: /acme family medicine/i });
+    const other = screen.getByRole("button", { name: /beta clinic/i });
+    expect(current).toBeDisabled();
+    expect(current).toHaveAttribute("aria-current", "true");
+    expect(other).toBeEnabled();
+    expect(other).not.toHaveAttribute("aria-current");
+  });
+
+  it("renders each membership's role under the practice name", async () => {
+    const user = userEvent.setup();
+    render(<UserMenu {...multiPracticeProps} />);
+    await user.click(screen.getByRole("button", { name: /open user menu/i }));
+    await screen.findByText(/switch practice/i);
+    expect(screen.getByText("OWNER")).toBeInTheDocument();
+    expect(screen.getByText("ADMIN")).toBeInTheDocument();
   });
 });
