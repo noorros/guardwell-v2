@@ -11,8 +11,8 @@
 //      blocks to live INSIDE the assistant turn that produced them —
 //      replay-back-to-Claude would require richer reconstruction, which is
 //      out of scope.)
-//   2. Call Anthropic messages.stream() with the 8 read-only tools registered
-//      in PR A2 (src/lib/ai/conciergeTools.ts)
+//   2. Call Anthropic messages.stream() with the read-only tools registered
+//      in PR A2 + PR-C5 audit-#21 expansion (src/lib/ai/conciergeTools.ts)
 //   3. On tool_use block: invoke tool handler via invokeTool(), append a
 //      tool_result content block, continue the conversation
 //   4. Stream text_delta + tool_use_started + tool_result events to the

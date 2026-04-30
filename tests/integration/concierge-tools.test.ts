@@ -1,8 +1,9 @@
 // tests/integration/concierge-tools.test.ts
 //
-// Integration tests for the Concierge tool registry added in Phase 2 PR A2.
-// Each test seeds a fresh practice and exercises one of the 8 read-only
-// tool handlers via invokeTool() — no mocking, real Postgres queries.
+// Integration tests for the Concierge tool registry added in Phase 2 PR A2
+// and expanded in PR-C5 (audit #21 IM-4 + IM-9). Each test seeds a fresh
+// practice and exercises a tool handler via invokeTool() — no mocking,
+// real Postgres queries.
 
 import { describe, it, expect } from "vitest";
 import { db } from "@/lib/db";
@@ -259,16 +260,293 @@ describe("Concierge tool registry", () => {
   it("getAnthropicToolDefinitions returns one entry per registered tool", async () => {
     const { getAnthropicToolDefinitions } = await import("@/lib/ai/conciergeTools");
     const defs = getAnthropicToolDefinitions();
-    expect(defs.length).toBe(8);
+    expect(defs.length).toBe(11);
     expect(defs.map((d) => d.name).sort()).toEqual([
+      "get_allergy_drill_status",
       "get_compliance_track",
       "get_dashboard_snapshot",
+      "get_fridge_readings",
+      "list_allergy_compounders",
       "list_credentials",
       "list_frameworks",
       "list_incidents",
       "list_policies",
       "list_requirements_by_framework",
       "list_vendors",
+    ]);
+  });
+
+  it("list_credentials includes the credential id (audit #21 IM-9)", async () => {
+    const { practice } = await seedPractice();
+    const credType = await db.credentialType.findUniqueOrThrow({
+      where: { code: "MD_STATE_LICENSE" },
+    });
+    const created = await db.credential.create({
+      data: {
+        practiceId: practice.id,
+        credentialTypeId: credType.id,
+        title: "License with id",
+        expiryDate: new Date(Date.now() + 100 * 24 * 60 * 60 * 1000),
+      },
+    });
+    const { output, error } = await invokeTool({
+      toolName: "list_credentials",
+      practiceId: practice.id,
+      practiceTimezone: "UTC",
+      input: {},
+    });
+    expect(error).toBeNull();
+    const result = output as { credentials: Array<{ id: string; title: string }> };
+    const found = result.credentials.find((c) => c.title === "License with id");
+    expect(found).toBeDefined();
+    expect(found?.id).toBe(created.id);
+  });
+
+  // ── list_allergy_compounders ────────────────────────────────────────────────
+  it("list_allergy_compounders returns compounders with current-year qualification status", async () => {
+    const { practice } = await seedPractice();
+    const year = new Date().getFullYear();
+    // Three users — each gets requiresAllergyCompetency=true.
+    async function makeCompounder(label: string) {
+      const u = await db.user.create({
+        data: {
+          firebaseUid: `compounder-${label}-${Math.random().toString(36).slice(2, 8)}`,
+          email: `compounder-${label}-${Math.random().toString(36).slice(2, 8)}@test.test`,
+          firstName: label,
+          lastName: "Tester",
+        },
+      });
+      return db.practiceUser.create({
+        data: {
+          userId: u.id,
+          practiceId: practice.id,
+          role: "STAFF",
+          requiresAllergyCompetency: true,
+        },
+      });
+    }
+    const fully = await makeCompounder("Fully");
+    const inProgress = await makeCompounder("InProgress");
+    const newComp = await makeCompounder("New");
+
+    // Fully qualified — quiz + 3 fingertips + media fill + flag
+    await db.allergyCompetency.create({
+      data: {
+        practiceId: practice.id,
+        practiceUserId: fully.id,
+        year,
+        quizPassedAt: new Date(),
+        fingertipPassCount: 3,
+        fingertipLastPassedAt: new Date(),
+        mediaFillPassedAt: new Date(),
+        isFullyQualified: true,
+      },
+    });
+    // In progress — quiz only
+    await db.allergyCompetency.create({
+      data: {
+        practiceId: practice.id,
+        practiceUserId: inProgress.id,
+        year,
+        quizPassedAt: new Date(),
+        fingertipPassCount: 0,
+        mediaFillPassedAt: null,
+        isFullyQualified: false,
+      },
+    });
+    // New — no AllergyCompetency row at all → not-yet-this-year
+
+    const { output, error } = await invokeTool({
+      toolName: "list_allergy_compounders",
+      practiceId: practice.id,
+      practiceTimezone: "UTC",
+      input: {},
+    });
+    expect(error).toBeNull();
+    const result = output as {
+      compounders: Array<{
+        practiceUserId: string;
+        name: string;
+        qualificationStatus: string;
+        currentYearProgress: string;
+      }>;
+    };
+    expect(result.compounders).toHaveLength(3);
+    const byUser = new Map(result.compounders.map((c) => [c.practiceUserId, c]));
+    expect(byUser.get(fully.id)?.qualificationStatus).toBe("FULLY_QUALIFIED");
+    expect(byUser.get(inProgress.id)?.qualificationStatus).toBe("IN_PROGRESS");
+    expect(byUser.get(newComp.id)?.qualificationStatus).toBe("not-yet-this-year");
+    expect(byUser.get(fully.id)?.name).toBe("Fully Tester");
+  });
+
+  it("list_allergy_compounders returns empty array when practice has no compounders", async () => {
+    const { practice } = await seedPractice();
+    const { output, error } = await invokeTool({
+      toolName: "list_allergy_compounders",
+      practiceId: practice.id,
+      practiceTimezone: "UTC",
+      input: {},
+    });
+    expect(error).toBeNull();
+    const result = output as { compounders: unknown[] };
+    expect(result.compounders).toEqual([]);
+  });
+
+  // ── get_allergy_drill_status ────────────────────────────────────────────────
+  it("get_allergy_drill_status returns nulls when no drills exist", async () => {
+    const { practice } = await seedPractice();
+    const { output, error } = await invokeTool({
+      toolName: "get_allergy_drill_status",
+      practiceId: practice.id,
+      practiceTimezone: "UTC",
+      input: {},
+    });
+    expect(error).toBeNull();
+    const result = output as {
+      lastDrillDate: string | null;
+      daysSinceLastDrill: number | null;
+      nextDrillDue: string | null;
+      participantCount: number;
+      scenarioSummary: string | null;
+    };
+    expect(result.lastDrillDate).toBeNull();
+    expect(result.daysSinceLastDrill).toBeNull();
+    expect(result.nextDrillDue).toBeNull();
+    expect(result.participantCount).toBe(0);
+    expect(result.scenarioSummary).toBeNull();
+  });
+
+  it("get_allergy_drill_status returns daysSinceLastDrill + nextDrillDue when a prior drill exists", async () => {
+    const { user, practice } = await seedPractice();
+    const ownerPu = await db.practiceUser.findFirstOrThrow({
+      where: { userId: user.id, practiceId: practice.id },
+    });
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const conductedAt = new Date(Date.now() - 10 * DAY_MS); // 10 days ago
+    const nextDrillDue = new Date(Date.now() + 355 * DAY_MS);
+    await db.allergyDrill.create({
+      data: {
+        practiceId: practice.id,
+        conductedById: ownerPu.id,
+        conductedAt,
+        scenario: "Patient develops anaphylaxis 5 minutes after injection",
+        participantIds: [ownerPu.id, "other-pu-id"],
+        nextDrillDue,
+      },
+    });
+    const { output, error } = await invokeTool({
+      toolName: "get_allergy_drill_status",
+      practiceId: practice.id,
+      practiceTimezone: "UTC",
+      input: {},
+    });
+    expect(error).toBeNull();
+    const result = output as {
+      lastDrillDate: string | null;
+      daysSinceLastDrill: number | null;
+      nextDrillDue: string | null;
+      overdueByDays: number | null;
+      participantCount: number;
+      scenarioSummary: string | null;
+    };
+    expect(result.lastDrillDate).not.toBeNull();
+    // 10 days ago — Math.floor of 10 days expressed in ms / DAY_MS = 10.
+    expect(result.daysSinceLastDrill).toBe(10);
+    expect(result.nextDrillDue).not.toBeNull();
+    expect(result.overdueByDays).toBe(0);
+    expect(result.participantCount).toBe(2);
+    expect(result.scenarioSummary).toContain("anaphylaxis");
+  });
+
+  // ── get_fridge_readings ─────────────────────────────────────────────────────
+  it("get_fridge_readings respects the limit parameter", async () => {
+    const { user, practice } = await seedPractice();
+    const ownerPu = await db.practiceUser.findFirstOrThrow({
+      where: { userId: user.id, practiceId: practice.id },
+    });
+    // Seed 15 fridge readings.
+    const HOUR_MS = 60 * 60 * 1000;
+    for (let i = 0; i < 15; i++) {
+      await db.allergyEquipmentCheck.create({
+        data: {
+          practiceId: practice.id,
+          checkedById: ownerPu.id,
+          checkType: "REFRIGERATOR_TEMP",
+          checkedAt: new Date(Date.now() - i * HOUR_MS),
+          temperatureC: 5.0,
+          inRange: true,
+        },
+      });
+    }
+    const { output, error } = await invokeTool({
+      toolName: "get_fridge_readings",
+      practiceId: practice.id,
+      practiceTimezone: "UTC",
+      input: { limit: 5 },
+    });
+    expect(error).toBeNull();
+    const result = output as { readings: unknown[] };
+    expect(result.readings).toHaveLength(5);
+  });
+
+  it("get_fridge_readings sorts newest first", async () => {
+    const { user, practice } = await seedPractice();
+    const ownerPu = await db.practiceUser.findFirstOrThrow({
+      where: { userId: user.id, practiceId: practice.id },
+    });
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    // Insert in non-chronological order so we know the sort isn't an
+    // accidental insertion-order pass.
+    const middle = new Date(Date.now() - 2 * DAY_MS);
+    const oldest = new Date(Date.now() - 5 * DAY_MS);
+    const newest = new Date(Date.now() - 1 * DAY_MS);
+    await db.allergyEquipmentCheck.create({
+      data: {
+        practiceId: practice.id,
+        checkedById: ownerPu.id,
+        checkType: "REFRIGERATOR_TEMP",
+        checkedAt: middle,
+        temperatureC: 4.0,
+        inRange: true,
+        notes: "middle reading",
+      },
+    });
+    await db.allergyEquipmentCheck.create({
+      data: {
+        practiceId: practice.id,
+        checkedById: ownerPu.id,
+        checkType: "REFRIGERATOR_TEMP",
+        checkedAt: oldest,
+        temperatureC: 3.5,
+        inRange: true,
+        notes: "oldest reading",
+      },
+    });
+    await db.allergyEquipmentCheck.create({
+      data: {
+        practiceId: practice.id,
+        checkedById: ownerPu.id,
+        checkType: "REFRIGERATOR_TEMP",
+        checkedAt: newest,
+        temperatureC: 6.0,
+        inRange: true,
+        notes: "newest reading",
+      },
+    });
+    const { output, error } = await invokeTool({
+      toolName: "get_fridge_readings",
+      practiceId: practice.id,
+      practiceTimezone: "UTC",
+      input: {},
+    });
+    expect(error).toBeNull();
+    const result = output as {
+      readings: Array<{ notes: string | null }>;
+    };
+    expect(result.readings.map((r) => r.notes)).toEqual([
+      "newest reading",
+      "middle reading",
+      "oldest reading",
     ]);
   });
 });
