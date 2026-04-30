@@ -26,6 +26,13 @@ export async function GET(req: Request) {
   if (!pu) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+  // Audit C-2 (OSHA): the Form 300 log is the official §1904.32 annual
+  // recordkeeping artifact — exposes injured-employee names, body parts,
+  // outcomes, days-away counts. STAFF/VIEWER are read-only program
+  // participants and should not exfiltrate the full incident register.
+  if (pu.role !== "OWNER" && pu.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const url = new URL(req.url);
   const yearParam = url.searchParams.get("year");

@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
-import { getPracticeUser } from "@/lib/rbac";
+import { getPracticeUser, requireRole } from "@/lib/rbac";
 import { appendEventAndApply } from "@/lib/events";
 import {
   projectCredentialUpserted,
@@ -58,10 +58,15 @@ async function verifyCredentialInPractice(credentialId: string, practiceId: stri
   return c;
 }
 
+/**
+ * Audit C-2: gated to ADMIN+ so STAFF/VIEWER cannot create a fake DEA /
+ * CLIA / CMS credential to flip a framework rule from GAP → COMPLIANT
+ * (an inspector would see "passed" without an actual registration on
+ * file).
+ */
 export async function addCredentialAction(input: z.infer<typeof AddInput>) {
-  const user = await requireUser();
-  const pu = await getPracticeUser();
-  if (!pu) throw new Error("Unauthorized");
+  const pu = await requireRole("ADMIN");
+  const user = pu.dbUser;
   const parsed = AddInput.parse(input);
 
   if (parsed.holderId) {
@@ -257,10 +262,13 @@ export async function bulkImportCredentialsAction(input: {
   };
 }
 
+/**
+ * Audit C-2: gated to ADMIN+ so STAFF/VIEWER cannot soft-delete the only
+ * legitimate credential and drop the framework score.
+ */
 export async function removeCredentialAction(input: z.infer<typeof RemoveInput>) {
-  const user = await requireUser();
-  const pu = await getPracticeUser();
-  if (!pu) throw new Error("Unauthorized");
+  const pu = await requireRole("ADMIN");
+  const user = pu.dbUser;
   const parsed = RemoveInput.parse(input);
   const existing = await verifyCredentialInPractice(parsed.credentialId, pu.practiceId);
   if (existing.retiredAt) return;

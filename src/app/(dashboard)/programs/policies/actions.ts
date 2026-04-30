@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
-import { getPracticeUser } from "@/lib/rbac";
+import { getPracticeUser, requireRole } from "@/lib/rbac";
 import { appendEventAndApply } from "@/lib/events";
 import {
   projectPolicyAdopted,
@@ -26,10 +26,14 @@ const RetireInput = z.object({
   practicePolicyId: z.string().min(1),
 });
 
+/**
+ * Audit C-2 (HIPAA): gated to ADMIN+. Adopting a policy adds it to the
+ * practice's compliance shelf and flips a regulatory-requirement gap to
+ * COMPLIANT — STAFF/VIEWER could falsely satisfy framework rules.
+ */
 export async function adoptPolicyAction(input: z.infer<typeof AdoptInput>) {
-  const user = await requireUser();
-  const pu = await getPracticeUser();
-  if (!pu) throw new Error("Unauthorized");
+  const pu = await requireRole("ADMIN");
+  const user = pu.dbUser;
   const parsed = AdoptInput.parse(input);
 
   // Reuse existing row if this practice already has the policy (retired or active).
@@ -74,10 +78,14 @@ const ReviewInput = z.object({
   practicePolicyId: z.string().min(1),
 });
 
+/**
+ * Audit C-2 (HIPAA): gated to ADMIN+. Marking a policy reviewed resets
+ * the §164.316(b)(2)(iii) review clock — STAFF/VIEWER could fake an
+ * annual review to mask a real overdue policy.
+ */
 export async function reviewPolicyAction(input: z.infer<typeof ReviewInput>) {
-  const user = await requireUser();
-  const pu = await getPracticeUser();
-  if (!pu) throw new Error("Unauthorized");
+  const pu = await requireRole("ADMIN");
+  const user = pu.dbUser;
   const parsed = ReviewInput.parse(input);
 
   const target = await db.practicePolicy.findUnique({
@@ -132,12 +140,12 @@ const AdoptFromTemplateInput = z.object({
   templateCode: z.string().min(1).max(200),
 });
 
+/** Audit C-2 (HIPAA): gated to ADMIN+ — see adoptPolicyAction. */
 export async function adoptPolicyFromTemplateAction(
   input: z.infer<typeof AdoptFromTemplateInput>,
 ) {
-  const user = await requireUser();
-  const pu = await getPracticeUser();
-  if (!pu) throw new Error("Unauthorized");
+  const pu = await requireRole("ADMIN");
+  const user = pu.dbUser;
   const parsed = AdoptFromTemplateInput.parse(input);
 
   const template = await db.policyTemplate.findUnique({
@@ -213,12 +221,17 @@ const UpdateContentInput = z.object({
   content: z.string().min(1).max(200_000),
 });
 
+/**
+ * Audit C-2 (HIPAA): gated to ADMIN+. Editing policy content bumps the
+ * version number and wipes prior acknowledgments (each version requires
+ * a fresh ack) — STAFF/VIEWER could trash a policy's ack coverage by
+ * making a no-op edit.
+ */
 export async function updatePolicyContentAction(
   input: z.infer<typeof UpdateContentInput>,
 ) {
-  const user = await requireUser();
-  const pu = await getPracticeUser();
-  if (!pu) throw new Error("Unauthorized");
+  const pu = await requireRole("ADMIN");
+  const user = pu.dbUser;
   const parsed = UpdateContentInput.parse(input);
 
   const target = await db.practicePolicy.findUnique({
@@ -289,6 +302,13 @@ const AcknowledgeInput = z.object({
   signatureText: z.string().min(1).max(500),
 });
 
+/**
+ * Audit C-2 (HIPAA): intentionally open to STAFF/VIEWER. Each user
+ * acknowledges policies with their own signature — the action records
+ * the caller's id (`user.id`), not an input-supplied id, so per-target
+ * escalation is impossible. Restricting this would block the
+ * §164.530(b)(1) workforce-training-and-acknowledgment requirement.
+ */
 export async function acknowledgePolicyAction(
   input: z.infer<typeof AcknowledgeInput>,
 ) {
@@ -396,10 +416,14 @@ export async function acknowledgePolicyAction(
   revalidatePath("/me/acknowledgments");
 }
 
+/**
+ * Audit C-2 (HIPAA): gated to ADMIN+. Retiring a policy drops it off
+ * the compliance shelf and can flip a framework rule to GAP — STAFF/
+ * VIEWER could nuke an active policy and tank the score.
+ */
 export async function retirePolicyAction(input: z.infer<typeof RetireInput>) {
-  const user = await requireUser();
-  const pu = await getPracticeUser();
-  if (!pu) throw new Error("Unauthorized");
+  const pu = await requireRole("ADMIN");
+  const user = pu.dbUser;
   const parsed = RetireInput.parse(input);
 
   const target = await db.practicePolicy.findUnique({

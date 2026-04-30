@@ -3,8 +3,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireUser } from "@/lib/auth";
-import { getPracticeUser } from "@/lib/rbac";
+import { requireRole } from "@/lib/rbac";
 import { appendEventAndApply } from "@/lib/events";
 import { OFFICER_ROLES } from "@/lib/events/registry";
 import { projectOfficerDesignated } from "@/lib/events/projections/officerDesignated";
@@ -16,10 +15,16 @@ const Input = z.object({
   designated: z.boolean(),
 });
 
+/**
+ * Audit C-2 (HIPAA): officer designation gated to OWNER. The Privacy /
+ * Security / Compliance Officer roles are HIPAA-required positions
+ * (§164.308(a)(2)) — assigning them is org-chart-level authority, not a
+ * routine ADMIN operation. Without this gate, any STAFF/VIEWER could
+ * self-promote to Security Officer.
+ */
 export async function toggleOfficerAction(input: z.infer<typeof Input>) {
-  const user = await requireUser();
-  const pu = await getPracticeUser();
-  if (!pu) throw new Error("Unauthorized");
+  const pu = await requireRole("OWNER");
+  const user = pu.dbUser;
   const parsed = Input.parse(input);
 
   // Verify the target PracticeUser is in the same practice.
