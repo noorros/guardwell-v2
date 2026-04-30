@@ -7,6 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { completeStepAction, reopenStepAction } from "../actions";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export interface StepPanelProps {
   sessionId: string;
@@ -32,6 +34,7 @@ export function StepPanel({
   completedAtIso,
 }: StepPanelProps) {
   const router = useRouter();
+  const tz = usePracticeTimezone();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState(initialNotes ?? "");
@@ -153,7 +156,10 @@ export function StepPanel({
           <div className="flex items-end justify-between gap-3 text-[11px] text-muted-foreground">
             <div>
               {completedAtIso && (
-                <p>Completed {completedAtIso.slice(0, 10)}</p>
+                <p>
+                  Completed{" "}
+                  {formatPracticeDate(new Date(completedAtIso), tz)}
+                </p>
               )}
               {notes && (
                 <p className="mt-1">

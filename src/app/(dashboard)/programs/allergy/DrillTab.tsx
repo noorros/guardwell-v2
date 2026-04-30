@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import type { CompetencyTabProps } from "./CompetencyTab";
 import { deleteDrillAction, logDrillAction, updateDrillAction } from "./actions";
 import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
-import { formatPracticeDate } from "@/lib/audit/format";
+import { formatPracticeDate, formatPracticeDateForInput } from "@/lib/audit/format";
 import { HistoryRowActions } from "@/components/gw/HistoryRowActions";
 
 export interface DrillTabProps {
@@ -448,7 +448,13 @@ function EditDrillForm({
   members: DrillTabProps["members"];
   onCancel: () => void;
 }) {
-  const [conductedAt, setConductedAt] = useState(drill.conductedAt.slice(0, 10));
+  const tz = usePracticeTimezone();
+  // Initialize the date inputs with the practice-tz calendar day, not the
+  // raw UTC slice — keeps a Pacific-tenant drill from showing as the
+  // following day when an Eastern reviewer opens the form (audit #21).
+  const [conductedAt, setConductedAt] = useState(
+    formatPracticeDateForInput(drill.conductedAt, tz),
+  );
   const [scenario, setScenario] = useState(drill.scenario);
   const [participantIds, setParticipantIds] = useState<Set<string>>(
     new Set(drill.participantIds),
@@ -461,7 +467,7 @@ function EditDrillForm({
     drill.correctiveActions ?? "",
   );
   const [nextDrillDue, setNextDrillDue] = useState(
-    drill.nextDrillDue ? drill.nextDrillDue.slice(0, 10) : "",
+    formatPracticeDateForInput(drill.nextDrillDue, tz),
   );
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);

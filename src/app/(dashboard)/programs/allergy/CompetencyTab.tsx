@@ -20,6 +20,11 @@ import {
   toggleStaffAllergyRequirementAction,
   logCompoundingActivityAction,
 } from "./actions";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import {
+  formatPracticeDate,
+  formatPracticeDateLong,
+} from "@/lib/audit/format";
 
 export interface CompetencyTabProps {
   canManage: boolean;
@@ -196,20 +201,6 @@ function OverallBadge({ competency }: { competency: CompetencyTabProps["competen
   );
 }
 
-// ── Format ISO date string to YYYY-MM-DD ──────────────────────────────────────
-function fmtDate(iso: string): string {
-  return iso.slice(0, 10);
-}
-
-// ── Format ISO date string to "MMM d, yyyy" (e.g. "Apr 3, 2025") ─────────────
-function fmtDateLong(iso: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  }).format(new Date(iso));
-}
-
 // ── 6-month inactivity check (183 days, matching USP §21 + v1 logic) ──────────
 const SIX_MONTHS_MS = 183 * 24 * 60 * 60 * 1000;
 function isInactive(lastCompoundedAt: string | null | undefined): boolean {
@@ -227,6 +218,9 @@ interface MemberRowProps {
 }
 
 function MemberRow({ member, competency, year, isCurrentUser, canManage }: MemberRowProps) {
+  const tz = usePracticeTimezone();
+  const fmtDate = (iso: string) => formatPracticeDate(new Date(iso), tz);
+  const fmtDateLong = (iso: string) => formatPracticeDateLong(new Date(iso), tz);
   const [fingertipOpen, setFingertipOpen] = useState(false);
   const [mediaFillOpen, setMediaFillOpen] = useState(false);
   const [logSessionPending, startLogSessionTransition] = useTransition();

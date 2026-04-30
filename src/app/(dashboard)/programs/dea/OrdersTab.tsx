@@ -3,6 +3,8 @@
 import { cn } from "@/lib/utils";
 import { SCHEDULE_LABELS, type DeaSchedule } from "@/lib/dea/labels";
 import { NewOrderForm } from "./NewOrderForm";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export interface OrdersTabProps {
   canManage: boolean;
@@ -19,15 +21,13 @@ export interface OrdersTabProps {
   }>;
 }
 
-function fmtDate(iso: string): string {
-  return iso.slice(0, 10);
-}
-
 function scheduleLabel(s: string): string {
   return SCHEDULE_LABELS[s as DeaSchedule] ?? s;
 }
 
 export function OrdersTab({ canManage, orders }: OrdersTabProps) {
+  const tz = usePracticeTimezone();
+  const fmtDate = (iso: string) => formatPracticeDate(new Date(iso), tz);
   return (
     <div className="space-y-6">
       <section className="space-y-3">

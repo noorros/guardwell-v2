@@ -9,6 +9,8 @@ import { CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { acknowledgePolicyAction } from "../actions";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDateTime } from "@/lib/audit/format";
 
 export interface AcknowledgeFormProps {
   practicePolicyId: string;
@@ -37,6 +39,7 @@ export function AcknowledgeForm({
   defaultSignature,
 }: AcknowledgeFormProps) {
   const router = useRouter();
+  const tz = usePracticeTimezone();
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [signature, setSignature] = useState(defaultSignature);
@@ -80,9 +83,9 @@ export function AcknowledgeForm({
             <p className="text-[11px] text-muted-foreground">
               Signed{" "}
               {acknowledgedAt
-                ? new Date(acknowledgedAt).toISOString().slice(0, 16).replace("T", " ")
+                ? formatPracticeDateTime(new Date(acknowledgedAt), tz)
                 : ""}
-              . If the policy is edited, you'll need to re-sign the new version.
+              . If the policy is edited, you&apos;ll need to re-sign the new version.
             </p>
           </div>
         </CardContent>

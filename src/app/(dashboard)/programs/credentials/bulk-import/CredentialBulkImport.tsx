@@ -6,6 +6,8 @@ import {
   bulkImportCredentialsAction,
   type BulkCredentialImportRow,
 } from "../actions";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 const TEMPLATE_CSV = `credentialTypeCode,holderEmail,title,licenseNumber,issuingBody,issueDate,expiryDate,notes
 MD_STATE_LICENSE,jane@example.com,Jane Smith · AZ MD License,12345,Arizona Medical Board,2020-06-15,2026-06-30,
@@ -23,6 +25,7 @@ function parseDateOrISO(s: string): string | null | undefined {
 }
 
 export function CredentialBulkImport() {
+  const tz = usePracticeTimezone();
   return (
     <BulkCsvImport<BulkCredentialImportRow>
       hint="Each row becomes one active credential. Required: credentialTypeCode, title."
@@ -103,7 +106,9 @@ export function CredentialBulkImport() {
           {r.title}
           {r.licenseNumber ? ` · ${r.licenseNumber}` : ""}
           {r.holderEmail ? ` · ${r.holderEmail}` : " · practice-level"}
-          {r.expiryDate ? ` · expires ${r.expiryDate.slice(0, 10)}` : ""}
+          {r.expiryDate
+            ? ` · expires ${formatPracticeDate(new Date(r.expiryDate), tz)}`
+            : ""}
         </span>
       )}
       onSubmit={async (rows) => bulkImportCredentialsAction({ rows })}

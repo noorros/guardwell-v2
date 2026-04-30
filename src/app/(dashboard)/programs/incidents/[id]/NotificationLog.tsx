@@ -16,6 +16,8 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { recordIncidentNotificationAction } from "../actions";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 type Kind = "HHS" | "AFFECTED_INDIVIDUALS" | "MEDIA" | "STATE_AG";
 
@@ -117,6 +119,7 @@ function NotificationLogRow({
   defaultStateCode: string;
   row: NotificationRow;
 }) {
+  const tz = usePracticeTimezone();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -163,7 +166,7 @@ function NotificationLogRow({
             className="text-[11px] font-medium text-[color:var(--gw-color-compliant)]"
             title={row.notifiedAt}
           >
-            Notified {row.notifiedAt.slice(0, 10)}
+            Notified {formatPracticeDate(new Date(row.notifiedAt), tz)}
           </p>
         ) : (
           <Button

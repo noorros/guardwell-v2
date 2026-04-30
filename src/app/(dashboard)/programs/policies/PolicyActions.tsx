@@ -11,6 +11,8 @@ import {
   retirePolicyAction,
   reviewPolicyAction,
 } from "./actions";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 interface AdoptedState {
   practicePolicyId: string;
@@ -27,6 +29,7 @@ export interface PolicyActionsProps {
 const REVIEW_WINDOW_DAYS = 365;
 
 export function PolicyActions({ policyCode, adopted }: PolicyActionsProps) {
+  const tz = usePracticeTimezone();
   const [isPending, startTransition] = useTransition();
 
   const handleAdopt = () => {
@@ -83,7 +86,7 @@ export function PolicyActions({ policyCode, adopted }: PolicyActionsProps) {
         disabled={isPending}
         title={
           adopted.lastReviewedAt
-            ? `Last reviewed ${adopted.lastReviewedAt.slice(0, 10)}. Bumps the ${REVIEW_WINDOW_DAYS}-day clock.`
+            ? `Last reviewed ${formatPracticeDate(new Date(adopted.lastReviewedAt), tz)}. Bumps the ${REVIEW_WINDOW_DAYS}-day clock.`
             : `Hasn't been formally reviewed yet. Bumps the ${REVIEW_WINDOW_DAYS}-day clock.`
         }
       >
