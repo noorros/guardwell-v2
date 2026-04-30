@@ -365,6 +365,62 @@ describe("Concierge tool registry", () => {
     ]);
   });
 
+  // Audit #21 (Wave 4 D6): CR-4 shipped page-level rendering of
+  // credentials whose holder PracticeUser has removedAt set ("Former
+  // staff" group), and IM-10 tightened the FK to Restrict. The
+  // Concierge tool surface must stay consistent: list_credentials
+  // should still return the row so the LLM can answer "what licenses
+  // does Dr. Jane (now off-boarded) still have on file" without the
+  // credential silently disappearing from its view of the world.
+  it("list_credentials still surfaces a credential whose holder PracticeUser is soft-removed (audit #21 CR-4 cross-surface)", async () => {
+    const { practice } = await seedPractice();
+    const credType = await db.credentialType.findUniqueOrThrow({
+      where: { code: "MD_STATE_LICENSE" },
+    });
+    // Seed Dr. Jane, give her a license, then off-board her.
+    const jane = await db.user.create({
+      data: {
+        firebaseUid: `cj-${Math.random().toString(36).slice(2, 10)}`,
+        email: `cj-${Math.random().toString(36).slice(2, 8)}@test.test`,
+      },
+    });
+    const janePu = await db.practiceUser.create({
+      data: {
+        userId: jane.id,
+        practiceId: practice.id,
+        role: "STAFF",
+        removedAt: new Date(),
+      },
+    });
+    const orphaned = await db.credential.create({
+      data: {
+        practiceId: practice.id,
+        credentialTypeId: credType.id,
+        holderId: janePu.id,
+        title: "Orphaned former-staff license",
+        expiryDate: new Date(Date.now() + 200 * 24 * 60 * 60 * 1000),
+      },
+    });
+
+    const { output, error } = await invokeTool({
+      toolName: "list_credentials",
+      practiceId: practice.id,
+      practiceTimezone: "UTC",
+      input: {},
+    });
+    expect(error).toBeNull();
+    const result = output as {
+      credentials: Array<{ id: string; title: string; holderId: string | null }>;
+    };
+    const found = result.credentials.find((c) => c.id === orphaned.id);
+    expect(found).toBeDefined();
+    expect(found?.title).toBe("Orphaned former-staff license");
+    // holderId is still surfaced — the LLM needs to know which staff
+    // member it was attributed to so it can suggest a transfer or
+    // retirement action.
+    expect(found?.holderId).toBe(janePu.id);
+  });
+
   it("list_credentials includes the credential id (audit #21 IM-9)", async () => {
     const { practice } = await seedPractice();
     const credType = await db.credentialType.findUniqueOrThrow({

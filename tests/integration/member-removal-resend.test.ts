@@ -130,6 +130,85 @@ describe("Team-management polish", () => {
     expect(row?.removedAt).not.toBeNull();
   });
 
+  // Audit #21 IM-10 (Wave 4 D6): MEMBER_REMOVED soft-deletes the
+  // PracticeUser but must NOT cascade to credentials. State-board
+  // renewal evidence requires Dr. Jane's DEA registration to stay on
+  // the books even after she's off-boarded so the practice can either
+  // explicitly retire it or transfer it. Audit #21 CR-4 shipped the
+  // page-level rendering ("Former staff" group); IM-10 separately
+  // tightened the FK to `onDelete: Restrict`. This test pins the
+  // event-projection invariant: applying MEMBER_REMOVED through the
+  // projection leaves Credential rows intact, with holderId still
+  // pointing to the now-removed PracticeUser.
+  it("MEMBER_REMOVED leaves credentials intact with holderId pointing to the removed PracticeUser (audit #21 IM-10)", async () => {
+    const { owner, practice } = await seedOwner();
+    // Add Dr. Jane as a STAFF member with a DEA registration.
+    const jane = await db.user.create({
+      data: {
+        firebaseUid: `j-${Math.random().toString(36).slice(2, 10)}`,
+        email: `j-${Math.random().toString(36).slice(2, 8)}@test.test`,
+      },
+    });
+    const janeMembership = await db.practiceUser.create({
+      data: { userId: jane.id, practiceId: practice.id, role: "STAFF" },
+    });
+    const credType = await db.credentialType.upsert({
+      where: { code: "DEA_CONTROLLED_SUBSTANCE_REGISTRATION" },
+      update: {},
+      create: {
+        code: "DEA_CONTROLLED_SUBSTANCE_REGISTRATION",
+        name: "DEA controlled-substance registration",
+        category: "DEA_REGISTRATION",
+      },
+    });
+    const credential = await db.credential.create({
+      data: {
+        practiceId: practice.id,
+        credentialTypeId: credType.id,
+        holderId: janeMembership.id,
+        title: "AZ DEA Registration — Dr. Jane",
+        licenseNumber: "DEA-AB1234567",
+      },
+    });
+
+    // Off-board Dr. Jane via the canonical projection.
+    await appendEventAndApply(
+      {
+        practiceId: practice.id,
+        actorUserId: owner.id,
+        type: "MEMBER_REMOVED",
+        payload: {
+          practiceUserId: janeMembership.id,
+          removedUserId: jane.id,
+        },
+      },
+      async (tx) =>
+        projectMemberRemoved(tx, {
+          practiceId: practice.id,
+          payload: {
+            practiceUserId: janeMembership.id,
+            removedUserId: jane.id,
+          },
+        }),
+    );
+
+    // PracticeUser is soft-deleted...
+    const puAfter = await db.practiceUser.findUnique({
+      where: { id: janeMembership.id },
+    });
+    expect(puAfter?.removedAt).not.toBeNull();
+    // ...but the credential row persists, with holderId still pointing
+    // to the now-removed PracticeUser. State-board renewal flow can
+    // still find / retire / re-attribute it.
+    const credAfter = await db.credential.findUnique({
+      where: { id: credential.id },
+    });
+    expect(credAfter).not.toBeNull();
+    expect(credAfter?.holderId).toBe(janeMembership.id);
+    expect(credAfter?.licenseNumber).toBe("DEA-AB1234567");
+    expect(credAfter?.retiredAt).toBeNull();
+  });
+
   it("Refuses to remove the last remaining OWNER", async () => {
     const { owner, practice, ownerMembership } = await seedOwner();
 
