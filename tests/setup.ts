@@ -78,6 +78,11 @@ afterEach(async () => {
   // but explicit deletes here mirror the other Phase 4 projections and
   // keep test setup deterministic.
   await db.videoProgress.deleteMany();
+  // Audit consistency — explicit delete to match other Phase 4 projections.
+  // Phase 4 PR 7 (Certificate): TrainingCompletion rows reference Practice
+  // (Cascade). Cascade-on-Practice handles cleanup, but explicit deletes
+  // here mirror the other Phase 4 projections and keep test setup deterministic.
+  await db.trainingCompletion.deleteMany();
   await db.practiceUser.deleteMany();
   await db.complianceItem.deleteMany();
   await db.practiceFramework.deleteMany();
