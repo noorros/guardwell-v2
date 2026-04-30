@@ -105,6 +105,7 @@ export default async function CredentialDetailPage({ params }: PageProps) {
             credential.credentialType.ceuRequirementWindowMonths,
           requiresEvidenceByDefault:
             credential.credentialType.requiresEvidenceByDefault,
+          renewalPeriodDays: credential.credentialType.renewalPeriodDays,
         }}
         credential={{
           title: credential.title,

@@ -45,6 +45,12 @@ export interface CredentialMetadataPanelProps {
   credentialId: string;
   canManage: boolean;
   value: CredentialMetadataValue;
+  /**
+   * Typical renewal cycle from CredentialType, used to default the Renew
+   * form's "new expiry date". Falls back to 365 days when null.
+   * Examples: DEA = 1095 (3yr), CPR/BLS = 730 (2yr), most state licenses = 365.
+   */
+  renewalPeriodDays: number | null;
 }
 
 type Mode = "view" | "edit" | "renew";
@@ -59,6 +65,7 @@ export function CredentialMetadataPanel({
   credentialId,
   canManage,
   value,
+  renewalPeriodDays,
 }: CredentialMetadataPanelProps) {
   const tz = usePracticeTimezone();
   const [mode, setMode] = useState<Mode>("view");
@@ -77,6 +84,7 @@ export function CredentialMetadataPanel({
       <CredentialRenewForm
         credentialId={credentialId}
         initial={value}
+        renewalPeriodDays={renewalPeriodDays}
         onCancel={() => setMode("view")}
       />
     );
@@ -354,18 +362,24 @@ function CredentialEditForm({
 function CredentialRenewForm({
   credentialId,
   initial,
+  renewalPeriodDays,
   onCancel,
 }: {
   credentialId: string;
   initial: CredentialMetadataValue;
+  renewalPeriodDays: number | null;
   onCancel: () => void;
 }) {
-  // Renewal default = bump expiryDate by 1 year from the current value
-  // (or from today if there's no current expiry). UI lets the user
-  // override, and optionally update issueDate to the renewal date.
+  // Renewal default = bump expiryDate by `renewalPeriodDays` from the
+  // current value (or from today if there's no current expiry). UI lets
+  // the user override, and optionally update issueDate to the renewal date.
+  // Falls back to 365 days when the credential type has no configured
+  // renewal cycle. (Audit #21 IM-2: previously hardcoded to 365 — wrong
+  // for DEA (1095) / CPR/BLS (730) / etc.)
   const [expiryDate, setExpiryDate] = useState(() => {
     const base = initial.expiryDate ? new Date(initial.expiryDate) : new Date();
-    base.setUTCFullYear(base.getUTCFullYear() + 1);
+    const days = renewalPeriodDays && renewalPeriodDays > 0 ? renewalPeriodDays : 365;
+    base.setUTCDate(base.getUTCDate() + days);
     return base.toISOString().slice(0, 10);
   });
   const [issueDate, setIssueDate] = useState(isoToYmd(initial.issueDate));

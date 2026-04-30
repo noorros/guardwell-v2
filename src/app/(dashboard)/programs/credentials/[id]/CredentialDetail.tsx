@@ -51,6 +51,7 @@ export interface CredentialDetailProps {
     ceuRequirementHours: number | null;
     ceuRequirementWindowMonths: number | null;
     requiresEvidenceByDefault: boolean;
+    renewalPeriodDays: number | null;
   };
   credential: {
     title: string;
@@ -145,6 +146,7 @@ export function CredentialDetail({
             credentialId={credentialId}
             canManage={canManage}
             value={credential}
+            renewalPeriodDays={credentialType.renewalPeriodDays}
           />
         </CardContent>
       </Card>
