@@ -40,12 +40,18 @@ export async function createPracticeAction(formData: FormData) {
       },
     },
     async (tx) => {
+      // Audit #18 (HIPAA B-2): include isSecurityOfficer so the new
+      // owner satisfies HIPAA §164.308(a)(2)(ii) Security Officer
+      // designation out of the box. Privacy + Compliance defaults
+      // remain — all three officer roles default to the OWNER until
+      // they delegate via the staff page.
       await tx.practiceUser.create({
         data: {
           userId: user.id,
           practiceId: practice.id,
           role: "OWNER",
           isPrivacyOfficer: true,
+          isSecurityOfficer: true,
           isComplianceOfficer: true,
         },
       });
