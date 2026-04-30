@@ -310,6 +310,66 @@ describe("updateCredentialAction (audit #8)", () => {
     expect(after.holderId).toBeNull();
   });
 
+  // Audit #21 (Wave 4 D6): the `preserves holderId through Edit` test
+  // above pins the codepath, but the Renew form sends a DIFFERENT
+  // payload shape (new expiryDate + optional new licenseNumber) through
+  // the same updateCredentialAction. CR-1 was reported against both the
+  // Edit and Renew flows in production, so a payload-shaped Renew test
+  // makes the use-case explicit and guards against future divergence
+  // (e.g. if Renew ever gets its own action).
+  it("preserves holderId through Renew flow (new expiryDate, holderId omitted) — audit #21 CR-1", async () => {
+    const { practice } = await seed("ADMIN");
+    const credType = await seedCredentialType("CU_TYPE_RENEW_HOLDER");
+    const holderUser = await db.user.create({
+      data: {
+        firebaseUid: `rnh-${Math.random().toString(36).slice(2, 10)}`,
+        email: `rnh-${Math.random().toString(36).slice(2, 8)}@test.test`,
+      },
+    });
+    const drJane = await db.practiceUser.create({
+      data: {
+        userId: holderUser.id,
+        practiceId: practice.id,
+        role: "STAFF",
+      },
+    });
+    // Credential expiring soon — the row a user would Renew.
+    const cred = await db.credential.create({
+      data: {
+        practiceId: practice.id,
+        credentialTypeId: credType.id,
+        holderId: drJane.id,
+        title: "AZ DEA Registration",
+        licenseNumber: "DEA-AB1234567",
+        issuingBody: "DEA",
+        issueDate: new Date("2023-05-01"),
+        expiryDate: new Date("2026-05-01"),
+      },
+    });
+    const { updateCredentialAction } = await import(
+      "@/app/(dashboard)/programs/credentials/actions"
+    );
+    // Mirrors the Renew form: new expiryDate, possibly-rotated license
+    // number, every other field carried through from `initial`. holderId
+    // is NOT in the Renew form's payload — the regression is that
+    // updateCredentialAction must default it from the existing row.
+    await updateCredentialAction({
+      credentialId: cred.id,
+      title: "AZ DEA Registration",
+      licenseNumber: "DEA-AB1234567",
+      issuingBody: "DEA",
+      issueDate: "2026-05-01",
+      expiryDate: "2029-05-01",
+      notes: null,
+    });
+    const after = await db.credential.findUniqueOrThrow({ where: { id: cred.id } });
+    expect(after.holderId).toBe(drJane.id);
+    expect(after.expiryDate?.toISOString()).toContain("2029-05-01");
+    // Title untouched — confirms Renew didn't accidentally clear other
+    // fields the form carried through.
+    expect(after.title).toBe("AZ DEA Registration");
+  });
+
   it("preserves the credential's original credentialTypeCode (not editable)", async () => {
     const { practice } = await seed("OWNER");
     const credType = await seedCredentialType("CU_TYPE_PRESERVED");

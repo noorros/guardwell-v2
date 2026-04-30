@@ -215,6 +215,36 @@ describe("Audit #21 (HIPAA I-1): per-state AG notification on breach", () => {
     for (const r of rows) expect(r.thresholdAffectedCount).toBe(12);
   });
 
+  // Audit #21 Wave 4 #244 (Wave 4 D6): the breach-deadline projection
+  // path uses computeStateBreachDeadline → addBusinessDays(skipHolidays:
+  // true) for CA's 15-business-day rule. The existing multi-state test
+  // happens to land outside any federal holiday window, so the
+  // skipHolidays branch is structurally there but not exercised. This
+  // regression pins it: a CA discovery on Fri 2026-05-08 must skip
+  // Memorial Day (Mon 2026-05-25) when computing the +15-business-day
+  // deadline, landing on Mon 2026-06-01 instead of Fri 2026-05-29.
+  it("CA 15-business-day breach deadline skips Memorial Day federal holiday (audit #21 Wave-4)", async () => {
+    const { user, practice } = await seedPractice("CA");
+    const incidentId = await reportIncident({
+      user,
+      practice,
+      patientState: "CA",
+      // Fri 2026-05-08 10:00 UTC. +15 weekday-only days = Fri 2026-05-29.
+      // +15 business days skipping Memorial Day = Mon 2026-06-01.
+      discoveredAt: new Date("2026-05-08T10:00:00Z"),
+    });
+    await determineBreach({ user, practice, incidentId });
+
+    const rows = await db.incidentStateAgNotification.findMany({
+      where: { incidentId },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.state).toBe("CA");
+    // Expected deadline: 2026-06-01 (Mon), not 2026-05-29 (Fri). The
+    // exact ISO instant preserves the discoveredAt time-of-day (10:00).
+    expect(rows[0]!.deadlineAt.toISOString()).toBe("2026-06-01T10:00:00.000Z");
+  });
+
   it("idempotent — re-emitting INCIDENT_BREACH_DETERMINED does not duplicate rows", async () => {
     const { user, practice } = await seedPractice("TX");
     const incidentId = await reportIncident({
