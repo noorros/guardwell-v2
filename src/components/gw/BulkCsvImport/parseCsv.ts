@@ -127,10 +127,18 @@ export function buildCsv<TRow extends Record<string, unknown>>(
 
 function csvEscape(value: string): string {
   if (value === "") return "";
-  if (/[,"\n\r]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`;
+  // Audit C-4: CSV (formula) injection defense. OWASP-cataloged risk
+  // where a cell starting with `=`, `+`, `-`, `@`, tab, or CR is
+  // executed as a formula by Excel / Google Sheets. Prepend a single-
+  // quote — the spreadsheet treats it as a literal-text neutralizer.
+  // Cross-cutting: this guards every CSV export that uses buildCsv
+  // (credentials, vendors, tech assets, future surfaces).
+  let out = value;
+  if (/^[=+\-@\t\r]/.test(out)) out = `'${out}`;
+  if (/[,"\n\r]/.test(out)) {
+    return `"${out.replace(/"/g, '""')}"`;
   }
-  return value;
+  return out;
 }
 
 function formatCell(value: unknown): string {
