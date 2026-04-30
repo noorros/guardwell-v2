@@ -12,6 +12,7 @@
 
 import type { Prisma } from "@prisma/client";
 import type { PayloadFor } from "../registry";
+import { assertProjectionPracticeOwned } from "./guards";
 
 type Tx = Prisma.TransactionClient;
 
@@ -51,12 +52,27 @@ export async function projectTrainingAssigned(
  * Soft-revoke an assignment by stamping revokedAt + reason +
  * revokedByUserId. The original row is preserved so the audit trail
  * can answer "what was the assignment for this user before revocation."
+ *
+ * Audit C-1: refuse a forged TRAINING_ASSIGNMENT_REVOKED carrying
+ * another practice's assignmentId — without this guard, any practice's
+ * assignment could be revoked. Also idempotent on missing rows.
  */
 export async function projectTrainingAssignmentRevoked(
   tx: Tx,
   args: Args<PayloadFor<"TRAINING_ASSIGNMENT_REVOKED", 1>>,
 ): Promise<void> {
-  const { actorUserId, payload } = args;
+  const { practiceId, actorUserId, payload } = args;
+
+  const existing = await tx.trainingAssignment.findUnique({
+    where: { id: payload.assignmentId },
+    select: { practiceId: true },
+  });
+  if (!existing) return; // idempotent on missing
+  assertProjectionPracticeOwned(existing, practiceId, {
+    table: "trainingAssignment",
+    id: payload.assignmentId,
+  });
+
   await tx.trainingAssignment.update({
     where: { id: payload.assignmentId },
     data: {
@@ -72,12 +88,28 @@ export async function projectTrainingAssignmentRevoked(
  * replay via the (assignmentId, userId) compound unique — the second
  * call updates `reason` to the latest event's value, which is the
  * intended behavior if an admin revises their justification.
+ *
+ * Audit C-1: refuse a forged STAFF_EXCLUDED_FROM_ASSIGNMENT carrying
+ * another practice's assignmentId. AssignmentExclusion has no
+ * practiceId column — the parent TrainingAssignment is the tenant
+ * boundary, so we gate against it. Also idempotent on missing parent.
  */
 export async function projectStaffExcludedFromAssignment(
   tx: Tx,
   args: Args<PayloadFor<"STAFF_EXCLUDED_FROM_ASSIGNMENT", 1>>,
 ): Promise<void> {
-  const { actorUserId, payload } = args;
+  const { practiceId, actorUserId, payload } = args;
+
+  const parent = await tx.trainingAssignment.findUnique({
+    where: { id: payload.assignmentId },
+    select: { practiceId: true },
+  });
+  if (!parent) return; // idempotent on missing parent
+  assertProjectionPracticeOwned(parent, practiceId, {
+    table: "trainingAssignment",
+    id: payload.assignmentId,
+  });
+
   await tx.assignmentExclusion.upsert({
     where: {
       assignmentId_userId: {
@@ -148,10 +180,13 @@ export async function projectTrainingCourseUpdated(
 }
 
 /**
- * Soft-retire a TrainingCourse. The model has no retiredAt column today;
- * sortOrder=9999 is the soft-retire signal until a follow-up schema
- * migration adds the column. Read-paths filter by (sortOrder < 9999)
- * to hide retired courses from default lists.
+ * Soft-retire a TrainingCourse.
+ *
+ * TrainingCourse has no retiredAt column today. Use sortOrder=9999 as
+ * a soft-retire signal until a schema migration adds the column.
+ * TODO(phase-4-followup): add `retiredAt DateTime?` to TrainingCourse and
+ * switch this projection to set it. The catalog page filters sortOrder<9999
+ * today; once retiredAt exists, switch the filter to retiredAt: null.
  */
 export async function projectTrainingCourseRetired(
   tx: Tx,

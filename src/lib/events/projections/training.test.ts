@@ -146,6 +146,65 @@ describe("projectTrainingAssignmentRevoked", () => {
     expect(row.revokedReason).toBe("Course retired");
     expect(row.revokedByUserId).toBe(actor.userId);
   });
+
+  it("is idempotent on missing assignment (no-op, no throw)", async () => {
+    const { practice, actor } = await seed();
+    const assignmentId = randomUUID();
+    // Assignment never existed. Projection should swallow as no-op.
+    await db.$transaction(async (tx) => {
+      await projectTrainingAssignmentRevoked(tx, {
+        practiceId: practice.id,
+        actorUserId: actor.userId,
+        payload: { assignmentId, reason: "Whatever" },
+      });
+    });
+    const row = await db.trainingAssignment.findUnique({
+      where: { id: assignmentId },
+    });
+    expect(row).toBeNull();
+  });
+
+  it("refuses cross-tenant revoke (assignmentId owned by another practice)", async () => {
+    const { practice: practiceB, course, actor: actorB } = await seed();
+    // Spin up a second practice (A) that will try to revoke B's row.
+    const userA = await db.user.create({
+      data: {
+        firebaseUid: `tp-A-${Math.random().toString(36).slice(2, 10)}`,
+        email: `tp-A-${Math.random().toString(36).slice(2, 8)}@test.test`,
+      },
+    });
+    const practiceA = await db.practice.create({
+      data: { name: "Cross-Tenant A", primaryState: "TX" },
+    });
+    await db.practiceUser.create({
+      data: { userId: userA.id, practiceId: practiceA.id, role: "OWNER" },
+    });
+    const assignmentId = randomUUID();
+    await db.trainingAssignment.create({
+      data: {
+        id: assignmentId,
+        practiceId: practiceB.id,
+        courseId: course.id,
+        assignedToRole: "STAFF",
+        requiredFlag: true,
+        createdByUserId: actorB.userId,
+      },
+    });
+    await expect(
+      db.$transaction(async (tx) => {
+        await projectTrainingAssignmentRevoked(tx, {
+          practiceId: practiceA.id,
+          actorUserId: userA.id,
+          payload: { assignmentId, reason: "Forged" },
+        });
+      }),
+    ).rejects.toThrow(/different practice/i);
+    // Row should be untouched.
+    const row = await db.trainingAssignment.findUniqueOrThrow({
+      where: { id: assignmentId },
+    });
+    expect(row.revokedAt).toBeNull();
+  });
 });
 
 describe("projectStaffExcludedFromAssignment", () => {
@@ -226,6 +285,78 @@ describe("projectStaffExcludedFromAssignment", () => {
     });
     expect(rows).toHaveLength(1);
     expect(rows[0]!.reason).toBe("Second");
+  });
+
+  it("is idempotent on missing parent assignment (no-op, no throw)", async () => {
+    const { practice, actor } = await seed();
+    const assignmentId = randomUUID();
+    const excludedUser = await db.user.create({
+      data: {
+        firebaseUid: `tp-excl-mp-${Math.random().toString(36).slice(2, 10)}`,
+        email: `tp-excl-mp-${Math.random().toString(36).slice(2, 8)}@test.test`,
+      },
+    });
+    await db.$transaction(async (tx) => {
+      await projectStaffExcludedFromAssignment(tx, {
+        practiceId: practice.id,
+        actorUserId: actor.userId,
+        payload: { assignmentId, userId: excludedUser.id, reason: "Orphan" },
+      });
+    });
+    const count = await db.assignmentExclusion.count({
+      where: { assignmentId },
+    });
+    expect(count).toBe(0);
+  });
+
+  it("refuses cross-tenant exclude (parent assignment owned by another practice)", async () => {
+    const { practice: practiceB, course, actor: actorB } = await seed();
+    const userA = await db.user.create({
+      data: {
+        firebaseUid: `tp-A-excl-${Math.random().toString(36).slice(2, 10)}`,
+        email: `tp-A-excl-${Math.random().toString(36).slice(2, 8)}@test.test`,
+      },
+    });
+    const practiceA = await db.practice.create({
+      data: { name: "Cross-Tenant A excl", primaryState: "TX" },
+    });
+    await db.practiceUser.create({
+      data: { userId: userA.id, practiceId: practiceA.id, role: "OWNER" },
+    });
+    const assignmentId = randomUUID();
+    await db.trainingAssignment.create({
+      data: {
+        id: assignmentId,
+        practiceId: practiceB.id,
+        courseId: course.id,
+        assignedToRole: "STAFF",
+        requiredFlag: true,
+        createdByUserId: actorB.userId,
+      },
+    });
+    const excludedUser = await db.user.create({
+      data: {
+        firebaseUid: `tp-victim-${Math.random().toString(36).slice(2, 10)}`,
+        email: `tp-victim-${Math.random().toString(36).slice(2, 8)}@test.test`,
+      },
+    });
+    await expect(
+      db.$transaction(async (tx) => {
+        await projectStaffExcludedFromAssignment(tx, {
+          practiceId: practiceA.id,
+          actorUserId: userA.id,
+          payload: {
+            assignmentId,
+            userId: excludedUser.id,
+            reason: "Forged",
+          },
+        });
+      }),
+    ).rejects.toThrow(/different practice/i);
+    const count = await db.assignmentExclusion.count({
+      where: { assignmentId },
+    });
+    expect(count).toBe(0);
   });
 });
 
