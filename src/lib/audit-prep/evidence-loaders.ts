@@ -486,19 +486,32 @@ export async function loadOsha300LogEvidence(
   practiceId: string,
 ): Promise<Osha300LogEvidence> {
   const cutoff = new Date(Date.now() - TWELVE_MONTHS_MS);
+  // §1904.7(b)(5): first-aid-only injuries are NOT recordable on Form
+  // 300, so all three counts here exclude them. Same exclusion applies
+  // in osha300LogRule + the /api/audit/osha-300 route.
+  const notFirstAid = { not: "FIRST_AID" } as const;
   const [recent12, allTime, mostRecent] = await Promise.all([
     tx.incident.count({
       where: {
         practiceId,
         type: "OSHA_RECORDABLE",
         discoveredAt: { gte: cutoff },
+        oshaOutcome: notFirstAid,
       },
     }),
     tx.incident.count({
-      where: { practiceId, type: "OSHA_RECORDABLE" },
+      where: {
+        practiceId,
+        type: "OSHA_RECORDABLE",
+        oshaOutcome: notFirstAid,
+      },
     }),
     tx.incident.findFirst({
-      where: { practiceId, type: "OSHA_RECORDABLE" },
+      where: {
+        practiceId,
+        type: "OSHA_RECORDABLE",
+        oshaOutcome: notFirstAid,
+      },
       orderBy: { discoveredAt: "desc" },
       select: { discoveredAt: true },
     }),

@@ -53,6 +53,12 @@ async function osha300LogRule(
       practiceId,
       type: "OSHA_RECORDABLE",
       discoveredAt: { gt: cutoff },
+      // §1904.7(b)(5): first-aid-only injuries are explicitly excluded
+      // from the Form 300 log. Counting them here would inflate the
+      // compliance signal — and Prisma's `not` also drops NULL outcomes,
+      // which is correct (an incomplete classification doesn't satisfy
+      // the requirement either).
+      oshaOutcome: { not: "FIRST_AID" },
     },
   });
   return count >= 1 ? "COMPLIANT" : "GAP";
