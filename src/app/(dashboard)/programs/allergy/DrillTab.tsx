@@ -3,12 +3,12 @@
 import { useState, useTransition } from "react";
 import { AlertTriangle, ChevronDown, ChevronUp, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { CompetencyTabProps } from "./CompetencyTab";
-import { logDrillAction } from "./actions";
+import { deleteDrillAction, logDrillAction, updateDrillAction } from "./actions";
 import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
 import { formatPracticeDate } from "@/lib/audit/format";
+import { HistoryRowActions } from "@/components/gw/HistoryRowActions";
 
 export interface DrillTabProps {
   canManage: boolean;
@@ -285,12 +285,15 @@ function LogDrillForm({ members }: { members: DrillTabProps["members"] }) {
 function DrillRow({
   drill,
   members,
+  canManage,
 }: {
   drill: DrillTabProps["drills"][number];
   members: DrillTabProps["members"];
+  canManage: boolean;
 }) {
   const tz = usePracticeTimezone();
   const [expanded, setExpanded] = useState(false);
+  const [mode, setMode] = useState<"view" | "edit">("view");
   const memberMap = new Map(members.map((m) => [m.id, m.name]));
 
   const participantNames = drill.participantIds
@@ -328,8 +331,20 @@ function DrillRow({
         </span>
       </button>
 
-      {expanded && (
+      {expanded && mode === "view" && (
         <div className="border-t bg-muted/20 px-4 py-3 space-y-3 text-sm">
+          {canManage && (
+            <div className="flex justify-end">
+              <HistoryRowActions
+                canManage={canManage}
+                onEdit={() => setMode("edit")}
+                onDelete={async () => {
+                  await deleteDrillAction({ drillId: drill.id });
+                }}
+                deleteConfirmText={`Delete this drill from ${formatPracticeDate(new Date(drill.conductedAt), tz)}? It stays in the audit log but stops counting toward ALLERGY_ANNUAL_DRILL.`}
+              />
+            </div>
+          )}
           <div>
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Scenario
@@ -368,7 +383,220 @@ function DrillRow({
           )}
         </div>
       )}
+
+      {expanded && mode === "edit" && (
+        <EditDrillForm
+          drill={drill}
+          members={members}
+          onCancel={() => setMode("view")}
+        />
+      )}
     </li>
+  );
+}
+
+// ── Edit Drill Form ───────────────────────────────────────────────────────────
+
+function EditDrillForm({
+  drill,
+  members,
+  onCancel,
+}: {
+  drill: DrillTabProps["drills"][number];
+  members: DrillTabProps["members"];
+  onCancel: () => void;
+}) {
+  const [conductedAt, setConductedAt] = useState(drill.conductedAt.slice(0, 10));
+  const [scenario, setScenario] = useState(drill.scenario);
+  const [participantIds, setParticipantIds] = useState<Set<string>>(
+    new Set(drill.participantIds),
+  );
+  const [durationMinutes, setDurationMinutes] = useState(
+    drill.durationMinutes != null ? String(drill.durationMinutes) : "",
+  );
+  const [observations, setObservations] = useState(drill.observations ?? "");
+  const [correctiveActions, setCorrectiveActions] = useState(
+    drill.correctiveActions ?? "",
+  );
+  const [nextDrillDue, setNextDrillDue] = useState(
+    drill.nextDrillDue ? drill.nextDrillDue.slice(0, 10) : "",
+  );
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function toggleParticipant(id: string) {
+    setParticipantIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function handleSave() {
+    setError(null);
+    if (!conductedAt) {
+      setError("Date is required.");
+      return;
+    }
+    if (!scenario.trim()) {
+      setError("Scenario is required.");
+      return;
+    }
+    if (participantIds.size === 0) {
+      setError("At least one participant is required.");
+      return;
+    }
+    startTransition(async () => {
+      try {
+        await updateDrillAction({
+          drillId: drill.id,
+          conductedAt,
+          scenario: scenario.trim(),
+          participantIds: Array.from(participantIds),
+          durationMinutes: durationMinutes ? parseInt(durationMinutes, 10) : null,
+          observations: observations || null,
+          correctiveActions: correctiveActions || null,
+          nextDrillDue: nextDrillDue || null,
+        });
+        onCancel();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to save");
+      }
+    });
+  }
+
+  const editPrefix = `edit-drill-${drill.id}`;
+
+  return (
+    <div className="border-t bg-muted/20 px-4 py-3 space-y-3 text-sm">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Edit drill
+      </h3>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <label htmlFor={`${editPrefix}-date`} className="text-xs font-medium">
+            Date conducted
+          </label>
+          <input
+            id={`${editPrefix}-date`}
+            type="date"
+            value={conductedAt}
+            onChange={(e) => setConductedAt(e.target.value)}
+            disabled={isPending}
+            className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor={`${editPrefix}-duration`} className="text-xs font-medium">
+            Duration <span className="font-normal text-muted-foreground">(minutes, optional)</span>
+          </label>
+          <input
+            id={`${editPrefix}-duration`}
+            type="number"
+            min="0"
+            value={durationMinutes}
+            onChange={(e) => setDurationMinutes(e.target.value)}
+            disabled={isPending}
+            className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor={`${editPrefix}-scenario`} className="text-xs font-medium">
+          Scenario
+        </label>
+        <textarea
+          id={`${editPrefix}-scenario`}
+          rows={3}
+          value={scenario}
+          onChange={(e) => setScenario(e.target.value)}
+          maxLength={2000}
+          disabled={isPending}
+          className="w-full rounded-md border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <p className="text-xs font-medium">Participants</p>
+        <div className="rounded-md border bg-background p-2 space-y-1 max-h-40 overflow-y-auto">
+          {members.map((m) => {
+            const inputId = `${editPrefix}-p-${m.id}`;
+            return (
+              <label
+                key={m.id}
+                htmlFor={inputId}
+                className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-accent"
+              >
+                <input
+                  id={inputId}
+                  type="checkbox"
+                  checked={participantIds.has(m.id)}
+                  onChange={() => toggleParticipant(m.id)}
+                  disabled={isPending}
+                  className="h-3.5 w-3.5 cursor-pointer accent-[color:var(--gw-color-compliant)]"
+                />
+                <span className="truncate">{m.name}</span>
+                <span className="ml-auto text-xs text-muted-foreground">{m.role}</span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor={`${editPrefix}-observations`} className="text-xs font-medium">
+          Observations <span className="font-normal text-muted-foreground">(optional)</span>
+        </label>
+        <textarea
+          id={`${editPrefix}-observations`}
+          rows={2}
+          value={observations}
+          onChange={(e) => setObservations(e.target.value)}
+          disabled={isPending}
+          className="w-full rounded-md border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor={`${editPrefix}-corrective`} className="text-xs font-medium">
+          Corrective actions <span className="font-normal text-muted-foreground">(optional)</span>
+        </label>
+        <textarea
+          id={`${editPrefix}-corrective`}
+          rows={2}
+          value={correctiveActions}
+          onChange={(e) => setCorrectiveActions(e.target.value)}
+          disabled={isPending}
+          className="w-full rounded-md border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor={`${editPrefix}-next-due`} className="text-xs font-medium">
+          Next drill due <span className="font-normal text-muted-foreground">(optional)</span>
+        </label>
+        <input
+          id={`${editPrefix}-next-due`}
+          type="date"
+          value={nextDrillDue}
+          onChange={(e) => setNextDrillDue(e.target.value)}
+          disabled={isPending}
+          className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+      </div>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      <div className="flex items-center gap-2">
+        <Button onClick={handleSave} disabled={isPending} size="sm">
+          {isPending ? "Saving…" : "Save changes"}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={isPending}
+          onClick={onCancel}
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -398,7 +626,12 @@ export function DrillTab({ canManage, members, drills }: DrillTabProps) {
           <div className="rounded-lg border">
             <ul>
               {drills.map((d) => (
-                <DrillRow key={d.id} drill={d} members={members} />
+                <DrillRow
+                  key={d.id}
+                  drill={d}
+                  members={members}
+                  canManage={canManage}
+                />
               ))}
             </ul>
           </div>

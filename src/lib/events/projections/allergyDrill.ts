@@ -4,11 +4,13 @@ import type { PayloadFor } from "../registry";
 import { rederiveRequirementStatus } from "@/lib/compliance/derivation/rederive";
 import { assertProjectionPracticeOwned } from "./guards";
 
-type Payload = PayloadFor<"ALLERGY_DRILL_LOGGED", 1>;
+type LoggedPayload = PayloadFor<"ALLERGY_DRILL_LOGGED", 1>;
+type UpdatedPayload = PayloadFor<"ALLERGY_DRILL_UPDATED", 1>;
+type DeletedPayload = PayloadFor<"ALLERGY_DRILL_DELETED", 1>;
 
 export async function projectAllergyDrillLogged(
   tx: Prisma.TransactionClient,
-  args: { practiceId: string; payload: Payload },
+  args: { practiceId: string; payload: LoggedPayload },
 ): Promise<void> {
   const { practiceId, payload } = args;
 
@@ -52,5 +54,85 @@ export async function projectAllergyDrillLogged(
         : null,
     },
   });
+  await rederiveRequirementStatus(tx, practiceId, "ALLERGY_ANNUAL_DRILL");
+}
+
+/**
+ * Audit #15: typo correction on an existing drill row. The original
+ * conductor (conductedById) is preserved; only the user-editable fields
+ * are mutated. Refuses if the row is missing, retired, or belongs to a
+ * different practice. Triggers ALLERGY_ANNUAL_DRILL rederive in case
+ * the new conductedAt date crosses the annual threshold.
+ */
+export async function projectAllergyDrillUpdated(
+  tx: Prisma.TransactionClient,
+  args: { practiceId: string; payload: UpdatedPayload },
+): Promise<void> {
+  const { practiceId, payload } = args;
+  const existing = await tx.allergyDrill.findUnique({
+    where: { id: payload.drillId },
+    select: { practiceId: true, retiredAt: true },
+  });
+  if (!existing) {
+    throw new Error(
+      `ALLERGY_DRILL_UPDATED refused: drill ${payload.drillId} not found`,
+    );
+  }
+  assertProjectionPracticeOwned(existing, practiceId, {
+    table: "allergyDrill",
+    id: payload.drillId,
+  });
+  if (existing.retiredAt) {
+    throw new Error(
+      `ALLERGY_DRILL_UPDATED refused: drill ${payload.drillId} is retired`,
+    );
+  }
+  await tx.allergyDrill.update({
+    where: { id: payload.drillId },
+    data: {
+      conductedAt: new Date(payload.conductedAt),
+      scenario: payload.scenario,
+      participantIds: payload.participantIds,
+      durationMinutes: payload.durationMinutes ?? null,
+      observations: payload.observations ?? null,
+      correctiveActions: payload.correctiveActions ?? null,
+      nextDrillDue: payload.nextDrillDue
+        ? new Date(payload.nextDrillDue)
+        : null,
+    },
+  });
+  await rederiveRequirementStatus(tx, practiceId, "ALLERGY_ANNUAL_DRILL");
+}
+
+/**
+ * Audit #15: soft-delete. Idempotent — re-emitting on an already-retired
+ * drill row leaves retiredAt unchanged. Always rederives
+ * ALLERGY_ANNUAL_DRILL because deleting the most-recent drill can flip
+ * the annual rule back to GAP.
+ */
+export async function projectAllergyDrillDeleted(
+  tx: Prisma.TransactionClient,
+  args: { practiceId: string; payload: DeletedPayload },
+): Promise<void> {
+  const { practiceId, payload } = args;
+  const existing = await tx.allergyDrill.findUnique({
+    where: { id: payload.drillId },
+    select: { practiceId: true, retiredAt: true },
+  });
+  if (!existing) {
+    throw new Error(
+      `ALLERGY_DRILL_DELETED refused: drill ${payload.drillId} not found`,
+    );
+  }
+  assertProjectionPracticeOwned(existing, practiceId, {
+    table: "allergyDrill",
+    id: payload.drillId,
+  });
+  if (!existing.retiredAt) {
+    await tx.allergyDrill.update({
+      where: { id: payload.drillId },
+      data: { retiredAt: new Date(payload.deletedAt) },
+    });
+  }
   await rederiveRequirementStatus(tx, practiceId, "ALLERGY_ANNUAL_DRILL");
 }

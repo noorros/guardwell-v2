@@ -76,6 +76,15 @@ export const EVENT_TYPES = [
   // event evidence chain. Both now emit dedicated events.
   "ALLERGY_COMPOUNDING_LOGGED",
   "ALLERGY_REQUIREMENT_TOGGLED",
+  // Audit #15 (2026-04-30): typo correction + soft-delete on history rows.
+  // Distinct event types so the audit trail clearly distinguishes
+  // "originally logged" vs "edited" vs "retired" instead of relying on
+  // multiple LOGGED events with overlapping ids.
+  "ALLERGY_DRILL_UPDATED",
+  "ALLERGY_DRILL_DELETED",
+  "ALLERGY_EQUIPMENT_CHECK_UPDATED",
+  "ALLERGY_EQUIPMENT_CHECK_DELETED",
+  "INCIDENT_OSHA_OUTCOME_UPDATED",
   // Evidence / file uploads — polymorphic across credentials, vendors, etc.
   // see docs/plans/2026-04-27-evidence-ceu-reminders.md
   "EVIDENCE_UPLOAD_REQUESTED",
@@ -1037,6 +1046,91 @@ export const EVENT_SCHEMAS = {
       observations: z.string().max(2000).nullable().optional(),
       correctiveActions: z.string().max(2000).nullable().optional(),
       nextDrillDue: z.string().datetime().nullable().optional(),
+    }),
+  },
+  // Audit #15: ADMIN typo-correction on an existing drill row. Carries
+  // the full editable field set (mirrors LOGGED minus drillId-as-create
+  // semantics + minus conductedByUserId — the original conductor is
+  // preserved). Projection updates the row in place, refuses if retiredAt
+  // is set or if the row is in another practice.
+  ALLERGY_DRILL_UPDATED: {
+    1: z.object({
+      drillId: z.string().min(1),
+      editedByUserId: z.string().min(1),
+      conductedAt: z.string().datetime(),
+      scenario: z.string().min(1).max(2000),
+      participantIds: z.array(z.string().min(1)).min(1),
+      durationMinutes: z.number().int().min(0).nullable().optional(),
+      observations: z.string().max(2000).nullable().optional(),
+      correctiveActions: z.string().max(2000).nullable().optional(),
+      nextDrillDue: z.string().datetime().nullable().optional(),
+    }),
+  },
+  // Audit #15: soft-delete (sets retiredAt). Idempotent — re-emitting on
+  // an already-retired row is a no-op. Triggers ALLERGY_ANNUAL_DRILL
+  // rederive in case the deletion crosses the latest-drill threshold.
+  ALLERGY_DRILL_DELETED: {
+    1: z.object({
+      drillId: z.string().min(1),
+      deletedByUserId: z.string().min(1),
+      deletedAt: z.string().datetime(),
+      reason: z.string().max(500).nullable().optional(),
+    }),
+  },
+  // Audit #15: ADMIN typo-correction on an existing equipment-check row.
+  // checkType is intentionally NOT editable (changing kit ↔ fridge would
+  // turn the original log into something else; delete + re-log instead).
+  ALLERGY_EQUIPMENT_CHECK_UPDATED: {
+    1: z.object({
+      equipmentCheckId: z.string().min(1),
+      editedByUserId: z.string().min(1),
+      checkedAt: z.string().datetime(),
+      epiExpiryDate: z.string().datetime().nullable().optional(),
+      epiLotNumber: z.string().max(100).nullable().optional(),
+      allItemsPresent: z.boolean().nullable().optional(),
+      itemsReplaced: z.string().max(2000).nullable().optional(),
+      temperatureC: z.number().min(-20).max(40).nullable().optional(),
+      inRange: z.boolean().nullable().optional(),
+      notes: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  // Audit #15: soft-delete equipment check (sets retiredAt). Triggers
+  // ALLERGY_EMERGENCY_KIT_CURRENT or ALLERGY_REFRIGERATOR_LOG rederive
+  // depending on checkType.
+  ALLERGY_EQUIPMENT_CHECK_DELETED: {
+    1: z.object({
+      equipmentCheckId: z.string().min(1),
+      deletedByUserId: z.string().min(1),
+      deletedAt: z.string().datetime(),
+      reason: z.string().max(500).nullable().optional(),
+    }),
+  },
+  // Audit #15: ADMIN typo-correction on an Incident's OSHA recordable
+  // outcome fields. The Incident row itself is not "deleted" via this
+  // event — incidents already support a soft-resolved state. Only the
+  // OSHA-specific columns are mutable here so we don't accidentally
+  // collide with breach-determination state. Triggers any Form 300 / 301
+  // rederivation paths because oshaOutcome controls §1904.7 inclusion.
+  INCIDENT_OSHA_OUTCOME_UPDATED: {
+    1: z.object({
+      incidentId: z.string().min(1),
+      editedByUserId: z.string().min(1),
+      oshaBodyPart: z.string().max(200).nullable().optional(),
+      oshaInjuryNature: z.string().max(200).nullable().optional(),
+      oshaOutcome: z
+        .enum([
+          "DEATH",
+          "DAYS_AWAY",
+          "RESTRICTED",
+          "OTHER_RECORDABLE",
+          "FIRST_AID",
+        ])
+        .nullable()
+        .optional(),
+      oshaDaysAway: z.number().int().min(0).nullable().optional(),
+      oshaDaysRestricted: z.number().int().min(0).nullable().optional(),
+      sharpsDeviceType: z.string().max(200).nullable().optional(),
+      injuredUserId: z.string().min(1).nullable().optional(),
     }),
   },
   // ────────────────────────────────────────────────────────────────────

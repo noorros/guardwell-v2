@@ -25,7 +25,12 @@ export default async function AllergyProgramPage() {
   if (!framework) {
     redirect("/dashboard" as Route);
   }
-  const year = new Date().getFullYear();
+  // Pre-compute now-anchored values outside the Promise.all so eslint's
+  // react-hooks/purity rule doesn't flag Date.now() calls inline. RSCs
+  // render once per request, so a single computed timestamp is correct.
+  const now = new Date();
+  const year = now.getFullYear();
+  const sixMonthsAgo = new Date(now.getTime() - SIX_MONTHS_MS);
   const [members, competencies, equipmentChecks, drills] = await Promise.all([
     db.practiceUser.findMany({
       where: { practiceId: pu.practiceId, removedAt: null },
@@ -40,12 +45,16 @@ export default async function AllergyProgramPage() {
     db.allergyEquipmentCheck.findMany({
       where: {
         practiceId: pu.practiceId,
-        checkedAt: { gte: new Date(Date.now() - SIX_MONTHS_MS) },
+        checkedAt: { gte: sixMonthsAgo },
+        // Audit #15: hide soft-deleted rows from history reads. Retired
+        // rows still live in the DB for EventLog replay + cross-tenant
+        // guards but never appear in the list UI.
+        retiredAt: null,
       },
       orderBy: { checkedAt: "desc" },
     }),
     db.allergyDrill.findMany({
-      where: { practiceId: pu.practiceId },
+      where: { practiceId: pu.practiceId, retiredAt: null }, // audit #15
       orderBy: { conductedAt: "desc" },
       take: 20,
     }),

@@ -1677,7 +1677,9 @@ model AllergyQuizAnswer {
 
 /// Equipment check log. checkType discriminator drives which fields are set.
 /// Projected from ALLERGY_EQUIPMENT_CHECK_LOGGED events.
-/// Append-only: rows are never mutated after creation.
+/// Audit #15 (2026-04-30) added typo-correction (UPDATED) + soft-delete
+/// (DELETED, sets retiredAt). Reads filter retiredAt IS NULL; the row
+/// stays for audit replay.
 model AllergyEquipmentCheck {
   id              String           @id @default(cuid())
   practiceId      String
@@ -1695,6 +1697,9 @@ model AllergyEquipmentCheck {
   // shared
   notes           String?          @db.Text
   createdAt       DateTime         @default(now())
+  // Audit #15: soft-delete timestamp. Non-null = retired row (hidden
+  // from list reads, preserved for EventLog replay + cross-tenant guard).
+  retiredAt       DateTime?
 
   practice  Practice     @relation(fields: [practiceId], references: [id], onDelete: Cascade)
   checkedBy PracticeUser @relation("AllergyCheckPerformedBy", fields: [checkedById], references: [id])
@@ -1703,7 +1708,9 @@ model AllergyEquipmentCheck {
 }
 
 /// Anaphylaxis drill log. Annual minimum per practice. Projected from
-/// ALLERGY_DRILL_LOGGED events. Append-only: rows are never mutated after creation.
+/// ALLERGY_DRILL_LOGGED events. Audit #15 (2026-04-30) added
+/// typo-correction (UPDATED) + soft-delete (DELETED, sets retiredAt).
+/// Reads filter retiredAt IS NULL; the row stays for audit replay.
 /// `participantIds` stores PracticeUser.id values without FK enforcement;
 /// resolve names with a separate findMany. Acceptable for typical small
 /// staff sizes; revisit with a join table if drills routinely have 20+
@@ -1720,6 +1727,9 @@ model AllergyDrill {
   correctiveActions String?  @db.Text
   nextDrillDue      DateTime?
   createdAt         DateTime @default(now())
+  // Audit #15: soft-delete timestamp. Non-null = retired row (hidden
+  // from list reads, preserved for EventLog replay + cross-tenant guard).
+  retiredAt         DateTime?
 
   practice    Practice     @relation(fields: [practiceId], references: [id], onDelete: Cascade)
   conductedBy PracticeUser @relation("AllergyDrillLedBy", fields: [conductedById], references: [id])

@@ -17,6 +17,7 @@ import {
 import { BreachDeterminationWizard } from "./BreachDeterminationWizard";
 import { NotificationLog } from "./NotificationLog";
 import { ResolveButton } from "./ResolveButton";
+import { OshaOutcomePanel } from "./OshaOutcomePanel";
 import { formatPracticeDate } from "@/lib/audit/format";
 
 interface PageProps {
@@ -47,6 +48,28 @@ export default async function IncidentDetailPage({ params }: PageProps) {
   const incident = await db.incident.findUnique({ where: { id } });
   if (!incident || incident.practiceId !== pu.practiceId) notFound();
 
+  // Audit #15: load member options once so the OSHA-edit dropdown can
+  // change the injured employee without a separate API round-trip.
+  const memberOptions =
+    incident.type === "OSHA_RECORDABLE"
+      ? (
+          await db.practiceUser.findMany({
+            where: { practiceId: pu.practiceId, removedAt: null },
+            include: {
+              user: { select: { firstName: true, lastName: true, email: true } },
+            },
+            orderBy: [{ joinedAt: "asc" }],
+          })
+        ).map((m) => ({
+          userId: m.userId,
+          label:
+            [m.user.firstName, m.user.lastName].filter(Boolean).join(" ") ||
+            m.user.email ||
+            "Unknown",
+        }))
+      : [];
+
+  const canManage = pu.role === "OWNER" || pu.role === "ADMIN";
   const hasDetermined = incident.isBreach !== null;
   const isUnresolvedBreach =
     incident.isBreach === true && incident.resolvedAt === null;
@@ -118,39 +141,30 @@ export default async function IncidentDetailPage({ params }: PageProps) {
             </p>
           )}
           {incident.type === "OSHA_RECORDABLE" && (
-            <div className="rounded-md border bg-muted/30 p-3 text-xs text-foreground">
-              <p className="font-medium">OSHA recordable details</p>
-              <ul className="mt-1 space-y-0.5">
-                {incident.oshaBodyPart && (
-                  <li>Body part: {incident.oshaBodyPart}</li>
-                )}
-                {incident.oshaInjuryNature && (
-                  <li>Injury: {incident.oshaInjuryNature}</li>
-                )}
-                {incident.oshaOutcome && (
-                  <li>Outcome: {incident.oshaOutcome.replace(/_/g, " ")}</li>
-                )}
-                {incident.oshaDaysAway != null && (
-                  <li>Days away: {incident.oshaDaysAway}</li>
-                )}
-                {incident.oshaDaysRestricted != null && (
-                  <li>Days restricted: {incident.oshaDaysRestricted}</li>
-                )}
-                {incident.sharpsDeviceType && (
-                  <li>Sharps device: {incident.sharpsDeviceType}</li>
-                )}
-              </ul>
-              <div className="mt-3 pt-3 border-t">
-                <Link
-                  href={`/api/audit/osha-301/${incident.id}` as Route}
-                  className="inline-flex items-center gap-1 rounded-md border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Generate OSHA 301 form
-                </Link>
-              </div>
-            </div>
+            <OshaOutcomePanel
+              incidentId={incident.id}
+              canManage={canManage}
+              memberOptions={memberOptions}
+              initial={{
+                oshaBodyPart: incident.oshaBodyPart,
+                oshaInjuryNature: incident.oshaInjuryNature,
+                // Prisma types oshaOutcome as a generated enum that's
+                // structurally identical to OshaOutcomeValue but nominally
+                // distinct. Cast through unknown to satisfy TS.
+                oshaOutcome:
+                  (incident.oshaOutcome as
+                    | "DEATH"
+                    | "DAYS_AWAY"
+                    | "RESTRICTED"
+                    | "OTHER_RECORDABLE"
+                    | "FIRST_AID"
+                    | null) ?? null,
+                oshaDaysAway: incident.oshaDaysAway,
+                oshaDaysRestricted: incident.oshaDaysRestricted,
+                sharpsDeviceType: incident.sharpsDeviceType,
+                injuredUserId: incident.injuredUserId,
+              }}
+            />
           )}
         </CardContent>
       </Card>

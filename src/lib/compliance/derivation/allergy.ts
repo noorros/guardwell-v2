@@ -45,7 +45,9 @@ export async function deriveAllergyEmergencyKit(
   practiceId: string,
 ): Promise<DerivedStatus | null> {
   const latest = await tx.allergyEquipmentCheck.findFirst({
-    where: { practiceId, checkType: "EMERGENCY_KIT" },
+    // Audit #15: skip soft-deleted rows so retiring a stale check
+    // can flip the rule back to NOT_STARTED / GAP correctly.
+    where: { practiceId, checkType: "EMERGENCY_KIT", retiredAt: null },
     orderBy: { checkedAt: "desc" },
   });
   if (!latest) return "NOT_STARTED";
@@ -70,6 +72,7 @@ export async function deriveAllergyRefrigeratorLog(
       practiceId,
       checkType: "REFRIGERATOR_TEMP",
       checkedAt: { gt: new Date(Date.now() - FRIDGE_WINDOW_MS) },
+      retiredAt: null, // audit #15
     },
     orderBy: { checkedAt: "desc" },
   });
@@ -85,7 +88,7 @@ export async function deriveAllergyAnnualDrill(
   practiceId: string,
 ): Promise<DerivedStatus | null> {
   const latest = await tx.allergyDrill.findFirst({
-    where: { practiceId },
+    where: { practiceId, retiredAt: null }, // audit #15
     orderBy: { conductedAt: "desc" },
   });
   if (!latest) return "NOT_STARTED";
