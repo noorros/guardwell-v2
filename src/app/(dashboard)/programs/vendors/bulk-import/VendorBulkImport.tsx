@@ -6,6 +6,8 @@ import {
   bulkImportVendorsAction,
   type BulkVendorImportRow,
 } from "../actions";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 const TEMPLATE_CSV = `name,type,service,contact,email,processesPhi,baaExecutedAt,baaExpiresAt,baaDirection,notes
 eClinicalWorks,EHR,Electronic medical record,Sales rep,sales@ecw.example,true,2025-01-01,2027-01-01,VENDOR_PROVIDED,Primary EHR
@@ -36,6 +38,7 @@ function parseDate(s: string): string | null | undefined {
 }
 
 export function VendorBulkImport() {
+  const tz = usePracticeTimezone();
   return (
     <BulkCsvImport<BulkVendorImportRow>
       hint="Each row becomes one active Vendor. Required: name, processesPhi. BAA fields are optional."
@@ -134,7 +137,7 @@ export function VendorBulkImport() {
           {r.type ? ` · ${r.type}` : ""} ·{" "}
           {r.processesPhi ? "PHI" : "no PHI"}
           {r.baaExecutedAt
-            ? ` · BAA ${r.baaExecutedAt.slice(0, 10)}`
+            ? ` · BAA ${formatPracticeDate(new Date(r.baaExecutedAt), tz)}`
             : " · no BAA"}
         </span>
       )}

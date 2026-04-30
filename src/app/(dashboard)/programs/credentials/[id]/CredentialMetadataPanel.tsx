@@ -24,7 +24,10 @@ import {
   updateCredentialAction,
 } from "../actions";
 import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
-import { formatPracticeDate } from "@/lib/audit/format";
+import {
+  formatPracticeDate,
+  formatPracticeDateForInput,
+} from "@/lib/audit/format";
 
 const FIELD_CLASS =
   "mt-1 block w-full rounded-md border bg-background px-3 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -54,12 +57,6 @@ export interface CredentialMetadataPanelProps {
 }
 
 type Mode = "view" | "edit" | "renew";
-
-function isoToYmd(iso: string | null): string {
-  if (!iso) return "";
-  // ISO datetime → YYYY-MM-DD (the format <input type="date"> expects).
-  return iso.slice(0, 10);
-}
 
 export function CredentialMetadataPanel({
   credentialId,
@@ -215,11 +212,16 @@ function CredentialEditForm({
   initial: CredentialMetadataValue;
   onCancel: () => void;
 }) {
+  const tz = usePracticeTimezone();
   const [title, setTitle] = useState(initial.title);
   const [licenseNumber, setLicenseNumber] = useState(initial.licenseNumber ?? "");
   const [issuingBody, setIssuingBody] = useState(initial.issuingBody ?? "");
-  const [issueDate, setIssueDate] = useState(isoToYmd(initial.issueDate));
-  const [expiryDate, setExpiryDate] = useState(isoToYmd(initial.expiryDate));
+  const [issueDate, setIssueDate] = useState(
+    formatPracticeDateForInput(initial.issueDate, tz),
+  );
+  const [expiryDate, setExpiryDate] = useState(
+    formatPracticeDateForInput(initial.expiryDate, tz),
+  );
   const [notes, setNotes] = useState(initial.notes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -370,19 +372,23 @@ function CredentialRenewForm({
   renewalPeriodDays: number | null;
   onCancel: () => void;
 }) {
+  const tz = usePracticeTimezone();
   // Renewal default = bump expiryDate by `renewalPeriodDays` from the
-  // current value (or from today if there's no current expiry). UI lets
-  // the user override, and optionally update issueDate to the renewal date.
-  // Falls back to 365 days when the credential type has no configured
-  // renewal cycle. (Audit #21 IM-2: previously hardcoded to 365 — wrong
-  // for DEA (1095) / CPR/BLS (730) / etc.)
+  // current value (or from today if there's no current expiry). Falls
+  // back to 365 days when the credential type has no configured renewal
+  // cycle (audit #21 IM-2: previously hardcoded to 365 — wrong for DEA
+  // 1095 / CPR/BLS 730). Rendered in practice TZ via formatPracticeDateForInput
+  // so the form value matches the dl above (no off-by-one between view/edit
+  // modes — audit #21 CHROME-2).
   const [expiryDate, setExpiryDate] = useState(() => {
     const base = initial.expiryDate ? new Date(initial.expiryDate) : new Date();
     const days = renewalPeriodDays && renewalPeriodDays > 0 ? renewalPeriodDays : 365;
     base.setUTCDate(base.getUTCDate() + days);
-    return base.toISOString().slice(0, 10);
+    return formatPracticeDateForInput(base, tz);
   });
-  const [issueDate, setIssueDate] = useState(isoToYmd(initial.issueDate));
+  const [issueDate, setIssueDate] = useState(
+    formatPracticeDateForInput(initial.issueDate, tz),
+  );
   const [licenseNumber, setLicenseNumber] = useState(initial.licenseNumber ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();

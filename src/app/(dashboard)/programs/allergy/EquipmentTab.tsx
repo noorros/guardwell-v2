@@ -11,6 +11,11 @@ import {
   updateEquipmentCheckAction,
 } from "./actions";
 import { HistoryRowActions } from "@/components/gw/HistoryRowActions";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import {
+  formatPracticeDate,
+  formatPracticeDateForInput,
+} from "@/lib/audit/format";
 
 export interface EquipmentTabProps {
   canManage: boolean;
@@ -26,12 +31,6 @@ export interface EquipmentTabProps {
     inRange: boolean | null;
     notes: string | null;
   }>;
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function fmtDate(iso: string): string {
-  return iso.slice(0, 10);
 }
 
 function InRangeBadge({ inRange }: { inRange: boolean | null }) {
@@ -281,8 +280,11 @@ function EditEmergencyKitForm({
   check: EquipmentTabProps["checks"][number];
   onCancel: () => void;
 }) {
+  const tz = usePracticeTimezone();
+  // Format the existing expiry as the practice-tz calendar day so the
+  // <input type="date"> doesn't drift one day for cross-coast reviewers.
   const [epiExpiryDate, setEpiExpiryDate] = useState(
-    check.epiExpiryDate ? check.epiExpiryDate.slice(0, 10) : "",
+    formatPracticeDateForInput(check.epiExpiryDate, tz),
   );
   const [epiLotNumber, setEpiLotNumber] = useState(check.epiLotNumber ?? "");
   const [allItemsPresent, setAllItemsPresent] = useState(
@@ -508,7 +510,12 @@ function EditRefrigeratorForm({
 // ── EquipmentTab ──────────────────────────────────────────────────────────────
 
 export function EquipmentTab({ canManage, checks }: EquipmentTabProps) {
+  const tz = usePracticeTimezone();
+  const fmtDate = (iso: string) => formatPracticeDate(new Date(iso), tz);
   const kitChecks = checks.filter((c) => c.checkType === "EMERGENCY_KIT");
+  // Cap the visible refrigerator readings at 10 — keeps the page snappy
+  // on long-running tenants. Unrelated to the date-formatting sweep, so
+  // .slice(0, 10) is left intact (it slices the array, not a date string).
   const tempChecks = checks
     .filter((c) => c.checkType === "REFRIGERATOR_TEMP")
     .slice(0, 10);

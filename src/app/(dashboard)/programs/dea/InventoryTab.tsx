@@ -3,6 +3,8 @@
 import { FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NewInventoryForm } from "./NewInventoryForm";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export interface InventoryTabProps {
   canManage: boolean;
@@ -16,12 +18,6 @@ export interface InventoryTabProps {
   }>;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function fmtDate(iso: string): string {
-  return iso.slice(0, 10);
-}
-
 function notesPreview(notes: string | null): string {
   if (!notes) return "—";
   return notes.length > 60 ? `${notes.slice(0, 60)}…` : notes;
@@ -33,6 +29,8 @@ export function InventoryTab({
   canManage,
   inventories,
 }: InventoryTabProps) {
+  const tz = usePracticeTimezone();
+  const fmtDate = (iso: string) => formatPracticeDate(new Date(iso), tz);
   return (
     <div className="space-y-6">
       <section className="space-y-3">

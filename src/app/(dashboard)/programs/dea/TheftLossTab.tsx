@@ -8,6 +8,8 @@ import {
   type DeaSchedule,
 } from "@/lib/dea/labels";
 import { NewTheftLossForm } from "./NewTheftLossForm";
+import { usePracticeTimezone } from "@/lib/timezone/PracticeTimezoneContext";
+import { formatPracticeDate } from "@/lib/audit/format";
 
 export interface TheftLossTabProps {
   canManage: boolean;
@@ -23,10 +25,6 @@ export interface TheftLossTabProps {
   }>;
 }
 
-function fmtDate(iso: string): string {
-  return iso.slice(0, 10);
-}
-
 function scheduleLabel(s: string): string {
   return SCHEDULE_LABELS[s as DeaSchedule] ?? s;
 }
@@ -36,6 +34,8 @@ function lossTypeLabel(lt: string): string {
 }
 
 export function TheftLossTab({ canManage, reports }: TheftLossTabProps) {
+  const tz = usePracticeTimezone();
+  const fmtDate = (iso: string) => formatPracticeDate(new Date(iso), tz);
   return (
     <div className="space-y-6">
       <section className="space-y-3">

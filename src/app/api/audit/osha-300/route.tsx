@@ -12,6 +12,7 @@ import { db } from "@/lib/db";
 import { appendEventAndApply } from "@/lib/events";
 import { projectIncidentOshaLogGenerated } from "@/lib/events/projections/incident";
 import { Osha300Document, type Osha300Row } from "@/lib/audit/osha-300-pdf";
+import { practiceYearBoundsUtc } from "@/lib/audit/format";
 
 export const maxDuration = 120;
 
@@ -36,9 +37,18 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const yearParam = url.searchParams.get("year");
+  const practiceTz = pu.practice.timezone ?? "UTC";
+  // Default the year selector to the current calendar year as observed
+  // in the practice's timezone — a Pacific tenant generating the form on
+  // 2027-01-01 02:00Z is still in 2026 locally and should default to 2026.
   const year = yearParam
     ? Number.parseInt(yearParam, 10)
-    : new Date().getUTCFullYear();
+    : Number(
+        new Intl.DateTimeFormat("en-CA", {
+          timeZone: practiceTz,
+          year: "numeric",
+        }).format(new Date()),
+      );
   if (Number.isNaN(year) || year < 2000 || year > 2100) {
     return NextResponse.json(
       { error: "Invalid year parameter" },
@@ -46,8 +56,15 @@ export async function GET(req: Request) {
     );
   }
 
-  const yearStart = new Date(`${year}-01-01T00:00:00Z`);
-  const yearEnd = new Date(`${year + 1}-01-01T00:00:00Z`);
+  // Audit C-4 (OSHA): the calendar year the inspector cares about is the
+  // year as observed locally, not in UTC. A 2026-12-31 23:00 Pacific
+  // injury is still on the 2026 form even though its UTC stamp is
+  // 2027-01-01 07:00. practiceYearBoundsUtc returns the UTC instants that
+  // bracket the local year so the SQL filter stays index-friendly.
+  const { startUtc: yearStart, endUtc: yearEnd } = practiceYearBoundsUtc(
+    year,
+    practiceTz,
+  );
 
   const incidents = await db.incident.findMany({
     where: {
@@ -110,7 +127,7 @@ export async function GET(req: Request) {
       input={{
         practiceName: pu.practice.name,
         practiceState: pu.practice.primaryState,
-        practiceTimezone: pu.practice.timezone ?? "UTC",
+        practiceTimezone: practiceTz,
         year,
         generatedAt: new Date(),
         rows,

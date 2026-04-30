@@ -32,6 +32,7 @@ import {
 } from "@/lib/compliance/jurisdictions";
 import { computeOverallScore } from "@/lib/compliance/overallScore";
 import { formatEventForActivityLog } from "@/lib/audit/format-event";
+import { formatPracticeDate } from "@/lib/audit/format";
 import { ActivityTimestamp } from "../activity/ActivityTimestamp";
 
 export const metadata = { title: "Overview · Audit" };
@@ -540,9 +541,10 @@ export default async function AuditOverviewPage() {
                     : daysOut <= 7
                       ? "var(--gw-color-needs)"
                       : "var(--gw-color-setup)";
-                  const dateText = item.dueDate
-                    .toISOString()
-                    .slice(0, 10);
+                  const dateText = formatPracticeDate(
+                    item.dueDate,
+                    pu.practice.timezone,
+                  );
                   const relText = isOverdue
                     ? `${Math.abs(daysOut)}d overdue`
                     : daysOut === 0
