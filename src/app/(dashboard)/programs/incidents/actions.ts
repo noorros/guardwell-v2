@@ -58,8 +58,11 @@ const ReportInput = z.object({
   oshaBodyPart: z.string().max(200).nullable().optional(),
   oshaInjuryNature: z.string().max(200).nullable().optional(),
   oshaOutcome: OshaOutcomeEnum.nullable().optional(),
-  oshaDaysAway: z.number().int().min(0).nullable().optional(),
-  oshaDaysRestricted: z.number().int().min(0).nullable().optional(),
+  // §1904.7(b)(3)(vii): the day count caps at 180. Anything beyond that
+  // gets recorded on Form 300 as exactly 180. We enforce the cap at the
+  // edge so an out-of-spec value can never reach the projection or PDF.
+  oshaDaysAway: z.number().int().min(0).max(180).nullable().optional(),
+  oshaDaysRestricted: z.number().int().min(0).max(180).nullable().optional(),
   sharpsDeviceType: z.string().max(200).nullable().optional(),
   // Audit #19 (OSHA B-3): the staff member who was injured. Optional —
   // non-OSHA incidents leave it null; the form makes it required when
@@ -467,8 +470,9 @@ const UpdateOshaOutcomeInput = z.object({
   oshaBodyPart: z.string().max(200).nullable().optional(),
   oshaInjuryNature: z.string().max(200).nullable().optional(),
   oshaOutcome: OshaOutcomeEnum.nullable().optional(),
-  oshaDaysAway: z.number().int().min(0).nullable().optional(),
-  oshaDaysRestricted: z.number().int().min(0).nullable().optional(),
+  // §1904.7(b)(3)(vii): same 180-day cap as the report path.
+  oshaDaysAway: z.number().int().min(0).max(180).nullable().optional(),
+  oshaDaysRestricted: z.number().int().min(0).max(180).nullable().optional(),
   sharpsDeviceType: z.string().max(200).nullable().optional(),
   injuredUserId: z.string().min(1).nullable().optional(),
 });

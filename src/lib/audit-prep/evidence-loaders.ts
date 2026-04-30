@@ -71,6 +71,9 @@ export interface OshaHazcomEvidence extends EvidenceSnapshotBase {
 
 export interface Osha300LogEvidence extends EvidenceSnapshotBase {
   recordableIncidentsLast12Months: number;
+  // §1904.33 caps required record retention at 5 years. The field name
+  // "AllTime" is preserved for back-compat with existing event payloads,
+  // but the count is capped at the §1904.33 horizon (audit #21 OSHA I-9).
   recordableIncidentsAllTime: number;
   mostRecentRecordableAt: string | null;
 }
@@ -481,11 +484,22 @@ export async function loadOshaHazcomEvidence(
   };
 }
 
+// §1904.33: practices need not retain Form 300/300A/301 records beyond
+// 5 years. Audit-prep "all-time" must reflect that — pulling incidents
+// older than 5 years would surface records the regulation no longer
+// requires, and may inflate the count past what's defensible.
+const FIVE_YEARS_MS = 5 * 365 * 24 * 60 * 60 * 1000;
+
 export async function loadOsha300LogEvidence(
   tx: Prisma.TransactionClient,
   practiceId: string,
 ): Promise<Osha300LogEvidence> {
-  const cutoff = new Date(Date.now() - TWELVE_MONTHS_MS);
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - TWELVE_MONTHS_MS);
+  // Audit #21 OSHA I-9: cap "all-time" at 5 years per §1904.33. Older
+  // rows may still exist on disk (we don't hard-delete) but they're not
+  // part of the audit-prep summary the user surfaces to investigators.
+  const fiveYearCutoff = new Date(now.getTime() - FIVE_YEARS_MS);
   // §1904.7(b)(5): first-aid-only injuries are NOT recordable on Form
   // 300, so all three counts here exclude them. Same exclusion applies
   // in osha300LogRule + the /api/audit/osha-300 route.
@@ -503,6 +517,8 @@ export async function loadOsha300LogEvidence(
       where: {
         practiceId,
         type: "OSHA_RECORDABLE",
+        // §1904.33: audit-prep horizon is 5 years.
+        discoveredAt: { gte: fiveYearCutoff },
         oshaOutcome: notFirstAid,
       },
     }),
@@ -510,6 +526,9 @@ export async function loadOsha300LogEvidence(
       where: {
         practiceId,
         type: "OSHA_RECORDABLE",
+        // Same 5-year window: showing a "most recent" pulled from a
+        // 7-year-old row would mislead the audit packet reader.
+        discoveredAt: { gte: fiveYearCutoff },
         oshaOutcome: notFirstAid,
       },
       orderBy: { discoveredAt: "desc" },

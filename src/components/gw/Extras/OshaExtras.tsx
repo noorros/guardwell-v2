@@ -139,6 +139,27 @@ function BloodbornePathogensEcpTemplate() {
   );
 }
 
+// Caps for the Form 300A worksheet inputs (audit #21 OSHA I-7).
+// Each is generous enough not to clamp legitimate inputs while keeping
+// nonsense values from triggering NaN/Infinity in the TRIR/DART math.
+//   - Hours worked: a 1000-employee org × 2080 hrs × 100 years still
+//     comes in well under 100M.
+//   - Day counts (per category total): cap at 36500 — enough for 100
+//     employees each contributing the §1904.7 single-incident max of 365
+//     days. Per-incident cap of 180 lives on the Incident schema.
+//   - Case counts / employee count: 1,000,000 covers any practice size
+//     this product targets and is a comfortable sanity ceiling.
+const CAP_HOURS = 100_000_000;
+const CAP_DAY_COUNT = 36_500;
+const CAP_CASE_COUNT = 1_000_000;
+
+function clampNonNegative(n: number, cap: number): number {
+  if (!Number.isFinite(n)) return 0;
+  if (n < 0) return 0;
+  if (n > cap) return cap;
+  return n;
+}
+
 function Form300AWorksheet() {
   const [v, setV] = useState<Form300AInputs>(ZERO);
   const totalCases =
@@ -155,19 +176,34 @@ function Form300AWorksheet() {
       ? Math.round(((totalCases * 200_000) / v.hoursWorked) * 100) / 100
       : null;
 
-  const fields: Array<{ key: keyof Form300AInputs; label: string; hint?: string }> = [
-    { key: "deaths", label: "Deaths" },
-    { key: "daysAway", label: "Days-away cases" },
-    { key: "restricted", label: "Restricted-duty cases" },
-    { key: "otherRecordable", label: "Other recordable" },
-    { key: "daysAwayTotal", label: "Total days away from work" },
-    { key: "daysRestrictedTotal", label: "Total days of restricted duty" },
+  const fields: Array<{
+    key: keyof Form300AInputs;
+    label: string;
+    hint?: string;
+    cap: number;
+    parser: "int" | "float";
+  }> = [
+    { key: "deaths", label: "Deaths", cap: CAP_CASE_COUNT, parser: "int" },
+    { key: "daysAway", label: "Days-away cases", cap: CAP_CASE_COUNT, parser: "int" },
+    { key: "restricted", label: "Restricted-duty cases", cap: CAP_CASE_COUNT, parser: "int" },
+    { key: "otherRecordable", label: "Other recordable", cap: CAP_CASE_COUNT, parser: "int" },
+    { key: "daysAwayTotal", label: "Total days away from work", cap: CAP_DAY_COUNT, parser: "int" },
+    { key: "daysRestrictedTotal", label: "Total days of restricted duty", cap: CAP_DAY_COUNT, parser: "int" },
     {
       key: "averageEmployees",
       label: "Annual average # employees",
       hint: "Sum of headcount per pay period ÷ # pay periods",
+      cap: CAP_CASE_COUNT,
+      parser: "int",
     },
-    { key: "hoursWorked", label: "Total hours worked", hint: "Sum across all employees" },
+    {
+      key: "hoursWorked",
+      label: "Total hours worked",
+      hint: "Sum across all employees",
+      cap: CAP_HOURS,
+      // hours can be fractional in payroll exports; round to int for OSHA Form 300A.
+      parser: "float",
+    },
   ];
 
   return (
@@ -188,13 +224,20 @@ function Form300AWorksheet() {
                 <input
                   type="number"
                   min={0}
+                  max={f.cap}
                   value={v[f.key]}
-                  onChange={(e) =>
-                    setV({
-                      ...v,
-                      [f.key]: Math.max(0, Number.parseInt(e.target.value, 10) || 0),
-                    })
-                  }
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    // Hours can come in as decimals from payroll exports
+                    // (e.g. "2080.5"); parseFloat + round avoids losing the
+                    // decimal silently, and Number.isFinite catches NaN
+                    // before it propagates to the TRIR math.
+                    const parsed =
+                      f.parser === "float"
+                        ? Math.round(Number.parseFloat(raw))
+                        : Number.parseInt(raw, 10);
+                    setV({ ...v, [f.key]: clampNonNegative(parsed, f.cap) });
+                  }}
                   className="mt-0.5 block w-full rounded border bg-background px-1.5 py-1 text-xs tabular-nums"
                 />
               </label>
