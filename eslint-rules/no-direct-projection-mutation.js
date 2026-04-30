@@ -19,6 +19,12 @@ const PROJECTION_TABLES = new Set([
   "practiceComplianceProfile",
   "conversationThread",
   "conversationMessage",
+  // Audit #9 (2026-04-29): allergy actions previously mutated these
+  // tables directly, leaving the USP §21 inactivity rule with no event
+  // chain. Bootstrap flows (sign-up, onboarding/create-practice) keep
+  // using direct practiceUser writes — they're whitelisted below.
+  "allergyCompetency",
+  "practiceUser",
 ]);
 
 const MUTATING_METHODS = new Set([
@@ -38,11 +44,22 @@ const ALLOWED_PATHS = [
   // the derivation rule registry for discoverability.
   "src/lib/compliance/derivation/",
   "tests/",
+  // Co-located test directories (e.g. src/lib/ai/__tests__/...).
+  "__tests__/",
   // Seed scripts populate reference data + initial projection state
   // (e.g. activating a new framework for existing practices). They run
   // once during DB setup, not during app runtime — bypassing the event
   // system is by design.
   "scripts/",
+  // Bootstrap flows that create the first PracticeUser (OWNER row) for
+  // a practice. These run before the event system has any context to
+  // emit against — no practiceId until the Practice itself is being
+  // created in the same transaction. Promoting them to events would
+  // require a chicken/egg "PRACTICE_CREATED then USER_BOOTSTRAPPED"
+  // protocol that buys nothing — these paths only ever write the
+  // OWNER's PracticeUser row, never others'.
+  "src/app/onboarding/create-practice/",
+  "src/app/(auth)/sign-up/",
 ];
 
 module.exports = {

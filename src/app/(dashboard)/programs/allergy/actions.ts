@@ -11,7 +11,8 @@ import {
   projectAllergyQuizCompleted,
   projectAllergyFingertipTestPassed,
   projectAllergyMediaFillPassed,
-  recomputeIsFullyQualified,
+  projectAllergyCompoundingLogged,
+  projectAllergyRequirementToggled,
 } from "@/lib/events/projections/allergyCompetency";
 import { projectAllergyEquipmentCheckLogged } from "@/lib/events/projections/allergyEquipment";
 import { projectAllergyDrillLogged } from "@/lib/events/projections/allergyDrill";
@@ -97,32 +98,28 @@ const LogCompoundingInput = z.object({
 });
 
 export async function logCompoundingActivityAction(input: z.infer<typeof LogCompoundingInput>) {
-  const { pu } = await requireAdmin();
+  const { user, pu } = await requireAdmin();
   const parsed = LogCompoundingInput.parse(input);
   const target = await db.practiceUser.findUnique({ where: { id: parsed.practiceUserId } });
   if (!target || target.practiceId !== pu.practiceId) {
     throw new Error("Member not found");
   }
   const year = new Date().getFullYear();
-  const comp = await db.allergyCompetency.upsert({
-    where: {
-      practiceUserId_year: { practiceUserId: parsed.practiceUserId, year },
-    },
-    create: {
+  const payload = {
+    practiceUserId: parsed.practiceUserId,
+    year,
+    loggedByPracticeUserId: pu.id,
+    loggedAt: new Date().toISOString(),
+  };
+  await appendEventAndApply(
+    {
       practiceId: pu.practiceId,
-      practiceUserId: parsed.practiceUserId,
-      year,
-      lastCompoundedAt: new Date(),
+      actorUserId: user.id,
+      type: "ALLERGY_COMPOUNDING_LOGGED",
+      payload,
     },
-    update: {
-      lastCompoundedAt: new Date(),
-    },
-    select: { id: true },
-  });
-  // Recompute qualification status — logging a session may clear inactivity.
-  await db.$transaction(async (tx) => {
-    await recomputeIsFullyQualified(tx, comp.id);
-  });
+    async (tx) => projectAllergyCompoundingLogged(tx, { practiceId: pu.practiceId, payload }),
+  );
   revalidatePath("/programs/allergy");
   revalidatePath("/modules/allergy");
 }
@@ -133,16 +130,35 @@ const ToggleStaffInput = z.object({
 });
 
 export async function toggleStaffAllergyRequirementAction(input: z.infer<typeof ToggleStaffInput>) {
-  const { pu } = await requireAdmin();
+  const { user, pu } = await requireAdmin();
   const parsed = ToggleStaffInput.parse(input);
-  const target = await db.practiceUser.findUnique({ where: { id: parsed.practiceUserId } });
+  const target = await db.practiceUser.findUnique({
+    where: { id: parsed.practiceUserId },
+    select: { practiceId: true, requiresAllergyCompetency: true },
+  });
   if (!target || target.practiceId !== pu.practiceId) {
     throw new Error("Member not found");
   }
-  await db.practiceUser.update({
-    where: { id: parsed.practiceUserId },
-    data: { requiresAllergyCompetency: parsed.required },
-  });
+  // No-op when the desired state already holds — avoids a stream of
+  // identical EventLog rows when the UI button is double-clicked.
+  if (target.requiresAllergyCompetency === parsed.required) {
+    return;
+  }
+  const payload = {
+    practiceUserId: parsed.practiceUserId,
+    required: parsed.required,
+    previousValue: target.requiresAllergyCompetency,
+    toggledByPracticeUserId: pu.id,
+  };
+  await appendEventAndApply(
+    {
+      practiceId: pu.practiceId,
+      actorUserId: user.id,
+      type: "ALLERGY_REQUIREMENT_TOGGLED",
+      payload,
+    },
+    async (tx) => projectAllergyRequirementToggled(tx, { practiceId: pu.practiceId, payload }),
+  );
   revalidatePath("/programs/allergy");
   revalidatePath("/programs/staff");
 }

@@ -70,6 +70,12 @@ export const EVENT_TYPES = [
   "ALLERGY_MEDIA_FILL_PASSED",
   "ALLERGY_EQUIPMENT_CHECK_LOGGED",
   "ALLERGY_DRILL_LOGGED",
+  // Audit-defense (audit #9, 2026-04-29): logCompoundingActivityAction +
+  // toggleStaffAllergyRequirementAction previously mutated AllergyCompetency
+  // / PracticeUser directly, leaving the USP §21 inactivity rule with no
+  // event evidence chain. Both now emit dedicated events.
+  "ALLERGY_COMPOUNDING_LOGGED",
+  "ALLERGY_REQUIREMENT_TOGGLED",
   // Evidence / file uploads — polymorphic across credentials, vendors, etc.
   // see docs/plans/2026-04-27-evidence-ceu-reminders.md
   "EVIDENCE_UPLOAD_REQUESTED",
@@ -962,6 +968,30 @@ export const EVENT_SCHEMAS = {
       year: z.number().int().min(2024).max(3000),
       attestedByUserId: z.string().min(1),
       notes: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  // ALLERGY_COMPOUNDING_LOGGED — admin records that a compounder
+  // performed a compounding session. Projection sets lastCompoundedAt
+  // on the year's AllergyCompetency (creating the row if missing) and
+  // recomputes isFullyQualified — a session may clear the USP §21
+  // 6-month inactivity flag.
+  ALLERGY_COMPOUNDING_LOGGED: {
+    1: z.object({
+      practiceUserId: z.string().min(1),
+      year: z.number().int().min(2024).max(3000),
+      loggedByPracticeUserId: z.string().min(1),
+      loggedAt: z.string().datetime(),
+    }),
+  },
+  // ALLERGY_REQUIREMENT_TOGGLED — admin flips
+  // PracticeUser.requiresAllergyCompetency on/off for a staff member.
+  // Carries before/after values so audit replay is unambiguous.
+  ALLERGY_REQUIREMENT_TOGGLED: {
+    1: z.object({
+      practiceUserId: z.string().min(1),
+      required: z.boolean(),
+      previousValue: z.boolean(),
+      toggledByPracticeUserId: z.string().min(1),
     }),
   },
   // ALLERGY_EQUIPMENT_CHECK_LOGGED — emergency kit / fridge / supplies
