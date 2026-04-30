@@ -86,6 +86,28 @@ export async function reportIncidentAction(
   if (!pu) throw new Error("Unauthorized");
   const parsed = ReportInput.parse(input);
 
+  // Audit #21 (OSHA C-1): the UI dropdown is same-practice only, but a
+  // hand-crafted POST could write another practice's user id onto the
+  // §1904.35(b)(2)(v) employee-privacy fields. Verify the supplied
+  // injuredUserId is an active member of the caller's practice. Skip
+  // when the caller didn't supply one (non-OSHA incidents leave it
+  // null; OSHA fallback below uses the reporter's own id, which is
+  // trivially same-practice).
+  if (parsed.injuredUserId) {
+    const member = await db.practiceUser.findFirst({
+      where: {
+        userId: parsed.injuredUserId,
+        practiceId: pu.practiceId,
+        removedAt: null,
+      },
+    });
+    if (!member) {
+      throw new Error(
+        "Unauthorized: injured user is not an active member of your practice",
+      );
+    }
+  }
+
   // Audit #19: when an OSHA_RECORDABLE comes in without injuredUserId,
   // fall back to the reporter so legacy form versions don't lose data.
   // Form-submitted callers should always pass it explicitly.
@@ -440,6 +462,25 @@ export async function updateIncidentOshaOutcomeAction(
   }
   if (existing.type !== "OSHA_RECORDABLE") {
     throw new Error("OSHA outcome edits are only valid for OSHA_RECORDABLE incidents");
+  }
+
+  // Audit #21 (OSHA C-1): same cross-tenant guard as reportIncidentAction.
+  // The UI dropdown is same-practice only, but a hand-crafted POST could
+  // overwrite the §1904.35(b)(2)(v) injured-employee field with another
+  // practice's user id.
+  if (parsed.injuredUserId) {
+    const member = await db.practiceUser.findFirst({
+      where: {
+        userId: parsed.injuredUserId,
+        practiceId: pu.practiceId,
+        removedAt: null,
+      },
+    });
+    if (!member) {
+      throw new Error(
+        "Unauthorized: injured user is not an active member of your practice",
+      );
+    }
   }
 
   const payload = {
