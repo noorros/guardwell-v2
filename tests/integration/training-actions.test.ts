@@ -788,4 +788,183 @@ describe("createCustomCourseAction (Phase 4 PR 2)", () => {
       directSpy.mockRestore();
     }
   });
+
+  it("persists videoUrl + videoDurationSec on a BYOV course", async () => {
+    // Phase 4 PR 6 — when the form supplies videoEvidenceId +
+    // videoDurationSec, the action stores the evidenceId in
+    // TrainingCourse.videoUrl (the player resolves it via
+    // /api/evidence/<id>/download at render time).
+    const { practice } = await seed("ADMIN");
+    const userCode = `BYOV_${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    const { createCustomCourseAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+    const result = await createCustomCourseAction({
+      ...validPayload,
+      code: userCode,
+      videoEvidenceId: "ev-xyz",
+      videoDurationSec: 600,
+    });
+    const row = await db.trainingCourse.findUniqueOrThrow({
+      where: { id: result.courseId },
+    });
+    expect(row.videoUrl).toBe("ev-xyz");
+    expect(row.videoDurationSec).toBe(600);
+    expect(practice.id).toBeTruthy();
+    await db.trainingCourse.delete({ where: { id: result.courseId } });
+  });
+
+  it("rejects half-set BYOV: evidenceId without durationSec", async () => {
+    await seed("ADMIN");
+    const userCode = `HALF_${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    const { createCustomCourseAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+    await expect(
+      createCustomCourseAction({
+        ...validPayload,
+        code: userCode,
+        videoEvidenceId: "ev-only",
+        // videoDurationSec missing
+      }),
+    ).rejects.toThrow(/video upload incomplete|duration/i);
+  });
+
+  it("rejects half-set BYOV: durationSec without evidenceId", async () => {
+    await seed("ADMIN");
+    const userCode = `HALF2_${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    const { createCustomCourseAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+    await expect(
+      createCustomCourseAction({
+        ...validPayload,
+        code: userCode,
+        videoDurationSec: 600,
+        // videoEvidenceId missing
+      }),
+    ).rejects.toThrow(/video upload incomplete|duration/i);
+  });
+});
+
+describe("reportVideoWatchedAction (Phase 4 PR 6)", () => {
+  async function seedVideoCourse(opts?: { withVideo?: boolean }) {
+    const code = `VID_${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    return db.trainingCourse.create({
+      data: {
+        code,
+        title: `Video Course ${code}`,
+        type: "CUSTOM",
+        lessonContent: "lesson body",
+        durationMinutes: 30,
+        passingScore: 80,
+        isRequired: false,
+        videoUrl: opts?.withVideo === false ? null : "ev-some-id",
+        videoDurationSec: opts?.withVideo === false ? null : 600,
+      },
+    });
+  }
+
+  it("STAFF can report (self-service path; not admin-gated)", async () => {
+    const { user, practice } = await seed("STAFF");
+    const course = await seedVideoCourse({ withVideo: true });
+    const { reportVideoWatchedAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+    const result = await reportVideoWatchedAction({
+      courseId: course.id,
+      watchedSeconds: 30,
+    });
+    expect(result.ok).toBe(true);
+    const row = await db.videoProgress.findUniqueOrThrow({
+      where: {
+        practiceId_userId_courseId: {
+          practiceId: practice.id,
+          userId: user.id,
+          courseId: course.id,
+        },
+      },
+    });
+    expect(row.watchedSeconds).toBe(30);
+    await db.trainingCourse.delete({ where: { id: course.id } });
+  });
+
+  it("rejects when the course has no video", async () => {
+    await seed("STAFF");
+    const course = await seedVideoCourse({ withVideo: false });
+    const { reportVideoWatchedAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+    await expect(
+      reportVideoWatchedAction({
+        courseId: course.id,
+        watchedSeconds: 30,
+      }),
+    ).rejects.toThrow(/no video/i);
+    await db.trainingCourse.delete({ where: { id: course.id } });
+  });
+
+  it("rejects when the course doesn't exist", async () => {
+    await seed("STAFF");
+    const { reportVideoWatchedAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+    await expect(
+      reportVideoWatchedAction({
+        courseId: "nonexistent-course-id",
+        watchedSeconds: 30,
+      }),
+    ).rejects.toThrow(/not found/i);
+  });
+
+  it("MAX-merges: reporting 30 then 20 keeps watchedSeconds=30", async () => {
+    const { user, practice } = await seed("STAFF");
+    const course = await seedVideoCourse({ withVideo: true });
+    const { reportVideoWatchedAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+    await reportVideoWatchedAction({
+      courseId: course.id,
+      watchedSeconds: 30,
+    });
+    await reportVideoWatchedAction({
+      courseId: course.id,
+      watchedSeconds: 20,
+    });
+    const row = await db.videoProgress.findUniqueOrThrow({
+      where: {
+        practiceId_userId_courseId: {
+          practiceId: practice.id,
+          userId: user.id,
+          courseId: course.id,
+        },
+      },
+    });
+    expect(row.watchedSeconds).toBe(30);
+    await db.trainingCourse.delete({ where: { id: course.id } });
+  });
+
+  it("accepts a 0-second report (idempotent on the first frame)", async () => {
+    const { user, practice } = await seed("STAFF");
+    const course = await seedVideoCourse({ withVideo: true });
+    const { reportVideoWatchedAction } = await import(
+      "@/app/(dashboard)/programs/training/actions"
+    );
+    const result = await reportVideoWatchedAction({
+      courseId: course.id,
+      watchedSeconds: 0,
+    });
+    expect(result.ok).toBe(true);
+    const row = await db.videoProgress.findUniqueOrThrow({
+      where: {
+        practiceId_userId_courseId: {
+          practiceId: practice.id,
+          userId: user.id,
+          courseId: course.id,
+        },
+      },
+    });
+    expect(row.watchedSeconds).toBe(0);
+    await db.trainingCourse.delete({ where: { id: course.id } });
+  });
 });
