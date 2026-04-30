@@ -67,27 +67,32 @@ export async function GET(req: Request) {
       oshaDaysAway: true,
       oshaDaysRestricted: true,
       reportedByUserId: true,
+      injuredUserId: true,
     },
   });
 
-  // Schema doesn't define a relation, just the scalar FK. Fetch all
-  // unique reporters in one query to keep this O(1) regardless of the
-  // number of OSHA-recordable cases.
-  const reporterIds = Array.from(
-    new Set(incidents.map((i) => i.reportedByUserId)),
+  // Audit #19: prefer injuredUserId for the Employee column. Fall back
+  // to reportedByUserId so legacy rows (pre-audit-#19, when the field
+  // didn't exist) still populate something rather than rendering "—"
+  // and forcing the inspector to chase down who was actually injured.
+  // Schema doesn't define User relations on Incident, just the scalar
+  // FKs — one batched findMany covers both id sets.
+  const userIds = Array.from(
+    new Set(incidents.flatMap((i) => [i.injuredUserId, i.reportedByUserId].filter((id): id is string => id != null))),
   );
-  const reporters = reporterIds.length
+  const users = userIds.length
     ? await db.user.findMany({
-        where: { id: { in: reporterIds } },
+        where: { id: { in: userIds } },
         select: { id: true, firstName: true, lastName: true, email: true },
       })
     : [];
-  const reporterById = new Map(reporters.map((u) => [u.id, u]));
+  const userById = new Map(users.map((u) => [u.id, u]));
 
   const rows: Osha300Row[] = incidents.map((i, idx) => {
-    const r = reporterById.get(i.reportedByUserId);
-    const employeeName = r
-      ? [r.firstName, r.lastName].filter(Boolean).join(" ") || r.email
+    const employeeId = i.injuredUserId ?? i.reportedByUserId;
+    const u = userById.get(employeeId);
+    const employeeName = u
+      ? [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email
       : null;
     return {
       caseNumber: String(idx + 1).padStart(3, "0"),

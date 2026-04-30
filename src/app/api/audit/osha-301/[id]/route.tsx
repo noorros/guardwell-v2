@@ -54,6 +54,7 @@ export async function GET(
       oshaDaysRestricted: true,
       sharpsDeviceType: true,
       reportedByUserId: true,
+      injuredUserId: true,
     },
   });
 
@@ -67,17 +68,28 @@ export async function GET(
     );
   }
 
-  // Schema doesn't define a `reportedBy` relation, just the scalar FK.
-  // Fetch the user separately to populate the "Reported by" line on
-  // section 1 of the form.
-  const reporter = await db.user.findUnique({
-    where: { id: incident.reportedByUserId },
-    select: { firstName: true, lastName: true, email: true },
+  // Schema doesn't define User relations, just scalar FKs. Audit #19:
+  // resolve BOTH the injured employee and the reporter (Form 301 has
+  // distinct slots for each — Section 1 is the injured employee per
+  // §1904.35(b)(2)(v)). Fall back to reporter for legacy rows that
+  // pre-date the injuredUserId field.
+  const employeeId = incident.injuredUserId ?? incident.reportedByUserId;
+  const userIds = Array.from(
+    new Set([employeeId, incident.reportedByUserId].filter(Boolean)),
+  );
+  const users = await db.user.findMany({
+    where: { id: { in: userIds } },
+    select: { id: true, firstName: true, lastName: true, email: true },
   });
-  const reportedByName = reporter
-    ? [reporter.firstName, reporter.lastName].filter(Boolean).join(" ") ||
-      reporter.email
-    : null;
+  const userById = new Map(users.map((u) => [u.id, u]));
+  const formatName = (id: string | null) => {
+    if (!id) return null;
+    const u = userById.get(id);
+    if (!u) return null;
+    return [u.firstName, u.lastName].filter(Boolean).join(" ") || u.email;
+  };
+  const reportedByName = formatName(incident.reportedByUserId);
+  const injuredEmployeeName = formatName(employeeId);
 
   const pdfBuffer = await renderToBuffer(
     <Osha301Document
@@ -98,6 +110,7 @@ export async function GET(
           sharpsDeviceType: incident.sharpsDeviceType,
         },
         reportedByName,
+        injuredEmployeeName,
       }}
     />,
   );

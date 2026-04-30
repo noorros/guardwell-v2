@@ -97,6 +97,13 @@ export interface Osha301Input {
     sharpsDeviceType: string | null;
   };
   reportedByName: string | null;
+  /**
+   * Audit #19: the INJURED employee — distinct from reportedByName.
+   * §1904.35(b)(2)(v) governs the injured employee, not the reporter.
+   * Pre-audit-#19 events that didn't carry injuredUserId fall back to
+   * the reporter so older PDFs still render a name.
+   */
+  injuredEmployeeName: string | null;
 }
 
 function blank(value: string | null | undefined): string {
@@ -118,12 +125,18 @@ export function Osha301Document({ input }: { input: Osha301Input }) {
         <Text style={s.title}>OSHA Form 301</Text>
         <Text style={s.subtitle}>Injury and Illness Incident Report — 29 CFR §1904.7</Text>
 
-        {/* Section 1: Employee */}
+        {/* Section 1: Employee — audit #19: the INJURED employee per
+         * §1904.35(b)(2)(v), distinct from the user who reported.
+         * Both names render so the inspector sees the full chain. */}
         <Text style={s.sectionTitle}>1. Employee Information</Text>
         <Text style={s.hint}>
           Sections 1 and 2 are not stored in GuardWell. Print and complete by hand
           before filing with OSHA.
         </Text>
+        <View style={s.metaRow}>
+          <Text style={s.metaLabel}>Injured employee</Text>
+          <Text style={s.metaValue}>{blank(input.injuredEmployeeName)}</Text>
+        </View>
         <View style={s.metaRow}>
           <Text style={s.metaLabel}>Reported by</Text>
           <Text style={s.metaValue}>{blank(input.reportedByName)}</Text>

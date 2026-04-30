@@ -411,6 +411,13 @@ export const EVENT_SCHEMAS = {
       // 300 log doesn't surface it. Optional in v1 — older events and
       // non-sharps incidents omit.
       sharpsDeviceType: z.string().max(200).nullable().optional(),
+      // Audit #19 (OSHA B-3): the User.id of the INJURED staff member
+      // — distinct from actorUserId (the person clicking Report).
+      // §1904.35(b)(2)(v) privacy rules govern the injured employee.
+      // Optional + nullable so non-OSHA incident types don't have to
+      // populate; OSHA 300/301 PDFs fall back to reportedByUserId for
+      // pre-audit-#19 events that didn't carry this field.
+      injuredUserId: z.string().min(1).nullable().optional(),
     }),
   },
   // HIPAA §164.402 four-factor breach determination result. Each factor
