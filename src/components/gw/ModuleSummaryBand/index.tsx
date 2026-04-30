@@ -9,7 +9,14 @@ import { cn } from "@/lib/utils";
 export interface ModuleSummaryBandProps {
   compliantCount: number;
   totalRequirements: number;
-  gapCount: number;
+  /**
+   * Audit #13 (HIPAA B-6 / Credentials B-6 / Allergy B-3): everything
+   * NOT yet COMPLIANT — GAP + NOT_STARTED + IN_PROGRESS combined.
+   * Renamed from `gapCount` because the prior label "X open gaps" only
+   * counted status=GAP, leading to "0 open gaps" while the requirements
+   * list visibly showed N NOT_STARTED items the user reads as gaps.
+   */
+  openCount: number;
   deadlineCount: number;
   className?: string;
 }
@@ -17,14 +24,14 @@ export interface ModuleSummaryBandProps {
 export function ModuleSummaryBand({
   compliantCount,
   totalRequirements,
-  gapCount,
+  openCount,
   deadlineCount,
   className,
 }: ModuleSummaryBandProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const handleFilter = (status: "compliant" | "gap") => {
+  const handleFilter = (status: "compliant" | "open") => {
     router.push(`${pathname}?status=${status}` as Route);
   };
 
@@ -33,8 +40,8 @@ export function ModuleSummaryBand({
       ? "border-[color:var(--gw-color-needs)] bg-[color:color-mix(in_oklch,var(--gw-color-needs)_10%,transparent)] text-[color:var(--gw-color-needs)]"
       : "border-border bg-muted/40 text-muted-foreground";
 
-  const gapTone =
-    gapCount > 0
+  const openTone =
+    openCount > 0
       ? "border-[color:var(--gw-color-risk)] bg-[color:color-mix(in_oklch,var(--gw-color-risk)_10%,transparent)] text-[color:var(--gw-color-risk)]"
       : "border-border bg-muted/40 text-muted-foreground";
 
@@ -79,17 +86,17 @@ export function ModuleSummaryBand({
 
       <button
         type="button"
-        onClick={() => handleFilter("gap")}
-        aria-label={`${gapCount} open gaps. Click to filter.`}
+        onClick={() => handleFilter("open")}
+        aria-label={`${openCount} requirements to address. Click to filter.`}
         className={cn(
           "flex min-w-[160px] flex-1 items-start gap-3 rounded-lg border p-4 text-left transition-colors hover:bg-accent/50",
-          gapTone,
+          openTone,
         )}
       >
         <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <div className="text-lg font-semibold leading-tight">
-            {`${gapCount} open gaps`}
+            {`${openCount} to address`}
           </div>
         </div>
       </button>
