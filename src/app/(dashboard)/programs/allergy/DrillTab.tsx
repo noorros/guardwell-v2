@@ -23,6 +23,18 @@ export interface DrillTabProps {
     correctiveActions: string | null;
     nextDrillDue: string | null;
   }>;
+  /**
+   * Audit #21 (Allergy IM-2): pre-resolved metadata for participantIds
+   * that no longer appear in `members` (member removed, or — for very old
+   * legacy data — id from a different practice). Used to render a stable
+   * "User no longer at practice" label rather than "Unknown". Empty in
+   * the common case where every drill has only active participants.
+   */
+  legacyParticipants?: Array<{
+    id: string;
+    name: string;
+    sameTenant: boolean;
+  }>;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -285,19 +297,36 @@ function LogDrillForm({ members }: { members: DrillTabProps["members"] }) {
 function DrillRow({
   drill,
   members,
+  legacyParticipants,
   canManage,
 }: {
   drill: DrillTabProps["drills"][number];
   members: DrillTabProps["members"];
+  legacyParticipants: NonNullable<DrillTabProps["legacyParticipants"]>;
   canManage: boolean;
 }) {
   const tz = usePracticeTimezone();
   const [expanded, setExpanded] = useState(false);
   const [mode, setMode] = useState<"view" | "edit">("view");
   const memberMap = new Map(members.map((m) => [m.id, m.name]));
+  // Audit #21 (Allergy IM-2): map for ids that don't resolve to an active
+  // member of the current practice. Used to render a stable "no longer at
+  // practice" label rather than just "Unknown" so reviewers know the row
+  // points to a real-but-no-longer-current person, not a data corruption.
+  const legacyMap = new Map(
+    legacyParticipants.map((p) => [
+      p.id,
+      `${p.name} (no longer at practice)`,
+    ]),
+  );
 
   const participantNames = drill.participantIds
-    .map((id) => memberMap.get(id) ?? "Unknown")
+    .map(
+      (id) =>
+        memberMap.get(id) ??
+        legacyMap.get(id) ??
+        "User no longer at practice",
+    )
     .join(", ");
 
   return (
@@ -602,7 +631,15 @@ function EditDrillForm({
 
 // ── DrillTab ──────────────────────────────────────────────────────────────────
 
-export function DrillTab({ canManage, members, drills }: DrillTabProps) {
+export function DrillTab({
+  canManage,
+  members,
+  drills,
+  legacyParticipants,
+}: DrillTabProps) {
+  // Default to an empty array — legacyParticipants is optional so older
+  // callers (e.g. tests) don't have to thread it through.
+  const legacyResolved = legacyParticipants ?? [];
   return (
     <div className="space-y-6">
       {/* Overdue banner */}
@@ -630,6 +667,7 @@ export function DrillTab({ canManage, members, drills }: DrillTabProps) {
                   key={d.id}
                   drill={d}
                   members={members}
+                  legacyParticipants={legacyResolved}
                   canManage={canManage}
                 />
               ))}

@@ -14,6 +14,7 @@ export interface AllergyDashboardProps {
   competencies: CompetencyTabProps["competencies"];
   equipmentChecks: EquipmentTabProps["checks"];
   drills: DrillTabProps["drills"];
+  legacyParticipants: DrillTabProps["legacyParticipants"];
 }
 
 export function AllergyDashboard(props: AllergyDashboardProps) {
@@ -38,7 +39,12 @@ export function AllergyDashboard(props: AllergyDashboardProps) {
         <EquipmentTab canManage={props.canManage} checks={props.equipmentChecks} />
       </TabsContent>
       <TabsContent value="drills" className="pt-4">
-        <DrillTab canManage={props.canManage} members={props.members} drills={props.drills} />
+        <DrillTab
+          canManage={props.canManage}
+          members={props.members}
+          drills={props.drills}
+          legacyParticipants={props.legacyParticipants}
+        />
       </TabsContent>
     </Tabs>
   );
