@@ -253,15 +253,97 @@ export async function generateCredentialRenewalNotifications(
 }
 
 /**
- * Vendor BAAs expiring within 60 days. Same shape as credential warnings.
+ * Phase 7 PR 3 — BAA generator split.
+ *
+ * The original generateVendorBaaNotifications was replaced with three
+ * lifecycle-stage generators:
+ *   - generateBaaSignaturePendingNotifications: BAA sent, awaiting vendor sig
+ *   - generateBaaExpiringNotifications:        BAA approaching expiry (lead-time aware)
+ *   - generateBaaExecutedNotifications:        BAA freshly executed (info)
+ *
+ * Recipients shifted from "all userIds" (old behavior) to OWNER + ADMIN
+ * only — STAFF/VIEWER won't see BAA notifications, which is correct
+ * since BAAs are admin work.
  */
-export async function generateVendorBaaNotifications(
+
+/**
+ * Fires when a BAA has been sent to a vendor but not yet executed
+ * (status === SENT or ACKNOWLEDGED) and the request is still active
+ * (no rejectedAt). Severity escalates to WARNING after 7 days waiting.
+ */
+export async function generateBaaSignaturePendingNotifications(
   tx: Prisma.TransactionClient,
   practiceId: string,
   userIds: string[],
   practiceTimezone: string,
 ): Promise<NotificationProposal[]> {
-  const horizon = new Date(Date.now() + 60 * DAY_MS);
+  const requests = await tx.baaRequest.findMany({
+    where: {
+      practiceId,
+      status: { in: ["SENT", "ACKNOWLEDGED"] },
+      rejectedAt: null,
+    },
+    select: {
+      id: true,
+      vendorId: true,
+      sentAt: true,
+      vendor: { select: { name: true } },
+    },
+  });
+  // Filter out admins via PracticeUser query
+  const admins = await tx.practiceUser.findMany({
+    where: { practiceId, role: { in: ["OWNER", "ADMIN"] }, removedAt: null },
+    select: { userId: true },
+  });
+  const adminUserIds = admins.map((a) => a.userId);
+  if (adminUserIds.length === 0) return [];
+
+  const proposals: NotificationProposal[] = [];
+  for (const r of requests) {
+    const sentDays = r.sentAt
+      ? Math.floor((Date.now() - r.sentAt.getTime()) / DAY_MS)
+      : null;
+    const title = `BAA awaiting vendor signature: ${r.vendor.name}`;
+    const body =
+      sentDays !== null && sentDays > 7
+        ? `${r.vendor.name} has not yet signed the BAA (sent ${sentDays} day${sentDays === 1 ? "" : "s"} ago). Follow up via email.`
+        : `${r.vendor.name} hasn't yet signed the BAA. They should receive a token link.`;
+    for (const userId of adminUserIds) {
+      proposals.push({
+        userId,
+        practiceId,
+        type: "BAA_SIGNATURE_PENDING",
+        severity: sentDays !== null && sentDays > 7 ? "WARNING" : "INFO",
+        title,
+        body,
+        href: "/programs/vendors",
+        entityKey: `baa-signature-pending:${r.id}`,
+      });
+    }
+  }
+  return proposals;
+}
+
+/**
+ * BAAs approaching expiry. Uses getEffectiveLeadTimes(reminderSettings,
+ * "baa") for milestones (default [60, 30, 7]). Fires the smallest
+ * unfired milestone — iteration is ascending so days=5 fires :7 (not
+ * :60). Per-milestone entityKey ensures multiple cycles can fire over
+ * time as the expiry approaches.
+ *
+ * Sources expiry from Vendor.baaExpiresAt (the canonical "BAA expires"
+ * field on the vendor), not BaaRequest.expiresAt.
+ */
+export async function generateBaaExpiringNotifications(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  userIds: string[],
+  practiceTimezone: string,
+  reminderSettings: unknown,
+): Promise<NotificationProposal[]> {
+  const milestones = getEffectiveLeadTimes(reminderSettings, "baa");
+  const horizonDays = milestones[0] ?? 60;
+  const horizon = new Date(Date.now() + horizonDays * DAY_MS);
   const vendors = await tx.vendor.findMany({
     where: {
       practiceId,
@@ -271,30 +353,101 @@ export async function generateVendorBaaNotifications(
     },
     select: { id: true, name: true, baaExpiresAt: true },
   });
+  // Recipients: OWNER + ADMIN
+  const admins = await tx.practiceUser.findMany({
+    where: { practiceId, role: { in: ["OWNER", "ADMIN"] }, removedAt: null },
+    select: { userId: true },
+  });
+  const adminUserIds = admins.map((a) => a.userId);
+  if (adminUserIds.length === 0) return [];
+
+  // Fire smallest unfired milestone per cycle: iterate ascending so the
+  // tightest milestone wins. getEffectiveLeadTimes returns descending,
+  // so flip it here.
+  const ascendingMilestones = [...milestones].sort((a, b) => a - b);
+
   const proposals: NotificationProposal[] = [];
   for (const v of vendors) {
     if (!v.baaExpiresAt) continue;
-    const daysLeft = daysUntil(v.baaExpiresAt);
-    if (daysLeft === null) continue;
-    const severity: NotificationSeverity =
-      daysLeft <= 0 ? "CRITICAL" : daysLeft <= 14 ? "WARNING" : "INFO";
-    const title =
-      daysLeft <= 0
-        ? `BAA with ${v.name} has expired`
-        : `BAA with ${v.name} expires in ${daysLeft} days`;
-    const body = `The Business Associate Agreement with ${v.name} expires ${formatPracticeDate(v.baaExpiresAt, practiceTimezone)}. Renew before expiry to keep HIPAA_BAAS compliant.`;
-    // entityKey is a UTC-stable dedup hash — do NOT replace with formatPracticeDate
-    const entityKey = `vendor-baa:${v.id}:${v.baaExpiresAt.toISOString().slice(0, 10)}`;
-    for (const userId of userIds) {
+    const days = daysUntil(v.baaExpiresAt);
+    if (days === null) continue;
+    for (const m of ascendingMilestones) {
+      if (days <= m) {
+        const severity: NotificationSeverity =
+          days <= 0 ? "CRITICAL" : m <= 7 ? "WARNING" : "INFO";
+        const title =
+          days <= 0
+            ? `BAA with ${v.name} has expired`
+            : `BAA with ${v.name} expires in ${days} day${days === 1 ? "" : "s"}`;
+        const body = `The Business Associate Agreement with ${v.name} expires ${formatPracticeDate(v.baaExpiresAt, practiceTimezone)}. Renew before expiry to keep HIPAA_BAAS compliant.`;
+        for (const userId of adminUserIds) {
+          proposals.push({
+            userId,
+            practiceId,
+            type: "VENDOR_BAA_EXPIRING",
+            severity,
+            title,
+            body,
+            href: "/programs/vendors",
+            entityKey: `baa-expiring:${v.id}:${m}`,
+          });
+        }
+        break; // Only fire smallest unfired milestone (ascending iteration)
+      }
+    }
+  }
+  return proposals;
+}
+
+/**
+ * Informational: fires once when a BAA flips to EXECUTED. Limited to
+ * the last 14 days of execution events so older BAAs don't spam every
+ * digest run. EntityKey is keyed only on the BaaRequest.id so it fires
+ * exactly once across all digest runs.
+ */
+export async function generateBaaExecutedNotifications(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  userIds: string[],
+  practiceTimezone: string,
+): Promise<NotificationProposal[]> {
+  // Only consider BAAs executed in the last 14 days — older ones have
+  // already been notified or naturally surface in the vendor list.
+  const cutoff = new Date(Date.now() - 14 * DAY_MS);
+  const requests = await tx.baaRequest.findMany({
+    where: {
+      practiceId,
+      status: "EXECUTED",
+      executedAt: { gte: cutoff },
+    },
+    select: {
+      id: true,
+      executedAt: true,
+      vendor: { select: { name: true } },
+    },
+  });
+  const admins = await tx.practiceUser.findMany({
+    where: { practiceId, role: { in: ["OWNER", "ADMIN"] }, removedAt: null },
+    select: { userId: true },
+  });
+  const adminUserIds = admins.map((a) => a.userId);
+  if (adminUserIds.length === 0) return [];
+
+  const proposals: NotificationProposal[] = [];
+  for (const r of requests) {
+    if (!r.executedAt) continue;
+    const title = `BAA executed: ${r.vendor.name}`;
+    const body = `The Business Associate Agreement with ${r.vendor.name} was executed on ${formatPracticeDate(r.executedAt, practiceTimezone)}.`;
+    for (const userId of adminUserIds) {
       proposals.push({
         userId,
         practiceId,
-        type: "VENDOR_BAA_EXPIRING",
-        severity,
+        type: "BAA_EXECUTED",
+        severity: "INFO",
         title,
         body,
         href: "/programs/vendors",
-        entityKey,
+        entityKey: `baa-executed:${r.id}`,
       });
     }
   }
@@ -1830,7 +1983,9 @@ export async function generateAllNotifications(
     credRenewals,
     credEscalation,
     cmsEnrollment,
-    vendors,
+    baaSignaturePending,
+    baaExpiring,
+    baaExecuted,
     incidents,
     breachDeadline,
     policies,
@@ -1850,7 +2005,9 @@ export async function generateAllNotifications(
     generateCredentialRenewalNotifications(tx, practiceId, userIds, practiceTimezone, reminderSettings),
     generateCredentialEscalationNotifications(tx, practiceId, userIds, practiceTimezone),
     generateCmsEnrollmentNotifications(tx, practiceId, userIds, practiceTimezone, reminderSettings),
-    generateVendorBaaNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateBaaSignaturePendingNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateBaaExpiringNotifications(tx, practiceId, userIds, practiceTimezone, reminderSettings),
+    generateBaaExecutedNotifications(tx, practiceId, userIds, practiceTimezone),
     generateIncidentNotifications(tx, practiceId, userIds, practiceTimezone),
     generateBreachDeterminationDeadlineNotifications(tx, practiceId, userIds, practiceTimezone),
     generatePolicyReviewDueNotifications(tx, practiceId, userIds, practiceTimezone, reminderSettings),
@@ -1871,7 +2028,9 @@ export async function generateAllNotifications(
     ...credRenewals,
     ...credEscalation,
     ...cmsEnrollment,
-    ...vendors,
+    ...baaSignaturePending,
+    ...baaExpiring,
+    ...baaExecuted,
     ...incidents,
     ...breachDeadline,
     ...policies,
