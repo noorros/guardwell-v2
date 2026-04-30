@@ -64,10 +64,13 @@ export async function attestFingertipTestAction(input: z.infer<typeof FingertipI
     throw new Error("Member not found");
   }
   const year = new Date().getFullYear();
+  // Audit #21 / Allergy MIN-7 (2026-04-30): v2 payload — `attestedByPracticeUserId`
+  // matches the value (`pu.id` is PracticeUser.id, not User.id) and the
+  // schema column it lands in (`fingertipAttestedById → PracticeUser.id`).
   const payload = {
     practiceUserId: parsed.practiceUserId,
     year,
-    attestedByUserId: pu.id,
+    attestedByPracticeUserId: pu.id,
     notes: parsed.notes ?? null,
   };
   await appendEventAndApply(
@@ -75,6 +78,7 @@ export async function attestFingertipTestAction(input: z.infer<typeof FingertipI
       practiceId: pu.practiceId,
       actorUserId: user.id,
       type: "ALLERGY_FINGERTIP_TEST_PASSED",
+      schemaVersion: 2,
       payload,
     },
     async (tx) => projectAllergyFingertipTestPassed(tx, { practiceId: pu.practiceId, payload }),
@@ -97,10 +101,11 @@ export async function attestMediaFillTestAction(input: z.infer<typeof MediaFillI
     throw new Error("Member not found");
   }
   const year = new Date().getFullYear();
+  // Audit #21 / Allergy MIN-7 (2026-04-30): v2 payload — see attestFingertipTestAction.
   const payload = {
     practiceUserId: parsed.practiceUserId,
     year,
-    attestedByUserId: pu.id,
+    attestedByPracticeUserId: pu.id,
     notes: parsed.notes ?? null,
   };
   await appendEventAndApply(
@@ -108,6 +113,7 @@ export async function attestMediaFillTestAction(input: z.infer<typeof MediaFillI
       practiceId: pu.practiceId,
       actorUserId: user.id,
       type: "ALLERGY_MEDIA_FILL_PASSED",
+      schemaVersion: 2,
       payload,
     },
     async (tx) => projectAllergyMediaFillPassed(tx, { practiceId: pu.practiceId, payload }),
@@ -186,8 +192,12 @@ export async function toggleStaffAllergyRequirementAction(input: z.infer<typeof 
   revalidatePath("/programs/staff");
 }
 
+// Audit #21 / Allergy MIN-5 (2026-04-30): attemptId is server-generated
+// here, not threaded in from the client. Closes the theoretical collision
+// path where a buggy or malicious client could send a guessed/leaked id
+// (CR-3 covered the cross-user overwrite at the projection layer; this
+// removes the attack surface entirely on the action boundary).
 const QuizSubmitInput = z.object({
-  attemptId: z.string().min(1),
   answers: z.array(z.object({ questionId: z.string().min(1), selectedId: z.string().min(1) })),
 });
 
@@ -213,9 +223,11 @@ export async function submitQuizAttemptAction(
 
   const graded = await gradeAllergyQuizAttempt(db, { answers: parsed.answers });
   const year = new Date().getFullYear();
+  // Audit #21 / Allergy MIN-5: server-generated. See QuizSubmitInput.
+  const attemptId = randomUUID();
 
   const payload = {
-    attemptId: parsed.attemptId,
+    attemptId,
     practiceUserId: pu.id,
     year,
     score: graded.score,
@@ -242,16 +254,49 @@ export async function submitQuizAttemptAction(
   };
 }
 
-const EquipmentInput = z.object({
-  checkType: z.enum(["EMERGENCY_KIT", "REFRIGERATOR_TEMP", "SKIN_TEST_SUPPLIES"]),
-  epiExpiryDate: dateOnlyString.nullable().optional(),
-  epiLotNumber: z.string().max(100).nullable().optional(),
-  allItemsPresent: z.boolean().nullable().optional(),
-  itemsReplaced: z.string().max(2000).nullable().optional(),
-  temperatureC: z.number().min(-20).max(40).nullable().optional(),
-  inRange: z.boolean().nullable().optional(),
-  notes: z.string().max(2000).nullable().optional(),
-});
+// Audit #21 / Allergy IM-7 (2026-04-30): the equipment-check input historically
+// accepted both kit fields (epiExpiryDate / epiLotNumber / allItemsPresent /
+// itemsReplaced) and fridge fields (temperatureC / inRange) regardless of
+// `checkType`. A buggy or malicious client could submit, e.g., temperatureC
+// against an EMERGENCY_KIT — the projection wouldn't reject it but the
+// resulting row would have nonsense data the UI can't render. The refine
+// below rejects the cross-type combinations at the action boundary.
+const EquipmentInput = z
+  .object({
+    checkType: z.enum(["EMERGENCY_KIT", "REFRIGERATOR_TEMP", "SKIN_TEST_SUPPLIES"]),
+    epiExpiryDate: dateOnlyString.nullable().optional(),
+    epiLotNumber: z.string().max(100).nullable().optional(),
+    allItemsPresent: z.boolean().nullable().optional(),
+    itemsReplaced: z.string().max(2000).nullable().optional(),
+    temperatureC: z.number().min(-20).max(40).nullable().optional(),
+    inRange: z.boolean().nullable().optional(),
+    notes: z.string().max(2000).nullable().optional(),
+  })
+  .superRefine((val, ctx) => {
+    const KIT_FIELDS = ["epiExpiryDate", "epiLotNumber", "allItemsPresent", "itemsReplaced"] as const;
+    const FRIDGE_FIELDS = ["temperatureC", "inRange"] as const;
+    if (val.checkType === "REFRIGERATOR_TEMP") {
+      for (const field of KIT_FIELDS) {
+        if (val[field] !== undefined && val[field] !== null) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [field],
+            message: `${field} not allowed on REFRIGERATOR_TEMP checks`,
+          });
+        }
+      }
+    } else if (val.checkType === "EMERGENCY_KIT" || val.checkType === "SKIN_TEST_SUPPLIES") {
+      for (const field of FRIDGE_FIELDS) {
+        if (val[field] !== undefined && val[field] !== null) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [field],
+            message: `${field} not allowed on ${val.checkType} checks`,
+          });
+        }
+      }
+    }
+  });
 
 export async function logEquipmentCheckAction(input: z.infer<typeof EquipmentInput>) {
   const { user, pu } = await requireAdmin();
@@ -463,13 +508,41 @@ export async function updateEquipmentCheckAction(
   const parsed = UpdateEquipmentInput.parse(input);
   const existing = await db.allergyEquipmentCheck.findUnique({
     where: { id: parsed.equipmentCheckId },
-    select: { practiceId: true, retiredAt: true, checkedAt: true },
+    select: {
+      practiceId: true,
+      retiredAt: true,
+      checkedAt: true,
+      checkType: true,
+    },
   });
   if (!existing || existing.practiceId !== pu.practiceId) {
     throw new Error("Equipment check not found");
   }
   if (existing.retiredAt) {
     throw new Error("Cannot edit a retired equipment check");
+  }
+  // Audit #21 / Allergy IM-7 (2026-04-30): refuse cross-type field updates.
+  // Schema doesn't expose `checkType` on UpdateEquipmentInput (kit ↔ fridge
+  // is intentionally non-editable per the registry comment), but the
+  // *current* row's checkType still gates which fields are even valid.
+  // Without this guard, an UPDATE could null out temperature on a fridge
+  // row by accidentally including epiExpiryDate, or vice-versa.
+  if (existing.checkType === "REFRIGERATOR_TEMP") {
+    if (
+      parsed.epiExpiryDate !== undefined ||
+      parsed.epiLotNumber !== undefined ||
+      parsed.allItemsPresent !== undefined ||
+      parsed.itemsReplaced !== undefined
+    ) {
+      throw new Error("Kit fields cannot be set on a REFRIGERATOR_TEMP check");
+    }
+  } else if (
+    existing.checkType === "EMERGENCY_KIT" ||
+    existing.checkType === "SKIN_TEST_SUPPLIES"
+  ) {
+    if (parsed.temperatureC !== undefined || parsed.inRange !== undefined) {
+      throw new Error(`Fridge fields cannot be set on a ${existing.checkType} check`);
+    }
   }
   const payload = {
     equipmentCheckId: parsed.equipmentCheckId,

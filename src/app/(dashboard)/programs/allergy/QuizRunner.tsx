@@ -24,8 +24,14 @@ export interface ClientQuizQuestion {
   category: string;
 }
 
+/**
+ * Audit #21 / Allergy MIN-5 (2026-04-30): attemptId is no longer threaded
+ * in from the page — `submitQuizAttemptAction` mints it server-side, so
+ * the client never holds one. Removes a theoretical collision / forgery
+ * surface (the projection layer's CR-3 cross-user overwrite guard remains
+ * defense-in-depth).
+ */
 export interface QuizRunnerProps {
-  attemptId: string;
   questions: ClientQuizQuestion[];
 }
 
@@ -180,7 +186,7 @@ function ResultPanel({
 
 // ── QuizRunner ────────────────────────────────────────────────────────────────
 
-export function QuizRunner({ attemptId, questions }: QuizRunnerProps) {
+export function QuizRunner({ questions }: QuizRunnerProps) {
   // answers: questionId → selectedOptionId
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isPending, startTransition] = useTransition();
@@ -221,7 +227,6 @@ export function QuizRunner({ attemptId, questions }: QuizRunnerProps) {
     startTransition(async () => {
       try {
         const { score, passed, reviewItems } = await submitQuizAttemptAction({
-          attemptId,
           answers: submittedAnswers,
         });
         setResult({ score, passed, reviewItems });

@@ -15,7 +15,14 @@ import { SIX_MONTHS_MS } from "@/lib/allergy/constants";
 export const metadata = { title: "Allergy · My Programs" };
 export const dynamic = "force-dynamic";
 
-export default async function AllergyProgramPage() {
+export default async function AllergyProgramPage({
+  searchParams,
+}: {
+  // Audit #21 / Allergy IM-10 (2026-04-30): admins can opt into seeing
+  // soft-deleted drills via `?showRetired=1`. Default is unchanged
+  // (only live drills) so the regular list stays clean.
+  searchParams?: Promise<{ showRetired?: string }>;
+}) {
   const pu = await getPracticeUser();
   if (!pu) return null;
   const framework = await db.practiceFramework.findFirst({
@@ -28,13 +35,18 @@ export default async function AllergyProgramPage() {
   if (!framework) {
     redirect("/dashboard" as Route);
   }
+  // Audit #21 / Allergy IM-10: only ADMIN/OWNER can view retired drills —
+  // STAFF/VIEWER ignore the query param even if a non-admin guesses it.
+  const canManage = pu.role === "OWNER" || pu.role === "ADMIN";
+  const sp = (await searchParams) ?? {};
+  const showRetired = canManage && sp.showRetired === "1";
   // Pre-compute now-anchored values outside the Promise.all so eslint's
   // react-hooks/purity rule doesn't flag Date.now() calls inline. RSCs
   // render once per request, so a single computed timestamp is correct.
   const now = new Date();
   const year = now.getFullYear();
   const sixMonthsAgo = new Date(now.getTime() - SIX_MONTHS_MS);
-  const [members, competencies, equipmentChecks, drills] = await Promise.all([
+  const [members, competencies, equipmentChecks, drills, retiredDrills] = await Promise.all([
     db.practiceUser.findMany({
       where: { practiceId: pu.practiceId, removedAt: null },
       include: {
@@ -61,6 +73,15 @@ export default async function AllergyProgramPage() {
       orderBy: { conductedAt: "desc" },
       take: 20,
     }),
+    // Audit #21 / Allergy IM-10: retired drills, only when the admin
+    // opted in. Skip the round-trip for everyone else.
+    showRetired
+      ? db.allergyDrill.findMany({
+          where: { practiceId: pu.practiceId, retiredAt: { not: null } },
+          orderBy: { retiredAt: "desc" },
+          take: 50,
+        })
+      : Promise.resolve([]),
   ]);
 
   // Audit #21 (Allergy IM-2): legacy drills may carry participantIds that
@@ -103,9 +124,10 @@ export default async function AllergyProgramPage() {
         </div>
       </header>
       <AllergyDashboard
-        canManage={pu.role === "OWNER" || pu.role === "ADMIN"}
+        canManage={canManage}
         currentPracticeUserId={pu.id}
         year={year}
+        showRetiredDrills={showRetired}
         members={members.map((m) => ({
           id: m.id,
           role: m.role,
@@ -145,6 +167,17 @@ export default async function AllergyProgramPage() {
           observations: d.observations,
           correctiveActions: d.correctiveActions,
           nextDrillDue: d.nextDrillDue?.toISOString() ?? null,
+        }))}
+        retiredDrills={retiredDrills.map((d) => ({
+          id: d.id,
+          conductedAt: d.conductedAt.toISOString(),
+          scenario: d.scenario,
+          participantIds: d.participantIds,
+          durationMinutes: d.durationMinutes,
+          observations: d.observations,
+          correctiveActions: d.correctiveActions,
+          nextDrillDue: d.nextDrillDue?.toISOString() ?? null,
+          retiredAt: d.retiredAt?.toISOString() ?? null,
         }))}
         legacyParticipants={removedParticipants.map((m) => ({
           id: m.id,

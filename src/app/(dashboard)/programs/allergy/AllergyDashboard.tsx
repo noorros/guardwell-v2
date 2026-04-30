@@ -15,6 +15,12 @@ export interface AllergyDashboardProps {
   equipmentChecks: EquipmentTabProps["checks"];
   drills: DrillTabProps["drills"];
   legacyParticipants: DrillTabProps["legacyParticipants"];
+  // Audit #21 / Allergy IM-10 (2026-04-30): retired (soft-deleted)
+  // drills, populated only when an admin loaded the page with
+  // ?showRetired=1. Empty for everyone else, including non-admins
+  // who guess the query param.
+  retiredDrills?: DrillTabProps["retiredDrills"];
+  showRetiredDrills?: boolean;
 }
 
 export function AllergyDashboard(props: AllergyDashboardProps) {
@@ -44,6 +50,8 @@ export function AllergyDashboard(props: AllergyDashboardProps) {
           members={props.members}
           drills={props.drills}
           legacyParticipants={props.legacyParticipants}
+          retiredDrills={props.retiredDrills}
+          showRetiredDrills={props.showRetiredDrills}
         />
       </TabsContent>
     </Tabs>

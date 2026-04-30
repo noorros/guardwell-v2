@@ -25,10 +25,31 @@ import { assertProjectionPracticeOwned } from "./guards";
 import { SIX_MONTHS_MS } from "@/lib/allergy/constants";
 
 type QuizPayload = PayloadFor<"ALLERGY_QUIZ_COMPLETED", 1>;
-type FingertipPayload = PayloadFor<"ALLERGY_FINGERTIP_TEST_PASSED", 1>;
-type MediaFillPayload = PayloadFor<"ALLERGY_MEDIA_FILL_PASSED", 1>;
+// Audit #21 / Allergy MIN-7 (2026-04-30): the fingertip + media-fill events
+// shipped at v1 with `attestedByUserId`, but the value passed has always
+// been PracticeUser.id (column FK is to PracticeUser). v2 renames the
+// payload field to match. The projection accepts either by reading
+// whichever key is present, so historical v1 events still replay cleanly.
+type FingertipPayload =
+  | PayloadFor<"ALLERGY_FINGERTIP_TEST_PASSED", 1>
+  | PayloadFor<"ALLERGY_FINGERTIP_TEST_PASSED", 2>;
+type MediaFillPayload =
+  | PayloadFor<"ALLERGY_MEDIA_FILL_PASSED", 1>
+  | PayloadFor<"ALLERGY_MEDIA_FILL_PASSED", 2>;
 type CompoundingPayload = PayloadFor<"ALLERGY_COMPOUNDING_LOGGED", 1>;
 type RequirementTogglePayload = PayloadFor<"ALLERGY_REQUIREMENT_TOGGLED", 1>;
+
+/**
+ * MIN-7 helper: read the attestor PracticeUser.id from either v1
+ * (`attestedByUserId`) or v2 (`attestedByPracticeUserId`) payload shapes.
+ */
+function readAttestor(
+  payload: FingertipPayload | MediaFillPayload,
+): string {
+  return "attestedByPracticeUserId" in payload
+    ? payload.attestedByPracticeUserId
+    : payload.attestedByUserId;
+}
 
 async function ensureCompetency(
   tx: Prisma.TransactionClient,
@@ -353,7 +374,7 @@ export async function projectAllergyFingertipTestPassed(
     data: {
       fingertipPassCount: { increment: 1 },
       fingertipLastPassedAt: new Date(),
-      fingertipAttestedById: payload.attestedByUserId,
+      fingertipAttestedById: readAttestor(payload),
       fingertipNotes: payload.notes ?? null,
     },
   });
@@ -378,7 +399,7 @@ export async function projectAllergyMediaFillPassed(
     where: { id: compId },
     data: {
       mediaFillPassedAt: new Date(),
-      mediaFillAttestedById: payload.attestedByUserId,
+      mediaFillAttestedById: readAttestor(payload),
       mediaFillNotes: payload.notes ?? null,
     },
   });
