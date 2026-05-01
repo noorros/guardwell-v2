@@ -42,6 +42,23 @@ function daysUntil(date: Date | null): number | null {
 }
 
 /**
+ * Returns the ISO 8601 week number ("01"-"53") for a date as a zero-padded
+ * 2-char string. Used by the absence-based generators (phishing, backup,
+ * destruction) for year-week dedup entityKeys so a stale practice gets
+ * exactly one nudge per week, not one per digest run.
+ *
+ * Algorithm: Thursday of the week determines the week's year (per ISO 8601).
+ */
+function getIsoWeek(d: Date): string {
+  const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const weekNum = Math.ceil(((date.getTime() - yearStart.getTime()) / DAY_MS + 1) / 7);
+  return weekNum.toString().padStart(2, "0");
+}
+
+/**
  * HIPAA_SRA is due / overdue. Warn 60 days before the 365-day wall, hit
  * CRITICAL once past.
  */
@@ -1975,6 +1992,269 @@ export async function generateCredentialEscalationNotifications(
   return proposals;
 }
 
+// ---------------------------------------------------------------------------
+// Phase 7 PR 4 — DEA + safety generators
+// ---------------------------------------------------------------------------
+//
+// All four generators target OWNER + ADMIN only via ownerAdminUserIds.
+// The DEA generator uses the milestone fan-out pattern matching
+// generateCredentialRenewalNotifications. The other three use absence-
+// based detection — fire when no qualifying record exists in the lookback
+// window — with year-week or year-quarter dedup so stale practices get
+// one nudge per period, not one per digest run.
+
+/**
+ * DEA biennial controlled-substance inventory due reminder.
+ *
+ * 21 CFR §1304.11 requires a controlled-substance inventory every 2 years.
+ * Schedule: 24 months from latest DeaInventory.asOfDate. Fires at the
+ * milestones from getEffectiveLeadTimes(reminderSettings, "deaInventory")
+ * (default [60, 14, 1]) — same fire-all-crossed pattern as
+ * generateCredentialRenewalNotifications. If no inventory has ever been
+ * recorded, fires CRITICAL with no due date (entityKey is stable per-
+ * practice so dedup catches re-fires).
+ *
+ * Gated to practices with the DEA framework enabled.
+ */
+export async function generateDeaBiennialInventoryDueNotifications(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  // userIds is the digest recipient pool, but this generator targets
+  // OWNER + ADMIN directly via ownerAdminUserIds. Param kept for
+  // signature parity with the fan-in.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _userIds: string[],
+  practiceTimezone: string,
+  reminderSettings: unknown,
+): Promise<NotificationProposal[]> {
+  // DEA framework gating — practices without DEA enabled shouldn't see
+  // biennial-inventory notifications at all.
+  const dea = await tx.practiceFramework.findFirst({
+    where: { practiceId, enabled: true, framework: { code: "DEA" } },
+    select: { id: true },
+  });
+  if (!dea) return [];
+
+  const adminUserIds = await ownerAdminUserIds(tx, practiceId);
+  if (adminUserIds.length === 0) return [];
+
+  const latest = await tx.deaInventory.findFirst({
+    where: { practiceId },
+    orderBy: { asOfDate: "desc" },
+    select: { id: true, asOfDate: true },
+  });
+
+  if (!latest) {
+    // No biennial inventory has ever been recorded — fire CRITICAL once.
+    // The entityKey is stable per-practice so dedup catches re-fires.
+    return adminUserIds.map((userId) => ({
+      userId,
+      practiceId,
+      type: "DEA_BIENNIAL_INVENTORY_DUE" as NotificationType,
+      severity: "CRITICAL" as NotificationSeverity,
+      title: "DEA biennial inventory has never been recorded",
+      body: "21 CFR §1304.11 requires a biennial controlled-substance inventory. No DEA inventory exists in your records — log one to satisfy DEA compliance.",
+      href: "/programs/dea/inventory",
+      entityKey: `dea-biennial-never-recorded:${practiceId}`,
+    }));
+  }
+
+  // 24 months from asOfDate.
+  const dueDate = new Date(latest.asOfDate.getTime());
+  dueDate.setUTCMonth(dueDate.getUTCMonth() + 24);
+  const days = daysUntil(dueDate);
+  if (days === null) return [];
+
+  const milestones = getEffectiveLeadTimes(reminderSettings, "deaInventory");
+  const matched = milestones.filter((m) => days <= m);
+
+  const proposals: NotificationProposal[] = [];
+  for (const m of matched) {
+    const severity: NotificationSeverity =
+      days <= 0 ? "CRITICAL" : m <= 14 ? "WARNING" : "INFO";
+    const title =
+      days <= 0
+        ? `DEA biennial inventory is ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} overdue`
+        : `DEA biennial inventory due in ${days} day${days === 1 ? "" : "s"}`;
+    const body = `Your last DEA biennial controlled-substance inventory was ${formatPracticeDate(latest.asOfDate, practiceTimezone)}. The next is due ${formatPracticeDate(dueDate, practiceTimezone)}.`;
+    for (const userId of adminUserIds) {
+      proposals.push({
+        userId,
+        practiceId,
+        type: "DEA_BIENNIAL_INVENTORY_DUE",
+        severity,
+        title,
+        body,
+        href: "/programs/dea/inventory",
+        entityKey: `dea-biennial:${latest.id}:${m}`,
+      });
+    }
+  }
+  // If overdue (days < 0) but somehow no milestones matched, fire a critical
+  // "overdue" entry anyway so the practice is alerted. In practice 0 satisfies
+  // any positive milestone so this fallback is a defense-in-depth path.
+  if (days < 0 && proposals.length === 0) {
+    for (const userId of adminUserIds) {
+      proposals.push({
+        userId,
+        practiceId,
+        type: "DEA_BIENNIAL_INVENTORY_DUE",
+        severity: "CRITICAL",
+        title: `DEA biennial inventory is ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} overdue`,
+        body: `Your last DEA biennial controlled-substance inventory was ${formatPracticeDate(latest.asOfDate, practiceTimezone)}. The next was due ${formatPracticeDate(dueDate, practiceTimezone)}.`,
+        href: "/programs/dea/inventory",
+        entityKey: `dea-biennial-overdue:${latest.id}`,
+      });
+    }
+  }
+  return proposals;
+}
+
+/**
+ * Phishing drill due reminder.
+ *
+ * Fires when no PhishingDrill exists in the last 365 days. Single severity
+ * (INFO). Year-week dedup so a stale practice gets one notification per
+ * week, not one per digest run.
+ *
+ * HIPAA Security Rule §164.308(a)(5) requires periodic security awareness
+ * training, and cyber insurance carriers treat regular phishing simulation
+ * as a baseline workforce-awareness control.
+ */
+export async function generatePhishingDrillDueNotifications(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _userIds: string[],
+  // No date renders in this generator's body/title strings — kept for
+  // signature consistency with the rest of the generators.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _practiceTimezone: string,
+): Promise<NotificationProposal[]> {
+  const adminUserIds = await ownerAdminUserIds(tx, practiceId);
+  if (adminUserIds.length === 0) return [];
+  const cutoff = new Date(Date.now() - 365 * DAY_MS);
+  const recent = await tx.phishingDrill.findFirst({
+    where: { practiceId, conductedAt: { gte: cutoff } },
+    select: { id: true },
+  });
+  if (recent) return [];
+
+  // Year-week dedup so a stale practice gets ONE notification per week,
+  // not daily.
+  const now = new Date();
+  const yearWeek = `${now.getUTCFullYear()}-W${getIsoWeek(now)}`;
+  const proposals: NotificationProposal[] = [];
+  for (const userId of adminUserIds) {
+    proposals.push({
+      userId,
+      practiceId,
+      type: "PHISHING_DRILL_DUE",
+      severity: "INFO",
+      title: "Annual phishing drill is due",
+      body: "HIPAA Security Rule §164.308 requires periodic security awareness training. No phishing drill has been logged in the last 365 days. Run a drill (Internal or via vendor) and log the results.",
+      href: "/programs/security",
+      entityKey: `phishing-drill-due:${practiceId}:${yearWeek}`,
+    });
+  }
+  return proposals;
+}
+
+/**
+ * Backup verification overdue reminder.
+ *
+ * Fires when no SUCCESSFUL BackupVerification exists in the last 90 days.
+ * The HHS Ransomware Fact Sheet treats untested backups as effectively
+ * no backups. Failed restore tests don't reset the clock — only success.
+ * Year-week dedup so a stale practice gets one nudge per week.
+ */
+export async function generateBackupVerificationOverdueNotifications(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _userIds: string[],
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _practiceTimezone: string,
+): Promise<NotificationProposal[]> {
+  const adminUserIds = await ownerAdminUserIds(tx, practiceId);
+  if (adminUserIds.length === 0) return [];
+  const cutoff = new Date(Date.now() - 90 * DAY_MS);
+  const recent = await tx.backupVerification.findFirst({
+    where: { practiceId, success: true, verifiedAt: { gte: cutoff } },
+    select: { id: true, verifiedAt: true },
+  });
+  if (recent) return [];
+
+  // Year-week dedup.
+  const now = new Date();
+  const yearWeek = `${now.getUTCFullYear()}-W${getIsoWeek(now)}`;
+  const proposals: NotificationProposal[] = [];
+  for (const userId of adminUserIds) {
+    proposals.push({
+      userId,
+      practiceId,
+      type: "BACKUP_VERIFICATION_OVERDUE",
+      severity: "WARNING",
+      title: "Backup restore test is overdue",
+      body: "HIPAA Security Rule §164.308(a)(7)(ii)(D) requires periodic testing of backup restores. No successful restore test has been logged in the last 90 days. Run a test restore and log the result.",
+      href: "/programs/security",
+      entityKey: `backup-overdue:${practiceId}:${yearWeek}`,
+    });
+  }
+  return proposals;
+}
+
+/**
+ * Document destruction overdue reminder.
+ *
+ * Fires when no DestructionLog has been recorded in the last 12 months.
+ * Phase 10 will eventually surface state-retention rules to drive this
+ * more precisely; for now, the absence of any destruction logs is the
+ * signal — practices should be running routine destruction (medical
+ * records, billing, HR).
+ *
+ * Quarterly dedup (year-quarter) so practices that haven't run destruction
+ * in years still get ONE quarterly nudge, not weekly.
+ *
+ * Known false-positive: a brand-new practice with no records to destroy
+ * yet will still trigger this after 12 months. V1-acceptable.
+ */
+export async function generateDocumentDestructionOverdueNotifications(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _userIds: string[],
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _practiceTimezone: string,
+): Promise<NotificationProposal[]> {
+  const adminUserIds = await ownerAdminUserIds(tx, practiceId);
+  if (adminUserIds.length === 0) return [];
+  const cutoff = new Date(Date.now() - 365 * DAY_MS);
+  const recent = await tx.destructionLog.findFirst({
+    where: { practiceId, destroyedAt: { gte: cutoff } },
+    select: { id: true },
+  });
+  if (recent) return [];
+
+  // Quarterly dedup (year-quarter).
+  const now = new Date();
+  const yearQuarter = `${now.getUTCFullYear()}-Q${Math.floor(now.getUTCMonth() / 3) + 1}`;
+  const proposals: NotificationProposal[] = [];
+  for (const userId of adminUserIds) {
+    proposals.push({
+      userId,
+      practiceId,
+      type: "DOCUMENT_DESTRUCTION_OVERDUE",
+      severity: "INFO",
+      title: "Document destruction has not been logged recently",
+      body: "Routine document destruction (medical records, billing, HR) is required by state retention rules. No destruction log has been recorded in the last 12 months. Log any destruction events you've completed, or schedule a destruction run.",
+      href: "/programs/document-retention",
+      entityKey: `doc-destruction-overdue:${practiceId}:${yearQuarter}`,
+    });
+  }
+  return proposals;
+}
+
 /**
  * Aggregate all generators for a practice. Order doesn't affect
  * uniqueness (dedup runs on insert), but sorting keeps the digest email
@@ -2010,6 +2290,10 @@ export async function generateAllNotifications(
     osha,
     allergy,
     allergyCompetency,
+    deaBiennial,
+    phishingDrill,
+    backupVerification,
+    documentDestruction,
   ] = await Promise.all([
     generateSraNotifications(tx, practiceId, userIds, practiceTimezone),
     generateCredentialNotifications(tx, practiceId, userIds, practiceTimezone),
@@ -2032,6 +2316,10 @@ export async function generateAllNotifications(
     generateOshaPostingReminderNotifications(tx, practiceId, userIds, practiceTimezone),
     generateAllergyNotifications(tx, practiceId, userIds, practiceTimezone),
     generateAllergyCompetencyDueNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateDeaBiennialInventoryDueNotifications(tx, practiceId, userIds, practiceTimezone, reminderSettings),
+    generatePhishingDrillDueNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateBackupVerificationOverdueNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateDocumentDestructionOverdueNotifications(tx, practiceId, userIds, practiceTimezone),
   ]);
   return [
     ...sra,
@@ -2055,5 +2343,9 @@ export async function generateAllNotifications(
     ...osha,
     ...allergy,
     ...allergyCompetency,
+    ...deaBiennial,
+    ...phishingDrill,
+    ...backupVerification,
+    ...documentDestruction,
   ];
 }

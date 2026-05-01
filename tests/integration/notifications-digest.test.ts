@@ -47,6 +47,36 @@ describe("Notification digest", () => {
         isDraft: false,
       },
     });
+    // Phase 7 PR 4 — the absence-based generators (phishing drill, backup
+    // verification, document destruction) all fire by default for a
+    // brand-new practice. Seed recent qualifying records so they don't.
+    await db.phishingDrill.create({
+      data: {
+        practiceId: practice.id,
+        conductedAt: new Date(),
+        totalRecipients: 25,
+        loggedByUserId: user.id,
+      },
+    });
+    await db.backupVerification.create({
+      data: {
+        practiceId: practice.id,
+        verifiedAt: new Date(),
+        scope: "EHR",
+        success: true,
+        loggedByUserId: user.id,
+      },
+    });
+    await db.destructionLog.create({
+      data: {
+        practiceId: practice.id,
+        documentType: "MEDICAL_RECORDS",
+        description: "Q1 destruction",
+        method: "SHREDDING",
+        performedByUserId: user.id,
+        destroyedAt: new Date(),
+      },
+    });
     const summary = await runNotificationDigest();
     expect(summary.errors).toEqual([]);
     expect(await ownerNotifications(user.id)).toHaveLength(0);
