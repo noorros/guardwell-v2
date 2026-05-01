@@ -1,0 +1,15 @@
+{
+  "input": {
+    "article": {
+      "title": "Federal court affirms patient right of access fee cap; sets 25-day designated record set deadline",
+      "url": "https://www.hhs.gov/ocr/news/access-ruling-2026.html",
+      "summary": "A federal court has upheld OCR's interpretation of the patient right of access provision (45 CFR 164.524). The ruling affirms the $6.50 flat-fee cap for electronic copies and confirms covered entities have at most 25 days (with a one-time 30-day extension) to respond to a record set request.",
+      "rawContent": "The Eleventh Circuit Court of Appeals affirmed OCR's HIPAA Right of Access Initiative, ruling that covered entities cannot impose per-page or 'review' fees that effectively chill the patient's access right. The court emphasized that the 30-day response window in 45 CFR 164.524(b)(2) is not a presumption but a ceiling, and that practices should respond promptly when records are readily available. Practices that have not audited their record-release procedures or fee schedules in the past 12 months should expect renewed OCR enforcement focus on this provision.",
+      "publishDate": "2026-04-12T00:00:00Z",
+      "sourceName": "HHS Office for Civil Rights"
+    },
+    "frameworks": ["HIPAA", "OSHA", "OIG", "DEA", "CMS", "CLIA", "MACRA", "TCPA", "ALLERGY"]
+  },
+  "expectedSubstrings": ["HIPAA"],
+  "forbiddenSubstrings": ["OSHA", "DEA"]
+}

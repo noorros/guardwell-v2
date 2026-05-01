@@ -20,6 +20,11 @@ import { db } from "@/lib/db";
 
 beforeAll(async () => {
   await db.$connect();
+  // Phase 8 PR 2 seeds RegulatorySource via npm run db:seed:regulatory.
+  // Wipe before any test sees them so suites can assert exact source
+  // counts. afterEach below handles per-test cleanup.
+  await db.regulatoryArticle.deleteMany();
+  await db.regulatorySource.deleteMany();
 });
 
 afterEach(async () => {

@@ -1,0 +1,15 @@
+{
+  "input": {
+    "article": {
+      "title": "DEA modernizes Form 224 registration renewal process; mandatory online filing as of July 2026",
+      "url": "https://www.deadiversion.usdoj.gov/registration/form-224-online-2026.html",
+      "summary": "Effective July 1, 2026, all DEA Form 224 registration renewals must be submitted through the Diversion Control Division's online portal. Paper renewals will no longer be accepted. Practices with multiple registered locations should designate a single point of contact for renewal coordination.",
+      "rawContent": "DEA's Diversion Control Division announced that paper Form 224 (DEA registration application) renewals will be discontinued July 1, 2026. All renewals — both first-time and recurring — must be filed through the online registration portal. Practices with multiple registered locations or registered providers should designate a single coordinating user with credentials to track expiration dates, certificate numbers, and biennial inventory due dates. The change does not affect biennial inventory record retention requirements (2 years on-site under 21 CFR 1304.04). Practices should verify renewal email addresses on file are still actively monitored to avoid missing expiration warnings.",
+      "publishDate": "2026-04-09T00:00:00Z",
+      "sourceName": "DEA Diversion Control Division"
+    },
+    "frameworks": ["HIPAA", "OSHA", "OIG", "DEA", "CMS", "CLIA", "MACRA", "TCPA", "ALLERGY"]
+  },
+  "expectedSubstrings": ["DEA"],
+  "forbiddenSubstrings": ["OSHA", "HIPAA Security"]
+}

@@ -1,0 +1,15 @@
+{
+  "input": {
+    "article": {
+      "title": "OSHA letter of interpretation clarifies sharps log retention for dental practices",
+      "url": "https://www.osha.gov/laws-regs/standardinterpretations/2026-04-08",
+      "summary": "An OSHA standard interpretation letter confirms that dental practices must retain sharps injury logs for at least 5 years following the year recorded, consistent with 29 CFR 1904.33. The letter also clarifies that splash exposures count as exposure incidents requiring source-individual testing protocol activation.",
+      "rawContent": "OSHA's Directorate of Enforcement Programs issued a letter of interpretation in response to a query from a state dental association. The letter confirms: (a) sharps injury logs are subject to the 5-year retention requirement under 29 CFR 1904.33; (b) splash exposures of mucous membrane to potentially infectious blood do constitute 'exposure incidents' under 29 CFR 1910.1030(f)(3) and trigger the post-exposure evaluation procedures; (c) employers must offer post-exposure prophylaxis and source-individual HBV/HCV/HIV testing per the standard's appendix.",
+      "publishDate": "2026-04-08T00:00:00Z",
+      "sourceName": "OSHA"
+    },
+    "frameworks": ["HIPAA", "OSHA", "OIG", "DEA", "CMS", "CLIA", "MACRA", "TCPA", "ALLERGY"]
+  },
+  "expectedSubstrings": ["OSHA"],
+  "forbiddenSubstrings": ["HIPAA", "DEA"]
+}

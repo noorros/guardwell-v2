@@ -1,0 +1,15 @@
+{
+  "input": {
+    "article": {
+      "title": "OSHA proposed rule: Workplace Violence Prevention in Healthcare and Social Assistance",
+      "url": "https://www.osha.gov/laws-regs/regulations/proposed/violence-2026",
+      "summary": "OSHA published a proposed rule requiring healthcare and social assistance employers to develop a written Workplace Violence Prevention Plan, conduct annual hazard assessments, train staff at hire and annually, and maintain a violent-incident log. Final effective date 12 months after publication.",
+      "rawContent": "The proposed Workplace Violence Prevention in Healthcare and Social Assistance rule would establish 29 CFR 1910.150. The rule applies to inpatient and outpatient healthcare settings (including dental and physician offices with at least 11 employees) and would mandate: (1) a written WVPP with management commitment statement; (2) annual workplace hazard analysis with employee input; (3) staff training at hire and annually thereafter; (4) violent-incident log with anonymized aggregate reporting; (5) post-incident response and trauma debrief procedures. Comment period ends in 90 days. Practices in California, New York, and Washington already meet most of the proposed requirements under state plans.",
+      "publishDate": "2026-04-11T00:00:00Z",
+      "sourceName": "OSHA"
+    },
+    "frameworks": ["HIPAA", "OSHA", "OIG", "DEA", "CMS", "CLIA", "MACRA", "TCPA", "ALLERGY"]
+  },
+  "expectedSubstrings": ["OSHA"],
+  "forbiddenSubstrings": ["HIPAA", "DEA"]
+}

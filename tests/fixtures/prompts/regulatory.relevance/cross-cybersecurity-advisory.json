@@ -1,0 +1,15 @@
+{
+  "input": {
+    "article": {
+      "title": "HHS HC3 and CISA issue joint advisory on healthcare ransomware campaign targeting EHR systems",
+      "url": "https://www.hhs.gov/about/news/2026-04-hc3-cisa-ransomware-advisory.html",
+      "summary": "HHS Health Sector Cybersecurity Coordination Center (HC3) and CISA jointly published an advisory describing an active ransomware campaign exploiting unpatched EHR vulnerabilities to exfiltrate ePHI before encryption. Practices should patch within 7 days and review HIPAA Security Risk Analyses.",
+      "rawContent": "HC3 and CISA's joint cybersecurity advisory describes a sophisticated threat actor exploiting CVE-2026-XXXX in three commonly deployed EHR products. The actor exfiltrates patient databases, then encrypts file servers and demands ransom. Mitigations: (1) emergency patch all affected EHR products within 7 days; (2) review the HIPAA Security Risk Analysis to confirm encryption-at-rest covers ePHI database files; (3) verify offline immutable backups of recent ePHI snapshots; (4) implement multi-factor authentication for all admin accounts; (5) restrict outbound network egress to known-good destinations. The advisory notes that ransom payment recovery is not guaranteed and may trigger OFAC sanction concerns. Practices that experience compromise should treat the incident as a HIPAA breach pending investigation findings, and contact the FBI Internet Crime Complaint Center promptly.",
+      "publishDate": "2026-04-13T00:00:00Z",
+      "sourceName": "HHS HC3"
+    },
+    "frameworks": ["HIPAA", "OSHA", "OIG", "DEA", "CMS", "CLIA", "MACRA", "TCPA", "ALLERGY"]
+  },
+  "expectedSubstrings": ["HIPAA"],
+  "forbiddenSubstrings": ["OSHA bloodborne", "DEA scheduling"]
+}

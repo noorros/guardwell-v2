@@ -1,0 +1,15 @@
+{
+  "input": {
+    "article": {
+      "title": "OCR ends HIPAA telehealth enforcement discretion period; covered entities must use HIPAA-compliant platforms",
+      "url": "https://www.hhs.gov/ocr/news/telehealth-discretion-end-2026.html",
+      "summary": "OCR has formally ended the COVID-19 era enforcement discretion for non-public-facing telehealth platforms. Covered entities must now ensure all telehealth visits use HIPAA-compliant video platforms with executed BAAs. The transition deadline is 60 days from notice.",
+      "rawContent": "OCR's notification of enforcement discretion for HIPAA-noncompliant telehealth platforms (originally issued March 2020) has been formally rescinded. Effective 60 days from publication, covered entities providing telehealth must use platforms that meet Security Rule requirements and have executed Business Associate Agreements. Common consumer platforms (FaceTime, generic Zoom without BAA, Skype without BAA) no longer have safe harbor. OCR recommends practices audit their current telehealth stack and obtain BAAs from any non-compliant vendor before the deadline.",
+      "publishDate": "2026-04-05T00:00:00Z",
+      "sourceName": "HHS Office for Civil Rights"
+    },
+    "frameworks": ["HIPAA", "OSHA", "OIG", "DEA", "CMS", "CLIA", "MACRA", "TCPA", "ALLERGY"]
+  },
+  "expectedSubstrings": ["HIPAA", "URGENT"],
+  "forbiddenSubstrings": ["OSHA", "CFR 9999"]
+}

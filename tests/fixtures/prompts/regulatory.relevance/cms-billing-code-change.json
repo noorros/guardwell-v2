@@ -1,0 +1,15 @@
+{
+  "input": {
+    "article": {
+      "title": "CMS releases Q3 2026 quarterly update to HCPCS Level II coding",
+      "url": "https://www.cms.gov/medicare-medicaid-coordination/hcpcs-2026-q3.html",
+      "summary": "The Q3 2026 HCPCS Level II update introduces 14 new codes (primarily for monoclonal antibody administration), retires 6 obsolete codes, and revises the descriptors for 22 codes. Practices should update their coding references and EHR templates by July 1, 2026.",
+      "rawContent": "CMS's quarterly HCPCS Level II update for Q3 2026 includes: (1) 14 new J-codes for newly approved monoclonal antibody therapeutics, with specific dosing units in the descriptor; (2) 6 retired codes covering legacy COVID-19 vaccine administration codes that have been superseded; (3) 22 descriptor revisions tightening medical necessity language. Practices that bill Medicare under affected codes should update their charge masters, EHR templates, and superbills before July 1, 2026, to avoid claim denials. The full quarterly addenda are available on the CMS HCPCS portal.",
+      "publishDate": "2026-04-11T00:00:00Z",
+      "sourceName": "Centers for Medicare & Medicaid Services"
+    },
+    "frameworks": ["HIPAA", "OSHA", "OIG", "DEA", "CMS", "CLIA", "MACRA", "TCPA", "ALLERGY"]
+  },
+  "expectedSubstrings": ["CMS"],
+  "forbiddenSubstrings": ["OSHA", "HIPAA Security Rule"]
+}

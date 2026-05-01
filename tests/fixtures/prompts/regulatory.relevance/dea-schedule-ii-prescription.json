@@ -1,0 +1,15 @@
+{
+  "input": {
+    "article": {
+      "title": "DEA reminder: 90-day Schedule II prescription supply limits remain in effect",
+      "url": "https://www.deadiversion.usdoj.gov/news/2026-04-schedule-ii-reminder.html",
+      "summary": "DEA reminded prescribers that Schedule II prescriptions remain limited to a 90-day supply per 21 CFR 1306.12, with multiple sequential prescriptions permitted only when patient diagnosis and clinical need are documented. State law may impose stricter limits.",
+      "rawContent": "DEA's notice reaffirms longstanding policy under 21 CFR 1306.12 governing Schedule II prescriptions: (1) no refills may be authorized; (2) a practitioner may issue up to three sequential prescriptions for the same drug to a single patient, each for up to a 30-day supply, allowing up to a 90-day total; (3) the practitioner must include the earliest fill date on each prescription beyond the first; (4) state laws may impose tighter limits — e.g., 7-day initial limits for opioids in NY, FL, and several other states. Prescriptions written outside these parameters may be invalid and subject practitioners to administrative or civil action.",
+      "publishDate": "2026-04-10T00:00:00Z",
+      "sourceName": "DEA Diversion Control Division"
+    },
+    "frameworks": ["HIPAA", "OSHA", "OIG", "DEA", "CMS", "CLIA", "MACRA", "TCPA", "ALLERGY"]
+  },
+  "expectedSubstrings": ["DEA"],
+  "forbiddenSubstrings": ["OSHA", "HIPAA Security"]
+}

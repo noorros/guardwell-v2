@@ -31,7 +31,8 @@
     "db:seed:state-overlays": "tsx scripts/seed-state-overlays.ts",
     "db:seed:regulatory": "tsx scripts/seed-regulatory-sources.ts",
     "eval:concierge": "tsx scripts/eval-concierge.ts",
-    "eval:weekly-digest": "tsx scripts/eval-weekly-digest.ts"
+    "eval:weekly-digest": "tsx scripts/eval-weekly-digest.ts",
+    "eval:regulatory-relevance": "tsx scripts/eval-regulatory-relevance.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",

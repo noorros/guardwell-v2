@@ -1,0 +1,15 @@
+{
+  "input": {
+    "article": {
+      "title": "CMS clarifies Stark Law value-based arrangement exceptions following stakeholder feedback",
+      "url": "https://www.cms.gov/regulations/stark-law-value-based-2026.html",
+      "summary": "CMS has issued FAQ guidance clarifying that physician compensation tied to value-based payment arrangements remains permissible under the Stark Law's value-based exception (42 CFR 411.357(aa)) when the physician group acts as a value-based enterprise (VBE) and meets the documentation requirements.",
+      "rawContent": "CMS's updated FAQ addresses common practice questions on the Stark Law value-based exceptions: (1) compensation can be partially based on quality metrics, total cost of care, or population health goals if the arrangement is documented as part of a value-based enterprise; (2) the writing requirement is satisfied by a contract or written policy that identifies the VBE participants and the value-based purpose; (3) the in-office ancillary services exception is unchanged for routine practice-internal referrals; (4) groups with VBE arrangements must maintain documentation for 6 years to satisfy potential audit. CMS notes that practices uncertain about applicability should consult counsel before tying any physician compensation to designated health services referrals.",
+      "publishDate": "2026-04-08T00:00:00Z",
+      "sourceName": "Centers for Medicare & Medicaid Services"
+    },
+    "frameworks": ["HIPAA", "OSHA", "OIG", "DEA", "CMS", "CLIA", "MACRA", "TCPA", "ALLERGY"]
+  },
+  "expectedSubstrings": ["CMS"],
+  "forbiddenSubstrings": ["OSHA", "DEA scheduling"]
+}

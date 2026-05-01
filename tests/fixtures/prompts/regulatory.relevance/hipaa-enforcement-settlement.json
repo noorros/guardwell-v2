@@ -1,0 +1,15 @@
+{
+  "input": {
+    "article": {
+      "title": "Regional dental group pays $2.4M to OCR for unsecured ePHI on stolen laptop",
+      "url": "https://www.hhs.gov/ocr/enforcement/agreements/regional-dental-2026.html",
+      "summary": "OCR has reached a $2.4 million resolution agreement with a multi-state dental group whose unencrypted laptop containing 14,000 patient records was stolen from a vehicle in 2024. The agreement requires a corrective action plan including encryption of all portable devices and quarterly Security Rule risk reassessments.",
+      "rawContent": "The Office for Civil Rights announced a resolution agreement with Regional Dental Partners LLC requiring $2.4M in payments and a 2-year corrective action plan. The investigation found the entity had not conducted a thorough Security Risk Analysis as required under 45 CFR 164.308(a)(1)(ii)(A) and had not implemented encryption of portable devices despite a prior 2022 incident putting them on notice. The CAP requires: (1) full encryption of all portable devices within 90 days, (2) quarterly Security Risk Analyses for two years, (3) annual workforce training documentation submitted to OCR, (4) revised policies on portable device handling. This is the seventh settlement of 2026 referencing failed Security Risk Analysis.",
+      "publishDate": "2026-04-10T00:00:00Z",
+      "sourceName": "HHS Office for Civil Rights"
+    },
+    "frameworks": ["HIPAA", "OSHA", "OIG", "DEA", "CMS", "CLIA", "MACRA", "TCPA", "ALLERGY"]
+  },
+  "expectedSubstrings": ["HIPAA"],
+  "forbiddenSubstrings": ["DEA", "OSHA bloodborne", "45 CFR 999"]
+}
