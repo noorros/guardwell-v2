@@ -1,0 +1,15 @@
+{
+  "input": {
+    "article": {
+      "title": "HHS OCR finalizes update to HIPAA Breach Notification Rule",
+      "url": "https://www.hhs.gov/ocr/news/breach-rule-final-2026.html",
+      "summary": "The Office for Civil Rights has finalized amendments to the HIPAA Breach Notification Rule, shortening the individual notification window from 60 days to 45 days post-discovery and expanding the definition of compromised PHI. Effective 90 days from publication.",
+      "rawContent": "The U.S. Department of Health and Human Services Office for Civil Rights (OCR) today announced the finalization of significant amendments to the HIPAA Breach Notification Rule under 45 CFR Part 164. The amendments shorten the maximum window for notifying affected individuals from 60 calendar days to 45 calendar days following breach discovery. The final rule also expands the definition of compromised PHI to include unencrypted backup snapshots and ePHI in third-party cloud caches not previously covered. Covered entities and business associates must update breach response procedures, business associate agreements, and incident response runbooks. The rule takes effect 90 days from publication in the Federal Register.",
+      "publishDate": "2026-04-15T00:00:00Z",
+      "sourceName": "HHS Office for Civil Rights"
+    },
+    "frameworks": ["HIPAA", "OSHA", "OIG", "DEA", "CMS", "CLIA", "MACRA", "TCPA", "ALLERGY"]
+  },
+  "expectedSubstrings": ["HIPAA", "URGENT"],
+  "forbiddenSubstrings": ["45 CFR 999", "OSHA"]
+}

@@ -532,7 +532,7 @@ model RegulatoryArticle {
   alerts          RegulatoryAlert[]
 
   @@index([sourceId, ingestedAt])
-  @@index([analyzedAt])
+  @@index([analyzedAt, ingestedAt])
 }
 
 // One per (article, practice) where the article matched at least one

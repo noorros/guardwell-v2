@@ -1,0 +1,15 @@
+{
+  "input": {
+    "article": {
+      "title": "OSHA updates Respiratory Protection guidance for healthcare settings",
+      "url": "https://www.osha.gov/respiratory-protection/healthcare-2026",
+      "summary": "OSHA's revised guidance on 29 CFR 1910.134 emphasizes annual fit-testing for N95 respirators in healthcare settings and clarifies medical evaluation timing. Practices should ensure all clinical staff using respirators have current fit-test records.",
+      "rawContent": "OSHA's updated Respiratory Protection healthcare guidance reaffirms the annual fit-test requirement for tight-fitting respirators (including N95s) under 29 CFR 1910.134(f). The guidance addresses common practice misconceptions: a single fit test does not satisfy the annual requirement; a change in respirator model, weight loss/gain of 20+ pounds, or facial structure change (dental work, scarring) requires re-testing. Medical evaluations under 29 CFR 1910.134(e) must be completed before fit-testing and should be repeated when a healthcare professional recommends.",
+      "publishDate": "2026-04-09T00:00:00Z",
+      "sourceName": "OSHA"
+    },
+    "frameworks": ["HIPAA", "OSHA", "OIG", "DEA", "CMS", "CLIA", "MACRA", "TCPA", "ALLERGY"]
+  },
+  "expectedSubstrings": ["OSHA"],
+  "forbiddenSubstrings": ["HIPAA", "DEA"]
+}

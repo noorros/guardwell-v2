@@ -1,0 +1,15 @@
+{
+  "input": {
+    "article": {
+      "title": "OSHA proposes updates to Bloodborne Pathogens Standard for sharps injury reporting",
+      "url": "https://www.osha.gov/news/bloodborne-pathogens-2026.html",
+      "summary": "OSHA's proposed rule under 29 CFR 1910.1030 would require employers to update sharps injury logs within 7 calendar days (currently no specific deadline) and implement annual sharps device evaluation reviews with documented input from frontline employees.",
+      "rawContent": "The Occupational Safety and Health Administration has proposed amendments to the Bloodborne Pathogens Standard (29 CFR 1910.1030) that would tighten sharps injury reporting timelines and formalize the annual sharps device evaluation requirement. Under the proposal, employers must maintain a sharps injury log with entries posted within 7 days of a needlestick or other percutaneous incident. The annual sharps device review must include documented frontline employee feedback. Public comment period ends in 60 days.",
+      "publishDate": "2026-04-14T00:00:00Z",
+      "sourceName": "OSHA"
+    },
+    "frameworks": ["HIPAA", "OSHA", "OIG", "DEA", "CMS", "CLIA", "MACRA", "TCPA", "ALLERGY"]
+  },
+  "expectedSubstrings": ["OSHA"],
+  "forbiddenSubstrings": ["HIPAA Security", "DEA scheduling"]
+}

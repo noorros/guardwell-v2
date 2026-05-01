@@ -1,0 +1,15 @@
+{
+  "input": {
+    "article": {
+      "title": "OIG publishes 2026 General Compliance Program Guidance for healthcare providers",
+      "url": "https://oig.hhs.gov/compliance/general-compliance-program-guidance-2026.html",
+      "summary": "The HHS Office of Inspector General has released its updated General Compliance Program Guidance, replacing the prior 2023 GCPG. The new guidance refines the seven elements of an effective compliance program and adds detailed expectations for practices with fewer than 10 providers.",
+      "rawContent": "OIG's General Compliance Program Guidance (GCPG) for 2026 retains the seven core elements (written policies, compliance officer, training, communication channels, monitoring, enforcement, response and prevention) but provides scaled expectations by practice size. For small practices (under 10 providers), OIG clarifies that the compliance officer role can be a part-time designation but must have direct access to the practice owner. Annual compliance training is reaffirmed as the floor, with topic-specific micro-modules recommended after enforcement actions or rule changes. The guidance adds a new section on AI-assisted billing review tools and expects practices to validate vendor outputs before claims submission.",
+      "publishDate": "2026-04-13T00:00:00Z",
+      "sourceName": "HHS Office of Inspector General"
+    },
+    "frameworks": ["HIPAA", "OSHA", "OIG", "DEA", "CMS", "CLIA", "MACRA", "TCPA", "ALLERGY"]
+  },
+  "expectedSubstrings": ["OIG"],
+  "forbiddenSubstrings": ["OSHA bloodborne", "45 CFR 9999"]
+}

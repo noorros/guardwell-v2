@@ -36,6 +36,11 @@ import {
   notificationWeeklyDigestInputSchema,
   notificationWeeklyDigestOutputSchema,
 } from "./prompts/notificationWeeklyDigest";
+import {
+  REGULATORY_RELEVANCE_SYSTEM,
+  regulatoryRelevanceInputSchema,
+  regulatoryRelevanceOutputSchema,
+} from "./prompts/regulatoryRelevance";
 
 export interface PromptDef<
   TIn extends z.ZodTypeAny = z.ZodTypeAny,
@@ -114,6 +119,18 @@ export const PROMPTS = {
     toolDescription:
       "Return the weekly notification digest summary paragraph plus an optional top-action call-out.",
     maxTokens: 768,
+  },
+  "analyzer.regulatory-relevance.v1": {
+    id: "analyzer.regulatory-relevance.v1",
+    version: 1,
+    model: "claude-sonnet-4-6",
+    system: REGULATORY_RELEVANCE_SYSTEM,
+    inputSchema: regulatoryRelevanceInputSchema,
+    outputSchema: regulatoryRelevanceOutputSchema,
+    toolName: "analyzer_regulatory_relevance_v1",
+    toolDescription:
+      "Score a regulatory news article for per-framework relevance, severity, summary, and recommended actions.",
+    maxTokens: 1500,
   },
 } as const satisfies Record<string, PromptDef>;
 

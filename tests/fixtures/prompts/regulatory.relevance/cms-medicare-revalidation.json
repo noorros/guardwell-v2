@@ -1,0 +1,15 @@
+{
+  "input": {
+    "article": {
+      "title": "CMS announces 2026 wave of Medicare provider revalidation due dates",
+      "url": "https://www.cms.gov/news/2026-revalidation-wave.html",
+      "summary": "CMS has begun mailing Medicare provider revalidation notices to practices with cycles ending Q3 2026. Providers have 60 days from the notice mail date to submit a complete CMS-855 application via PECOS. Failure to revalidate results in deactivation of billing privileges.",
+      "rawContent": "Medicare requires every provider and supplier to revalidate their enrollment information every 5 years (every 3 years for DMEPOS suppliers) under 42 CFR 424.515. CMS contractors are now mailing letters to providers whose revalidation due date falls in Q3 2026. Notable details: (1) the 60-day clock starts from the mail date on the letter, not receipt; (2) updates can be filed online via PECOS or on paper Form CMS-855; (3) the application must be complete and accurate — partial submissions trigger development requests that consume the 60-day window; (4) deactivated providers cannot retroactively bill for services rendered after deactivation, even if revalidation is later approved. Practices should verify their PECOS contact information and confirm notice receipt.",
+      "publishDate": "2026-04-14T00:00:00Z",
+      "sourceName": "Centers for Medicare & Medicaid Services"
+    },
+    "frameworks": ["HIPAA", "OSHA", "OIG", "DEA", "CMS", "CLIA", "MACRA", "TCPA", "ALLERGY"]
+  },
+  "expectedSubstrings": ["CMS"],
+  "forbiddenSubstrings": ["OSHA", "HIPAA Security"]
+}

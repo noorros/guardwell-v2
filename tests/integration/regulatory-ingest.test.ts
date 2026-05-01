@@ -18,14 +18,12 @@ import type { ParsedArticle } from "@/lib/regulatory/types";
 
 const mockParseRssFeed = vi.mocked(parseRssFeed);
 
-beforeEach(async () => {
+beforeEach(() => {
   mockParseRssFeed.mockReset();
-  // PR 2 seeded 10 RegulatorySource rows that persist across test runs
-  // (no beforeAll cleanup in tests/setup.ts). Wipe them up-front so this
-  // suite can assert exact source counts. afterEach in setup.ts handles
-  // post-test cleanup.
-  await db.regulatoryArticle.deleteMany();
-  await db.regulatorySource.deleteMany();
+  // tests/setup.ts wipes RegulatorySource + RegulatoryArticle in its
+  // beforeAll so seeded rows from `npm run db:seed:regulatory` don't
+  // bleed into the suite. afterEach in setup.ts handles per-test
+  // cleanup.
 });
 
 async function seedSource(opts: {

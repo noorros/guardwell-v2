@@ -1,0 +1,15 @@
+{
+  "input": {
+    "article": {
+      "title": "State Attorneys General reach $14M multistate settlement with telehealth platform over breach and TCPA violations",
+      "url": "https://www.naag.org/news/2026-04-telehealth-settlement.html",
+      "summary": "A coalition of 39 state Attorneys General announced a $14 million settlement with a national telehealth platform resolving allegations of unsecured patient databases (HIPAA-implicated breach exposing 1.2M records) and unauthorized text-message reminders sent without prior express consent (TCPA violations).",
+      "rawContent": "The multistate settlement with TeleConnect Health Inc. resolves a 28-month investigation triggered by a 2024 breach disclosure. State AGs found: (1) the platform stored PHI without adequate encryption controls; (2) appointment-reminder SMS campaigns were sent to patients who had not provided prior express written consent for marketing-tinged content; (3) the platform's BAA template did not include the breach-notification obligations required by 45 CFR 164.504(e). The settlement requires the platform to implement encryption at rest, revise its BAA template, train all staff on TCPA prior-express-consent requirements before sending any new SMS campaigns, and provide credit monitoring to affected individuals. Healthcare practices that contracted with TeleConnect should review their BAA, request the updated terms, and audit any reminder-SMS workflows tied to the platform.",
+      "publishDate": "2026-04-12T00:00:00Z",
+      "sourceName": "National Association of Attorneys General"
+    },
+    "frameworks": ["HIPAA", "OSHA", "OIG", "DEA", "CMS", "CLIA", "MACRA", "TCPA", "ALLERGY"]
+  },
+  "expectedSubstrings": ["HIPAA", "TCPA"],
+  "forbiddenSubstrings": ["OSHA bloodborne", "DEA scheduling"]
+}

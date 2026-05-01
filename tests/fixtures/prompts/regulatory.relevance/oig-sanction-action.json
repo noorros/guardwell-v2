@@ -1,0 +1,15 @@
+{
+  "input": {
+    "article": {
+      "title": "Multi-state physician group enters $4.6M False Claims Act settlement over upcoded E&M visits",
+      "url": "https://oig.hhs.gov/fraud/enforcement/2026-04-physician-group.html",
+      "summary": "A 32-provider primary-care group has settled with DOJ and OIG for $4.6M plus a Corporate Integrity Agreement after an audit found systematic upcoding of established-patient E&M visits over a 4-year period. The CIA includes annual coding audits and IRO oversight for 5 years.",
+      "rawContent": "The Department of Justice and HHS-OIG announced a False Claims Act settlement with Sunbelt Primary Care, a 32-provider group operating across three states. The settlement resolves allegations that providers routinely billed level-4 (99214) and level-5 (99215) established-patient E&M codes when documentation supported only level-2 or level-3 codes. The Corporate Integrity Agreement requires (a) Independent Review Organization-led coding audits annually for 5 years, (b) revision of EHR templates to reduce auto-population that contributed to overdocumentation, (c) compliance officer reports to the OIG quarterly, (d) targeted re-training for the 14 providers identified in the sample. This is the second 7-figure settlement of 2026 referencing EHR-template-driven upcoding.",
+      "publishDate": "2026-04-12T00:00:00Z",
+      "sourceName": "HHS Office of Inspector General"
+    },
+    "frameworks": ["HIPAA", "OSHA", "OIG", "DEA", "CMS", "CLIA", "MACRA", "TCPA", "ALLERGY"]
+  },
+  "expectedSubstrings": ["OIG"],
+  "forbiddenSubstrings": ["OSHA", "DEA scheduling"]
+}

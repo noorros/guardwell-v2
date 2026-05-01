@@ -1,0 +1,15 @@
+{
+  "input": {
+    "article": {
+      "title": "OIG updates List of Excluded Individuals/Entities (LEIE) screening guidance",
+      "url": "https://oig.hhs.gov/exclusions/leie-guidance-2026.html",
+      "summary": "OIG's updated guidance reaffirms that healthcare providers must screen all employees, contractors, and vendors against the LEIE database at hire and monthly thereafter. Failure to screen can result in Civil Monetary Penalties of up to $20,000 per claim involving an excluded party.",
+      "rawContent": "The OIG's revised LEIE screening guidance addresses common practice gaps: (1) monthly checks (not annual) are the expected frequency for active employees and contractors; (2) screening must include all individuals furnishing care, billing-cycle staff, and IT contractors with access to PHI; (3) state Medicaid exclusion lists should be checked in addition to LEIE for providers operating in those states; (4) hits should be investigated and resolved before any further claims are submitted. OIG notes that 'I screened them at hire' is not a defense for ongoing claims if the individual was later excluded.",
+      "publishDate": "2026-04-07T00:00:00Z",
+      "sourceName": "HHS Office of Inspector General"
+    },
+    "frameworks": ["HIPAA", "OSHA", "OIG", "DEA", "CMS", "CLIA", "MACRA", "TCPA", "ALLERGY"]
+  },
+  "expectedSubstrings": ["OIG"],
+  "forbiddenSubstrings": ["OSHA", "DEA"]
+}

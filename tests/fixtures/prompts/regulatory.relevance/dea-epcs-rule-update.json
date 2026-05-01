@@ -1,0 +1,15 @@
+{
+  "input": {
+    "article": {
+      "title": "DEA finalizes update to Electronic Prescriptions for Controlled Substances rule",
+      "url": "https://www.deadiversion.usdoj.gov/fed_regs/rules/2026/epcs-final.htm",
+      "summary": "DEA's final rule under 21 CFR 1311 updates EPCS technical requirements, including biometric authentication options for the second factor and a 1-year audit log retention floor. Effective 90 days from publication.",
+      "rawContent": "The Drug Enforcement Administration has finalized amendments to the EPCS rule (21 CFR 1311). Key changes: (1) biometric authentication (fingerprint, facial recognition meeting NIST SP 800-63 Level 2) is now an explicit second-factor option alongside hard tokens and authenticator apps; (2) audit log retention floor raised from 6 months to 1 year for prescription records; (3) annual EPCS application identity-proofing renewal clarified as required for individual providers, not separately for each practice; (4) DEA registration renewals for prescribers must reaffirm EPCS-only-prescribing capability or document a written exception. Effective 90 days from publication.",
+      "publishDate": "2026-04-15T00:00:00Z",
+      "sourceName": "DEA Diversion Control Division"
+    },
+    "frameworks": ["HIPAA", "OSHA", "OIG", "DEA", "CMS", "CLIA", "MACRA", "TCPA", "ALLERGY"]
+  },
+  "expectedSubstrings": ["DEA"],
+  "forbiddenSubstrings": ["OSHA bloodborne", "45 CFR"]
+}
