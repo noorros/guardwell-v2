@@ -1,0 +1,10 @@
+{
+  "input": {
+    "practiceName": "OOD Practice",
+    "userRole": "STAFF",
+    "notifications": [],
+    "scoreChange": { "previous": 50, "current": 80 }
+  },
+  "expectedSubstrings": [],
+  "forbiddenSubstrings": []
+}

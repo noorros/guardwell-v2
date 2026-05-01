@@ -1,0 +1,15 @@
+{
+  "input": {
+    "practiceName": "Busy Practice",
+    "userRole": "ADMIN",
+    "notifications": [
+      { "title": "BAA expiring", "severity": "WARNING", "type": "VENDOR_BAA_EXPIRING", "body": "Test BAA expires in 30 days" },
+      { "title": "Credential renewal", "severity": "INFO", "type": "CREDENTIAL_RENEWAL_DUE", "body": "Dr. Smith license renews in 60 days" },
+      { "title": "Training overdue", "severity": "INFO", "type": "TRAINING_OVERDUE", "body": "5 staff training overdue" },
+      { "title": "Policy review due", "severity": "INFO", "type": "POLICY_REVIEW_DUE", "body": "3 policies need annual review" }
+    ],
+    "scoreChange": null
+  },
+  "expectedSubstrings": ["Busy Practice"],
+  "forbiddenSubstrings": []
+}
