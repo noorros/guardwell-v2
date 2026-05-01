@@ -28,6 +28,7 @@
     "db:seed:training": "tsx scripts/seed-training.ts",
     "db:seed:credentials": "tsx scripts/seed-credentials.ts",
     "db:seed:sra": "tsx scripts/seed-sra.ts",
+    "db:seed:tech-assessment": "tsx scripts/seed-tech-assessment.ts",
     "db:seed:state-overlays": "tsx scripts/seed-state-overlays.ts",
     "db:seed:regulatory": "tsx scripts/seed-regulatory-sources.ts",
     "eval:concierge": "tsx scripts/eval-concierge.ts",

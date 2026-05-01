@@ -1,0 +1,352 @@
+[
+  {
+    "code": "TECH_NETWORK_FIREWALL",
+    "category": "NETWORK",
+    "title": "Firewall Configuration & Rule Review",
+    "description": "Document the firewall make/model, firmware version, and last rule review date. Are there any ANY/ANY rules or overly permissive policies? When were firewall rules last audited?",
+    "guidance": "Expect: specific firewall product name, firmware current within 6 months, rule review within past year, no ANY/ANY rules in production. Document any exceptions with business justification.",
+    "sraQuestionCode": "TECH_NETWORK_SECURITY",
+    "riskWeight": "HIGH",
+    "sortOrder": 10
+  },
+  {
+    "code": "TECH_NETWORK_SEGMENTATION",
+    "category": "NETWORK",
+    "title": "Network Segmentation for ePHI Systems",
+    "description": "Are ePHI systems (EHR servers, billing systems, medical devices) on a separate VLAN or subnet from general office traffic and guest networks? Document the network architecture.",
+    "guidance": "Expect: dedicated VLAN(s) for clinical/ePHI systems, ACLs between segments, guest WiFi on isolated network with no route to ePHI systems. Network diagram preferred.",
+    "sraQuestionCode": "TECH_NETWORK_SECURITY",
+    "riskWeight": "HIGH",
+    "sortOrder": 20
+  },
+  {
+    "code": "TECH_NETWORK_GUEST_WIFI",
+    "category": "NETWORK",
+    "title": "Guest WiFi Isolation",
+    "description": "Is patient/guest WiFi fully isolated from the clinical network? What controls prevent guest devices from reaching ePHI systems? Is captive portal or authentication required?",
+    "guidance": "Expect: separate SSID on isolated VLAN, no routing to clinical subnet, bandwidth limits optional but recommended. Captive portal for accountability.",
+    "sraQuestionCode": null,
+    "riskWeight": "HIGH",
+    "sortOrder": 30
+  },
+  {
+    "code": "TECH_NETWORK_VPN",
+    "category": "NETWORK",
+    "title": "VPN & Remote Access Configuration",
+    "description": "Document all remote access methods (VPN, RDP, TeamViewer, AnyDesk, etc.). Are all remote sessions encrypted? Is MFA required for remote access? Are sessions logged?",
+    "guidance": "Expect: IPSec or SSL VPN with MFA, no direct RDP exposure to internet, all remote access tools documented and approved, session logging enabled. Flag any direct RDP/port 3389 exposure.",
+    "sraQuestionCode": "TECH_REMOTE_ACCESS",
+    "riskWeight": "HIGH",
+    "sortOrder": 40
+  },
+  {
+    "code": "TECH_NETWORK_OPEN_PORTS",
+    "category": "NETWORK",
+    "title": "External Port Exposure",
+    "description": "List all ports/services exposed to the internet on the practice's public IP(s). When was the last external port scan performed? Are there any unnecessary services exposed?",
+    "guidance": "Expect: only necessary ports (443, VPN port), external scan within past 6 months, no unnecessary services (21/FTP, 23/Telnet, 3389/RDP). Document remediation for any findings.",
+    "sraQuestionCode": "TECH_VULNERABILITY_SCANNING",
+    "riskWeight": "HIGH",
+    "sortOrder": 50
+  },
+  {
+    "code": "TECH_NETWORK_DNS_FILTERING",
+    "category": "NETWORK",
+    "title": "DNS Filtering & Web Content Controls",
+    "description": "Is DNS-level filtering or web content filtering deployed to block known malicious domains? What product is used? Are logs reviewed for indicators of compromise?",
+    "guidance": "Expect: DNS filtering solution active (e.g., Cisco Umbrella, DNSFilter, Pi-hole with threat lists), blocking malware/phishing domains, logs available for review.",
+    "sraQuestionCode": "TECH_ANTIMALWARE",
+    "riskWeight": "HIGH",
+    "sortOrder": 60
+  },
+  {
+    "code": "TECH_NETWORK_IDS_IPS",
+    "category": "NETWORK",
+    "title": "Intrusion Detection/Prevention",
+    "description": "Is an IDS/IPS deployed? Is it inline (prevention) or passive (detection only)? Are signatures/rules updated regularly? Who monitors alerts?",
+    "guidance": "Expect: IDS/IPS active with current signatures, alerts monitored (internally or by MSSP), documented response procedures for alerts. Many UTM firewalls include this — document if enabled.",
+    "sraQuestionCode": null,
+    "riskWeight": "HIGH",
+    "sortOrder": 70
+  },
+  {
+    "code": "TECH_ENDPOINT_EDR",
+    "category": "ENDPOINT",
+    "title": "Anti-Malware / EDR Deployment",
+    "description": "What endpoint protection product is deployed? What percentage of endpoints have it installed and active? Are definitions current? Is EDR (behavioral detection) enabled or just signature-based AV?",
+    "guidance": "Expect: 100% coverage on all endpoints touching ePHI, definitions updated within 24 hours, EDR/behavioral detection preferred over signature-only AV. Document any exceptions.",
+    "sraQuestionCode": "TECH_ANTIMALWARE",
+    "riskWeight": "MEDIUM",
+    "sortOrder": 10
+  },
+  {
+    "code": "TECH_ENDPOINT_PATCH_MGMT",
+    "category": "ENDPOINT",
+    "title": "Patch Management Verification",
+    "description": "What is the patching cadence for OS and third-party applications? How many days from patch release to deployment for critical/high/medium patches? How many endpoints are currently missing critical patches?",
+    "guidance": "Expect: critical patches within 14 days, high within 30, medium within 60. Zero unpatched critical vulnerabilities on ePHI systems. Document patching tool and last compliance report.",
+    "sraQuestionCode": "TECH_PATCH_MANAGEMENT",
+    "riskWeight": "MEDIUM",
+    "sortOrder": 20
+  },
+  {
+    "code": "TECH_ENDPOINT_DISK_ENCRYPTION",
+    "category": "ENDPOINT",
+    "title": "Full-Disk Encryption Status",
+    "description": "Is full-disk encryption enabled on all workstations and laptops that access ePHI? What encryption product/method is used (BitLocker, FileVault, etc.)? Are recovery keys centrally managed?",
+    "guidance": "Expect: 100% encryption coverage on all devices accessing ePHI, centrally managed recovery keys, encryption status verified via management console. This is the #1 breach safe harbor.",
+    "sraQuestionCode": "TECH_ENCRYPTION_REST",
+    "riskWeight": "MEDIUM",
+    "sortOrder": 30
+  },
+  {
+    "code": "TECH_ENDPOINT_AUTO_LOGOFF",
+    "category": "ENDPOINT",
+    "title": "Auto-Logoff & Screen Lock Settings",
+    "description": "What are the specific screen lock timeout values for each system type? Document: OS screen lock, EHR application timeout, and any other ePHI application timeouts. Are values enforced via GPO/MDM?",
+    "guidance": "Expect: 5-10 min for clinical workstations in patient areas, 15 min max for general clinical, 30 min max for secured back office. Enforced by policy (GPO/MDM), not just configured.",
+    "sraQuestionCode": "TECH_AUTO_LOGOFF_CONFIG",
+    "riskWeight": "MEDIUM",
+    "sortOrder": 40
+  },
+  {
+    "code": "TECH_ENDPOINT_USB_CONTROLS",
+    "category": "ENDPOINT",
+    "title": "USB & Removable Media Controls",
+    "description": "Are USB storage devices blocked or restricted on workstations that access ePHI? What policy controls USB usage (GPO, endpoint protection, DLP)? Are exceptions logged?",
+    "guidance": "Expect: USB storage blocked by default on ePHI workstations, any exceptions documented with business justification, DLP or endpoint agent enforcing the policy.",
+    "sraQuestionCode": "PHYS_MEDIA_REUSE",
+    "riskWeight": "MEDIUM",
+    "sortOrder": 50
+  },
+  {
+    "code": "TECH_ENDPOINT_MDM",
+    "category": "ENDPOINT",
+    "title": "Mobile Device Management",
+    "description": "If mobile devices (phones, tablets) access ePHI or email, is an MDM solution deployed? Can devices be remotely wiped? Is encryption enforced? Are jailbroken/rooted devices blocked?",
+    "guidance": "Expect: MDM on all mobile devices with ePHI access, remote wipe capability, enforced encryption and passcode, jailbreak detection. If no mobile ePHI access, document that explicitly.",
+    "sraQuestionCode": "PHYS_PORTABLE_DEVICES",
+    "riskWeight": "MEDIUM",
+    "sortOrder": 60
+  },
+  {
+    "code": "TECH_CLOUD_ENCRYPTION",
+    "category": "CLOUD",
+    "title": "Cloud Service Encryption (At-Rest & In-Transit)",
+    "description": "For each cloud service storing ePHI (EHR, cloud backup, file sharing), document: encryption at rest (algorithm, key length), encryption in transit (TLS version), and key management approach.",
+    "guidance": "Expect: AES-256 at rest, TLS 1.2+ in transit for all ePHI cloud services. Customer-managed keys preferred but vendor-managed acceptable. Document per service.",
+    "sraQuestionCode": "TECH_ENCRYPTION_REST",
+    "riskWeight": "MEDIUM",
+    "sortOrder": 10
+  },
+  {
+    "code": "TECH_CLOUD_EMAIL_ENCRYPTION",
+    "category": "CLOUD",
+    "title": "Email Encryption for ePHI",
+    "description": "What tools or methods are available for encrypting emails containing ePHI? Is encryption automatic (based on content/keywords) or manual (user-initiated)? What email platform is used?",
+    "guidance": "Expect: encryption capability available, policy for when it must be used, training documentation. Automatic DLP-triggered encryption preferred over manual-only.",
+    "sraQuestionCode": "TECH_EMAIL_SECURITY",
+    "riskWeight": "MEDIUM",
+    "sortOrder": 20
+  },
+  {
+    "code": "TECH_CLOUD_MFA_ENFORCEMENT",
+    "category": "CLOUD",
+    "title": "MFA Enforcement on Cloud Services",
+    "description": "Is MFA enforced (not just available) for all cloud services that contain ePHI? Document: which MFA methods are accepted, which services have MFA enabled, and any exceptions.",
+    "guidance": "Expect: MFA enforced on all ePHI cloud services (EHR, email, cloud storage, backup portal), app-based or hardware key MFA preferred over SMS. No exceptions for admin accounts.",
+    "sraQuestionCode": "TECH_MFA",
+    "riskWeight": "MEDIUM",
+    "sortOrder": 30
+  },
+  {
+    "code": "TECH_CLOUD_ACCESS_LOGGING",
+    "category": "CLOUD",
+    "title": "Cloud Access & Activity Logging",
+    "description": "Are access logs and activity logs enabled for cloud services containing ePHI? Where are logs stored? What is the retention period? Who reviews them?",
+    "guidance": "Expect: logging enabled on all ePHI cloud services, logs retained minimum 6 years (HIPAA requirement), logs stored separately from the service being logged, periodic review documented.",
+    "sraQuestionCode": "TECH_AUDIT_LOGGING",
+    "riskWeight": "MEDIUM",
+    "sortOrder": 40
+  },
+  {
+    "code": "TECH_CLOUD_SAAS_SECURITY",
+    "category": "CLOUD",
+    "title": "SaaS Security Configuration Review",
+    "description": "For your primary SaaS applications (EHR, PM, cloud storage), have security settings been reviewed and hardened? Document: default settings changed, access controls configured, sharing restrictions applied.",
+    "guidance": "Expect: documented security configuration for each SaaS application, default sharing settings restricted, external sharing disabled unless required, admin settings reviewed within past year.",
+    "sraQuestionCode": "TECH_SECURITY_CONFIG_BASELINE",
+    "riskWeight": "MEDIUM",
+    "sortOrder": 50
+  },
+  {
+    "code": "TECH_CLOUD_DATA_RESIDENCY",
+    "category": "CLOUD",
+    "title": "Data Residency & BAA Coverage",
+    "description": "For each cloud provider storing ePHI, confirm: data resides in approved geographic region, BAA is executed, subprocessor list is reviewed. Are there any cloud services with ePHI but without BAAs?",
+    "guidance": "Expect: BAA in place for every cloud service with ePHI access, US data residency for most practices, subprocessor awareness. Flag any cloud service handling ePHI without a BAA.",
+    "sraQuestionCode": "ADMIN_BAA_EXECUTED",
+    "riskWeight": "MEDIUM",
+    "sortOrder": 60
+  },
+  {
+    "code": "TECH_ACCESS_IDENTITY_CONFIG",
+    "category": "ACCESS",
+    "title": "Identity Provider & Directory Configuration",
+    "description": "What identity provider manages user accounts (Active Directory, Azure AD/Entra, Google Workspace, etc.)? Is SSO configured for ePHI applications? Are account policies (lockout, complexity) enforced centrally?",
+    "guidance": "Expect: centralized identity management, password complexity enforced (12+ characters, complexity or passphrase), account lockout after 5-10 failed attempts, SSO for major applications.",
+    "sraQuestionCode": "TECH_PASSWORD_ENFORCEMENT",
+    "riskWeight": "HIGH",
+    "sortOrder": 10
+  },
+  {
+    "code": "TECH_ACCESS_MFA_SPECIFICS",
+    "category": "ACCESS",
+    "title": "MFA Implementation Details",
+    "description": "Document the specific MFA implementation: what factors are used (app, SMS, hardware key), which systems require MFA, is MFA required for both local and remote access? Are admin accounts on stricter MFA?",
+    "guidance": "Expect: authenticator app or hardware key (not SMS-only), MFA on all ePHI systems, stricter requirements for admin/privileged accounts, MFA for VPN/remote access.",
+    "sraQuestionCode": "TECH_MFA",
+    "riskWeight": "HIGH",
+    "sortOrder": 20
+  },
+  {
+    "code": "TECH_ACCESS_PRIVILEGED",
+    "category": "ACCESS",
+    "title": "Privileged Account Audit",
+    "description": "How many admin/privileged accounts exist across systems (domain admin, EHR admin, cloud admin)? Are privileged accounts separate from daily-use accounts? When was the last privileged access review?",
+    "guidance": "Expect: minimum privileged accounts, separate admin accounts from daily-use, privileged access review within past 6 months, no shared admin credentials, admin access logged.",
+    "sraQuestionCode": "TECH_UNIQUE_USERID",
+    "riskWeight": "HIGH",
+    "sortOrder": 30
+  },
+  {
+    "code": "TECH_ACCESS_REMOTE_TOOLS",
+    "category": "ACCESS",
+    "title": "Remote Access Tool Inventory",
+    "description": "List all approved remote access tools (VPN, RDP Gateway, TeamViewer, ConnectWise, etc.). Are any unapproved remote access tools installed? How is remote access audited?",
+    "guidance": "Expect: documented list of approved tools only, unauthorized tools blocked via endpoint policy, remote sessions logged with user/time/duration, MFA required for all remote access.",
+    "sraQuestionCode": "TECH_REMOTE_ACCESS",
+    "riskWeight": "HIGH",
+    "sortOrder": 40
+  },
+  {
+    "code": "TECH_ACCESS_SHARED_ACCOUNTS",
+    "category": "ACCESS",
+    "title": "Shared & Generic Account Elimination",
+    "description": "Are there any shared or generic login accounts used to access ePHI systems (shared reception login, generic admin account, shared EHR credentials)? Document any that exist and the plan to eliminate them.",
+    "guidance": "Expect: no shared accounts for ePHI access (HIPAA requires unique user identification), any legacy shared accounts documented with elimination timeline, compensating controls if shared access is temporarily necessary.",
+    "sraQuestionCode": "TECH_UNIQUE_USERID",
+    "riskWeight": "HIGH",
+    "sortOrder": 50
+  },
+  {
+    "code": "TECH_MONITORING_SIEM",
+    "category": "MONITORING",
+    "title": "SIEM / Log Aggregation",
+    "description": "Is a SIEM or centralized log aggregation solution deployed? What log sources feed into it? What is the log retention period? Is it monitored 24/7 or during business hours only?",
+    "guidance": "Expect: centralized logging from firewalls, servers, endpoints, cloud services. 6-year retention for HIPAA. Monitoring by internal team or MSSP. Alert correlation and incident escalation documented.",
+    "sraQuestionCode": "TECH_AUDIT_LOGGING",
+    "riskWeight": "MEDIUM",
+    "sortOrder": 10
+  },
+  {
+    "code": "TECH_MONITORING_ALERT_CONFIG",
+    "category": "MONITORING",
+    "title": "Security Alert Configuration",
+    "description": "What specific security events trigger alerts? Document alert rules for: failed login attempts, after-hours ePHI access, bulk data exports, privilege escalation, new admin accounts, and malware detection.",
+    "guidance": "Expect: alerts configured for high-risk events, escalation procedures documented, alerts tested within past year, response SLA defined (e.g., critical alerts within 15 min).",
+    "sraQuestionCode": "TECH_AUDIT_EVENTS",
+    "riskWeight": "MEDIUM",
+    "sortOrder": 20
+  },
+  {
+    "code": "TECH_MONITORING_THREAT_INTEL",
+    "category": "MONITORING",
+    "title": "Threat Intelligence Feeds & Awareness",
+    "description": "Does the practice or its MSP subscribe to threat intelligence feeds? Are HHS HC3 alerts, CISA KEV, and vendor security bulletins actively monitored? Document the last 3 threat advisories acted upon.",
+    "guidance": "Expect: subscription to HHS HC3 and/or CISA alerts, designated person/team monitors threats, documented response to recent advisories (patching, configuration changes, user alerts).",
+    "sraQuestionCode": "TECH_THREAT_INTELLIGENCE",
+    "riskWeight": "MEDIUM",
+    "sortOrder": 30
+  },
+  {
+    "code": "TECH_MONITORING_INCIDENT_RESPONSE",
+    "category": "MONITORING",
+    "title": "Incident Response Plan Testing",
+    "description": "When was the incident response plan last tested (tabletop exercise, simulation, or actual incident)? Who participated? What improvements were identified and implemented?",
+    "guidance": "Expect: IR plan tested within past 12 months, participation from IT and practice leadership, documented findings and improvements, updated contact lists and escalation procedures.",
+    "sraQuestionCode": "ADMIN_CONTINGENCY_TEST",
+    "riskWeight": "MEDIUM",
+    "sortOrder": 40
+  },
+  {
+    "code": "TECH_MONITORING_VULN_SCANNING",
+    "category": "MONITORING",
+    "title": "Vulnerability Scanning Results",
+    "description": "How frequently are vulnerability scans performed (internal and external)? What scanner is used? What were the results of the last scan? How many critical/high vulnerabilities are currently unresolved?",
+    "guidance": "Expect: quarterly internal + annual external scans minimum, zero unresolved critical vulnerabilities on ePHI systems, remediation SLA (critical: 14 days, high: 30 days), scan reports retained.",
+    "sraQuestionCode": "TECH_VULNERABILITY_SCANNING",
+    "riskWeight": "MEDIUM",
+    "sortOrder": 50
+  },
+  {
+    "code": "TECH_BACKUP_FREQUENCY",
+    "category": "BACKUP",
+    "title": "Backup Frequency & Scope",
+    "description": "Document the backup schedule for all ePHI systems: what is backed up, how often (full/incremental), and what is the maximum data loss window (RPO)? Are all ePHI systems included?",
+    "guidance": "Expect: daily backups minimum for all ePHI systems, RPO defined and acceptable to practice, backup scope documented (databases, files, system images, cloud data), no ePHI systems excluded.",
+    "sraQuestionCode": "ADMIN_DATA_BACKUP",
+    "riskWeight": "LOW",
+    "sortOrder": 10
+  },
+  {
+    "code": "TECH_BACKUP_ENCRYPTION",
+    "category": "BACKUP",
+    "title": "Backup Encryption & Security",
+    "description": "Are backups encrypted at rest and in transit? What encryption algorithm/key length? Who has access to backup encryption keys? Are backups stored with a BAA-covered provider?",
+    "guidance": "Expect: AES-256 encryption for backup data, keys managed separately from backup data, BAA with cloud backup provider, access to backups restricted to authorized personnel only.",
+    "sraQuestionCode": "ADMIN_DATA_BACKUP",
+    "riskWeight": "LOW",
+    "sortOrder": 20
+  },
+  {
+    "code": "TECH_BACKUP_OFFSITE",
+    "category": "BACKUP",
+    "title": "Offsite / Air-Gapped Copies",
+    "description": "Are backup copies stored offsite or in a different geographic location? Is there an air-gapped or immutable backup copy that cannot be affected by ransomware? How many backup copies exist (3-2-1 rule)?",
+    "guidance": "Expect: 3-2-1 rule (3 copies, 2 media types, 1 offsite), at least one immutable/air-gapped copy, geographic separation from primary site. This is the #1 ransomware defense.",
+    "sraQuestionCode": "ADMIN_DISASTER_RECOVERY",
+    "riskWeight": "LOW",
+    "sortOrder": 30
+  },
+  {
+    "code": "TECH_BACKUP_TEST_RESTORE",
+    "category": "BACKUP",
+    "title": "Test Restore Verification",
+    "description": "When was the last backup test restore performed? Was it a full system restore or partial file restore? Was the restore successful? How long did it take (RTO verification)?",
+    "guidance": "Expect: test restore within past 6 months (quarterly preferred), documented results including time to restore, successful data verification, RTO within acceptable limits.",
+    "sraQuestionCode": "TECH_BACKUP_VERIFICATION",
+    "riskWeight": "LOW",
+    "sortOrder": 40
+  },
+  {
+    "code": "TECH_BACKUP_RTO_RPO",
+    "category": "BACKUP",
+    "title": "RTO/RPO Documentation",
+    "description": "Are Recovery Time Objective (RTO) and Recovery Point Objective (RPO) formally documented for each ePHI system? Have stakeholders approved these values? Do backup configurations actually meet the stated RTO/RPO?",
+    "guidance": "Expect: written RTO/RPO for each critical system, approved by practice leadership, backup configuration verified to meet stated objectives, gap analysis if current capabilities fall short.",
+    "sraQuestionCode": "ADMIN_DISASTER_RECOVERY",
+    "riskWeight": "LOW",
+    "sortOrder": 50
+  },
+  {
+    "code": "TECH_BACKUP_RANSOMWARE",
+    "category": "BACKUP",
+    "title": "Ransomware Recovery Readiness",
+    "description": "If ransomware encrypted all production systems today, what is the recovery plan? Can you restore from immutable backups? Is the recovery process documented step-by-step? Has it been tested?",
+    "guidance": "Expect: documented ransomware recovery runbook, immutable backups that ransomware cannot reach, tested recovery process, estimated recovery time, communication plan for patients/staff during outage.",
+    "sraQuestionCode": "ADMIN_EMERGENCY_OPS",
+    "riskWeight": "LOW",
+    "sortOrder": 60
+  }
+]

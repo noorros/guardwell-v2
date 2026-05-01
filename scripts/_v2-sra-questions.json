@@ -1,0 +1,1485 @@
+[
+  {
+    "code": "ADMIN_RISK_ANALYSIS",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Security Management Process",
+    "title": "Formal Risk Analysis Conducted",
+    "description": "Has your organization conducted a thorough, documented risk analysis to identify all potential threats and vulnerabilities to ePHI?",
+    "guidance": "OCR requires a comprehensive, organization-wide analysis. Evidence includes a written report documenting: data flows, threat sources, existing controls, and likelihood/impact of threats. Should be updated whenever significant changes occur and at least annually.",
+    "lookFor": [
+      "A written risk analysis document (not just a mental checklist)",
+      "An inventory of all systems that store or transmit ePHI",
+      "A list of identified threats for each system",
+      "Evidence the analysis was updated in the last 12 months",
+      "Clear record of who performed and approved the analysis"
+    ],
+    "citation": "§164.308(a)(1)(ii)(A)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 10
+  },
+  {
+    "code": "ADMIN_RISK_MANAGEMENT",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Security Management Process",
+    "title": "Risk Management Plan Implemented",
+    "description": "Has your organization implemented a risk management plan that addresses identified risks to an acceptable level?",
+    "guidance": "A risk management plan should document specific mitigation strategies for each identified risk, assign responsibilities, set timelines, and track remediation. It is a living document updated as risks change.",
+    "lookFor": [
+      "A written plan with specific mitigation steps for each identified risk",
+      "Assigned owners (names or roles) for each remediation task",
+      "Target dates and deadlines for remediation",
+      "Evidence the plan is reviewed and updated regularly",
+      "Status tracking showing progress on open items"
+    ],
+    "citation": "§164.308(a)(1)(ii)(B)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 20
+  },
+  {
+    "code": "ADMIN_SANCTION_POLICY",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Security Management Process",
+    "title": "Workforce Sanction Policy",
+    "description": "Does your organization have a documented sanction policy that addresses consequences for workforce members who violate security policies?",
+    "guidance": "Policy must be in writing and communicated to all staff. It should define a range of sanctions proportionate to the severity of the violation, from verbal warning to termination. All workforce members should sign an acknowledgment.",
+    "lookFor": [
+      "A written sanction policy document",
+      "A range of consequences (verbal warning through termination)",
+      "Evidence all staff have been notified of the policy",
+      "Signed acknowledgment forms from employees",
+      "Records of any sanctions that have been applied"
+    ],
+    "citation": "§164.308(a)(1)(ii)(C)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 30
+  },
+  {
+    "code": "ADMIN_ACTIVITY_REVIEW",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Security Management Process",
+    "title": "Information System Activity Review",
+    "description": "Does your organization regularly review information system activity, including audit logs, access reports, and security incident tracking?",
+    "guidance": "Regular review (at minimum monthly) of audit logs, login reports, and failed access attempts is required. Designate who performs the review, how often, and how anomalies are escalated. Review activity should be documented.",
+    "lookFor": [
+      "A designated person responsible for reviewing system logs",
+      "A documented schedule (monthly at minimum)",
+      "Written records of each review showing what was checked",
+      "A process for escalating suspicious activity",
+      "Evidence that reviews are actually happening on schedule"
+    ],
+    "citation": "§164.308(a)(1)(ii)(D)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 40
+  },
+  {
+    "code": "ADMIN_EPHI_INVENTORY",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Security Management Process",
+    "title": "Complete ePHI System Inventory",
+    "description": "Has your organization created and maintained a complete, current inventory of all information systems that create, receive, maintain, or transmit ePHI? This includes EHR, billing software, email, cloud storage, medical devices, patient portals, telehealth platforms, and any mobile apps.",
+    "guidance": "OCR specifically looks for a documented inventory of all ePHI-touching systems. This is the foundation of the entire SRA — you cannot assess risk for systems you have not identified. The inventory should include: system name, vendor, type of ePHI stored, location (on-prem vs cloud), and data flow connections to other systems.",
+    "lookFor": [
+      "A written inventory document listing all ePHI systems",
+      "All EHR, billing, and communication systems listed",
+      "Cloud services and SaaS tools included",
+      "Medical devices with data connectivity listed",
+      "Inventory reviewed and updated within the last 12 months"
+    ],
+    "citation": "§164.308(a)(1)(ii)(A)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 50
+  },
+  {
+    "code": "ADMIN_SECURITY_OFFICER",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Assigned Security Responsibility",
+    "title": "HIPAA Security Officer Designated",
+    "description": "Has your organization formally designated a Security Officer responsible for the development and implementation of HIPAA security policies?",
+    "guidance": "The designation must be in writing (job description, policy, or formal letter). The Security Officer must have adequate authority, resources, and training to carry out their responsibilities. Small practices may combine this with the Privacy Officer role.",
+    "lookFor": [
+      "Written designation (letter, job description, or policy document)",
+      "The person has received HIPAA security training",
+      "The person has authority to make security decisions",
+      "Staff know who the Security Officer is"
+    ],
+    "citation": "§164.308(a)(2)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 10
+  },
+  {
+    "code": "ADMIN_PRIVACY_OFFICER",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Assigned Security Responsibility",
+    "title": "HIPAA Privacy Officer Designated",
+    "description": "Has your organization formally designated a Privacy Officer responsible for HIPAA privacy compliance and patient rights?",
+    "guidance": "Required under the Privacy Rule (45 CFR §164.530(a)). Designation must be documented. The Privacy Officer should handle patient rights requests, complaints, and staff training on privacy policies.",
+    "lookFor": [
+      "Written designation documenting who the Privacy Officer is",
+      "The person handles patient record access requests",
+      "The person manages privacy-related complaints",
+      "Contact information is available to patients (e.g., in your Notice of Privacy Practices)"
+    ],
+    "citation": "§164.530(a)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 20
+  },
+  {
+    "code": "ADMIN_ACCESS_AUTHORIZATION",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Workforce Security",
+    "title": "ePHI Access Authorization Procedures",
+    "description": "Are written procedures in place for determining which workforce members should have access to ePHI, based on job role and minimum necessary principle?",
+    "guidance": "Implement role-based access control policies. Document the process for requesting, approving, and granting access. Access should be limited to the minimum necessary for each job function. Maintain an access authorization log.",
+    "lookFor": [
+      "Written access policy defining roles and their ePHI access levels",
+      "A formal process for requesting and approving new access",
+      "Evidence that access is limited to minimum necessary for each role",
+      "An access authorization log showing who approved each user's access"
+    ],
+    "citation": "§164.308(a)(3)(ii)(A)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 10
+  },
+  {
+    "code": "ADMIN_WORKFORCE_CLEARANCE",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Workforce Security",
+    "title": "Workforce Clearance Verification",
+    "description": "Does your organization verify that workforce members are appropriate to access ePHI (e.g., background checks, references) before granting access?",
+    "guidance": "Background screening for staff with ePHI access is a best practice and may be required by state law. Document the screening process. Temporary or contract staff with ePHI access should be similarly vetted.",
+    "lookFor": [
+      "Background check policy for new hires with ePHI access",
+      "Records of completed background checks",
+      "Screening of temporary and contract workers",
+      "A documented process that HR follows consistently"
+    ],
+    "citation": "§164.308(a)(3)(ii)(B)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 20
+  },
+  {
+    "code": "ADMIN_TERMINATION",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Workforce Security",
+    "title": "Workforce Termination Procedures",
+    "description": "Does your organization have documented termination procedures to immediately revoke ePHI system access when employment or contracts end?",
+    "guidance": "Termination checklist should cover: account deactivation, key/badge return, device recovery, password changes for shared accounts (if any), and forwarding of patient communications. Access must be revoked on or before the last day of employment.",
+    "lookFor": [
+      "A written termination checklist that includes IT access revocation",
+      "System accounts disabled on or before the last day",
+      "Return of keys, badges, laptops, and other devices documented",
+      "Shared account passwords changed after departure",
+      "Evidence this process is followed consistently"
+    ],
+    "citation": "§164.308(a)(3)(ii)(C)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 30
+  },
+  {
+    "code": "ADMIN_ACCESS_POLICIES",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Information Access Management",
+    "title": "Access to ePHI Formally Controlled",
+    "description": "Does your organization have formal written policies governing who is authorized to access ePHI, under what circumstances, and through which systems?",
+    "guidance": "Policies should address: authorization levels by role, approval workflow, multi-system access, and restrictions on copying or printing ePHI. Policies should be annually reviewed and acknowledged by all staff.",
+    "lookFor": [
+      "Written access control policies reviewed within the last year",
+      "Policies cover all systems with ePHI (EHR, billing, email, etc.)",
+      "Rules about printing, copying, or downloading patient data",
+      "Staff acknowledgment signatures on the access policies"
+    ],
+    "citation": "§164.308(a)(4)(ii)(B)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 10
+  },
+  {
+    "code": "ADMIN_ACCESS_MODIFICATION",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Information Access Management",
+    "title": "Access Modification on Role Change",
+    "description": "Are procedures in place to promptly modify or revoke ePHI access rights when a workforce member's role changes (promotion, transfer, demotion)?",
+    "guidance": "Role changes should trigger an access review within 24-48 hours. Verify that new access is provisioned correctly and old access (no longer appropriate) is removed. HR should notify IT/Security Officer upon any role change.",
+    "lookFor": [
+      "A process linking HR role changes to IT access modifications",
+      "Evidence that access is reviewed within 24-48 hours of role changes",
+      "Old unnecessary access removed, not just new access added",
+      "Documentation of each access change and who approved it"
+    ],
+    "citation": "§164.308(a)(4)(ii)(C)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 20
+  },
+  {
+    "code": "ADMIN_SECURITY_TRAINING",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Security Awareness & Training",
+    "title": "Periodic Security Awareness Training",
+    "description": "Does your organization provide periodic HIPAA security awareness training to all workforce members who handle ePHI?",
+    "guidance": "Training must be provided at hire and periodically thereafter (OCR recommends annually). Training records (completion dates, attendees, topics) must be retained for 6 years. Training should be updated when threats or policies change.",
+    "lookFor": [
+      "Training provided at onboarding for all new hires",
+      "Annual refresher training for all staff",
+      "Completion records with dates, names, and topics covered",
+      "Training content updated when policies or threats change",
+      "Records retained for at least 6 years"
+    ],
+    "citation": "§164.308(a)(5)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 10
+  },
+  {
+    "code": "ADMIN_MALWARE_TRAINING",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Security Awareness & Training",
+    "title": "Malware & Phishing Awareness Training",
+    "description": "Does workforce training address how to identify and protect against malware, phishing emails, ransomware, and social engineering attacks?",
+    "guidance": "With 95% of breaches involving human error, phishing simulation and awareness training is critical. Training should include: how to identify suspicious emails, what to do if a link is clicked, how to report incidents, and safe password practices.",
+    "lookFor": [
+      "Phishing-specific training content (not just generic HIPAA training)",
+      "Examples of real-world phishing emails and social engineering tactics",
+      "Instructions on what to do if a suspicious link is clicked",
+      "How to report a suspected phishing attempt"
+    ],
+    "citation": "§164.308(a)(5)(ii)(B)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 20
+  },
+  {
+    "code": "ADMIN_LOGIN_MONITORING",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Security Awareness & Training",
+    "title": "Login Monitoring & Alerts",
+    "description": "Does your organization monitor for and alert on suspicious or unauthorized login activity to ePHI systems?",
+    "guidance": "Systems should generate alerts for: failed login attempts (brute force), logins outside business hours, logins from unusual locations, or logins to deactivated accounts. Alerts should be reviewed by the Security Officer promptly.",
+    "lookFor": [
+      "Alerts configured for multiple failed login attempts",
+      "Monitoring of after-hours logins and unusual access patterns",
+      "A designated person who receives and reviews alerts",
+      "A process for investigating and documenting alert follow-ups"
+    ],
+    "citation": "§164.308(a)(5)(ii)(C)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 30
+  },
+  {
+    "code": "ADMIN_PASSWORD_POLICIES",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Security Awareness & Training",
+    "title": "Password Management Procedures",
+    "description": "Are password management procedures in place and communicated to all staff (complexity requirements, expiration, prohibition on sharing)?",
+    "guidance": "Password policy should require: minimum 12 characters, mix of character types, no reuse of last 10 passwords, and prohibit sharing. Consider adopting NIST 800-63B guidance (longer passphrases over complex but short passwords). A password manager should be recommended or provided.",
+    "lookFor": [
+      "Written password policy with minimum length and complexity rules",
+      "Prohibition on password sharing clearly stated and enforced",
+      "Staff trained on creating strong passwords or using a password manager",
+      "No sticky notes with passwords visible on workstations"
+    ],
+    "citation": "§164.308(a)(5)(ii)(D)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 40
+  },
+  {
+    "code": "ADMIN_INCIDENT_POLICY",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Security Incident Procedures",
+    "title": "Security Incident Response Policy",
+    "description": "Does your organization have a documented security incident response policy and procedure covering how to identify, report, contain, and remediate security incidents?",
+    "guidance": "Policy must define: what constitutes a security incident, reporting chain (who to notify and when), containment steps, investigation requirements, documentation, and post-incident review. All staff must know how to report an incident.",
+    "lookFor": [
+      "A written incident response plan/policy",
+      "Clear definition of what counts as a security incident",
+      "A reporting chain (who to notify first, second, etc.)",
+      "Steps for containment, investigation, and remediation",
+      "Evidence that all staff know how to report an incident"
+    ],
+    "citation": "§164.308(a)(6)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 10
+  },
+  {
+    "code": "ADMIN_INCIDENT_TRACKING",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Security Incident Procedures",
+    "title": "Security Incident Tracking & Documentation",
+    "description": "Does your organization track, document, and analyze all security incidents, including near-misses and unsuccessful attempts?",
+    "guidance": "Maintain an incident log for 6 years. Each entry should include: date discovered, nature of incident, systems affected, how it was resolved, and whether ePHI was compromised. Trend analysis should be performed at least annually to identify patterns.",
+    "lookFor": [
+      "An incident log or tracking system (spreadsheet, tool, or app)",
+      "Records include: date, description, systems affected, resolution",
+      "Near-misses and unsuccessful attempts also documented",
+      "Annual trend analysis to identify recurring issues",
+      "Records retained for at least 6 years"
+    ],
+    "citation": "§164.308(a)(6)(ii)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 20
+  },
+  {
+    "code": "ADMIN_DATA_BACKUP",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Contingency Plan",
+    "title": "Data Backup Plan — Tested",
+    "description": "Does your organization have a documented data backup plan, and are backups regularly tested for restoration?",
+    "guidance": "Backup plan should specify: what data is backed up, backup frequency (daily recommended for ePHI), backup medium (offsite or cloud), encryption of backup media, and a test restoration schedule (at minimum quarterly). A backup that has never been tested is an untested hypothesis.",
+    "lookFor": [
+      "A written backup plan specifying what gets backed up and how often",
+      "Daily backups of all ePHI (or more frequent)",
+      "Backups stored offsite or in encrypted cloud storage",
+      "Quarterly test restorations with documented results",
+      "Backup media is encrypted"
+    ],
+    "citation": "§164.308(a)(7)(ii)(A)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 10
+  },
+  {
+    "code": "ADMIN_DISASTER_RECOVERY",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Contingency Plan",
+    "title": "Disaster Recovery Plan",
+    "description": "Does your organization have a disaster recovery plan (DRP) that documents how to restore ePHI systems after a disaster (fire, flood, hardware failure, ransomware)?",
+    "guidance": "DRP should define: Recovery Time Objective (RTO — how fast to restore), Recovery Point Objective (RPO — how much data can be lost), steps to restore each critical system, who is responsible, and vendor contacts. Must be tested annually.",
+    "lookFor": [
+      "A written disaster recovery plan",
+      "Defined Recovery Time Objective (how fast you need to be back up)",
+      "Step-by-step restoration procedures for each critical system",
+      "Emergency vendor contact information included",
+      "Plan tested at least annually"
+    ],
+    "citation": "§164.308(a)(7)(ii)(B)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 20
+  },
+  {
+    "code": "ADMIN_EMERGENCY_OPS",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Contingency Plan",
+    "title": "Emergency Mode Operations Plan",
+    "description": "Does your organization have a plan for maintaining access to critical ePHI during a system outage or emergency?",
+    "guidance": "The emergency mode plan should address: which ePHI must remain accessible, how to access records if electronic systems are down (paper downtime procedures), who has override access, and how to return to normal operations. Should be practiced during drills.",
+    "lookFor": [
+      "Written downtime procedures for when electronic systems are unavailable",
+      "Paper-based forms or backup access methods documented",
+      "Staff trained on how to operate during system outages",
+      "Defined process for returning to normal operations after the outage"
+    ],
+    "citation": "§164.308(a)(7)(ii)(C)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 30
+  },
+  {
+    "code": "ADMIN_CONTINGENCY_TEST",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Contingency Plan",
+    "title": "Contingency Plan Testing & Revision",
+    "description": "Are contingency plans (backup, disaster recovery, emergency operations) regularly tested and revised based on test findings?",
+    "guidance": "Plans that are never tested are unreliable. Annual tabletop exercises or full recovery drills are required. Document the test, findings, and any plan updates made as a result. Test results must be retained for 6 years.",
+    "lookFor": [
+      "Annual test or drill of contingency plans documented",
+      "Tabletop exercises or simulated disaster recovery exercises",
+      "Written results showing what worked and what didn't",
+      "Plan revisions made based on test findings"
+    ],
+    "citation": "§164.308(a)(7)(ii)(D)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 40
+  },
+  {
+    "code": "ADMIN_EMERGENCY_TYPES",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Contingency Plan",
+    "title": "Specific Emergency Types Identified and Planned For",
+    "description": "Has your organization identified and documented specific types of emergencies that could damage information systems or prevent access to ePHI, and created response plans for each? Types should include: natural disasters (fire, flood, earthquake, hurricane), infrastructure failures (power outage, internet outage, hardware failure), cyberattacks (ransomware, data breach, DDoS), and operational disruptions (pandemic, key personnel loss).",
+    "guidance": "OCR expects you to have considered multiple emergency scenarios, not just a generic 'emergency plan.' Each identified emergency type should have a documented response procedure. Practices should consider which types are most likely for their geographic location and infrastructure.",
+    "lookFor": [
+      "A written list of emergency types considered",
+      "Response procedures for each type",
+      "Geographic and environmental risks considered",
+      "Cyber incident response separately addressed",
+      "Plans reviewed and updated at least annually"
+    ],
+    "citation": "§164.308(a)(7)(i)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 50
+  },
+  {
+    "code": "ADMIN_DOCUMENTATION_RETENTION",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Documentation Standards",
+    "title": "Security Documentation Retention (6-Year Minimum)",
+    "description": "Does your organization retain all HIPAA security management documentation — including policies, risk assessments, training records, incident logs, and BAAs — for a minimum of 6 years from the date of creation or last effective date?",
+    "guidance": "45 CFR §164.530(j) requires 6-year retention. This applies to policies, SRA reports, training records, incident logs, BAAs, and any action/activity/assessment/designation required by the Security Rule. Electronic retention is acceptable. Ensure backup copies exist.",
+    "lookFor": [
+      "A written retention schedule specifying 6-year minimum",
+      "Electronic backup of all compliance documents",
+      "Document destruction policy that prevents premature deletion",
+      "Retention policy covers all document types (policies, training, incidents, BAAs, SRAs)"
+    ],
+    "citation": "§164.530(j)",
+    "riskWeight": "LOW",
+    "cites2026": false,
+    "sortOrder": 10
+  },
+  {
+    "code": "ADMIN_BA_IDENTIFICATION",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Business Associate Agreements",
+    "title": "Business Associates Identified",
+    "description": "Has your organization identified all Business Associates (vendors, contractors, service providers) that create, receive, maintain, or transmit ePHI on your behalf?",
+    "guidance": "Maintain a complete, current BA inventory including: name, service provided, type of ePHI accessed, BAA status, and contract renewal date. Common BAs include: EHR vendors, billing companies, transcription services, IT support, cloud storage, medical equipment with data connectivity.",
+    "lookFor": [
+      "A written inventory of all Business Associates",
+      "Each entry includes: vendor name, service, and type of ePHI accessed",
+      "Common BAs considered: EHR, billing, IT support, cloud services, shredding",
+      "Inventory reviewed and updated at least annually"
+    ],
+    "citation": "§164.308(b)(1)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 10
+  },
+  {
+    "code": "ADMIN_BAA_EXECUTED",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Business Associate Agreements",
+    "title": "BAAs in Place with All Business Associates",
+    "description": "Are valid, current Business Associate Agreements (BAAs) in place with every identified Business Associate before they access ePHI?",
+    "guidance": "A BAA is legally required before any BA can access ePHI. BAAs must contain specific required elements per 45 CFR §164.504(e). Verbal agreements are insufficient. Electronic BAAs (e-signatures) are acceptable. Retain all BAAs for 6 years after the relationship ends.",
+    "lookFor": [
+      "Signed BAAs on file for every vendor in your BA inventory",
+      "BAAs signed before the vendor accesses any ePHI",
+      "BAAs include all HIPAA-required elements",
+      "BAAs retained for 6 years after the relationship ends"
+    ],
+    "citation": "§164.504(e)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 20
+  },
+  {
+    "code": "ADMIN_BAA_REVIEW",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Business Associate Agreements",
+    "title": "BAA Review & Updates",
+    "description": "Are BAAs reviewed, updated, and re-executed when business relationships change, contracts are renewed, or regulations are updated?",
+    "guidance": "BAAs must be updated when: the scope of services changes, the BA subcontracts work, or regulatory changes affect required BAA terms. Set calendar reminders for contract renewals. An outdated or incomplete BAA is treated the same as no BAA by OCR.",
+    "lookFor": [
+      "Calendar reminders set for BAA renewal dates",
+      "BAAs updated when scope of services changes",
+      "BAAs reviewed when vendors subcontract to other companies",
+      "Evidence of regular (at least annual) BAA review"
+    ],
+    "citation": "§164.314(a)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 30
+  },
+  {
+    "code": "ADMIN_BA_SECURITY_MONITORING",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Business Associate Agreements",
+    "title": "Ongoing BA Security Monitoring (Beyond BAAs)",
+    "description": "Beyond having signed BAAs, does your organization actively monitor and verify that business associates are maintaining adequate security practices? Do BAs communicate security changes, incidents, or personnel changes to your practice? Do you require BAs to provide evidence of their own security measures (e.g., SOC 2 reports, security attestations)?",
+    "guidance": "A signed BAA alone does not ensure a BA is secure. OCR increasingly expects covered entities to go beyond the paper agreement. Best practices include: requesting annual security attestations from high-risk BAs, requiring BA incident notification within 24 hours, reviewing BA SOC 2 or HITRUST certifications, and conducting periodic BA risk assessments.",
+    "lookFor": [
+      "Process for requesting or reviewing BA security attestations",
+      "BA incident notification requirements documented",
+      "High-risk BAs provide SOC 2 or equivalent evidence",
+      "Annual BA security review conducted",
+      "BA communication protocol for security changes documented"
+    ],
+    "citation": "§164.308(b)(1)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 40
+  },
+  {
+    "code": "ADMIN_ASSET_INVENTORY_2026",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Asset Management",
+    "title": "Technology Asset Inventory (2026 Rule)",
+    "description": "Has your practice completed a technology asset inventory documenting all systems that create, receive, store, or transmit ePHI?",
+    "guidance": "The proposed Security Rule update would require a documented inventory of all technology assets handling ePHI, including hardware, software, and cloud services. This goes beyond the general ePHI system inventory — it must cover individual devices, applications, network components, and cloud tenants with sufficient detail to support vulnerability management and incident response.",
+    "lookFor": [
+      "Written inventory of all hardware assets (workstations, servers, mobile devices, network equipment)",
+      "Software and SaaS inventory including versions",
+      "Cloud services and tenants documented",
+      "Each asset tagged with ePHI classification (stores, transmits, or processes)",
+      "Inventory reviewed and updated within the last 12 months"
+    ],
+    "citation": "§164.308(a)(1)(ii)(A)",
+    "riskWeight": "HIGH",
+    "cites2026": true,
+    "sortOrder": 10
+  },
+  {
+    "code": "ADMIN_NETWORK_MAP_2026",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Asset Management",
+    "title": "Network Map & ePHI Data Flow (2026 Rule)",
+    "description": "Does your practice maintain a current network map showing how ePHI flows between systems?",
+    "guidance": "Required network topology documentation showing data flows between all systems handling ePHI. The map must show how ePHI enters, moves through, and exits your environment — including connections to business associates, cloud services, and remote access points.",
+    "lookFor": [
+      "A visual network diagram showing all ePHI system connections",
+      "Data flow arrows showing how ePHI moves between systems",
+      "External connections documented (BA feeds, cloud services, remote access)",
+      "Diagram updated within the last 12 months",
+      "Diagram reviewed after any infrastructure changes"
+    ],
+    "citation": "§164.308(a)(1)(ii)(A)",
+    "riskWeight": "MEDIUM",
+    "cites2026": true,
+    "sortOrder": 20
+  },
+  {
+    "code": "ADMIN_BA_VERIFICATION_2026",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Business Associate Agreements",
+    "title": "BA Technical Safeguard Verification (2026 Rule)",
+    "description": "Have you obtained written verification from all business associates confirming their implementation of required technical safeguards?",
+    "guidance": "Annual written verification from each BA that they have implemented encryption, MFA, audit logging, and incident response capabilities. This goes beyond simply having a signed BAA — you must obtain affirmative proof that BAs are actually implementing the security controls they agreed to.",
+    "lookFor": [
+      "Written verification letters or attestations from each BA",
+      "Verification covers encryption, MFA, audit logging, and incident response",
+      "Verifications dated within the last 12 months",
+      "Process documented for following up with non-responsive BAs",
+      "Evidence of action taken when a BA cannot verify compliance"
+    ],
+    "citation": "§164.308(b)(1)",
+    "riskWeight": "HIGH",
+    "cites2026": true,
+    "sortOrder": 50
+  },
+  {
+    "code": "ADMIN_INCIDENT_24HR_2026",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Security Incident Procedures",
+    "title": "24-Hour BA Incident Notification (2026 Rule)",
+    "description": "Do your business associate agreements include a 24-hour incident notification requirement?",
+    "guidance": "The 2026 rule tightens BA incident notification from 60 days to 24 hours. Review all current BAAs to ensure they include this accelerated timeline. BAs must notify covered entities within 24 hours of discovering a security incident involving ePHI, not just confirmed breaches.",
+    "lookFor": [
+      "BAA templates updated with 24-hour notification requirement",
+      "Existing BAAs reviewed and amended where needed",
+      "Clear definition of 'security incident' in BAA (not just 'breach')",
+      "BA contact information current for incident notifications",
+      "Internal process documented for receiving and acting on BA notifications"
+    ],
+    "citation": "§164.314(a)(2)",
+    "riskWeight": "HIGH",
+    "cites2026": true,
+    "sortOrder": 30
+  },
+  {
+    "code": "ADMIN_CAP_EVIDENCE_2026",
+    "category": "ADMINISTRATIVE",
+    "subcategory": "Security Management Process",
+    "title": "Corrective Action Implementation Evidence (2026 Rule)",
+    "description": "For all corrective actions from your last risk assessment, do you have documented implementation evidence?",
+    "guidance": "The 2026 rule requires not just a remediation plan, but documented proof that corrective actions were actually implemented. For each corrective action, you should have: what was done, when it was completed, who verified it, and evidence (screenshots, configuration exports, policy documents, training records) confirming the fix is in place.",
+    "lookFor": [
+      "Corrective action tracker with completion status for each item",
+      "Evidence artifacts attached to each completed action (screenshots, exports, policy docs)",
+      "Verification steps documented (who confirmed the fix works)",
+      "Timeline showing when each action was completed vs. deadline",
+      "Open items have documented justification and revised timelines"
+    ],
+    "citation": "§164.308(a)(1)(ii)(B)",
+    "riskWeight": "HIGH",
+    "cites2026": true,
+    "sortOrder": 60
+  },
+  {
+    "code": "PHYS_FACILITY_SECURITY",
+    "category": "PHYSICAL",
+    "subcategory": "Facility Access Controls",
+    "title": "Facility Security Plan",
+    "description": "Does your organization have a documented facility security plan that controls and validates physical access to areas containing ePHI systems?",
+    "guidance": "The plan should address: which areas require restricted access, what physical controls are used (locks, badges, keypads), how access is granted and revoked, and how the plan is reviewed. Reception areas should not provide a view of computer screens showing patient data.",
+    "lookFor": [
+      "A written facility security plan identifying restricted areas",
+      "Server rooms, records rooms, and billing areas identified as restricted",
+      "Physical controls (locks, badge readers, keypads) on restricted areas",
+      "Reception areas checked — can patients see computer screens?"
+    ],
+    "citation": "§164.310(a)(2)(ii)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 10
+  },
+  {
+    "code": "PHYS_ACCESS_CONTROL",
+    "category": "PHYSICAL",
+    "subcategory": "Facility Access Controls",
+    "title": "Physical Access Controls to ePHI Areas",
+    "description": "Are physical access controls (key cards, door locks, access badges, security cameras) in place to limit access to areas housing ePHI systems?",
+    "guidance": "Evaluate whether server rooms, medical records areas, billing rooms, and other ePHI-heavy areas are locked and access-restricted. Key cards or electronic locks are preferred (they log access). Physical keys should be inventoried and controlled.",
+    "lookFor": [
+      "Server room is locked and access-controlled",
+      "Medical records area is secured",
+      "Billing room has restricted access",
+      "Physical key inventory maintained (who has which keys)",
+      "Electronic access logs reviewed periodically"
+    ],
+    "citation": "§164.310(a)(2)(iii)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 20
+  },
+  {
+    "code": "PHYS_VISITOR_ACCESS",
+    "category": "PHYSICAL",
+    "subcategory": "Facility Access Controls",
+    "title": "Visitor Access Tracking & Supervision",
+    "description": "Does your organization log and supervise all visitors to areas containing ePHI systems, including maintenance personnel and vendors?",
+    "guidance": "Visitors should sign in/out with time, purpose, and who they are visiting. They should be escorted in restricted areas. Unescorted vendor/maintenance access to server rooms is a common OCR finding. Badge all visitors with a distinct 'visitor' credential.",
+    "lookFor": [
+      "A visitor sign-in/sign-out log at the entrance",
+      "Visitors escorted in restricted areas (server rooms, records areas)",
+      "Visitor badges that visually distinguish them from staff",
+      "IT vendors and maintenance workers also logged and supervised"
+    ],
+    "citation": "§164.310(a)(2)(iii)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 30
+  },
+  {
+    "code": "PHYS_MAINTENANCE_RECORDS",
+    "category": "PHYSICAL",
+    "subcategory": "Facility Access Controls",
+    "title": "Maintenance & Repair Records",
+    "description": "Are maintenance and repair activities on physical components of ePHI systems documented (who performed work, what was done, when)?",
+    "guidance": "Maintain records for physical infrastructure repairs: HVAC in server areas, electrical work, hardware servicing. Verify maintenance personnel are vetted or supervised. Equipment returned after service should be verified for data integrity. Retain records for 6 years.",
+    "lookFor": [
+      "Maintenance logs for server room and network equipment",
+      "Records include: who, what, when, and any equipment removed",
+      "Maintenance personnel vetted or escorted during work",
+      "Equipment returned from service verified for data integrity"
+    ],
+    "citation": "§164.310(a)(2)(iv)",
+    "riskWeight": "LOW",
+    "cites2026": false,
+    "sortOrder": 40
+  },
+  {
+    "code": "PHYS_FACILITY_MODIFICATIONS",
+    "category": "PHYSICAL",
+    "subcategory": "Facility Access Controls",
+    "title": "Facility Change & Modification Records",
+    "description": "Does your organization maintain records of all physical changes, upgrades, and modifications to your facility that could affect the security of ePHI? This includes: office renovations, new construction, changes to lock/badge systems, security camera additions or removals, server room modifications, and network infrastructure changes.",
+    "guidance": "Physical facility changes can create new vulnerabilities or eliminate existing controls. Moving a server, adding a window to a room with ePHI access, or changing lock systems all affect your physical security posture. Maintaining modification records allows you to reassess physical security after changes and demonstrates due diligence to OCR.",
+    "lookFor": [
+      "Log of facility modifications with dates and descriptions",
+      "Security impact assessment for significant changes",
+      "Server room and restricted area changes documented",
+      "Lock/badge system changes recorded",
+      "Records retained for at least 6 years"
+    ],
+    "citation": "§164.310(a)(2)(iv)",
+    "riskWeight": "LOW",
+    "cites2026": false,
+    "sortOrder": 50
+  },
+  {
+    "code": "PHYS_THIRD_PARTY_VALIDATION",
+    "category": "PHYSICAL",
+    "subcategory": "Facility Access Controls",
+    "title": "Third-Party Physical Access Validation by Role",
+    "description": "Does your organization validate physical access for third-party visitors (IT vendors, repair technicians, consultants, auditors) based on their specific role and the areas they need to access? Is access limited to only the areas necessary for their work?",
+    "guidance": "Different third parties need access to different areas. An IT vendor may need server room access but not records storage. A cleaning crew should not have unsupervised access to areas with ePHI workstations. Role-based physical access ensures the principle of minimum necessary applies to facility access, not just data access.",
+    "lookFor": [
+      "Written procedures for validating third-party access requests",
+      "Access scoped to specific areas based on work being performed",
+      "Escort requirements for sensitive areas",
+      "Temporary badge/access credentials that expire",
+      "Log of all third-party physical access"
+    ],
+    "citation": "§164.310(a)(2)(iii)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 60
+  },
+  {
+    "code": "PHYS_WORKSTATION_POLICY",
+    "category": "PHYSICAL",
+    "subcategory": "Workstation Use",
+    "title": "Workstation Use Policy",
+    "description": "Are there written policies specifying the appropriate use of workstations that access ePHI, including restrictions on personal use and unauthorized software?",
+    "guidance": "Policies should address: authorized uses only, prohibition on personal email or social media on clinical workstations, prohibition on installing unauthorized software, clean desk requirements, and what to do before leaving a workstation unattended.",
+    "lookFor": [
+      "Written workstation use policy distributed to all staff",
+      "Restrictions on personal use of clinical workstations",
+      "Prohibition on installing unauthorized software",
+      "Clean desk policy (no patient info left on screens or desktops)",
+      "Instructions for locking workstations when stepping away"
+    ],
+    "citation": "§164.310(b)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 10
+  },
+  {
+    "code": "PHYS_SCREEN_PRIVACY",
+    "category": "PHYSICAL",
+    "subcategory": "Workstation Use",
+    "title": "Screen Privacy & Workstation Positioning",
+    "description": "Are computer screens positioned or protected with privacy screens to prevent unauthorized viewing of ePHI by patients, visitors, or unauthorized staff?",
+    "guidance": "Walk through your facility as a patient would. Can you see clinical workstation screens from the waiting room, hallway, or reception desk? Privacy screens (polarizing filters) should be applied to any workstation visible to patients. Screen orientation should face away from public areas.",
+    "lookFor": [
+      "Privacy screen filters on monitors visible from public areas",
+      "Screens positioned to face away from patient-accessible areas",
+      "No ePHI visible from the waiting room, hallways, or check-in desk",
+      "Check-in kiosks or tablets have privacy measures"
+    ],
+    "citation": "§164.310(b)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 20
+  },
+  {
+    "code": "PHYS_WORKSTATION_SECURITY",
+    "category": "PHYSICAL",
+    "subcategory": "Workstation Security",
+    "title": "Workstation Physical Security",
+    "description": "Are physical safeguards (cable locks, locked carts, secured mounting) applied to workstations and laptops with ePHI access to prevent theft?",
+    "guidance": "Desktops should be in locked rooms or secured with cable locks. Laptops should be locked when not in use. Device theft is a leading cause of HIPAA breaches. Portable devices should be inventoried and their location tracked. High-risk areas (labs, exam rooms) need particular attention.",
+    "lookFor": [
+      "Laptops cable-locked or stored in locked cabinets when not in use",
+      "Desktops in exam rooms secured (cable lock or locked mount)",
+      "An inventory of all devices that access ePHI",
+      "Exam room and lab devices checked for physical security"
+    ],
+    "citation": "§164.310(c)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 10
+  },
+  {
+    "code": "PHYS_SERVER_SECURITY",
+    "category": "PHYSICAL",
+    "subcategory": "Workstation Security",
+    "title": "Server & Network Equipment Security",
+    "description": "Are servers, network switches, wireless access points, and other network equipment housed in locked, physically secure areas with limited access?",
+    "guidance": "Network equipment should be in a dedicated, locked room or cabinet — never in an open area, under a desk, or in a shared closet accessible to patients. If using a closet, it must be locked and access-controlled. Cloud-hosted servers should have contractual physical security protections in BAA.",
+    "lookFor": [
+      "Server in a dedicated, locked room or cabinet",
+      "Network switches not in open or patient-accessible areas",
+      "Wireless access points physically secured (not easily removable)",
+      "Cloud-hosted? Physical security addressed in the vendor's BAA"
+    ],
+    "citation": "§164.310(c)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 20
+  },
+  {
+    "code": "PHYS_MEDIA_DISPOSAL",
+    "category": "PHYSICAL",
+    "subcategory": "Device & Media Controls",
+    "title": "Secure Media Disposal Procedures",
+    "description": "Does your organization have documented, enforced procedures for securely disposing of hardware and media (hard drives, USB drives, CDs, fax machines, printers) that contain ePHI?",
+    "guidance": "Simply deleting files or formatting a drive is insufficient — data can be recovered. Procedures must include: NIST 800-88 compliant wiping OR physical destruction (shredding for media, degaussing for magnetic drives). Use a certified media destruction vendor and obtain a certificate of destruction. This includes photocopier hard drives.",
+    "lookFor": [
+      "Written media disposal procedures",
+      "Hard drives wiped using certified tools or physically destroyed",
+      "Certificates of destruction obtained from disposal vendors",
+      "Printers and copiers with hard drives included in disposal procedures",
+      "USB drives and CDs also covered by the disposal process"
+    ],
+    "citation": "§164.310(d)(2)(i)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 10
+  },
+  {
+    "code": "PHYS_MEDIA_REUSE",
+    "category": "PHYSICAL",
+    "subcategory": "Device & Media Controls",
+    "title": "Secure Media Re-use (Overwriting)",
+    "description": "Are secure wiping/overwriting procedures in place before reusing storage media (hard drives, USB drives) that previously contained ePHI?",
+    "guidance": "Before reassigning any storage device to a new user or purpose, the device must be wiped using a certified multi-pass overwrite tool (e.g., NIST 800-88 Clear) or physically destroyed. Document all wipe events with: device ID, date, method used, and who performed the wipe.",
+    "lookFor": [
+      "Documented procedure for wiping devices before reassignment",
+      "Certified wiping tool used (not just format/delete)",
+      "Records of each wipe: device ID, date, method, person",
+      "Process applied to USB drives and portable media too"
+    ],
+    "citation": "§164.310(d)(2)(ii)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 20
+  },
+  {
+    "code": "PHYS_DEVICE_INVENTORY",
+    "category": "PHYSICAL",
+    "subcategory": "Device & Media Controls",
+    "title": "Hardware & Media Inventory",
+    "description": "Does your organization maintain a current inventory of all hardware and electronic media that store, process, or transmit ePHI?",
+    "guidance": "Inventory should include: all computers, laptops, tablets, mobile devices, servers, external drives, USB devices, printers/fax machines, and medical devices with connectivity. Record: device type, serial number, assigned user, location, data stored, and encryption status. Review annually.",
+    "lookFor": [
+      "Written inventory of all devices that store/access ePHI",
+      "Each entry includes: device type, serial number, user, location",
+      "Includes medical devices with data connectivity",
+      "Includes printers, fax machines, and copiers with hard drives",
+      "Inventory reviewed and updated at least annually"
+    ],
+    "citation": "§164.310(d)(2)(iii)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 30
+  },
+  {
+    "code": "PHYS_PORTABLE_DEVICES",
+    "category": "PHYSICAL",
+    "subcategory": "Device & Media Controls",
+    "title": "Portable Device Encryption & Tracking",
+    "description": "Are portable devices (laptops, tablets, smartphones, USB drives) that store or access ePHI encrypted and inventoried?",
+    "guidance": "Full-disk encryption is required on all portable devices with ePHI. Unencrypted device theft is the most common HIPAA breach type. Use BitLocker (Windows), FileVault (Mac), or equivalent. Mobile Device Management (MDM) should be used to enforce encryption, remote-wipe capability, and PIN locks on mobile devices.",
+    "lookFor": [
+      "Full-disk encryption enabled on all laptops (BitLocker or FileVault)",
+      "Smartphones and tablets encrypted with MDM enforced",
+      "USB drives encrypted or prohibited",
+      "Remote wipe capability for lost/stolen devices",
+      "Each portable device tracked in the hardware inventory"
+    ],
+    "citation": "§164.310(d)(1)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 40
+  },
+  {
+    "code": "PHYS_DEVICE_BACKUP",
+    "category": "PHYSICAL",
+    "subcategory": "Device & Media Controls",
+    "title": "Data Backup Before Device Movement",
+    "description": "Is ePHI backed up before workstations or servers are moved, repaired, or sent offsite for service?",
+    "guidance": "Before any device leaves the facility for repair or replacement, verify that all ePHI has been backed up and that the backup is verified. This prevents data loss during repair. For cloud-hosted data, confirm the cloud provider's backup scope covers all relevant data.",
+    "lookFor": [
+      "Procedure to back up data before any device leaves the facility",
+      "Backups verified before the device is released",
+      "If cloud-hosted, vendor backup scope confirmed in writing",
+      "Process documented and followed consistently"
+    ],
+    "citation": "§164.310(d)(2)(iv)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 50
+  },
+  {
+    "code": "TECH_UNIQUE_USERID",
+    "category": "TECHNICAL",
+    "subcategory": "Access Control",
+    "title": "Unique User Identification (No Shared Logins)",
+    "description": "Does every workforce member who accesses ePHI systems have a unique user ID? Are shared or generic logins prohibited?",
+    "guidance": "Shared logins ('front-desk', 'nurse', 'admin') make audit trails useless and violate HIPAA. Every user must have a unique ID tied to their identity. This is required for any meaningful audit log review. Review all system accounts and disable or convert shared accounts.",
+    "lookFor": [
+      "Every staff member has a unique login for all ePHI systems",
+      "No generic accounts like 'frontdesk', 'nurse', 'admin' in use",
+      "Shared accounts identified and converted to individual accounts",
+      "Audit trail can trace every action to a specific person"
+    ],
+    "citation": "§164.312(a)(2)(i)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 10
+  },
+  {
+    "code": "TECH_EMERGENCY_ACCESS",
+    "category": "TECHNICAL",
+    "subcategory": "Access Control",
+    "title": "Emergency Access Procedures",
+    "description": "Are documented and tested emergency access procedures in place for obtaining ePHI during a system failure, natural disaster, or security incident?",
+    "guidance": "Emergency access procedures should define: who has break-glass access, how it is activated, what ePHI can be accessed, how emergency access is logged and reviewed post-event. Emergency access accounts should have elevated privileges revoked after the emergency. Test this procedure at least annually.",
+    "lookFor": [
+      "Documented emergency access procedure",
+      "Defined who has 'break glass' access authority",
+      "Process for logging and reviewing emergency access after the event",
+      "Elevated privileges revoked after the emergency ends",
+      "Procedure tested at least annually"
+    ],
+    "citation": "§164.312(a)(2)(ii)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 20
+  },
+  {
+    "code": "TECH_AUTO_LOGOFF",
+    "category": "TECHNICAL",
+    "subcategory": "Access Control",
+    "title": "Automatic Session Logoff / Screen Lock",
+    "description": "Do all systems containing ePHI automatically log off or lock the screen after a defined period of user inactivity?",
+    "guidance": "Automatic logoff (or screen lock requiring re-authentication) must be enabled on all ePHI systems. Recommended timeout: 5-15 minutes for clinical workstations, up to 30 minutes for back-office. This prevents unauthorized access when staff step away. Configure via Group Policy or EHR settings.",
+    "lookFor": [
+      "Auto-lock or auto-logoff enabled on all clinical workstations",
+      "Timeout set to 15 minutes or less for clinical areas",
+      "EHR application also has its own session timeout configured",
+      "Staff trained to manually lock (Ctrl+L or Win+L) when stepping away"
+    ],
+    "citation": "§164.312(a)(2)(iii)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 30
+  },
+  {
+    "code": "TECH_AUTO_LOGOFF_CONFIG",
+    "category": "TECHNICAL",
+    "subcategory": "Access Control",
+    "title": "Automatic Logoff Timeout Values Configured",
+    "description": "What specific timeout values are configured for automatic session logoff or screen lock across all ePHI systems? Are these values appropriate for each system's risk level (e.g., clinical workstations in patient areas vs. back-office systems)?",
+    "guidance": "This goes beyond 'do you have auto-logoff' to verify specific timeout values. Recommended: 5–10 minutes for clinical workstations in patient areas, 15 minutes for general clinical areas, up to 30 minutes for secured back-office areas. EHR application timeout should be configured separately from OS screen lock.",
+    "lookFor": [
+      "Documented timeout values for each ePHI system",
+      "OS screen lock configured (5–15 minutes)",
+      "EHR application timeout configured separately",
+      "Shorter timeouts in patient-accessible areas",
+      "Timeout values verified, not just assumed"
+    ],
+    "citation": "§164.312(a)(2)(iii)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 40
+  },
+  {
+    "code": "TECH_VENDOR_ACCESS_TERMINATION",
+    "category": "TECHNICAL",
+    "subcategory": "Access Control",
+    "title": "Third-Party Vendor Access Termination Procedures",
+    "description": "When a contract, BAA, or other arrangement with a third-party vendor ends or changes, do you have documented procedures to immediately terminate or modify their access to your ePHI systems? Does this include remote access, VPN credentials, cloud service accounts, and physical access?",
+    "guidance": "Workforce termination procedures cover employees, but third-party vendor access termination is a separate concern. Vendors may have remote access (VPN, TeamViewer), cloud admin credentials, or physical keys/badges that must be revoked when the relationship ends. A gap here means former vendors retain ePHI access after contracts end.",
+    "lookFor": [
+      "Written vendor access termination checklist",
+      "VPN and remote access credentials revoked on contract end",
+      "Cloud service admin accounts removed or transferred",
+      "Physical access (keys/badges) collected",
+      "Vendor access termination completed within 24 hours of relationship end"
+    ],
+    "citation": "§164.308(a)(3)(ii)(C)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 50
+  },
+  {
+    "code": "TECH_ENCRYPTION_REST",
+    "category": "TECHNICAL",
+    "subcategory": "Access Control",
+    "title": "ePHI Encryption at Rest",
+    "description": "Is ePHI encrypted at rest on all servers, workstations, databases, and portable storage devices?",
+    "guidance": "Encryption at rest renders ePHI unreadable if storage media is stolen or improperly disposed. Encryption is the primary 'safe harbor' under the HIPAA Breach Notification Rule — an encrypted device breach may not require patient notification. Verify: full-disk encryption on all endpoints, database encryption, and encrypted cloud storage.",
+    "lookFor": [
+      "Full-disk encryption enabled on all computers and laptops",
+      "Database encryption enabled on servers storing ePHI",
+      "Cloud storage encryption verified with the vendor",
+      "Encryption keys managed securely (not stored with the encrypted data)"
+    ],
+    "citation": "§164.312(a)(2)(iv)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 60
+  },
+  {
+    "code": "TECH_AUDIT_LOGGING",
+    "category": "TECHNICAL",
+    "subcategory": "Audit Controls",
+    "title": "Audit Logging Enabled on All ePHI Systems",
+    "description": "Do all systems (EHR, billing software, email, cloud storage) that process or store ePHI have audit logging enabled, capturing who accessed what ePHI and when?",
+    "guidance": "Audit logs must be enabled for all ePHI systems. At minimum, logs should capture: user ID, timestamp, action performed (view/create/modify/delete), and records accessed. Logs should be stored securely, retained for at least 6 years, and protected from modification.",
+    "lookFor": [
+      "Audit logging enabled on EHR, billing, email, and cloud systems",
+      "Logs capture: who, what, when, and what action was taken",
+      "Logs retained for at least 6 years",
+      "Logs stored securely and protected from tampering"
+    ],
+    "citation": "§164.312(b)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 10
+  },
+  {
+    "code": "TECH_AUDIT_REVIEW",
+    "category": "TECHNICAL",
+    "subcategory": "Audit Controls",
+    "title": "Audit Log Review Process",
+    "description": "Are audit logs reviewed regularly (at minimum monthly) by the Security Officer or designated staff to detect unauthorized access or suspicious patterns?",
+    "guidance": "Assign responsibility for audit log review in writing. Document the review process, frequency, what is looked for (after-hours access, bulk downloads, access to VIP patients, access by terminated employees), and how anomalies are escalated. Log reviews that are never performed are a consistent OCR finding.",
+    "lookFor": [
+      "Designated person assigned to review logs (in writing)",
+      "Reviews happen at least monthly with documented results",
+      "Specific checks performed: after-hours access, VIP records, bulk exports",
+      "A process for escalating and investigating suspicious findings"
+    ],
+    "citation": "§164.312(b)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 20
+  },
+  {
+    "code": "TECH_AUDIT_PROTECTION",
+    "category": "TECHNICAL",
+    "subcategory": "Audit Controls",
+    "title": "Audit Log Integrity Protection",
+    "description": "Are audit logs protected from unauthorized modification, deletion, or tampering? Are logs stored separately from the systems they monitor?",
+    "guidance": "An attacker or insider threat will attempt to delete logs covering their tracks. Audit logs should be: write-once (append-only), stored on a separate server or SIEM, accessible only to the Security Officer, and backed up offsite. Log integrity verification (hash-based) is a best practice.",
+    "lookFor": [
+      "Logs stored on a separate server or system from what they monitor",
+      "Logs are write-once or append-only (can't be edited or deleted)",
+      "Access to log files restricted to the Security Officer only",
+      "Logs backed up offsite or to a secure cloud service"
+    ],
+    "citation": "§164.312(b)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 30
+  },
+  {
+    "code": "TECH_AUDIT_EVENTS",
+    "category": "TECHNICAL",
+    "subcategory": "Audit Controls",
+    "title": "Specific Audit Events Monitored",
+    "description": "What specific events are monitored in your audit logs? Beyond just enabling logging, does your organization actively track high-risk events including: after-hours ePHI access, access to VIP/employee records, bulk record exports or downloads, failed login attempts, account lockouts, privilege escalation, and new user account creation?",
+    "guidance": "Enabling audit logging and reviewing logs are covered by other questions. This question focuses on WHAT events are specifically being monitored. OCR investigations frequently reveal that logging was enabled but no one was looking for the right signals. Define specific alert triggers for high-risk events.",
+    "lookFor": [
+      "Written list of monitored events and alert triggers",
+      "After-hours access monitoring configured",
+      "VIP/employee record access flagged",
+      "Bulk export or download alerts in place",
+      "Failed login threshold alerts active",
+      "New account creation generates notifications"
+    ],
+    "citation": "§164.312(b)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 40
+  },
+  {
+    "code": "TECH_DATA_INTEGRITY",
+    "category": "TECHNICAL",
+    "subcategory": "Integrity Controls",
+    "title": "ePHI Integrity Verification Mechanisms",
+    "description": "Are mechanisms in place to ensure that ePHI has not been altered or destroyed without authorization (e.g., checksums, hash verification, version control)?",
+    "guidance": "ePHI integrity controls prevent unauthorized modifications. Examples: database referential integrity constraints, file hash verification for transmitted documents, version history in EHR, and write-protected audit logs. Evaluate whether your EHR provides data integrity checking and whether it is enabled.",
+    "lookFor": [
+      "EHR version history / change tracking enabled",
+      "Database integrity checks or constraints in place",
+      "Records show who modified data and when",
+      "Protection against unauthorized bulk deletion of records"
+    ],
+    "citation": "§164.312(c)(1)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 10
+  },
+  {
+    "code": "TECH_BACKUP_VERIFICATION",
+    "category": "TECHNICAL",
+    "subcategory": "Integrity Controls",
+    "title": "Backup Restoration Testing",
+    "description": "Are data backups periodically restored in a test environment to verify they are complete, uncorrupted, and usable?",
+    "guidance": "A backup that cannot be restored is worthless. Perform quarterly test restores of a representative subset of ePHI. Document: what was restored, restore time, whether data was intact, and any issues found. Ransomware incidents often reveal that backups were not functional or were also encrypted.",
+    "lookFor": [
+      "Quarterly test restores performed and documented",
+      "Test results show data was complete and usable",
+      "Restore time recorded (how long to get back up)",
+      "Any issues found during testing are addressed"
+    ],
+    "citation": "§164.312(c)(2)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 20
+  },
+  {
+    "code": "TECH_USER_AUTH",
+    "category": "TECHNICAL",
+    "subcategory": "Authentication",
+    "title": "Strong User Authentication",
+    "description": "Are users required to authenticate with strong credentials (username + password meeting policy requirements) before accessing any ePHI system?",
+    "guidance": "Verify that all ePHI systems require authentication — there should be no 'auto-login' workstations or systems accessible without credentials. Passwords should meet the organization's password policy. Review all local administrator accounts and disable or rename default accounts.",
+    "lookFor": [
+      "All ePHI systems require username + password authentication",
+      "No auto-login or saved-password workstations",
+      "Default administrator passwords changed on all systems",
+      "No generic or shared passwords in use"
+    ],
+    "citation": "§164.312(d)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 10
+  },
+  {
+    "code": "TECH_MFA",
+    "category": "TECHNICAL",
+    "subcategory": "Authentication",
+    "title": "Multi-Factor Authentication (MFA) for Remote Access",
+    "description": "Is multi-factor authentication (MFA) required for all remote access, VPN connections, and cloud-based ePHI systems?",
+    "guidance": "MFA is the single most effective control against credential theft, phishing, and account takeover — the leading causes of healthcare breaches. MFA should be required for: VPN, remote desktop, cloud EHR, Office 365/Google Workspace, and any web portal with ePHI access. Hardware tokens or authenticator apps are preferred over SMS.",
+    "lookFor": [
+      "MFA enabled on VPN and all remote access tools",
+      "MFA required for cloud-based EHR, email, and file storage",
+      "Authenticator app or hardware token used (SMS is less secure)",
+      "MFA enforced by the system, not just recommended in policy",
+      "Patient portal admin access also requires MFA"
+    ],
+    "citation": "§164.312(d)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 20
+  },
+  {
+    "code": "TECH_PASSWORD_ENFORCEMENT",
+    "category": "TECHNICAL",
+    "subcategory": "Authentication",
+    "title": "Password Policy Technically Enforced",
+    "description": "Are password complexity, length, expiration, and history requirements technically enforced by systems (not just documented in policy)?",
+    "guidance": "Policy without technical enforcement is insufficient. Verify that: Active Directory or cloud identity provider enforces minimum password length (12+ chars), complexity, no reuse of last 10 passwords, and account lockout after failed attempts. A documented policy that systems do not enforce will be cited as a gap by OCR.",
+    "lookFor": [
+      "Systems enforce minimum 12-character passwords",
+      "Password reuse prevention enabled (last 10 passwords blocked)",
+      "Account lockout after 5-10 failed login attempts",
+      "Technical enforcement matches what the written policy requires"
+    ],
+    "citation": "§164.308(a)(5)(ii)(D)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 30
+  },
+  {
+    "code": "TECH_ENCRYPTION_TRANSIT",
+    "category": "TECHNICAL",
+    "subcategory": "Transmission Security",
+    "title": "ePHI Encryption in Transit",
+    "description": "Is all ePHI encrypted when transmitted over networks (internal or external), including between offices, to cloud services, or to Business Associates?",
+    "guidance": "Use TLS 1.2 or higher for all network transmissions of ePHI. Verify: EHR traffic is HTTPS, inter-office VPN is encrypted, cloud storage connections are encrypted, and interfaces/HL7 feeds use secure protocols. Tools like SSL Labs (ssllabs.com) can verify HTTPS configuration.",
+    "lookFor": [
+      "All web applications use HTTPS (not HTTP)",
+      "VPN used for inter-office connections",
+      "Cloud service connections encrypted (TLS 1.2 or higher)",
+      "HL7 interfaces and data feeds use secure protocols"
+    ],
+    "citation": "§164.312(e)(2)(ii)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 10
+  },
+  {
+    "code": "TECH_SECURE_PROTOCOLS",
+    "category": "TECHNICAL",
+    "subcategory": "Transmission Security",
+    "title": "Secure Protocols for Web-Based ePHI",
+    "description": "Are secure protocols (HTTPS/TLS 1.2+) used for all web-based ePHI access including patient portals, cloud EHR, and staff web applications?",
+    "guidance": "Verify all web applications handling ePHI use HTTPS with a valid certificate. Redirect HTTP to HTTPS. Deprecated protocols (SSL 3.0, TLS 1.0/1.1) must be disabled. Patient portals and telehealth platforms must also use current TLS. Review your cloud vendors' security documentation.",
+    "lookFor": [
+      "All web portals show HTTPS with a valid certificate",
+      "HTTP automatically redirects to HTTPS",
+      "Old protocols (SSL 3.0, TLS 1.0/1.1) disabled",
+      "Patient portal and telehealth platforms verified for current TLS"
+    ],
+    "citation": "§164.312(e)(2)(ii)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 20
+  },
+  {
+    "code": "TECH_EMAIL_SECURITY",
+    "category": "TECHNICAL",
+    "subcategory": "Transmission Security",
+    "title": "Secure Email Controls for ePHI",
+    "description": "Does your organization have controls to prevent unencrypted ePHI from being transmitted via standard email, and are staff trained on secure messaging options?",
+    "guidance": "Standard email (even over HTTPS) is not secure end-to-end. Controls include: encrypted email (Proofpoint, Virtru, Paubox, or S/MIME), secure patient messaging portals, or policy prohibiting ePHI in email bodies. At minimum, staff should be trained to use a secure channel for any ePHI transmission.",
+    "lookFor": [
+      "Encrypted email solution in place (Virtru, Paubox, Proofpoint, etc.)",
+      "Staff trained on when to use secure messaging vs. regular email",
+      "Policy prohibiting ePHI in standard email bodies",
+      "Secure patient messaging portal available as an alternative"
+    ],
+    "citation": "§164.312(e)(1)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 30
+  },
+  {
+    "code": "TECH_NETWORK_SECURITY",
+    "category": "TECHNICAL",
+    "subcategory": "Transmission Security",
+    "title": "Network Firewall & Segmentation",
+    "description": "Is the practice's network protected by a properly configured firewall, and is the clinical network segmented from guest/public Wi-Fi access?",
+    "guidance": "A next-generation firewall (NGFW) with IPS should protect the perimeter. Guest Wi-Fi must be on a separate network segment isolated from clinical systems. Medical devices (imaging, lab equipment) should also be segmented. Review firewall rules annually and remove any unnecessary inbound access.",
+    "lookFor": [
+      "Firewall in place protecting the network perimeter",
+      "Guest Wi-Fi on a separate network segment from clinical systems",
+      "Medical devices on their own network segment if possible",
+      "Firewall rules reviewed annually, unnecessary rules removed"
+    ],
+    "citation": "§164.312(e)(1)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 40
+  },
+  {
+    "code": "TECH_ANTIMALWARE",
+    "category": "TECHNICAL",
+    "subcategory": "System Hardening",
+    "title": "Anti-Malware Protection",
+    "description": "Is anti-malware (antivirus, EDR) software installed, centrally managed, and automatically updated on all workstations and servers with ePHI access?",
+    "guidance": "Traditional antivirus alone is insufficient against modern threats. Consider EDR (Endpoint Detection & Response) solutions. Verify: all endpoints have protection, definitions update automatically, real-time scanning is enabled, and alerts are monitored. Medical devices may require vendor-specific approved solutions.",
+    "lookFor": [
+      "Antivirus/EDR installed on all workstations and servers",
+      "Automatic definition updates enabled",
+      "Real-time scanning turned on (not just periodic scans)",
+      "Alerts monitored by IT or a managed security service",
+      "Medical devices checked for compatible antimalware solutions"
+    ],
+    "citation": "§164.308(a)(5)(ii)(B)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 10
+  },
+  {
+    "code": "TECH_PATCH_MANAGEMENT",
+    "category": "TECHNICAL",
+    "subcategory": "System Hardening",
+    "title": "Security Patch Management",
+    "description": "Is there a documented patch management process to apply security updates to operating systems, applications, and firmware on a timely basis?",
+    "guidance": "Critical patches should be applied within 30 days of release (72 hours for actively exploited vulnerabilities). Document the patch policy, who is responsible, the patching schedule, and how to handle systems that cannot be patched (compensating controls). Unpatched systems are involved in the majority of ransomware incidents.",
+    "lookFor": [
+      "Written patch management policy with defined timelines",
+      "Critical patches applied within 30 days (72 hours if actively exploited)",
+      "Someone assigned to monitor for and deploy patches",
+      "Systems that can't be patched have compensating controls documented",
+      "Patching status tracked and reported regularly"
+    ],
+    "citation": "§164.308(a)(5)(ii)(B)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 20
+  },
+  {
+    "code": "TECH_VULNERABILITY_SCANNING",
+    "category": "TECHNICAL",
+    "subcategory": "System Hardening",
+    "title": "Vulnerability Assessments",
+    "description": "Does your organization conduct periodic vulnerability scans or penetration tests to identify security weaknesses in systems that handle ePHI?",
+    "guidance": "OCR expects organizations to regularly test the effectiveness of their security controls. Quarterly vulnerability scanning and annual penetration testing are best practices. Findings must be remediated and documented. Even small practices can use affordable tools (Qualys, Tenable, Nessus) or engage an IT security vendor.",
+    "lookFor": [
+      "Quarterly vulnerability scans performed (or more frequently)",
+      "Annual penetration testing by a qualified vendor",
+      "Findings documented and remediated on a timeline",
+      "Scan results retained as compliance evidence"
+    ],
+    "citation": "§164.308(a)(8)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 30
+  },
+  {
+    "code": "TECH_REMOTE_ACCESS",
+    "category": "TECHNICAL",
+    "subcategory": "System Hardening",
+    "title": "Secure Remote Access Controls",
+    "description": "Are all remote access methods (VPN, RDP, remote desktop software) secured with encryption, MFA, and access logging? Are unnecessary remote access ports disabled?",
+    "guidance": "Exposed RDP (port 3389) is the #1 ransomware entry point. Remote access should use a VPN + MFA combination, not direct RDP exposure to the internet. Review firewall rules to confirm RDP and other remote access ports are not open to the public internet. Disable TeamViewer, AnyDesk, or similar tools when not actively needed.",
+    "lookFor": [
+      "Remote access uses VPN with MFA (not direct RDP to the internet)",
+      "RDP port (3389) not exposed to the public internet",
+      "Remote desktop tools (TeamViewer, AnyDesk) disabled when not in use",
+      "Remote access sessions logged and auditable",
+      "Firewall rules reviewed for unnecessary inbound remote access"
+    ],
+    "citation": "§164.312(e)(1)",
+    "riskWeight": "HIGH",
+    "cites2026": false,
+    "sortOrder": 40
+  },
+  {
+    "code": "TECH_THREAT_INTELLIGENCE",
+    "category": "TECHNICAL",
+    "subcategory": "System Hardening",
+    "title": "Emerging Threat Awareness & Response",
+    "description": "Does your organization stay informed about emerging cybersecurity threats and vulnerabilities that could affect your ePHI systems? Do you subscribe to threat intelligence sources (HHS HC3 alerts, CISA advisories, vendor security bulletins) and have a process to evaluate and respond to new threats?",
+    "guidance": "Healthcare is the most-targeted industry for cyberattacks. OCR expects organizations to demonstrate awareness of current threats, not just historical ones. The HHS Health Sector Cybersecurity Coordination Center (HC3) publishes regular threat alerts specific to healthcare. CISA publishes Known Exploited Vulnerabilities (KEV) that require urgent response.",
+    "lookFor": [
+      "Subscription to HHS HC3 or CISA alerts",
+      "Designated person who monitors threat intelligence",
+      "Process for evaluating whether new threats affect your systems",
+      "Documented response to at least 2 threat alerts in the past year",
+      "Evidence of security posture changes based on threat intelligence"
+    ],
+    "citation": "§164.308(a)(1)(ii)(A)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 50
+  },
+  {
+    "code": "TECH_SECURITY_CONFIG_BASELINE",
+    "category": "TECHNICAL",
+    "subcategory": "System Hardening",
+    "title": "Security Configuration Baseline & Review",
+    "description": "Does your organization maintain documented security configuration baselines for ePHI systems and periodically review configurations to verify they haven't drifted from the baseline? This includes: OS security settings, EHR security configurations, email security settings, cloud service security configurations, and firewall rules.",
+    "guidance": "Security settings can change over time due to updates, staff actions, or vendor changes. Without a documented baseline, you cannot verify that configurations are correct. Review security settings at least quarterly for critical systems and annually for all systems. Document any deviations and remediation actions.",
+    "lookFor": [
+      "Documented security settings for each ePHI system",
+      "Quarterly review schedule for critical system configurations",
+      "Annual review for all systems",
+      "Deviations documented with remediation timelines",
+      "Evidence of at least one configuration review in the past year"
+    ],
+    "citation": "§164.308(a)(8)",
+    "riskWeight": "MEDIUM",
+    "cites2026": false,
+    "sortOrder": 60
+  },
+  {
+    "code": "TECH_ENCRYPTION_REST_2026",
+    "category": "TECHNICAL",
+    "subcategory": "Encryption",
+    "title": "Mandatory Encryption at Rest (2026 Rule)",
+    "description": "Is all ePHI encrypted at rest on all devices and systems?",
+    "guidance": "Under the 2026 rule, encryption is no longer 'addressable' — it becomes mandatory for all ePHI at rest. This includes workstations, servers, databases, backups, removable media, and cloud storage. AES-256 or equivalent is expected. Full-disk encryption alone may not suffice if databases or file shares contain unencrypted ePHI accessible to compromised accounts.",
+    "lookFor": [
+      "Full-disk encryption on all workstations and laptops (BitLocker, FileVault)",
+      "Database-level encryption on all ePHI databases",
+      "Cloud storage encryption (at-rest) confirmed for all services",
+      "Backup encryption verified",
+      "No unencrypted ePHI on removable media"
+    ],
+    "citation": "§164.312(a)(2)(iv)",
+    "riskWeight": "HIGH",
+    "cites2026": true,
+    "sortOrder": 10
+  },
+  {
+    "code": "TECH_ENCRYPTION_TRANSIT_2026",
+    "category": "TECHNICAL",
+    "subcategory": "Encryption",
+    "title": "Mandatory Encryption in Transit (2026 Rule)",
+    "description": "Is all ePHI encrypted in transit (email, data transfers, remote access)?",
+    "guidance": "All ePHI transmitted electronically must use TLS 1.2 or higher encryption. This applies to email, HL7/FHIR interfaces, remote access sessions, cloud API calls, and any data transfer between systems. TLS 1.0 and 1.1 are explicitly prohibited.",
+    "lookFor": [
+      "TLS 1.2+ enforced on all web-facing services",
+      "Email encryption for messages containing ePHI",
+      "VPN or encrypted tunnels for all remote access",
+      "HL7/FHIR interfaces using encrypted channels",
+      "TLS 1.0 and 1.1 disabled on all systems"
+    ],
+    "citation": "§164.312(e)(2)(ii)",
+    "riskWeight": "HIGH",
+    "cites2026": true,
+    "sortOrder": 20
+  },
+  {
+    "code": "TECH_MFA_ALL_2026",
+    "category": "TECHNICAL",
+    "subcategory": "Access Control",
+    "title": "Mandatory MFA on All ePHI Systems (2026 Rule)",
+    "description": "Is multi-factor authentication (MFA) enabled on ALL systems that access ePHI?",
+    "guidance": "The 2026 rule mandates MFA on every system accessing ePHI — EHR, email, billing, cloud storage, remote access, and administrative consoles. MFA is no longer addressable. App-based authenticators or hardware security keys are preferred; SMS-based MFA is acceptable but discouraged due to SIM-swap risks.",
+    "lookFor": [
+      "MFA enabled on EHR and practice management systems",
+      "MFA enabled on email (Microsoft 365, Google Workspace)",
+      "MFA enabled on cloud storage and backup portals",
+      "MFA required for VPN and remote access",
+      "MFA on administrative consoles and privileged accounts"
+    ],
+    "citation": "§164.312(d)",
+    "riskWeight": "HIGH",
+    "cites2026": true,
+    "sortOrder": 70
+  },
+  {
+    "code": "TECH_PEN_TEST_2026",
+    "category": "TECHNICAL",
+    "subcategory": "Testing & Monitoring",
+    "title": "Annual Penetration Testing (2026 Rule)",
+    "description": "Has your practice completed a penetration test within the last 12 months?",
+    "guidance": "Annual penetration testing becomes a mandatory requirement under the proposed Security Rule update. Testing must be performed by a qualified, independent party and cover both external (internet-facing) and internal (network-level) attack vectors. Results must be documented with a formal remediation plan for identified vulnerabilities.",
+    "lookFor": [
+      "Penetration test report dated within the last 12 months",
+      "Testing performed by a qualified, independent third party",
+      "Both external and internal testing scopes covered",
+      "Formal remediation plan for all findings",
+      "Evidence that critical findings were remediated"
+    ],
+    "citation": "§164.308(a)(8)",
+    "riskWeight": "HIGH",
+    "cites2026": true,
+    "sortOrder": 10
+  },
+  {
+    "code": "TECH_VULN_SCAN_2026",
+    "category": "TECHNICAL",
+    "subcategory": "Testing & Monitoring",
+    "title": "Semi-Annual Vulnerability Scanning (2026 Rule)",
+    "description": "Has your practice completed vulnerability scanning within the last 6 months?",
+    "guidance": "Semi-annual vulnerability scanning of all ePHI systems is required. Scans should cover internal network devices, servers, workstations, and external-facing services. Critical and high vulnerabilities must be remediated within defined timelines (typically 14 days for critical, 30 days for high).",
+    "lookFor": [
+      "Vulnerability scan report dated within the last 6 months",
+      "All ePHI systems included in scan scope",
+      "Critical vulnerabilities remediated within 14 days",
+      "High vulnerabilities remediated within 30 days",
+      "Scan-to-scan comparison showing remediation progress"
+    ],
+    "citation": "§164.308(a)(8)",
+    "riskWeight": "HIGH",
+    "cites2026": true,
+    "sortOrder": 20
+  },
+  {
+    "code": "TECH_AUDIT_LOGGING_2026",
+    "category": "TECHNICAL",
+    "subcategory": "Testing & Monitoring",
+    "title": "Comprehensive Audit Logging & Review (2026 Rule)",
+    "description": "Are audit logs enabled and reviewed on all systems containing ePHI?",
+    "guidance": "Comprehensive audit logging with regular review becomes mandatory. All systems containing ePHI must log access events (login, logout, data access, modifications, failed attempts) and these logs must be reviewed at a defined frequency. Logs must be protected from tampering and retained for a minimum period.",
+    "lookFor": [
+      "Audit logging enabled on all ePHI systems (EHR, email, cloud, billing)",
+      "Logs capture: user ID, timestamp, action, data accessed",
+      "Defined log review schedule (weekly or monthly minimum)",
+      "Logs protected from modification or deletion",
+      "Log retention period documented (6 years for HIPAA)"
+    ],
+    "citation": "§164.312(b)",
+    "riskWeight": "HIGH",
+    "cites2026": true,
+    "sortOrder": 30
+  },
+  {
+    "code": "TECH_PATCH_MGMT_2026",
+    "category": "TECHNICAL",
+    "subcategory": "System Hardening",
+    "title": "Documented Patch Management Process (2026 Rule)",
+    "description": "Does your practice have a documented patch management process for all ePHI systems?",
+    "guidance": "Regular patching of all systems handling ePHI with documented timelines and verification. The 2026 rule expects a formal, written patch management policy that defines: patching cadence by severity, testing procedures, deployment verification, and exception handling for systems that cannot be patched immediately.",
+    "lookFor": [
+      "Written patch management policy document",
+      "Defined timelines: critical (14 days), high (30 days), medium (60 days)",
+      "Patch testing process before deployment to production",
+      "Verification that patches were successfully applied",
+      "Exception process for systems that cannot be patched (compensating controls)"
+    ],
+    "citation": "§164.308(a)(5)(ii)(B)",
+    "riskWeight": "HIGH",
+    "cites2026": true,
+    "sortOrder": 70
+  }
+]

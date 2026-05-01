@@ -1,15 +1,13 @@
-// scripts/seed-sra.ts
+// scripts/seed-tech-assessment.ts
 //
-// Seeds the HIPAA Security Risk Assessment question bank — 80 questions
-// covering Administrative (§164.308), Physical (§164.310), and Technical
-// (§164.312) safeguards. Ported from v1's 80q + 2026 Security Rule
-// extensions. cites2026=true flags questions added by HHS's 2026 Security
-// Rule update; distributed into ADMIN/PHYSICAL/TECHNICAL by subject.
+// Seeds the Phase 5 Technical Security Assessment question bank — 35
+// questions across 6 categories (Network, Endpoint, Cloud, Access,
+// Monitoring, Backup). Ported from v1.
 //
-// Idempotent upsert by code. Re-run after fixture edits is safe.
+// Idempotent upsert by code.
 //
 // Usage:
-//   npm run db:seed:sra
+//   npm run db:seed:tech-assessment
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -21,58 +19,55 @@ const db = new PrismaClient();
 
 interface QFixture {
   code: string;
-  category: "ADMINISTRATIVE" | "PHYSICAL" | "TECHNICAL";
-  subcategory: string;
+  category:
+    | "NETWORK"
+    | "ENDPOINT"
+    | "CLOUD"
+    | "ACCESS"
+    | "MONITORING"
+    | "BACKUP";
   title: string;
   description: string;
   guidance: string;
-  lookFor: string[];
-  citation: string | null;
+  sraQuestionCode: string | null;
   riskWeight: "LOW" | "MEDIUM" | "HIGH";
-  cites2026: boolean;
   sortOrder: number;
 }
 
 async function main() {
   const fixturesPath = path.resolve(
     __dirname,
-    "_v2-sra-questions.json",
+    "_v2-tech-assessment-questions.json",
   );
   const fixtures: QFixture[] = JSON.parse(
     readFileSync(fixturesPath, "utf-8"),
   );
 
   for (const q of fixtures) {
-    await db.sraQuestion.upsert({
+    await db.techAssessmentQuestion.upsert({
       where: { code: q.code },
       update: {
         category: q.category,
-        subcategory: q.subcategory,
         title: q.title,
         description: q.description,
         guidance: q.guidance,
-        lookFor: q.lookFor,
-        citation: q.citation,
+        sraQuestionCode: q.sraQuestionCode,
         riskWeight: q.riskWeight,
-        cites2026: q.cites2026,
         sortOrder: q.sortOrder,
       },
       create: {
         code: q.code,
         category: q.category,
-        subcategory: q.subcategory,
         title: q.title,
         description: q.description,
         guidance: q.guidance,
-        lookFor: q.lookFor,
-        citation: q.citation,
+        sraQuestionCode: q.sraQuestionCode,
         riskWeight: q.riskWeight,
-        cites2026: q.cites2026,
         sortOrder: q.sortOrder,
       },
     });
   }
-  console.log(`SRA seed: ${fixtures.length} questions upserted.`);
+  console.log(`Tech assessment seed: ${fixtures.length} questions upserted.`);
 }
 
 main()
