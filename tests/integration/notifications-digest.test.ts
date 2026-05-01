@@ -199,6 +199,63 @@ describe("Notification digest", () => {
   });
 });
 
+// ── Phase 7 PR 7 — daily-run cadence routing ─────────────────────────
+// runNotificationDigest must only produce inbox rows + emails for users
+// whose effective cadence is "DAILY". WEEKLY users are served by
+// runWeeklyNotificationDigest; INSTANT users are fired in real time via
+// firePerEventNotification; NONE users opted out entirely.
+
+describe("Notification digest — cadence routing", () => {
+  it("Skips a WEEKLY-cadence user — no inbox rows from the daily call", async () => {
+    const { user } = await seedPracticeWithOwner();
+    await db.notificationPreference.create({
+      data: { userId: user.id, cadence: "WEEKLY" },
+    });
+    const summary = await runNotificationDigest();
+    expect(summary.errors).toEqual([]);
+    expect(summary.emailsAttempted).toBe(0);
+    const notes = await ownerNotifications(user.id);
+    expect(notes).toHaveLength(0);
+  });
+
+  it("Skips a NONE-cadence user — no inbox rows, no email", async () => {
+    const { user } = await seedPracticeWithOwner();
+    await db.notificationPreference.create({
+      data: { userId: user.id, cadence: "NONE" },
+    });
+    const summary = await runNotificationDigest();
+    expect(summary.errors).toEqual([]);
+    expect(summary.emailsAttempted).toBe(0);
+    const notes = await ownerNotifications(user.id);
+    expect(notes).toHaveLength(0);
+  });
+
+  it("Skips an INSTANT-cadence user — instant events flow through firePerEventNotification", async () => {
+    const { user } = await seedPracticeWithOwner();
+    await db.notificationPreference.create({
+      data: { userId: user.id, cadence: "INSTANT" },
+    });
+    const summary = await runNotificationDigest();
+    expect(summary.errors).toEqual([]);
+    expect(summary.emailsAttempted).toBe(0);
+    const notes = await ownerNotifications(user.id);
+    expect(notes).toHaveLength(0);
+  });
+
+  it("Includes a DAILY-cadence user — default behavior preserved", async () => {
+    const { user } = await seedPracticeWithOwner();
+    await db.notificationPreference.create({
+      data: { userId: user.id, cadence: "DAILY" },
+    });
+    const summary = await runNotificationDigest();
+    expect(summary.errors).toEqual([]);
+    const notes = await ownerNotifications(user.id);
+    // A freshly-seeded practice without an SRA produces an SRA_DUE row
+    // for any DAILY-cadence owner.
+    expect(notes.some((n) => n.type === "SRA_DUE")).toBe(true);
+  });
+});
+
 // ── Audit #21 CR-2: retiredAt cascade to allergy notification generators ──
 // Audit #15 added soft-delete (retiredAt) to AllergyDrill +
 // AllergyEquipmentCheck. The list-page reads filter `retiredAt: null`,
