@@ -560,6 +560,11 @@ model RegulatoryAlert {
   @@unique([practiceId, articleId])  // one alert per (practice, article)
   @@index([practiceId, dismissedAt, createdAt])
   @@index([practiceId, severity, createdAt])
+  // Phase 8 PR 5 — covers the notify cron's global scan
+  // (sentAt IS NULL AND dismissedAt IS NULL ORDER BY createdAt ASC).
+  // Neither index above leads with sentAt; without this, the scan
+  // fully scans the table.
+  @@index([sentAt, dismissedAt, createdAt])
 }
 
 // Optional follow-up actions added by admins on alert detail pages.
