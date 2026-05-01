@@ -4,8 +4,15 @@
 // user's weekly digest. Returns a structured object the email-rendering
 // layer can use. Fails-soft: on Claude error / cost-guard tripped, falls
 // back to a plain template summary so the email still gets delivered.
+//
+// PHI handling: notifications may include patient identifiers (e.g.
+// breach incidents referencing affected individuals). We forward bodies
+// verbatim to Claude and rely on the prompt's redactPHI/allowPHI=true
+// tagging to mark the LlmCall row appropriately. There is no upstream
+// redaction step.
 
 import { runLlm } from "@/lib/ai";
+import { assertMonthlyCostBudget } from "@/lib/ai/costGuard";
 import {
   type NotificationWeeklyDigestInput,
   type NotificationWeeklyDigestOutput,
@@ -16,6 +23,10 @@ export async function composeWeeklyDigest(
   context: { practiceId: string; actorUserId: string },
 ): Promise<NotificationWeeklyDigestOutput> {
   try {
+    // Cost ceiling — weekly digest is the highest-volume scheduled LLM
+    // call in the system. A tripped budget throws here, the catch block
+    // fires the fallback template, and the email still ships.
+    await assertMonthlyCostBudget();
     const result = await runLlm("notification.weekly-digest.v1", input, {
       practiceId: context.practiceId,
       actorUserId: context.actorUserId,

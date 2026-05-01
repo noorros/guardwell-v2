@@ -11,10 +11,16 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// vi.mock must be hoisted; declare a shared mock function used by all cases.
+// vi.mock must be hoisted; declare shared mock functions used by all cases.
 const runLlmMock = vi.fn();
 vi.mock("@/lib/ai", () => ({
   runLlm: (...args: unknown[]) => runLlmMock(...args),
+}));
+
+const assertMonthlyCostBudgetMock = vi.fn();
+vi.mock("@/lib/ai/costGuard", () => ({
+  assertMonthlyCostBudget: (...args: unknown[]) =>
+    assertMonthlyCostBudgetMock(...args),
 }));
 
 import { composeWeeklyDigest } from "./compose-weekly-digest";
@@ -39,6 +45,9 @@ const ctx = { practiceId: "p1", actorUserId: "u1" };
 describe("composeWeeklyDigest", () => {
   beforeEach(() => {
     runLlmMock.mockReset();
+    assertMonthlyCostBudgetMock.mockReset();
+    // Default: cost guard passes. Tests that need the throw override this.
+    assertMonthlyCostBudgetMock.mockResolvedValue(undefined);
   });
 
   it("returns the runLlm output verbatim on the happy path", async () => {
@@ -91,6 +100,22 @@ describe("composeWeeklyDigest", () => {
 
     expect(result.topAction).toBeNull();
     expect(result.summary.toLowerCase()).toContain("quiet");
+    expect(result.summary).toContain("Test Dental");
+  });
+
+  it("falls back to template when the cost guard is tripped (does not call runLlm)", async () => {
+    assertMonthlyCostBudgetMock.mockRejectedValue(
+      new Error("COST_BUDGET_EXCEEDED: $20.00 used this month (budget $10.00)"),
+    );
+
+    const result = await composeWeeklyDigest(baseInput, ctx);
+
+    // Cost guard short-circuits before runLlm is invoked.
+    expect(runLlmMock).not.toHaveBeenCalled();
+    // Falls back to the template shape.
+    expect(result.topAction).toBeNull();
+    expect(typeof result.summary).toBe("string");
+    expect(result.summary.length).toBeGreaterThan(0);
     expect(result.summary).toContain("Test Dental");
   });
 

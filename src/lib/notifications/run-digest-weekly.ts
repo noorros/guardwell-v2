@@ -72,11 +72,20 @@ export async function runWeeklyNotificationDigest(): Promise<WeeklyDigestRunSumm
       });
       if (members.length === 0) continue;
 
+      // Pre-batch the per-user NotificationPreference rows in one query
+      // instead of N findUnique calls inside the loop. Mirrors the
+      // pattern in run-digest.ts (the daily runner). A user with no row
+      // yet falls through to getEffectivePreferences(null), which uses
+      // the documented defaults.
+      const memberUserIds = members.map((m) => m.userId);
+      const prefRows = await db.notificationPreference.findMany({
+        where: { userId: { in: memberUserIds } },
+      });
+      const memberPrefs = new Map(prefRows.map((p) => [p.userId, p]));
+
       for (const m of members) {
         try {
-          const pref = await db.notificationPreference.findUnique({
-            where: { userId: m.userId },
-          });
+          const pref = memberPrefs.get(m.userId) ?? null;
           const effective = getEffectivePreferences(pref);
 
           if (effective.cadence !== "WEEKLY") continue;

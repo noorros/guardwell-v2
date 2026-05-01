@@ -5,6 +5,6 @@
     "notifications": [],
     "scoreChange": { "previous": 50, "current": 80 }
   },
-  "expectedSubstrings": [],
-  "forbiddenSubstrings": []
+  "expectedSubstrings": ["OOD Practice"],
+  "forbiddenSubstrings": ["error", "undefined", "null"]
 }
