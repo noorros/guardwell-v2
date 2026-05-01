@@ -61,37 +61,74 @@ export async function addAlertActionToAlert(
   practiceId: string,
   description: string,
   options: { ownerUserId?: string | null; dueDate?: Date | null } = {},
-): Promise<{ id: string; capId: string }> {
+): Promise<{ id: string; capId: string; reusedExistingCap: boolean }> {
   await assertAlertOwnedByPractice(alertId, practiceId);
-  const row = await db.alertAction.create({
-    data: {
-      alertId,
-      description,
-      ownerUserId: options.ownerUserId ?? null,
-      dueDate: options.dueDate ?? null,
+
+  // Idempotency guard: re-clicking "Add to my CAP" on the same alert
+  // should not create duplicate CAPs. If an open (non-COMPLETED) CAP
+  // already exists for this (practice, alert), reuse it AND skip the
+  // AlertAction insert. This makes the user-facing action effectively
+  // idempotent without a unique constraint that would block legitimate
+  // "open a new CAP after the previous one closed" workflows. The
+  // (action, cap) write pair below runs only when no open CAP exists.
+  const existingCap = await db.correctiveAction.findFirst({
+    where: {
+      practiceId,
+      sourceAlertId: alertId,
+      status: { not: "COMPLETED" },
     },
     select: { id: true },
+    orderBy: { createdAt: "desc" },
   });
-  // Phase 5 PR 6 — also create a CorrectiveAction so the CAP register
-  // surfaces the alert-driven action. Standalone (no riskItemId);
-  // sourceAlertId points at the regulatory alert. Both writes are
-  // permitted from src/lib/regulatory/ because that path is in
-  // ALLOWED_PATHS; correctiveAction is in PROJECTION_TABLES (gated by
+  if (existingCap) {
+    // Find a paired AlertAction (any will do — they're audit-trail
+    // siblings of the same user intent). If none exists for some legacy
+    // reason, return the cap id with a synthetic-ish action id of the
+    // most recent matching alert action; the calling action ignores the
+    // distinction.
+    const existingAction = await db.alertAction.findFirst({
+      where: { alertId },
+      select: { id: true },
+      orderBy: { createdAt: "desc" },
+    });
+    return {
+      id: existingAction?.id ?? existingCap.id,
+      capId: existingCap.id,
+      reusedExistingCap: true,
+    };
+  }
+
+  // Atomic dual-create: AlertAction + CorrectiveAction in a single
+  // transaction so a partial failure can't leave an orphan AlertAction
+  // without its paired CAP. Both writes are permitted from
+  // src/lib/regulatory/ because that path is in ALLOWED_PATHS;
+  // correctiveAction is in PROJECTION_TABLES (gated by
   // gw/no-direct-projection-mutation) and the rule allows writes from
   // either src/lib/regulatory/ or src/lib/risk/.
-  const cap = await db.correctiveAction.create({
-    data: {
-      practiceId,
-      riskItemId: null,
-      sourceAlertId: alertId,
-      description,
-      ownerUserId: options.ownerUserId ?? null,
-      dueDate: options.dueDate ?? null,
-      status: "PENDING",
-    },
-    select: { id: true },
+  return db.$transaction(async (tx) => {
+    const row = await tx.alertAction.create({
+      data: {
+        alertId,
+        description,
+        ownerUserId: options.ownerUserId ?? null,
+        dueDate: options.dueDate ?? null,
+      },
+      select: { id: true },
+    });
+    const cap = await tx.correctiveAction.create({
+      data: {
+        practiceId,
+        riskItemId: null,
+        sourceAlertId: alertId,
+        description,
+        ownerUserId: options.ownerUserId ?? null,
+        dueDate: options.dueDate ?? null,
+        status: "PENDING",
+      },
+      select: { id: true },
+    });
+    return { id: row.id, capId: cap.id, reusedExistingCap: false };
   });
-  return { id: row.id, capId: cap.id };
 }
 
 export async function toggleSourceActive(

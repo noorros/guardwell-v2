@@ -195,5 +195,66 @@ describe("addAlertActionToAlert", () => {
     expect(cap?.ownerUserId).toBe(user.id);
     expect(cap?.dueDate?.toISOString()).toBe(dueDate.toISOString());
     expect(cap?.status).toBe("PENDING");
+    // First call is the canonical create; reusedExistingCap=false.
+    expect(result.reusedExistingCap).toBe(false);
+  });
+
+  it("re-clicking is idempotent: second call reuses the existing open CAP", async () => {
+    const { user, practice, alert } = await seedAlert("action-idempotent");
+
+    const first = await addAlertActionToAlert(
+      alert.id,
+      practice.id,
+      "Review HIPAA Security Rule controls",
+      { ownerUserId: user.id },
+    );
+    expect(first.reusedExistingCap).toBe(false);
+
+    const second = await addAlertActionToAlert(
+      alert.id,
+      practice.id,
+      "Different description but same alert (user double-clicked)",
+      { ownerUserId: user.id },
+    );
+    expect(second.reusedExistingCap).toBe(true);
+    expect(second.capId).toBe(first.capId);
+
+    const caps = await db.correctiveAction.findMany({
+      where: { sourceAlertId: alert.id },
+    });
+    expect(caps).toHaveLength(1);
+  });
+
+  it("after the existing CAP is COMPLETED, a new Add-to-CAP creates a fresh CAP", async () => {
+    const { user, practice, alert } = await seedAlert("action-after-complete");
+
+    const first = await addAlertActionToAlert(
+      alert.id,
+      practice.id,
+      "First action",
+      { ownerUserId: user.id },
+    );
+    expect(first.reusedExistingCap).toBe(false);
+
+    // Mark the first CAP as completed.
+    await db.correctiveAction.update({
+      where: { id: first.capId },
+      data: { status: "COMPLETED", completedAt: new Date(), completedByUserId: user.id },
+    });
+
+    const second = await addAlertActionToAlert(
+      alert.id,
+      practice.id,
+      "Second action — original is closed, gap surfaced again",
+      { ownerUserId: user.id },
+    );
+    expect(second.reusedExistingCap).toBe(false);
+    expect(second.capId).not.toBe(first.capId);
+
+    const caps = await db.correctiveAction.findMany({
+      where: { sourceAlertId: alert.id },
+      orderBy: { createdAt: "asc" },
+    });
+    expect(caps).toHaveLength(2);
   });
 });
