@@ -2,13 +2,19 @@
 //
 // Phase 5 PR 5 — DOM coverage for the RiskItem detail-page client
 // controls. Server actions are mocked via vi.mock("./actions") so the
-// tests run without a DB. router.refresh is a no-op in jsdom; we just
-// check the mock was called with the right input.
+// tests run without a DB.
+//
+// Phase 5 PR 6 — drop the "stub disabled" assertion (the Create-CAP
+// button is now functional) and add coverage for the inline create-CAP
+// form: open, submit, and route on success.
 //
 // Cases:
 //   - Status select renders all four options and reflects initial value
 //   - Changing status calls updateRiskItemStatusAction with the new value
-//   - "Create CAP" button is disabled (PR 5 stub)
+//   - "Create CAP" button opens the inline form on click
+//   - Submitting the form calls createCapForRiskAction and routes to
+//     /programs/risk/cap/{id} on success
+//   - Form validation: empty description shows an inline error
 //   - jest-axe scan (default render)
 
 // @vitest-environment jsdom
@@ -18,15 +24,18 @@ import { axe } from "jest-axe";
 
 const updateStatusMock = vi.fn();
 const updateNotesMock = vi.fn();
+const createCapMock = vi.fn();
+const pushMock = vi.fn();
 
 vi.mock("./actions", () => ({
   updateRiskItemStatusAction: (...args: unknown[]) =>
     updateStatusMock(...args),
   updateRiskItemNotesAction: (...args: unknown[]) => updateNotesMock(...args),
+  createCapForRiskAction: (...args: unknown[]) => createCapMock(...args),
 }));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
+  useRouter: () => ({ refresh: vi.fn(), push: pushMock }),
 }));
 
 import { RiskItemActions } from "./RiskItemActions";
@@ -35,6 +44,8 @@ describe("<RiskItemActions>", () => {
   beforeEach(() => {
     updateStatusMock.mockReset();
     updateNotesMock.mockReset();
+    createCapMock.mockReset();
+    pushMock.mockReset();
   });
 
   it("renders all four status options and reflects the initial value", () => {
@@ -82,7 +93,7 @@ describe("<RiskItemActions>", () => {
     });
   });
 
-  it("'Create CAP' button is disabled in PR 5", () => {
+  it("'Create CAP' button opens the inline form on click", () => {
     render(
       <RiskItemActions
         riskItemId="r1"
@@ -90,10 +101,76 @@ describe("<RiskItemActions>", () => {
         initialNotes={null}
       />,
     );
-    const btn = screen.getByRole("button", {
-      name: /Create corrective action/i,
+
+    // Form is hidden initially.
+    expect(
+      screen.queryByLabelText("Corrective action description"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Create corrective action/i }),
+    );
+
+    expect(
+      screen.getByLabelText("Corrective action description"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Corrective action due date"),
+    ).toBeInTheDocument();
+  });
+
+  it("submitting the create-CAP form calls createCapForRiskAction and routes to the new CAP detail page", async () => {
+    createCapMock.mockResolvedValue({ ok: true, capId: "cap-new-1" });
+    render(
+      <RiskItemActions
+        riskItemId="r-99"
+        initialStatus="OPEN"
+        initialNotes={null}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Create corrective action/i }),
+    );
+
+    fireEvent.change(
+      screen.getByLabelText("Corrective action description"),
+      { target: { value: "Patch the encryption gap" } },
+    );
+    fireEvent.change(screen.getByLabelText("Corrective action due date"), {
+      target: { value: "2026-06-15" },
     });
-    expect(btn).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() => {
+      expect(createCapMock).toHaveBeenCalledTimes(1);
+    });
+    expect(createCapMock).toHaveBeenCalledWith({
+      riskItemId: "r-99",
+      description: "Patch the encryption gap",
+      dueDate: "2026-06-15",
+    });
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith("/programs/risk/cap/cap-new-1");
+    });
+  });
+
+  it("disables the Create button when description is empty", () => {
+    render(
+      <RiskItemActions
+        riskItemId="r-100"
+        initialStatus="OPEN"
+        initialNotes={null}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Create corrective action/i }),
+    );
+
+    const submit = screen.getByRole("button", { name: "Create" });
+    expect(submit).toBeDisabled();
   });
 
   it("axe-clean (default render)", async () => {

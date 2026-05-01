@@ -8,7 +8,8 @@
 //   1. acknowledgeAlert — happy path stamps acknowledgedAt + acknowledgedByUserId
 //   2. acknowledgeAlert — cross-tenant throws "Cross-tenant access denied"
 //   3. dismissAlert     — happy path stamps dismissedAt + dismissedByUserId
-//   4. addAlertActionToAlert — creates a row + returns its id
+//   4. addAlertActionToAlert — dual-creates AlertAction + CorrectiveAction
+//      (Phase 5 PR 6), verifies cross-tenant blocks both writes
 //
 // toggleSourceActive is a 1-liner without practiceId scoping; the
 // server-action test (Step 6.5) covers the OWNER auth wrapper.
@@ -149,9 +150,16 @@ describe("addAlertActionToAlert", () => {
       where: { alertId: b.alert.id },
     });
     expect(rows).toHaveLength(0);
+    // Phase 5 PR 6 — the dual-create must NOT have created a
+    // CorrectiveAction either; the practiceId guard runs before any
+    // write reaches the DB.
+    const caps = await db.correctiveAction.findMany({
+      where: { sourceAlertId: b.alert.id },
+    });
+    expect(caps).toHaveLength(0);
   });
 
-  it("creates an AlertAction row and returns its id", async () => {
+  it("creates an AlertAction row and a linked CorrectiveAction row, returning both ids", async () => {
     const { user, practice, alert } = await seedAlert("action-create");
 
     const dueDate = new Date("2026-06-01T00:00:00.000Z");
@@ -163,6 +171,7 @@ describe("addAlertActionToAlert", () => {
     );
 
     expect(result.id).toBeTruthy();
+    expect(result.capId).toBeTruthy();
 
     const row = await db.alertAction.findUnique({
       where: { id: result.id },
@@ -173,5 +182,18 @@ describe("addAlertActionToAlert", () => {
     expect(row?.ownerUserId).toBe(user.id);
     expect(row?.dueDate?.toISOString()).toBe(dueDate.toISOString());
     expect(row?.completionStatus).toBe("PENDING");
+
+    // Phase 5 PR 6 — verify the dual-create CorrectiveAction.
+    const cap = await db.correctiveAction.findUnique({
+      where: { id: result.capId },
+    });
+    expect(cap).not.toBeNull();
+    expect(cap?.practiceId).toBe(practice.id);
+    expect(cap?.riskItemId).toBeNull();
+    expect(cap?.sourceAlertId).toBe(alert.id);
+    expect(cap?.description).toBe("Review HIPAA Security Rule controls");
+    expect(cap?.ownerUserId).toBe(user.id);
+    expect(cap?.dueDate?.toISOString()).toBe(dueDate.toISOString());
+    expect(cap?.status).toBe("PENDING");
   });
 });

@@ -140,6 +140,7 @@ describe("<AlertActions>", () => {
     addAlertToCapActionMock.mockResolvedValue({
       ok: true,
       actionId: "act-1",
+      capId: "cap-1",
     });
     render(
       <AlertActions
