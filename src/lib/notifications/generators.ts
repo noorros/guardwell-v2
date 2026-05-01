@@ -253,15 +253,109 @@ export async function generateCredentialRenewalNotifications(
 }
 
 /**
- * Vendor BAAs expiring within 60 days. Same shape as credential warnings.
+ * Phase 7 PR 3 — BAA generator split.
+ *
+ * The original generateVendorBaaNotifications was replaced with three
+ * lifecycle-stage generators:
+ *   - generateBaaSignaturePendingNotifications: BAA sent, awaiting vendor sig
+ *   - generateBaaExpiringNotifications:        BAA approaching expiry (lead-time aware)
+ *   - generateBaaExecutedNotifications:        BAA freshly executed (info)
+ *
+ * Recipients shifted from "all userIds" (old behavior) to OWNER + ADMIN
+ * only — STAFF/VIEWER won't see BAA notifications, which is correct
+ * since BAAs are admin work.
  */
-export async function generateVendorBaaNotifications(
+
+/**
+ * Fires when a BAA has been sent to a vendor but not yet executed
+ * (status === SENT or ACKNOWLEDGED) and the request is still active
+ * (no rejectedAt).
+ *
+ * This notification fires ONCE per BaaRequest (entityKey is keyed only on
+ * request id). The user gets one nudge when the digest first sees the
+ * pending BAA; subsequent digests dedup. If the BAA stays pending
+ * indefinitely, the user does NOT get repeated reminders — the dashboard
+ * signal (via the vendor list) is the persistent visibility.
+ *
+ * Severity is constant WARNING. An earlier draft escalated INFO → WARNING
+ * after 7 days waiting, but the entityKey lacked a tier component, so
+ * dedup would catch the INFO row and the WARNING escalation never reached
+ * the user. Single tier avoids that footgun.
+ */
+export async function generateBaaSignaturePendingNotifications(
   tx: Prisma.TransactionClient,
   practiceId: string,
+  // userIds is the digest recipient pool, but this generator targets
+  // OWNER + ADMIN directly via PracticeUser query. Param kept for
+  // signature parity with the fan-in.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   userIds: string[],
+  // No date renders in this generator's body/title strings — kept for
+  // signature consistency with the rest of the generators.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   practiceTimezone: string,
 ): Promise<NotificationProposal[]> {
-  const horizon = new Date(Date.now() + 60 * DAY_MS);
+  const requests = await tx.baaRequest.findMany({
+    where: {
+      practiceId,
+      status: { in: ["SENT", "ACKNOWLEDGED"] },
+      rejectedAt: null,
+    },
+    select: {
+      id: true,
+      vendorId: true,
+      vendor: { select: { name: true } },
+    },
+  });
+  const adminUserIds = await ownerAdminUserIds(tx, practiceId);
+  if (adminUserIds.length === 0) return [];
+
+  const proposals: NotificationProposal[] = [];
+  for (const r of requests) {
+    const title = `BAA awaiting vendor signature: ${r.vendor.name}`;
+    const body = `${r.vendor.name} hasn't yet signed the BAA. They should receive a token link via email.`;
+    const severity: NotificationSeverity = "WARNING";
+    for (const userId of adminUserIds) {
+      proposals.push({
+        userId,
+        practiceId,
+        type: "BAA_SIGNATURE_PENDING",
+        severity,
+        title,
+        body,
+        href: "/programs/vendors",
+        entityKey: `baa-signature-pending:${r.id}`,
+      });
+    }
+  }
+  return proposals;
+}
+
+/**
+ * BAAs approaching expiry. Uses getEffectiveLeadTimes(reminderSettings,
+ * "baa") for milestones (default [60, 30, 7]). Fires every crossed
+ * milestone (matches generateCredentialRenewalNotifications semantic):
+ * a vendor expiring in 5 days fires :7, :30, AND :60 — each a distinct
+ * notification keyed by milestone, so dedup catches re-fires across
+ * cron runs but every milestone gets a fresh nudge.
+ *
+ * Sources expiry from Vendor.baaExpiresAt (the canonical "BAA expires"
+ * field on the vendor), not BaaRequest.expiresAt.
+ */
+export async function generateBaaExpiringNotifications(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  // userIds is the digest recipient pool, but this generator targets
+  // OWNER + ADMIN directly via PracticeUser query. Param kept for
+  // signature parity with the fan-in.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  userIds: string[],
+  practiceTimezone: string,
+  reminderSettings: unknown,
+): Promise<NotificationProposal[]> {
+  const milestones = getEffectiveLeadTimes(reminderSettings, "baa");
+  const horizonDays = milestones[0] ?? 60;
+  const horizon = new Date(Date.now() + horizonDays * DAY_MS);
   const vendors = await tx.vendor.findMany({
     where: {
       practiceId,
@@ -271,30 +365,95 @@ export async function generateVendorBaaNotifications(
     },
     select: { id: true, name: true, baaExpiresAt: true },
   });
+  const adminUserIds = await ownerAdminUserIds(tx, practiceId);
+  if (adminUserIds.length === 0) return [];
+
   const proposals: NotificationProposal[] = [];
   for (const v of vendors) {
     if (!v.baaExpiresAt) continue;
-    const daysLeft = daysUntil(v.baaExpiresAt);
-    if (daysLeft === null) continue;
-    const severity: NotificationSeverity =
-      daysLeft <= 0 ? "CRITICAL" : daysLeft <= 14 ? "WARNING" : "INFO";
-    const title =
-      daysLeft <= 0
-        ? `BAA with ${v.name} has expired`
-        : `BAA with ${v.name} expires in ${daysLeft} days`;
-    const body = `The Business Associate Agreement with ${v.name} expires ${formatPracticeDate(v.baaExpiresAt, practiceTimezone)}. Renew before expiry to keep HIPAA_BAAS compliant.`;
-    // entityKey is a UTC-stable dedup hash — do NOT replace with formatPracticeDate
-    const entityKey = `vendor-baa:${v.id}:${v.baaExpiresAt.toISOString().slice(0, 10)}`;
-    for (const userId of userIds) {
+    const days = daysUntil(v.baaExpiresAt);
+    if (days === null) continue;
+    // Match generateCredentialRenewalNotifications: fire every milestone
+    // we're inside of (days <= m), one notification per (vendor, milestone)
+    // with a distinct entityKey. The (userId, type, entityKey) unique
+    // constraint dedups across digest runs.
+    const matchedMilestones = milestones.filter((m) => days <= m);
+    if (matchedMilestones.length === 0) continue;
+
+    for (const m of matchedMilestones) {
+      const severity: NotificationSeverity =
+        days <= 0 ? "CRITICAL" : m <= 7 ? "WARNING" : "INFO";
+      const title =
+        days <= 0
+          ? `BAA with ${v.name} has expired`
+          : `BAA with ${v.name} expires in ${days} day${days === 1 ? "" : "s"}`;
+      const body = `The Business Associate Agreement with ${v.name} expires ${formatPracticeDate(v.baaExpiresAt, practiceTimezone)}. Renew before expiry to keep HIPAA_BAAS compliant.`;
+      for (const userId of adminUserIds) {
+        proposals.push({
+          userId,
+          practiceId,
+          type: "VENDOR_BAA_EXPIRING",
+          severity,
+          title,
+          body,
+          href: "/programs/vendors",
+          entityKey: `baa-expiring:${v.id}:${m}`,
+        });
+      }
+    }
+  }
+  return proposals;
+}
+
+/**
+ * Informational: fires once when a BAA flips to EXECUTED. Limited to
+ * the last 14 days of execution events so older BAAs don't spam every
+ * digest run. EntityKey is keyed only on the BaaRequest.id so it fires
+ * exactly once across all digest runs.
+ */
+export async function generateBaaExecutedNotifications(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  // userIds is the digest recipient pool, but this generator targets
+  // OWNER + ADMIN directly via PracticeUser query. Param kept for
+  // signature parity with the fan-in.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  userIds: string[],
+  practiceTimezone: string,
+): Promise<NotificationProposal[]> {
+  // Only consider BAAs executed in the last 14 days — older ones have
+  // already been notified or naturally surface in the vendor list.
+  const cutoff = new Date(Date.now() - 14 * DAY_MS);
+  const requests = await tx.baaRequest.findMany({
+    where: {
+      practiceId,
+      status: "EXECUTED",
+      executedAt: { gte: cutoff },
+    },
+    select: {
+      id: true,
+      executedAt: true,
+      vendor: { select: { name: true } },
+    },
+  });
+  const adminUserIds = await ownerAdminUserIds(tx, practiceId);
+  if (adminUserIds.length === 0) return [];
+
+  const proposals: NotificationProposal[] = [];
+  for (const r of requests) {
+    if (!r.executedAt) continue;
+    const title = `BAA executed: ${r.vendor.name}`;
+    const body = `The Business Associate Agreement with ${r.vendor.name} was executed on ${formatPracticeDate(r.executedAt, practiceTimezone)}.`;
+    for (const userId of adminUserIds) {
       proposals.push({
         userId,
         practiceId,
-        type: "VENDOR_BAA_EXPIRING",
-        severity,
+        type: "BAA_EXECUTED",
+        severity: "INFO",
         title,
         body,
         href: "/programs/vendors",
-        entityKey,
+        entityKey: `baa-executed:${r.id}`,
       });
     }
   }
@@ -686,6 +845,95 @@ export async function generatePolicyReviewDueNotifications(
         body,
         href: `/policies/${p.id}`,
         entityKey,
+      });
+    }
+  }
+  return proposals;
+}
+
+/**
+ * For each adopted PracticePolicy (retiredAt: null), find every active
+ * PracticeUser who hasn't acknowledged the CURRENT policy version. Fires
+ * once per (policy, user, version) — entityKey includes version so a
+ * content update (POLICY_CONTENT_UPDATED bumps version) re-fires.
+ *
+ * Skip if the policy has an unfulfilled PolicyTrainingPrereq for that
+ * user (the user can't acknowledge until the prereq training passes,
+ * so a notification would be confusing).
+ */
+export async function generatePolicyAcknowledgmentPendingNotifications(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  // userIds is the digest recipient pool, but this generator targets the
+  // staff member directly via the active-members query. Kept for
+  // signature parity with the fan-in.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  userIds: string[],
+  // No date renders in this generator's body/title strings — kept for
+  // signature consistency with the rest of the generators.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  practiceTimezone: string,
+): Promise<NotificationProposal[]> {
+  const policies = await tx.practicePolicy.findMany({
+    where: { practiceId, retiredAt: null },
+    include: {
+      acknowledgments: { select: { userId: true, policyVersion: true } },
+      trainingPrereqs: { select: { trainingCourseId: true } },
+    },
+  });
+  if (policies.length === 0) return [];
+
+  const members = await tx.practiceUser.findMany({
+    where: { practiceId, removedAt: null },
+    select: { userId: true },
+  });
+
+  // Pre-fetch all passing completions for prereq checks (one query, no N+1)
+  const allPasses = await tx.trainingCompletion.findMany({
+    where: {
+      practiceId,
+      passed: true,
+      expiresAt: { gt: new Date() },
+    },
+    select: { userId: true, courseId: true },
+  });
+  const passesByUser = new Map<string, Set<string>>();
+  for (const p of allPasses) {
+    let set = passesByUser.get(p.userId);
+    if (!set) {
+      set = new Set();
+      passesByUser.set(p.userId, set);
+    }
+    set.add(p.courseId);
+  }
+
+  const proposals: NotificationProposal[] = [];
+  for (const policy of policies) {
+    // Build "users who have acked the CURRENT version" set
+    const ackedUserIds = new Set(
+      policy.acknowledgments
+        .filter((a) => a.policyVersion === policy.version)
+        .map((a) => a.userId),
+    );
+    const prereqCourseIds = policy.trainingPrereqs.map((p) => p.trainingCourseId);
+
+    for (const m of members) {
+      if (ackedUserIds.has(m.userId)) continue;
+      // Prereq gating
+      if (prereqCourseIds.length > 0) {
+        const userPasses = passesByUser.get(m.userId) ?? new Set();
+        const allPrereqsMet = prereqCourseIds.every((c) => userPasses.has(c));
+        if (!allPrereqsMet) continue;
+      }
+      proposals.push({
+        userId: m.userId,
+        practiceId,
+        type: "POLICY_ACKNOWLEDGMENT_PENDING",
+        severity: "WARNING",
+        title: `Policy review needed: ${policy.policyCode}`,
+        body: `You have not acknowledged the current version (v${policy.version}) of ${policy.policyCode}. Read the policy and sign to confirm understanding.`,
+        href: `/programs/policies/${policy.id}`,
+        entityKey: `policy-ack-pending:${policy.id}:${policy.version}:${m.userId}`,
       });
     }
   }
@@ -1746,10 +1994,13 @@ export async function generateAllNotifications(
     credRenewals,
     credEscalation,
     cmsEnrollment,
-    vendors,
+    baaSignaturePending,
+    baaExpiring,
+    baaExecuted,
     incidents,
     breachDeadline,
     policies,
+    policyAck,
     training,
     trainingEscalation,
     trainingAssigned,
@@ -1765,10 +2016,13 @@ export async function generateAllNotifications(
     generateCredentialRenewalNotifications(tx, practiceId, userIds, practiceTimezone, reminderSettings),
     generateCredentialEscalationNotifications(tx, practiceId, userIds, practiceTimezone),
     generateCmsEnrollmentNotifications(tx, practiceId, userIds, practiceTimezone, reminderSettings),
-    generateVendorBaaNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateBaaSignaturePendingNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateBaaExpiringNotifications(tx, practiceId, userIds, practiceTimezone, reminderSettings),
+    generateBaaExecutedNotifications(tx, practiceId, userIds, practiceTimezone),
     generateIncidentNotifications(tx, practiceId, userIds, practiceTimezone),
     generateBreachDeterminationDeadlineNotifications(tx, practiceId, userIds, practiceTimezone),
     generatePolicyReviewDueNotifications(tx, practiceId, userIds, practiceTimezone, reminderSettings),
+    generatePolicyAcknowledgmentPendingNotifications(tx, practiceId, userIds, practiceTimezone),
     generateTrainingOverdueNotifications(tx, practiceId, userIds, practiceTimezone),
     generateTrainingEscalationNotifications(tx, practiceId, userIds, practiceTimezone),
     generateTrainingAssignedNotifications(tx, practiceId, userIds, practiceTimezone),
@@ -1785,10 +2039,13 @@ export async function generateAllNotifications(
     ...credRenewals,
     ...credEscalation,
     ...cmsEnrollment,
-    ...vendors,
+    ...baaSignaturePending,
+    ...baaExpiring,
+    ...baaExecuted,
     ...incidents,
     ...breachDeadline,
     ...policies,
+    ...policyAck,
     ...training,
     ...trainingEscalation,
     ...trainingAssigned,
