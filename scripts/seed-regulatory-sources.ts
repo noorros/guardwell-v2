@@ -43,7 +43,9 @@ async function main() {
       update: {
         name: fixture.name,
         feedType: fixture.feedType,
-        // Don't overwrite isActive on re-seed — admin may have toggled it
+        // Don't overwrite isActive on re-seed — admin may have toggled it.
+        // Same logic for scrapeConfig — admins may tune scrape selectors via
+        // the PR 6 admin UI; fixture tweaks should not stomp those edits.
         defaultFrameworks: fixture.defaultFrameworks,
       },
       create: {
