@@ -103,4 +103,41 @@ describe("parseRssFeed", () => {
     expect(result[0]!.publishDate).toBeUndefined();
     expect(result[0]!.title).toBe("Dateless article");
   });
+
+  it("falls back to feedUrl (not guid) when guid is a non-http URN", async () => {
+    mockResponse = {
+      items: [
+        {
+          title: "URN-only article",
+          // no link
+          guid: "tag:hhs.gov,2024:breach/123",
+          contentSnippet: "Has URN guid, no link",
+          isoDate: "2026-04-15T10:00:00Z",
+        },
+      ],
+    };
+
+    const result = await parseRssFeed("https://hhs.gov/feed.xml");
+
+    expect(result).toHaveLength(1);
+    expect(result[0]!.url).toBe("https://hhs.gov/feed.xml");
+  });
+
+  it("uses guid as url when guid IS an http(s) URL and link is missing", async () => {
+    mockResponse = {
+      items: [
+        {
+          title: "guid-as-url article",
+          // no link
+          guid: "https://example.com/permalink/42",
+          contentSnippet: "Has http guid, no link",
+        },
+      ],
+    };
+
+    const result = await parseRssFeed("https://example.com/feed.xml");
+
+    expect(result).toHaveLength(1);
+    expect(result[0]!.url).toBe("https://example.com/permalink/42");
+  });
 });

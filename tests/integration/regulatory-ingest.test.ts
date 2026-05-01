@@ -201,4 +201,34 @@ describe("runRegulatoryIngest", () => {
     });
     expect(passSource.lastIngestedAt).not.toBeNull();
   });
+
+  it("truncates oversize fields to schema caps before insert", async () => {
+    const source = await seedSource({
+      name: "Big",
+      url: "https://example.com/big.xml",
+      feedType: "RSS",
+    });
+    const long = "x".repeat(60_000);
+    mockParseRssFeed.mockResolvedValueOnce([
+      {
+        title: long,
+        url: "https://example.com/big/1",
+        summary: long,
+        rawContent: long,
+        publishDate: new Date("2026-04-15T10:00:00Z"),
+      },
+    ]);
+
+    await runRegulatoryIngest();
+
+    const [row] = await db.regulatoryArticle.findMany({
+      where: { sourceId: source.id },
+    });
+    expect(row).toBeDefined();
+    expect(row!.title).toHaveLength(500);
+    expect(row!.summary).toHaveLength(5000);
+    expect(row!.rawContent).toHaveLength(50_000);
+    // url is short — verify not truncated below its true length.
+    expect(row!.url).toBe("https://example.com/big/1");
+  });
 });
