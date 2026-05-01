@@ -219,28 +219,36 @@ export async function answerSraQuestionAction(
 
     await validateQuestionCodes([parsed.questionCode]);
 
-    // IDOR guard: when the wizard is resuming an existing draft, verify
-    // the draft belongs to the caller's practice BEFORE emitting the
-    // event. Defense-in-depth — the projection also checks this via
-    // assertProjectionPracticeOwned.
+    // IDOR guard: when the wizard supplies an assessmentId that ALREADY
+    // exists, verify the draft belongs to the caller's practice BEFORE
+    // emitting the event. Defense-in-depth — the projection also checks
+    // this via assertProjectionPracticeOwned.
+    //
+    // Phase 5 PR 3 polish (C2 fix): the wizard now pre-allocates a
+    // client-side UUID on mount and supplies it on every save. For the
+    // FIRST save the UUID has no row yet — that's fine; the projection's
+    // create-on-missing path materialises the draft tied to the caller's
+    // practice. We only reject when a row exists in another practice
+    // (cross-tenant) or has already been submitted.
     let assessmentId = parsed.assessmentId;
     if (assessmentId) {
       const existing = await db.practiceSraAssessment.findUnique({
         where: { id: assessmentId },
         select: { practiceId: true, isDraft: true },
       });
-      if (!existing || existing.practiceId !== pu.practiceId) {
+      if (existing && existing.practiceId !== pu.practiceId) {
         return { ok: false, error: "Assessment not found" };
       }
-      if (!existing.isDraft) {
+      if (existing && !existing.isDraft) {
         return {
           ok: false,
           error: "Assessment already submitted; start a new SRA",
         };
       }
+      // existing === null is OK here — projection will create the row.
     } else {
-      // First answer in a brand-new draft. The projection's
-      // create-on-missing path will materialise the row.
+      // Legacy path (caller didn't supply an id) — mint one now so the
+      // projection's create-on-missing branch fires.
       assessmentId = randomUUID();
     }
 

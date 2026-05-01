@@ -223,7 +223,11 @@ describe("<SraWizard>", () => {
     const arg = vi.mocked(answerSraQuestionAction).mock.calls[0]?.[0];
     expect(arg?.questionCode).toBe("ADMIN_001");
     expect(arg?.answer).toBe("YES");
-    expect(arg?.assessmentId).toBeUndefined();
+    // C2 fix — assessmentId is pre-allocated synchronously on mount.
+    // It should be a non-empty UUID-shaped string, not undefined.
+    expect(arg?.assessmentId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
   });
 
   it("coalesces rapid changes on the same question into a single save", async () => {
@@ -322,6 +326,83 @@ describe("<SraWizard>", () => {
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/Server is sad/i);
+  });
+
+  // ─────────────────────────────────────────────────────────────────
+  // Phase 5 PR 3 polish — review-pass regression coverage.
+  // ─────────────────────────────────────────────────────────────────
+
+  it("does NOT enable submit (and does NOT save) when the user only types notes without picking radios (C1 phantom-YES guard)", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<SraWizard questions={QUESTIONS} />);
+
+    // Type notes for every question across all three categories WITHOUT
+    // ever clicking a radio. Pre-fix this would (a) save phantom-YES
+    // rows via answerSraQuestionAction and (b) light up the submit
+    // button because answeredQuestions.length === questions.length.
+    for (const cat of ["ADMINISTRATIVE", "PHYSICAL", "TECHNICAL"] as const) {
+      await user.click(screen.getByRole("tab", { name: new RegExp(cat, "i") }));
+      const visible = QUESTIONS.filter((q) => q.category === cat);
+      for (const q of visible) {
+        const notes = document.getElementById(`q-${q.code}-notes`) as
+          | HTMLTextAreaElement
+          | null;
+        if (notes) {
+          await user.type(notes, "evidence link");
+        }
+      }
+    }
+
+    // Flush any debounced timers.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+
+    // No save fired — the setAnswer guard is `if (merged.answer)`, and
+    // with C1 fixed merged.answer is null when only notes was patched.
+    expect(answerSraQuestionAction).not.toHaveBeenCalled();
+
+    // Submit button still disabled — answeredQuestions filter rejects
+    // rows with null answer, so score.totalCount < questions.length.
+    expect(
+      screen.getByRole("button", { name: /Submit assessment/i }),
+    ).toBeDisabled();
+  });
+
+  it("uses the same pre-allocated assessmentId across two overlapping per-question saves (C2 TOCTOU guard)", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    // Capture every assessmentId that the action receives. Pre-fix,
+    // overlapping first-saves both went out with assessmentId=undefined
+    // and the action minted two distinct UUIDs (orphan drafts). With
+    // the wizard pre-allocating a client UUID, BOTH calls must carry
+    // the SAME assessmentId.
+    const receivedIds: (string | undefined)[] = [];
+    vi.mocked(answerSraQuestionAction).mockImplementation(async (input) => {
+      receivedIds.push(input.assessmentId);
+      return { ok: true, assessmentId: input.assessmentId ?? "fallback-id" };
+    });
+
+    render(<SraWizard questions={QUESTIONS} />);
+
+    // Click two different questions before any debounce fires. With
+    // independent debounce windows per question code, both timers
+    // expire at +800ms and fire two parallel saves.
+    await user.click(document.getElementById("q-ADMIN_001-YES")!);
+    await user.click(document.getElementById("q-ADMIN_002-NO")!);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+
+    expect(answerSraQuestionAction).toHaveBeenCalledTimes(2);
+    expect(receivedIds).toHaveLength(2);
+    expect(receivedIds[0]).toBeDefined();
+    expect(receivedIds[1]).toBeDefined();
+    expect(receivedIds[0]).toBe(receivedIds[1]);
+    expect(receivedIds[0]).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
   });
 
   it("passes a jest-axe scan with no violations on default render", async () => {

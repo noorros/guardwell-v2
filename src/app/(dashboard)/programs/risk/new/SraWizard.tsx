@@ -2,13 +2,23 @@
 //
 // Phase 5 PR 3 — 80q SRA wizard. Per-category Tabs + per-subcategory
 // Accordion + per-question card with 800ms debounced autosave that
-// fires on every radio change AND notes blur.
+// fires on every radio change AND every notes onChange (debounced).
 //
 // Replaces the legacy 3-step linear wizard. Audit #4 (2026-04-29)
 // established the autosave pattern; PR 3 elevates it from "save on step
 // change" to "save per-question" via the new SRA_QUESTION_ANSWERED
 // event. Submit still emits SRA_COMPLETED (now also SRA_SUBMITTED) so
 // the HIPAA_SRA derivation rule keeps working.
+//
+// Polish (Phase 5 PR 3 review pass):
+//   C1 — answer state is `Answer | null` so a notes-only edit can never
+//        leak a phantom YES into the answers map / submit gate / payload.
+//   C2 — assessmentId is pre-allocated synchronously on mount via
+//        crypto.randomUUID() so two overlapping per-question saves both
+//        target the SAME draft (no orphan drafts from a TOCTOU race).
+//   I3 — pendingSavesCount (counter) replaces a boolean isSaving so the
+//        submit button stays disabled while ANY save is in flight, not
+//        just the most-recently-resolved one.
 
 "use client";
 
@@ -88,26 +98,35 @@ export interface SraWizardProps {
   initialState?: SraWizardInitialState;
 }
 
+// Internal state shape: answer can be null when the user has typed
+// notes but not yet picked a radio. Readers (submit gate, score,
+// payload) MUST gate on truthy answer to avoid phantom-YES leakage.
+type AnswerState = { answer: Answer | null; notes: string | null };
+
 export function SraWizard({ questions, initialState }: SraWizardProps) {
   const grouped = useMemo(() => groupSraQuestions(questions), [questions]);
-  const [assessmentId, setAssessmentId] = useState<string | undefined>(
-    initialState?.assessmentId,
-  );
-  const assessmentIdRef = useRef<string | undefined>(initialState?.assessmentId);
-  // Keep a ref in sync so the debounced save closure always reads the
-  // latest value — between the first answer (when the action returns a
-  // brand-new id) and the subsequent ones, state updates are batched
-  // and the closure would otherwise still see `undefined`.
-  useEffect(() => {
-    assessmentIdRef.current = assessmentId;
-  }, [assessmentId]);
 
-  const [answers, setAnswers] = useState<
-    Record<string, { answer: Answer; notes: string | null }>
-  >(initialState?.answers ?? {});
+  // C2 fix — pre-allocate the assessmentId synchronously on mount so
+  // two overlapping per-question saves both target the same draft.
+  // Without this, both timers fire with assessmentId=undefined, the
+  // action mints two UUIDs, and the projection creates two orphan
+  // drafts. With this, both timers send the same client UUID; the
+  // action's "row not found yet" path falls through to the projection's
+  // create-on-missing logic, materialising a single draft tied to the
+  // caller's practice.
+  const [assessmentId] = useState<string>(
+    () => initialState?.assessmentId ?? crypto.randomUUID(),
+  );
+
+  const [answers, setAnswers] = useState<Record<string, AnswerState>>(
+    initialState?.answers ?? {},
+  );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [isSaving, setIsSaving] = useState(false);
+  // I3 fix — counter, not boolean, so concurrent saves are tracked
+  // correctly. isSaving === pendingSavesCount > 0.
+  const [pendingSavesCount, setPendingSavesCount] = useState(0);
+  const isSaving = pendingSavesCount > 0;
   const [tab, setTab] = useState<Category>("ADMINISTRATIVE");
   const router = useRouter();
 
@@ -132,11 +151,11 @@ export function SraWizard({ questions, initialState }: SraWizardProps) {
         questionCode,
         setTimeout(() => {
           timersRef.current.delete(questionCode);
-          setIsSaving(true);
+          setPendingSavesCount((n) => n + 1);
           void (async () => {
             try {
               const result = await answerSraQuestionAction({
-                assessmentId: assessmentIdRef.current,
+                assessmentId,
                 questionCode,
                 answer: payload.answer,
                 notes: payload.notes,
@@ -145,21 +164,17 @@ export function SraWizard({ questions, initialState }: SraWizardProps) {
                 setError(result.error);
                 return;
               }
-              if (result.assessmentId !== assessmentIdRef.current) {
-                assessmentIdRef.current = result.assessmentId;
-                setAssessmentId(result.assessmentId);
-              }
               setError(null);
             } catch (err) {
               setError(err instanceof Error ? err.message : "Save failed");
             } finally {
-              setIsSaving(false);
+              setPendingSavesCount((n) => n - 1);
             }
           })();
         }, DEBOUNCE_MS),
       );
     },
-    [],
+    [assessmentId],
   );
 
   const setAnswer = useCallback(
@@ -169,7 +184,7 @@ export function SraWizard({ questions, initialState }: SraWizardProps) {
     ) => {
       setAnswers((prev) => {
         const existing = prev[code];
-        const merged = {
+        const merged: AnswerState = {
           answer: patch.answer ?? existing?.answer ?? null,
           notes: patch.notes !== undefined ? patch.notes : existing?.notes ?? null,
         };
@@ -182,12 +197,13 @@ export function SraWizard({ questions, initialState }: SraWizardProps) {
             notes: merged.notes,
           });
         }
+        // C1 fix — preserve the merged answer (which may be null).
+        // Do NOT fall back to "YES" here: a row with null answer must
+        // remain null so the submit gate, score, and payload don't
+        // silently treat a notes-only edit as a real YES answer.
         return {
           ...prev,
-          [code]: {
-            answer: merged.answer ?? "YES", // local default for type safety; only fires save if patch.answer set
-            notes: merged.notes,
-          },
+          [code]: merged,
         };
       });
     },
@@ -227,20 +243,35 @@ export function SraWizard({ questions, initialState }: SraWizardProps) {
         timersRef.current.forEach((t) => clearTimeout(t));
         timersRef.current.clear();
 
-        const result = await completeSraAction({
-          assessmentId: assessmentIdRef.current,
-          answers: questions.map((q) => ({
+        // C1 fix — gate the payload on truthy answer. The submit
+        // button is disabled until allAnswered (every row has a real
+        // Answer), so this filter should never drop anything; treat a
+        // null-leak here as a programmer error rather than fabricating
+        // a YES.
+        const completedAnswers = questions.map((q) => {
+          const a = answers[q.code];
+          if (!a?.answer) {
+            throw new Error(
+              `Cannot submit: question ${q.code} has no answer. (Submit should have been disabled.)`,
+            );
+          }
+          return {
             questionCode: q.code,
-            answer: answers[q.code]!.answer,
-            notes: answers[q.code]?.notes ?? null,
-          })),
+            answer: a.answer,
+            notes: a.notes ?? null,
+          };
+        });
+
+        const result = await completeSraAction({
+          assessmentId,
+          answers: completedAnswers,
         });
         router.push(`/programs/risk/${result.assessmentId}` as Route);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Submission failed");
       }
     });
-  }, [answers, questions, router]);
+  }, [answers, questions, router, assessmentId]);
 
   return (
     <Card>
@@ -294,9 +325,7 @@ export function SraWizard({ questions, initialState }: SraWizardProps) {
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
           <p className="text-[11px] text-muted-foreground">
-            {assessmentId
-              ? `Draft id ${assessmentId.slice(0, 8)}…`
-              : "No draft yet"}
+            {`Draft id ${assessmentId.slice(0, 8)}…`}
             {isSaving ? " — saving…" : ""}
           </p>
           <Button
@@ -316,7 +345,7 @@ export function SraWizard({ questions, initialState }: SraWizardProps) {
 
 interface CategoryQuestionsProps {
   questions: SraWizardQuestion[];
-  answers: Record<string, { answer: Answer; notes: string | null }>;
+  answers: Record<string, AnswerState>;
   onAnswer: (
     code: string,
     patch: Partial<{ answer: Answer; notes: string | null }>,
@@ -388,7 +417,7 @@ function CategoryQuestions({
 
 interface QuestionCardProps {
   question: SraWizardQuestion;
-  value: { answer: Answer; notes: string | null } | undefined;
+  value: AnswerState | undefined;
   onAnswer: (
     code: string,
     patch: Partial<{ answer: Answer; notes: string | null }>,
