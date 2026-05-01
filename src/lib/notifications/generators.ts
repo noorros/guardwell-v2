@@ -269,12 +269,30 @@ export async function generateCredentialRenewalNotifications(
 /**
  * Fires when a BAA has been sent to a vendor but not yet executed
  * (status === SENT or ACKNOWLEDGED) and the request is still active
- * (no rejectedAt). Severity escalates to WARNING after 7 days waiting.
+ * (no rejectedAt).
+ *
+ * This notification fires ONCE per BaaRequest (entityKey is keyed only on
+ * request id). The user gets one nudge when the digest first sees the
+ * pending BAA; subsequent digests dedup. If the BAA stays pending
+ * indefinitely, the user does NOT get repeated reminders — the dashboard
+ * signal (via the vendor list) is the persistent visibility.
+ *
+ * Severity is constant WARNING. An earlier draft escalated INFO → WARNING
+ * after 7 days waiting, but the entityKey lacked a tier component, so
+ * dedup would catch the INFO row and the WARNING escalation never reached
+ * the user. Single tier avoids that footgun.
  */
 export async function generateBaaSignaturePendingNotifications(
   tx: Prisma.TransactionClient,
   practiceId: string,
+  // userIds is the digest recipient pool, but this generator targets
+  // OWNER + ADMIN directly via PracticeUser query. Param kept for
+  // signature parity with the fan-in.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   userIds: string[],
+  // No date renders in this generator's body/title strings — kept for
+  // signature consistency with the rest of the generators.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   practiceTimezone: string,
 ): Promise<NotificationProposal[]> {
   const requests = await tx.baaRequest.findMany({
@@ -286,34 +304,23 @@ export async function generateBaaSignaturePendingNotifications(
     select: {
       id: true,
       vendorId: true,
-      sentAt: true,
       vendor: { select: { name: true } },
     },
   });
-  // Filter out admins via PracticeUser query
-  const admins = await tx.practiceUser.findMany({
-    where: { practiceId, role: { in: ["OWNER", "ADMIN"] }, removedAt: null },
-    select: { userId: true },
-  });
-  const adminUserIds = admins.map((a) => a.userId);
+  const adminUserIds = await ownerAdminUserIds(tx, practiceId);
   if (adminUserIds.length === 0) return [];
 
   const proposals: NotificationProposal[] = [];
   for (const r of requests) {
-    const sentDays = r.sentAt
-      ? Math.floor((Date.now() - r.sentAt.getTime()) / DAY_MS)
-      : null;
     const title = `BAA awaiting vendor signature: ${r.vendor.name}`;
-    const body =
-      sentDays !== null && sentDays > 7
-        ? `${r.vendor.name} has not yet signed the BAA (sent ${sentDays} day${sentDays === 1 ? "" : "s"} ago). Follow up via email.`
-        : `${r.vendor.name} hasn't yet signed the BAA. They should receive a token link.`;
+    const body = `${r.vendor.name} hasn't yet signed the BAA. They should receive a token link via email.`;
+    const severity: NotificationSeverity = "WARNING";
     for (const userId of adminUserIds) {
       proposals.push({
         userId,
         practiceId,
         type: "BAA_SIGNATURE_PENDING",
-        severity: sentDays !== null && sentDays > 7 ? "WARNING" : "INFO",
+        severity,
         title,
         body,
         href: "/programs/vendors",
@@ -326,10 +333,11 @@ export async function generateBaaSignaturePendingNotifications(
 
 /**
  * BAAs approaching expiry. Uses getEffectiveLeadTimes(reminderSettings,
- * "baa") for milestones (default [60, 30, 7]). Fires the smallest
- * unfired milestone — iteration is ascending so days=5 fires :7 (not
- * :60). Per-milestone entityKey ensures multiple cycles can fire over
- * time as the expiry approaches.
+ * "baa") for milestones (default [60, 30, 7]). Fires every crossed
+ * milestone (matches generateCredentialRenewalNotifications semantic):
+ * a vendor expiring in 5 days fires :7, :30, AND :60 — each a distinct
+ * notification keyed by milestone, so dedup catches re-fires across
+ * cron runs but every milestone gets a fresh nudge.
  *
  * Sources expiry from Vendor.baaExpiresAt (the canonical "BAA expires"
  * field on the vendor), not BaaRequest.expiresAt.
@@ -337,6 +345,10 @@ export async function generateBaaSignaturePendingNotifications(
 export async function generateBaaExpiringNotifications(
   tx: Prisma.TransactionClient,
   practiceId: string,
+  // userIds is the digest recipient pool, but this generator targets
+  // OWNER + ADMIN directly via PracticeUser query. Param kept for
+  // signature parity with the fan-in.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   userIds: string[],
   practiceTimezone: string,
   reminderSettings: unknown,
@@ -353,46 +365,40 @@ export async function generateBaaExpiringNotifications(
     },
     select: { id: true, name: true, baaExpiresAt: true },
   });
-  // Recipients: OWNER + ADMIN
-  const admins = await tx.practiceUser.findMany({
-    where: { practiceId, role: { in: ["OWNER", "ADMIN"] }, removedAt: null },
-    select: { userId: true },
-  });
-  const adminUserIds = admins.map((a) => a.userId);
+  const adminUserIds = await ownerAdminUserIds(tx, practiceId);
   if (adminUserIds.length === 0) return [];
-
-  // Fire smallest unfired milestone per cycle: iterate ascending so the
-  // tightest milestone wins. getEffectiveLeadTimes returns descending,
-  // so flip it here.
-  const ascendingMilestones = [...milestones].sort((a, b) => a - b);
 
   const proposals: NotificationProposal[] = [];
   for (const v of vendors) {
     if (!v.baaExpiresAt) continue;
     const days = daysUntil(v.baaExpiresAt);
     if (days === null) continue;
-    for (const m of ascendingMilestones) {
-      if (days <= m) {
-        const severity: NotificationSeverity =
-          days <= 0 ? "CRITICAL" : m <= 7 ? "WARNING" : "INFO";
-        const title =
-          days <= 0
-            ? `BAA with ${v.name} has expired`
-            : `BAA with ${v.name} expires in ${days} day${days === 1 ? "" : "s"}`;
-        const body = `The Business Associate Agreement with ${v.name} expires ${formatPracticeDate(v.baaExpiresAt, practiceTimezone)}. Renew before expiry to keep HIPAA_BAAS compliant.`;
-        for (const userId of adminUserIds) {
-          proposals.push({
-            userId,
-            practiceId,
-            type: "VENDOR_BAA_EXPIRING",
-            severity,
-            title,
-            body,
-            href: "/programs/vendors",
-            entityKey: `baa-expiring:${v.id}:${m}`,
-          });
-        }
-        break; // Only fire smallest unfired milestone (ascending iteration)
+    // Match generateCredentialRenewalNotifications: fire every milestone
+    // we're inside of (days <= m), one notification per (vendor, milestone)
+    // with a distinct entityKey. The (userId, type, entityKey) unique
+    // constraint dedups across digest runs.
+    const matchedMilestones = milestones.filter((m) => days <= m);
+    if (matchedMilestones.length === 0) continue;
+
+    for (const m of matchedMilestones) {
+      const severity: NotificationSeverity =
+        days <= 0 ? "CRITICAL" : m <= 7 ? "WARNING" : "INFO";
+      const title =
+        days <= 0
+          ? `BAA with ${v.name} has expired`
+          : `BAA with ${v.name} expires in ${days} day${days === 1 ? "" : "s"}`;
+      const body = `The Business Associate Agreement with ${v.name} expires ${formatPracticeDate(v.baaExpiresAt, practiceTimezone)}. Renew before expiry to keep HIPAA_BAAS compliant.`;
+      for (const userId of adminUserIds) {
+        proposals.push({
+          userId,
+          practiceId,
+          type: "VENDOR_BAA_EXPIRING",
+          severity,
+          title,
+          body,
+          href: "/programs/vendors",
+          entityKey: `baa-expiring:${v.id}:${m}`,
+        });
       }
     }
   }
@@ -408,6 +414,10 @@ export async function generateBaaExpiringNotifications(
 export async function generateBaaExecutedNotifications(
   tx: Prisma.TransactionClient,
   practiceId: string,
+  // userIds is the digest recipient pool, but this generator targets
+  // OWNER + ADMIN directly via PracticeUser query. Param kept for
+  // signature parity with the fan-in.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   userIds: string[],
   practiceTimezone: string,
 ): Promise<NotificationProposal[]> {
@@ -426,11 +436,7 @@ export async function generateBaaExecutedNotifications(
       vendor: { select: { name: true } },
     },
   });
-  const admins = await tx.practiceUser.findMany({
-    where: { practiceId, role: { in: ["OWNER", "ADMIN"] }, removedAt: null },
-    select: { userId: true },
-  });
-  const adminUserIds = admins.map((a) => a.userId);
+  const adminUserIds = await ownerAdminUserIds(tx, practiceId);
   if (adminUserIds.length === 0) return [];
 
   const proposals: NotificationProposal[] = [];
@@ -859,8 +865,13 @@ export async function generatePolicyAcknowledgmentPendingNotifications(
   tx: Prisma.TransactionClient,
   practiceId: string,
   // userIds is the digest recipient pool, but this generator targets the
-  // staff member directly. Kept for signature parity.
+  // staff member directly via the active-members query. Kept for
+  // signature parity with the fan-in.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   userIds: string[],
+  // No date renders in this generator's body/title strings — kept for
+  // signature consistency with the rest of the generators.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   practiceTimezone: string,
 ): Promise<NotificationProposal[]> {
   const policies = await tx.practicePolicy.findMany({

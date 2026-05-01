@@ -128,7 +128,7 @@ describe("generateBaaSignaturePendingNotifications", () => {
     expect(recipientIds.has(admin.id)).toBe(true);
     for (const p of proposals) {
       expect(p.type).toBe("BAA_SIGNATURE_PENDING");
-      expect(p.severity).toBe("INFO");
+      expect(p.severity).toBe("WARNING");
       expect(p.entityKey).toBe(`baa-signature-pending:${baa.id}`);
       expect(p.title).toContain("Acme Cloud");
       expect(p.href).toBe("/programs/vendors");
@@ -262,7 +262,11 @@ describe("generateBaaSignaturePendingNotifications", () => {
     expect(recipientIds.has(staff.id)).toBe(false);
   });
 
-  it("severity is WARNING when sentAt > 7 days ago, INFO when recent", async () => {
+  it("severity is WARNING regardless of sentDays (single tier)", async () => {
+    // The earlier sentDays-based tier (INFO ≤ 7d, WARNING > 7d) was dropped:
+    // entityKey is keyed only on request id, so a tier flip would dedup
+    // against the existing INFO row and the WARNING escalation would never
+    // reach the user. Single tier (WARNING) avoids that footgun.
     const { user: owner, practice } = await seedPracticeWithOwner("severity");
     const vendorOld = await seedVendor(practice.id, "Old Vendor");
     const vendorNew = await seedVendor(practice.id, "New Vendor");
@@ -297,8 +301,7 @@ describe("generateBaaSignaturePendingNotifications", () => {
     const oldProposal = proposals.find((p) => p.title.includes("Old Vendor"));
     const newProposal = proposals.find((p) => p.title.includes("New Vendor"));
     expect(oldProposal?.severity).toBe("WARNING");
-    expect(oldProposal?.body).toContain("Follow up");
-    expect(newProposal?.severity).toBe("INFO");
+    expect(newProposal?.severity).toBe("WARNING");
   });
 });
 
@@ -307,7 +310,7 @@ describe("generateBaaSignaturePendingNotifications", () => {
 // -------------------------------------------------------------------------
 
 describe("generateBaaExpiringNotifications", () => {
-  it("fires milestone 60 (smallest unfired) for a vendor BAA expiring in 50 days", async () => {
+  it("fires only :60 (the only crossed milestone) for a vendor BAA expiring in 50 days", async () => {
     const { user: owner, practice } = await seedPracticeWithOwner("exp-50d");
     // +1h buffer keeps Math.floor((50d+1h)/DAY_MS) = 50, not 49.
     const vendor = await seedVendor(practice.id, "Cloud 50d", {
@@ -325,6 +328,7 @@ describe("generateBaaExpiringNotifications", () => {
       ),
     );
 
+    // milestones [60, 30, 7]; days=50. filter(m => 50 <= m) → [60].
     expect(proposals).toHaveLength(1);
     const p = proposals[0];
     if (!p) throw new Error("expected one proposal");
@@ -335,7 +339,7 @@ describe("generateBaaExpiringNotifications", () => {
     expect(p.title).toContain("50 day");
   });
 
-  it("fires milestone 7 (smallest unfired) for a vendor BAA expiring in 5 days", async () => {
+  it("fires :60, :30, AND :7 for a vendor BAA expiring in 5 days (all crossed)", async () => {
     const { user: owner, practice } = await seedPracticeWithOwner("exp-5d");
     const vendor = await seedVendor(practice.id, "Cloud 5d", {
       processesPhi: true,
@@ -352,14 +356,46 @@ describe("generateBaaExpiringNotifications", () => {
       ),
     );
 
+    // milestones [60, 30, 7]; days=5. filter(m => 5 <= m) → [60, 30, 7].
+    expect(proposals).toHaveLength(3);
+    const entityKeys = new Set(proposals.map((p) => p.entityKey));
+    expect(entityKeys.has(`baa-expiring:${vendor.id}:60`)).toBe(true);
+    expect(entityKeys.has(`baa-expiring:${vendor.id}:30`)).toBe(true);
+    expect(entityKeys.has(`baa-expiring:${vendor.id}:7`)).toBe(true);
+    // Severity per milestone: m<=7 → WARNING, m>7 → INFO (days>0).
+    const sev7 = proposals.find((p) => p.entityKey?.endsWith(":7"))?.severity;
+    const sev30 = proposals.find((p) => p.entityKey?.endsWith(":30"))?.severity;
+    const sev60 = proposals.find((p) => p.entityKey?.endsWith(":60"))?.severity;
+    expect(sev7).toBe("WARNING");
+    expect(sev30).toBe("INFO");
+    expect(sev60).toBe("INFO");
+  });
+
+  it("fires only :60 for a vendor BAA expiring in 35 days", async () => {
+    const { user: owner, practice } = await seedPracticeWithOwner("exp-35d");
+    const vendor = await seedVendor(practice.id, "Cloud 35d", {
+      processesPhi: true,
+      baaExpiresAt: new Date(Date.now() + 35 * DAY_MS + HOUR_MS),
+    });
+
+    const proposals = await db.$transaction((tx) =>
+      generateBaaExpiringNotifications(
+        tx,
+        practice.id,
+        [owner.id],
+        "UTC",
+        null,
+      ),
+    );
+
+    // milestones [60, 30, 7]; days=35. filter(m => 35 <= m) → [60].
     expect(proposals).toHaveLength(1);
     const p = proposals[0];
     if (!p) throw new Error("expected one proposal");
-    expect(p.entityKey).toBe(`baa-expiring:${vendor.id}:7`);
-    expect(p.severity).toBe("WARNING");
+    expect(p.entityKey).toBe(`baa-expiring:${vendor.id}:60`);
   });
 
-  it("fires CRITICAL when the vendor BAA has expired (-1 day)", async () => {
+  it("fires CRITICAL on all 3 milestones when the vendor BAA has expired (-1 day)", async () => {
     const { user: owner, practice } = await seedPracticeWithOwner("exp-past");
     const vendor = await seedVendor(practice.id, "Expired Vendor", {
       processesPhi: true,
@@ -376,12 +412,17 @@ describe("generateBaaExpiringNotifications", () => {
       ),
     );
 
-    expect(proposals).toHaveLength(1);
-    const p = proposals[0];
-    if (!p) throw new Error("expected one proposal");
-    expect(p.severity).toBe("CRITICAL");
-    expect(p.title).toContain("expired");
-    expect(p.entityKey).toBe(`baa-expiring:${vendor.id}:7`);
+    // milestones [60, 30, 7]; days=-1. filter(m => -1 <= m) → [60, 30, 7].
+    // days<=0 forces severity CRITICAL on every milestone.
+    expect(proposals).toHaveLength(3);
+    for (const p of proposals) {
+      expect(p.severity).toBe("CRITICAL");
+      expect(p.title).toContain("expired");
+    }
+    const entityKeys = new Set(proposals.map((p) => p.entityKey));
+    expect(entityKeys.has(`baa-expiring:${vendor.id}:60`)).toBe(true);
+    expect(entityKeys.has(`baa-expiring:${vendor.id}:30`)).toBe(true);
+    expect(entityKeys.has(`baa-expiring:${vendor.id}:7`)).toBe(true);
   });
 
   it("does NOT fire for a vendor not processing PHI", async () => {
@@ -422,7 +463,7 @@ describe("generateBaaExpiringNotifications", () => {
       ),
     );
 
-    // ascending milestones [90, 120], days=100. days <= 90? No. days <= 120? Yes → fires :120.
+    // milestones [120, 90] (sorted desc); days=100. filter(m => 100 <= m) → [120].
     expect(proposals).toHaveLength(1);
     const p = proposals[0];
     if (!p) throw new Error("expected one proposal");
