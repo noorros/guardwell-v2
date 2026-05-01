@@ -37,21 +37,21 @@ in v3, extend the route handler.
   - Events: select `email.bounced` AND `email.complained`. Skip the
     analytics events (they generate volume but we don't act on them).
 - [ ] Copy the webhook signing secret from Resend (starts with `whsec_`).
-- [ ] Drop into Secret Manager:
+- [ ] **The `RESEND_WEBHOOK_SECRET` already exists in Secret Manager**
+      with a placeholder value (created during PR 9 ship to unblock the
+      build). Add a new version with the real Resend signing secret:
   ```bash
-  echo -n "whsec_..." | gcloud secrets create RESEND_WEBHOOK_SECRET \
+  echo -n "whsec_..." | gcloud secrets versions add RESEND_WEBHOOK_SECRET \
     --data-file=- --project=guardwell-prod
   ```
-- [ ] Mount on Cloud Run (the `--set-secrets` arg below MUST list every
-      secret; Cloud Run replaces, not merges):
+  `cloudbuild.yaml` already references `:latest`, so the next deploy
+  picks up the new version automatically. No Cloud Run service-update
+  command needed.
+- [ ] **Verify the secret value rotated** by checking the latest version:
   ```bash
-  gcloud run services update guardwell-v2 \
-    --region=us-central1 --project=guardwell-prod \
-    --update-secrets=RESEND_WEBHOOK_SECRET=RESEND_WEBHOOK_SECRET:latest
+  gcloud secrets versions access latest --secret=RESEND_WEBHOOK_SECRET
   ```
-- [ ] Confirm `RESEND_WEBHOOK_SECRET` is in `cloudbuild.yaml`'s
-      `--set-secrets` list (already added in Phase 7 PR 9 — verify
-      it survived the next deploy).
+  Should return your `whsec_...` string, not the placeholder.
 - [ ] Send a test email via the Resend dashboard, confirm delivery.
 - [ ] In the Resend dashboard, use **Send test webhook event** on the
       newly created webhook. Confirm a `200` response in Cloud Run logs
