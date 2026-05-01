@@ -25,6 +25,7 @@ beforeAll(async () => {
   // counts. afterEach below handles per-test cleanup.
   await db.regulatoryArticle.deleteMany();
   await db.regulatorySource.deleteMany();
+  await db.techAssessmentQuestion.deleteMany();
 });
 
 afterEach(async () => {
@@ -100,6 +101,17 @@ afterEach(async () => {
   await db.regulatoryAlert.deleteMany();
   await db.regulatoryArticle.deleteMany();
   await db.regulatorySource.deleteMany();
+  // Phase 5 (SRA / Tech Assessment / Risk / CAP): cleanup in FK-dependency
+  // order. CorrectiveActionEvidence first (FKs to CorrectiveAction +
+  // Evidence), then CorrectiveAction (FK to RiskItem + Practice), then
+  // RiskItem, then TechAssessmentAnswer (FK to TechAssessment +
+  // TechAssessmentQuestion), then TechAssessment.
+  // TechAssessmentQuestion is reference data (seeded); not wiped here.
+  await db.correctiveActionEvidence.deleteMany();
+  await db.correctiveAction.deleteMany();
+  await db.riskItem.deleteMany();
+  await db.techAssessmentAnswer.deleteMany();
+  await db.techAssessment.deleteMany();
   await db.practice.deleteMany();
   await db.user.deleteMany();
   // Phase 7 PR 9: EmailSuppression has no FK relations, so it can be

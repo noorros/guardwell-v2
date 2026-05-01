@@ -219,6 +219,22 @@ export const EVENT_TYPES = [
   // row is created by runRegulatoryAnalyze() directly inside the
   // src/lib/regulatory/ ALLOWED_PATH.
   "REGULATORY_ALERT_GENERATED",
+  // Phase 5 (SRA / Tech Assessment / Risk / CAP) — granular SRA save
+  // replaces the all-or-nothing SRA_DRAFT_SAVED for partial save
+  // support; SRA_SUBMITTED is the new finalize event (SRA_COMPLETED
+  // remains supported for backward compat with the legacy 20q flow).
+  // Tech Assessment mirrors SRA's two-event pattern. Risk + CAP have
+  // create / update / resolve events for full audit trail.
+  "SRA_QUESTION_ANSWERED",
+  "SRA_SUBMITTED",
+  "TECH_ASSESSMENT_QUESTION_ANSWERED",
+  "TECH_ASSESSMENT_SUBMITTED",
+  "RISK_ITEM_CREATED",
+  "RISK_ITEM_UPDATED",
+  "RISK_ITEM_RESOLVED",
+  "CORRECTIVE_ACTION_CREATED",
+  "CORRECTIVE_ACTION_STATUS_UPDATED",
+  "CORRECTIVE_ACTION_COMPLETED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -1715,6 +1731,81 @@ export const EVENT_SCHEMAS = {
       articleId: z.string().min(1),
       severity: z.enum(["INFO", "ADVISORY", "URGENT"]),
       matchedFrameworks: z.array(z.string()).max(20),
+    }),
+  },
+  SRA_QUESTION_ANSWERED: {
+    1: z.object({
+      assessmentId: z.string().min(1),
+      questionCode: z.string().min(1),
+      answer: z.enum(["YES", "NO", "PARTIAL", "NA"]),
+      notes: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  SRA_SUBMITTED: {
+    1: z.object({
+      assessmentId: z.string().min(1),
+      overallScore: z.number().int().min(0).max(100),
+      addressedCount: z.number().int().min(0),
+      totalCount: z.number().int().min(0),
+    }),
+  },
+  TECH_ASSESSMENT_QUESTION_ANSWERED: {
+    1: z.object({
+      assessmentId: z.string().min(1),
+      questionCode: z.string().min(1),
+      answer: z.enum(["YES", "NO", "PARTIAL", "NA"]),
+      notes: z.string().max(2000).nullable().optional(),
+    }),
+  },
+  TECH_ASSESSMENT_SUBMITTED: {
+    1: z.object({
+      assessmentId: z.string().min(1),
+      overallScore: z.number().int().min(0).max(100),
+      addressedCount: z.number().int().min(0),
+      totalCount: z.number().int().min(0),
+    }),
+  },
+  RISK_ITEM_CREATED: {
+    1: z.object({
+      riskItemId: z.string().min(1),
+      source: z.enum([
+        "SRA",
+        "TECHNICAL_ASSESSMENT",
+        "MANUAL",
+        "INCIDENT_FOLLOWUP",
+        "REGULATORY_ALERT",
+      ]),
+      severity: z.enum(["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]),
+    }),
+  },
+  RISK_ITEM_UPDATED: {
+    1: z.object({
+      riskItemId: z.string().min(1),
+      changedFields: z.array(z.string()).max(10),
+    }),
+  },
+  RISK_ITEM_RESOLVED: {
+    1: z.object({
+      riskItemId: z.string().min(1),
+      newStatus: z.enum(["MITIGATED", "ACCEPTED", "TRANSFERRED"]),
+    }),
+  },
+  CORRECTIVE_ACTION_CREATED: {
+    1: z.object({
+      capId: z.string().min(1),
+      riskItemId: z.string().nullable(),
+      sourceAlertId: z.string().nullable(),
+    }),
+  },
+  CORRECTIVE_ACTION_STATUS_UPDATED: {
+    1: z.object({
+      capId: z.string().min(1),
+      newStatus: z.enum(["PENDING", "IN_PROGRESS", "COMPLETED"]),
+    }),
+  },
+  CORRECTIVE_ACTION_COMPLETED: {
+    1: z.object({
+      capId: z.string().min(1),
     }),
   },
 } as const;
