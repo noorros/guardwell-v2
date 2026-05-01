@@ -169,6 +169,9 @@ model Practice {
   // Phase 8: per-practice regulatory alerts. One row per (practice, article)
   // where the article matched at least one of the practice's enabled frameworks.
   regulatoryAlerts        RegulatoryAlert[]
+  riskItems          RiskItem[]
+  correctiveActions  CorrectiveAction[]
+  techAssessments    TechAssessment[]
 
   @@index([primaryState])
   @@index([subscriptionStatus])
@@ -318,11 +321,45 @@ enum SraCategory {
   TECHNICAL
 }
 
+// Used by both PracticeSraAnswer (HIPAA SRA) and (Phase 5)
+// TechAssessmentAnswer. If a future answer literal is SRA-only,
+// branch this into a separate TechAnswer enum first — the schema
+// silently accepts new values across both consumers today.
 enum SraAnswer {
   YES
   NO
   PARTIAL
   NA
+}
+
+enum RiskItemSource {
+  SRA
+  TECHNICAL_ASSESSMENT
+  MANUAL
+  INCIDENT_FOLLOWUP
+  REGULATORY_ALERT
+}
+
+enum RiskItemStatus {
+  OPEN
+  MITIGATED
+  ACCEPTED
+  TRANSFERRED
+}
+
+enum CapStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum TechCategory {
+  NETWORK
+  ENDPOINT
+  CLOUD
+  ACCESS
+  MONITORING
+  BACKUP
 }
 
 // Reference data. Seeded via scripts/seed-sra.ts from the v1 question bank.
@@ -336,6 +373,18 @@ model SraQuestion {
   description String      @db.Text
   guidance    String?     @db.Text // what OCR looks for
   lookFor     String[] // practical checklist items
+  // Phase 5 — OCR §164 citation as a free-form short string
+  // (e.g. "§164.308(a)(1)(ii)(A)"). Surfaced under the question prompt.
+  citation    String?
+  // Phase 5 — risk weight for scoring (LOW=1, MEDIUM=2, HIGH=3 per the
+  // OCR Security Rule heatmap). Defaults to MEDIUM for backward compat
+  // with existing 20q seed. Used by sra/scoring.ts to compute
+  // weighted overallScore.
+  riskWeight  String      @default("MEDIUM") // LOW | MEDIUM | HIGH
+  // Phase 5 — flags questions ported from the v1 security_rule_2026
+  // category. Distributed into ADMIN/PHYSICAL/TECHNICAL by subject in
+  // PR 2's seed. Surfaced in module page extras filter.
+  cites2026   Boolean     @default(false)
   sortOrder   Int         @default(0)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -814,6 +863,160 @@ model PracticeSraAnswer {
 
   assessment PracticeSraAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   question   SraQuestion           @relation(fields: [questionId], references: [id])
+
+  @@unique([assessmentId, questionId])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Phase 5 — Risk Register + Corrective Action Plan (CAP) workflow
+// ────────────────────────────────────────────────────────────────────────────
+
+// One per identified compliance / security risk. Auto-created from
+// SRA + Technical Assessment NO/PARTIAL answers; can also be added
+// manually or follow up an incident.
+model RiskItem {
+  id                  String              @id @default(cuid())
+  practiceId          String
+  source              RiskItemSource
+  // For SRA-sourced rows: the SraQuestion.code that triggered creation.
+  // For TA-sourced rows: the TechAssessmentQuestion.code.
+  // Null for MANUAL or INCIDENT_FOLLOWUP. For MANUAL we use a synthetic
+  // unique sourceCode to avoid colliding on the unique constraint below.
+  sourceCode          String?
+  // For SRA-sourced rows: the PracticeSraAssessment.id.
+  // For TA-sourced rows: the TechAssessment.id.
+  // For REGULATORY_ALERT: the RegulatoryAlert.id.
+  sourceRefId         String?
+  category            String
+  severity            String              // INFO | LOW | MEDIUM | HIGH | CRITICAL
+  title               String
+  description         String              @db.Text
+  status              RiskItemStatus      @default(OPEN)
+  resolvedAt          DateTime?
+  resolvedByUserId    String?
+  // Notes added by admins reviewing the item (e.g. "accepted because
+  // controls offset the risk"). Not surfaced in compliance reports.
+  notes               String?             @db.Text
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  practice            Practice            @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  correctiveActions   CorrectiveAction[]
+
+  // CAVEAT: Postgres treats NULL as distinct in unique indexes, so this
+  // does NOT prevent two MANUAL rows where both sourceCode and
+  // sourceRefId are null. PR 5's createManualRiskItem enforces the
+  // synthetic-sourceCode policy ("MANUAL_<ts>_<rand>") to keep MANUAL
+  // rows distinct. Schema-level CHECK (source <> 'MANUAL' OR sourceCode
+  // IS NOT NULL) is a follow-up via cloudbuild script-runner since
+  // db push doesn't model raw CHECK constraints.
+  @@unique([practiceId, source, sourceCode, sourceRefId])
+  @@index([practiceId, status, createdAt])
+  @@index([practiceId, source, createdAt])
+}
+
+// Corrective action — a tracked remediation step. Most CAPs are tied to
+// a RiskItem; some (e.g. "Add to my CAP" on a regulatory alert) are
+// standalone — for those, riskItemId is null and sourceAlertId points
+// at the alert.
+model CorrectiveAction {
+  id                  String              @id @default(cuid())
+  practiceId          String
+  riskItemId          String?
+  sourceAlertId       String?             // RegulatoryAlert.id for alert-sourced CAPs
+  description         String              @db.Text
+  ownerUserId         String?
+  dueDate             DateTime?
+  status              CapStatus           @default(PENDING)
+  startedAt           DateTime?           // set on PENDING -> IN_PROGRESS
+  completedAt         DateTime?
+  completedByUserId   String?
+  notes               String?             @db.Text
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  practice            Practice            @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  riskItem            RiskItem?           @relation(fields: [riskItemId], references: [id], onDelete: SetNull)
+  evidenceLinks       CorrectiveActionEvidence[]
+
+  @@index([practiceId, status, dueDate])
+  @@index([practiceId, ownerUserId, status])
+  @@index([riskItemId])
+}
+
+// Many-to-many CorrectiveAction <-> Evidence join. Multiple CAPs can
+// share evidence, and one CAP can attach multiple evidence files.
+model CorrectiveActionEvidence {
+  capId             String
+  evidenceId        String
+  attachedAt        DateTime  @default(now())
+  attachedByUserId  String
+
+  cap         CorrectiveAction  @relation(fields: [capId], references: [id], onDelete: Cascade)
+  evidence    Evidence          @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+
+  @@id([capId, evidenceId])
+  @@index([capId])
+  @@index([evidenceId])
+}
+
+// Reference data — Tech Assessment question bank. Seeded via
+// scripts/seed-tech-assessment.ts in PR 2.
+model TechAssessmentQuestion {
+  id              String                  @id @default(cuid())
+  code            String                  @unique
+  category        TechCategory
+  title           String
+  description     String                  @db.Text
+  guidance        String?                 @db.Text
+  // Optional FK to an SRA question whose evidence chain this answer feeds.
+  sraQuestionCode String?
+  riskWeight      String                  @default("MEDIUM") // LOW | MEDIUM | HIGH
+  sortOrder       Int                     @default(0)
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  answers TechAssessmentAnswer[]
+
+  @@index([category, sortOrder])
+}
+
+// One per (practice, completion) of the 35-question Tech Assessment.
+// Optional shareable token for MSP delegation (post-launch UX; column
+// is wired now, public no-auth flow lands later).
+model TechAssessment {
+  id                  String                  @id @default(cuid())
+  practiceId          String
+  completedByUserId   String
+  completedAt         DateTime?
+  isDraft             Boolean                 @default(false)
+  currentStep         Int                     @default(0)
+  overallScore        Int                     @default(0)
+  addressedCount      Int                     @default(0)
+  totalCount          Int                     @default(0)
+  shareToken          String?                 @unique
+  shareTokenExpiresAt DateTime?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  practice            Practice                @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  answers             TechAssessmentAnswer[]
+
+  @@index([practiceId, completedAt])
+  @@index([practiceId, isDraft])
+  @@index([shareToken])
+}
+
+model TechAssessmentAnswer {
+  id            String                    @id @default(cuid())
+  assessmentId  String
+  questionId    String
+  // Same enum as SraAnswer — fully reuse to avoid a new type.
+  answer        SraAnswer
+  notes         String?                   @db.Text
+
+  assessment    TechAssessment            @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  question      TechAssessmentQuestion    @relation(fields: [questionId], references: [id])
 
   @@unique([assessmentId, questionId])
 }
@@ -2184,6 +2387,7 @@ model Evidence {
 
   ceuActivities CeuActivity[]
   baaRequests   BaaRequest[]
+  correctiveActionLinks CorrectiveActionEvidence[]
 
   @@index([practiceId, entityType, entityId])
   @@index([practiceId, status])

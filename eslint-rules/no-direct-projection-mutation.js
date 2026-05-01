@@ -57,6 +57,17 @@ const PROJECTION_TABLES = new Set([
   "regulatoryArticle",
   "regulatoryAlert",
   "alertAction",
+  // Phase 5 (SRA / Tech Assessment / Risk / CAP): event-projected tables
+  // for the risk register + corrective action plan workflow.
+  // TechAssessmentQuestion is reference data (seeded), but cron runs
+  // could update sortOrder; including here forces those edits to go
+  // through src/lib/risk/ which is in ALLOWED_PATHS.
+  "riskItem",
+  "correctiveAction",
+  "correctiveActionEvidence",
+  "techAssessment",
+  "techAssessmentAnswer",
+  "techAssessmentQuestion",
 ]);
 
 const MUTATING_METHODS = new Set([
@@ -85,6 +96,9 @@ const ALLOWED_PATHS = [
   // RegulatoryArticle + RegulatoryAlert + AlertAction end-to-end (ingest
   // cron, analyze cron, notify cron). Same precedent as notifications.
   "src/lib/regulatory/",
+  // Phase 5: risk register module owns RiskItem + CorrectiveAction +
+  // tech assessment writes. Same precedent as notifications + regulatory.
+  "src/lib/risk/",
   "tests/",
   // Co-located test directories (e.g. src/lib/ai/__tests__/...).
   "__tests__/",
