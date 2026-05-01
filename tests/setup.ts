@@ -88,4 +88,9 @@ afterEach(async () => {
   await db.practiceFramework.deleteMany();
   await db.practice.deleteMany();
   await db.user.deleteMany();
+  // Phase 7 PR 9: EmailSuppression has no FK relations, so it can be
+  // wiped at any point. Placed here at the bottom for symmetry; leaks
+  // from one test would otherwise let the next test's send path see
+  // stale "suppressed" rows.
+  await db.emailSuppression.deleteMany();
 });
