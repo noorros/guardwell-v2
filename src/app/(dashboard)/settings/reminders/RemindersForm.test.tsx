@@ -86,7 +86,7 @@ describe("<RemindersForm>", () => {
     expect(alert.textContent).toMatch(/fix the errors/i);
   });
 
-  it("blocks submit when a value is out of [1, 365]", async () => {
+  it("blocks submit when a value is out of [1, 1825]", async () => {
     render(<RemindersForm initialSettings={null} />);
     const user = userEvent.setup();
     const inputs = screen.getAllByRole("textbox") as HTMLInputElement[];
@@ -96,6 +96,36 @@ describe("<RemindersForm>", () => {
     await user.click(screen.getByRole("button", { name: /save reminders/i }));
     expect(saveMock).not.toHaveBeenCalled();
     expect(await screen.findByRole("alert")).toBeInTheDocument();
+  });
+
+  it("rejects values above the new 1825 boundary (I-2)", async () => {
+    render(<RemindersForm initialSettings={null} />);
+    const user = userEvent.setup();
+    const inputs = screen.getAllByRole("textbox") as HTMLInputElement[];
+    const cms = inputs.find((i) => i.name === "cmsEnrollment")!;
+    await user.clear(cms);
+    // 1826 is one above the new 1825 max -> form blocks submit.
+    await user.type(cms, "1826");
+    await user.click(screen.getByRole("button", { name: /save reminders/i }));
+    expect(saveMock).not.toHaveBeenCalled();
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/fix the errors/i);
+  });
+
+  it("accepts 1825 (5-year boundary, I-2)", async () => {
+    // 1825 is the new max — submitting it must pass client-side
+    // validation and reach the action. Covers the CMS Medicare 5-year
+    // revalidation use case.
+    render(<RemindersForm initialSettings={null} />);
+    const user = userEvent.setup();
+    const inputs = screen.getAllByRole("textbox") as HTMLInputElement[];
+    const cms = inputs.find((i) => i.name === "cmsEnrollment")!;
+    await user.clear(cms);
+    await user.type(cms, "1825, 365");
+    await user.click(screen.getByRole("button", { name: /save reminders/i }));
+    expect(saveMock).toHaveBeenCalledTimes(1);
+    const call = saveMock.mock.calls[0]![0];
+    expect(call.reminderSettings.cmsEnrollment).toEqual([1825, 365]);
   });
 
   it("Reset to defaults restores the default schedule for that section only", async () => {

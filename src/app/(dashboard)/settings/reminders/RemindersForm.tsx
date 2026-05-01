@@ -12,7 +12,9 @@
 //   - Form-level error in role="alert" so screen readers announce it
 //
 // Validation:
-//   - Comma-separated string -> number[] of integers in [1, 365]
+//   - Comma-separated string -> number[] of integers in [1, 1825]
+//   - 1825 (~5 years) is the upper bound so CMS Medicare/Medicaid 5-year
+//     revalidation can have a 1-year-out (or earlier) milestone.
 //   - Empty input is valid (means "use DEFAULT_LEAD_TIMES for this category")
 //   - Server-side Zod schema enforces the same bounds (defense in depth)
 
@@ -108,7 +110,7 @@ function parseMilestones(input: string): number[] | null {
     if (!/^-?\d+$/.test(part)) return null;
     const n = Number.parseInt(part, 10);
     if (!Number.isInteger(n)) return null;
-    if (n < 1 || n > 365) return null;
+    if (n < 1 || n > 1825) return null;
     result.push(n);
   }
   return result;
@@ -169,7 +171,7 @@ export function RemindersForm({ initialSettings }: RemindersFormProps) {
       const result = parseMilestones(values[c.key]);
       if (result === null) {
         newErrors[c.key] =
-          "Use comma-separated whole numbers between 1 and 365 (e.g. 90, 60, 30, 7).";
+          "Use comma-separated whole numbers between 1 and 1825 (~5 years), e.g. 90, 60, 30, 7.";
         continue;
       }
       // De-dup and sort descending so submitted state is canonical.
@@ -197,12 +199,13 @@ export function RemindersForm({ initialSettings }: RemindersFormProps) {
       return;
     }
     setErrors({});
-    // Build the payload: send EVERY category. Categories where the
-    // value matches the default + are non-empty get an explicit override
-    // (the user wanted to make the default-shape stick); categories the
-    // user explicitly cleared come through as []. The server diffs
-    // against the current row so unchanged categories don't trigger an
-    // event row.
+    // Build the payload: send EVERY category. The server filters out
+    // entries that exactly match DEFAULT_LEAD_TIMES (semantic: missing
+    // key in JSON = "follow current defaults"; explicit value =
+    // "override"). So a user clicking Save without editing anything
+    // ends up with reminderSettings === null in the column, not pinned
+    // to today's defaults forever. The server then diffs the filtered
+    // overrides against the existing row to avoid logging empty events.
     const reminderSettings: Record<LeadTimeCategory, number[]> = validation.parsed;
     startTransition(async () => {
       try {
