@@ -3,6 +3,12 @@
 // Wraps runLlm to score one article. Cost-guarded + fail-soft: if the
 // monthly budget is tripped or Claude throws, returns null so the caller
 // can skip without surfacing partial / hallucinated output.
+//
+// PHI handling: regulatory news articles are public press releases / RSS
+// items from HHS, OSHA, CMS, etc. — they don't contain patient
+// identifiers. allowPHI defaults to false on the LlmCall row. If a
+// future source ever surfaces PHI (e.g. an OCR breach narrative naming
+// affected individuals), revisit + set allowPHI: true here.
 
 import { runLlm } from "@/lib/ai";
 import { assertMonthlyCostBudget } from "@/lib/ai/costGuard";
@@ -13,7 +19,7 @@ import type {
 
 export async function analyzeArticle(
   input: RegulatoryRelevanceInput,
-  context: { practiceId: string; actorUserId: string },
+  context: { practiceId: string | null; actorUserId: string | null },
 ): Promise<RegulatoryRelevanceOutput | null> {
   try {
     await assertMonthlyCostBudget();

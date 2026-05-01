@@ -7,7 +7,6 @@
 
 import { db } from "@/lib/db";
 import { analyzeArticle } from "./analyzeArticle";
-import { getActiveFrameworksForPractice } from "./practiceFrameworks";
 import { ALL_FRAMEWORK_CODES, type FrameworkCode } from "./types";
 
 export interface AnalyzeRunSummary {
@@ -22,6 +21,16 @@ export interface AnalyzeRunSummary {
 }
 
 const ANALYZE_BATCH_LIMIT = 50;
+
+const KNOWN_CODES = new Set<string>(ALL_FRAMEWORK_CODES);
+
+function isUniqueViolation(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    "code" in err &&
+    (err as { code: string }).code === "P2002"
+  );
+}
 
 export async function runRegulatoryAnalyze(): Promise<AnalyzeRunSummary> {
   const summary: AnalyzeRunSummary = {
@@ -46,8 +55,27 @@ export async function runRegulatoryAnalyze(): Promise<AnalyzeRunSummary> {
   });
   summary.practicesScanned = practices.length;
 
-  const platformPracticeId = practices[0]?.id ?? "system";
-  const platformActorId = "system";
+  // Bulk-fetch every active PracticeFramework once before the article
+  // loop so the per-(article, practice) intersection check is a Map
+  // lookup instead of a DB query. At 50 articles × 100 practices that
+  // collapses 5,000 queries into one.
+  const enabledByPractice = new Map<string, FrameworkCode[]>();
+  if (practices.length > 0) {
+    const fwRows = await db.practiceFramework.findMany({
+      where: {
+        practiceId: { in: practices.map((p) => p.id) },
+        enabled: true,
+      },
+      select: { practiceId: true, framework: { select: { code: true } } },
+    });
+    for (const row of fwRows) {
+      const code = row.framework.code;
+      if (!KNOWN_CODES.has(code)) continue;
+      const list = enabledByPractice.get(row.practiceId) ?? [];
+      list.push(code as FrameworkCode);
+      enabledByPractice.set(row.practiceId, list);
+    }
+  }
 
   for (const article of articles) {
     try {
@@ -68,9 +96,13 @@ export async function runRegulatoryAnalyze(): Promise<AnalyzeRunSummary> {
         frameworks: [...ALL_FRAMEWORK_CODES],
       };
 
+      // Regulatory analyzer is a system-level call — no per-practice
+      // attribution. LlmCall.practiceId is nullable for exactly this.
+      // Passing null also avoids the lexically-first-practice cost-skew
+      // that an arbitrary platformPracticeId would create.
       const output = await analyzeArticle(analyzerInput, {
-        practiceId: platformPracticeId,
-        actorUserId: platformActorId,
+        practiceId: null,
+        actorUserId: null,
       });
 
       if (!output) {
@@ -81,15 +113,25 @@ export async function runRegulatoryAnalyze(): Promise<AnalyzeRunSummary> {
         continue;
       }
 
+      // Defense-in-depth: the output schema's framework enum accepts all
+      // 9 codes regardless of input, so a hallucinated entry would
+      // otherwise survive into the DB. Drop anything not in the input
+      // frameworks set.
       const relevantFrameworks = output.perFrameworkRelevance
+        .filter((r) => KNOWN_CODES.has(r.framework))
         .filter((r) => r.relevance === "MED" || r.relevance === "HIGH")
         .map((r) => r.framework);
 
+      // Partial-fan-out semantics: if a non-P2002 throw happens mid-loop
+      // (e.g. transient DB drop on practice 47/100), we still continue
+      // the loop AND mark the article analyzed at the end. Practices
+      // that didn't get an alert in this run will NOT retry — but every
+      // alert that DID land is unique by (practiceId, articleId), so we
+      // can never duplicate. The trade-off favors retry-safety over
+      // exhaustive fan-out.
       for (const practice of practices) {
-        const enabled = await getActiveFrameworksForPractice(practice.id);
-        const matched = relevantFrameworks.filter((f) =>
-          enabled.includes(f as FrameworkCode),
-        );
+        const enabled = enabledByPractice.get(practice.id) ?? [];
+        const matched = relevantFrameworks.filter((f) => enabled.includes(f));
         if (matched.length === 0) continue;
 
         try {
@@ -105,13 +147,8 @@ export async function runRegulatoryAnalyze(): Promise<AnalyzeRunSummary> {
           });
           summary.alertsCreated += 1;
         } catch (err) {
-          if (
-            err instanceof Error &&
-            "code" in err &&
-            (err as { code: string }).code === "P2002"
-          ) {
-            continue;
-          }
+          // P2002 = duplicate (practice, article) — silent on replay.
+          if (isUniqueViolation(err)) continue;
           summary.errors.push({
             articleId: article.id,
             practiceId: practice.id,
