@@ -166,6 +166,9 @@ model Practice {
   incidentStateAgNotifications IncidentStateAgNotification[]
   // Phase 4 PR 6 (BYOV): per-(user, course) video watch tracker.
   videoProgress           VideoProgress[]
+  // Phase 8: per-practice regulatory alerts. One row per (practice, article)
+  // where the article matched at least one of the practice's enabled frameworks.
+  regulatoryAlerts        RegulatoryAlert[]
 
   @@index([primaryState])
   @@index([subscriptionStatus])
@@ -477,6 +480,104 @@ model EmailSuppression {
   suppressedAt DateTime @default(now())
 
   @@index([reason, suppressedAt])
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Regulatory intelligence engine (Phase 8)
+// ────────────────────────────────────────────────────────────────────────────
+
+// One per ingestion target — RSS feed, atom feed, or scrape config.
+// Disabled sources are skipped by the daily ingest cron.
+model RegulatorySource {
+  id              String                @id @default(cuid())
+  name            String                // "HHS OCR Breach Portal"
+  url             String                @unique
+  feedType        String                // RSS | ATOM | SCRAPE
+  isActive        Boolean               @default(true)
+  // Optional CSS selector / scrape config for SCRAPE feedType. Null for RSS/ATOM.
+  scrapeConfig    Json?
+  // Frameworks this source typically covers — preliminary tags applied at
+  // ingest, refined per-article by the analyzer. Drives initial fan-out.
+  defaultFrameworks String[]            @default([])
+  lastIngestedAt  DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  articles        RegulatoryArticle[]
+
+  @@index([isActive, lastIngestedAt])
+}
+
+// One per article ingested. URL is unique to dedup across cron runs.
+// rawContent is the full article body (truncated to ~50KB to bound
+// downstream prompt token cost). summary is what the source feed
+// provided (often <500 chars).
+model RegulatoryArticle {
+  id              String              @id @default(cuid())
+  sourceId        String
+  title           String
+  url             String              @unique
+  summary         String?             @db.Text
+  rawContent      String?             @db.Text
+  publishDate     DateTime?
+  ingestedAt      DateTime            @default(now())
+  // Set by the analyzer cron after Claude has scored relevance per
+  // framework. Null = pending analysis.
+  analyzedAt      DateTime?
+  // Frameworks Claude judged relevant (relevance >= MED). Drives
+  // per-practice fan-out by intersection with PracticeFramework.enabled.
+  relevantFrameworks String[]         @default([])
+
+  source          RegulatorySource    @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  alerts          RegulatoryAlert[]
+
+  @@index([sourceId, ingestedAt])
+  @@index([analyzedAt])
+}
+
+// One per (article, practice) where the article matched at least one
+// of the practice's enabled frameworks. Created by the analyze cron.
+// Notification rows are derived from this in the notify cron.
+model RegulatoryAlert {
+  id                  String                  @id @default(cuid())
+  practiceId          String
+  articleId           String
+  alertBody           String                  @db.Text  // AI-generated practice-tailored summary
+  recommendedActions  String[]                @default([])  // up to 5 short action strings
+  severity            String                  // INFO | ADVISORY | URGENT
+  matchedFrameworks   String[]                @default([])  // intersection of article + practice frameworks
+  sentAt              DateTime?               // null until notify cron fires
+  acknowledgedAt      DateTime?
+  acknowledgedByUserId String?
+  dismissedAt         DateTime?
+  dismissedByUserId   String?
+  createdAt           DateTime                @default(now())
+
+  practice            Practice                @relation(fields: [practiceId], references: [id], onDelete: Cascade)
+  article             RegulatoryArticle       @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  actions             AlertAction[]
+
+  @@unique([practiceId, articleId])  // one alert per (practice, article)
+  @@index([practiceId, dismissedAt, createdAt])
+  @@index([practiceId, severity, createdAt])
+}
+
+// Optional follow-up actions added by admins on alert detail pages.
+// "Add to my CAP" creates one of these and ALSO creates a CorrectiveAction
+// row in Phase 5's CAP register (when Phase 5 ships; until then, AlertAction
+// stands alone).
+model AlertAction {
+  id                String        @id @default(cuid())
+  alertId           String
+  description       String
+  ownerUserId       String?
+  dueDate           DateTime?
+  completionStatus  String        @default("PENDING")  // PENDING | COMPLETED
+  createdAt         DateTime      @default(now())
+
+  alert             RegulatoryAlert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+
+  @@index([alertId])
 }
 
 // Team invitations. An OWNER/ADMIN invites an email with a role; the
