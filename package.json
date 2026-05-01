@@ -29,6 +29,7 @@
     "db:seed:credentials": "tsx scripts/seed-credentials.ts",
     "db:seed:sra": "tsx scripts/seed-sra.ts",
     "db:seed:state-overlays": "tsx scripts/seed-state-overlays.ts",
+    "db:seed:regulatory": "tsx scripts/seed-regulatory-sources.ts",
     "eval:concierge": "tsx scripts/eval-concierge.ts",
     "eval:weekly-digest": "tsx scripts/eval-weekly-digest.ts"
   },

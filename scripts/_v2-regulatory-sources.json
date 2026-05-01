@@ -1,0 +1,76 @@
+[
+  {
+    "name": "HHS OCR Breach Portal",
+    "url": "https://www.hhs.gov/ocr/newsroom/news/index.html.rss",
+    "feedType": "RSS",
+    "isActive": true,
+    "defaultFrameworks": ["HIPAA"]
+  },
+  {
+    "name": "OSHA News Releases",
+    "url": "https://www.osha.gov/news/newsreleases.rss",
+    "feedType": "RSS",
+    "isActive": true,
+    "defaultFrameworks": ["OSHA"]
+  },
+  {
+    "name": "HealthIT.gov News",
+    "url": "https://www.healthit.gov/buzz-blog/feed",
+    "feedType": "RSS",
+    "isActive": true,
+    "defaultFrameworks": ["HIPAA"]
+  },
+  {
+    "name": "AMA News",
+    "url": "https://www.ama-assn.org/rss/news.xml",
+    "feedType": "RSS",
+    "isActive": true,
+    "defaultFrameworks": ["HIPAA", "CMS", "MACRA"]
+  },
+  {
+    "name": "Becker's Hospital Review — Compliance",
+    "url": "https://www.beckershospitalreview.com/rss/compliance-issues.xml",
+    "feedType": "RSS",
+    "isActive": true,
+    "defaultFrameworks": ["HIPAA", "OSHA", "OIG", "CMS"]
+  },
+  {
+    "name": "HHS OIG Compliance Today",
+    "url": "https://oig.hhs.gov/compliance/compliance-resource-portal/",
+    "feedType": "SCRAPE",
+    "isActive": false,
+    "defaultFrameworks": ["OIG"],
+    "scrapeConfig": null
+  },
+  {
+    "name": "DEA Diversion Control News",
+    "url": "https://www.deadiversion.usdoj.gov/news/news_archives.htm",
+    "feedType": "SCRAPE",
+    "isActive": false,
+    "defaultFrameworks": ["DEA"],
+    "scrapeConfig": null
+  },
+  {
+    "name": "CMS Newsroom",
+    "url": "https://www.cms.gov/newsroom",
+    "feedType": "SCRAPE",
+    "isActive": false,
+    "defaultFrameworks": ["CMS"],
+    "scrapeConfig": null
+  },
+  {
+    "name": "California AG Privacy Notifications",
+    "url": "https://oag.ca.gov/privacy/databreach/list",
+    "feedType": "SCRAPE",
+    "isActive": false,
+    "defaultFrameworks": ["HIPAA"],
+    "scrapeConfig": null
+  },
+  {
+    "name": "AHA News",
+    "url": "https://www.aha.org/news/rss",
+    "feedType": "RSS",
+    "isActive": true,
+    "defaultFrameworks": ["HIPAA", "CMS"]
+  }
+]
