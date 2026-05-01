@@ -66,6 +66,12 @@ const ALLOWED_PATHS = [
   // projection callbacks — it IS a projection helper, just colocated with
   // the derivation rule registry for discoverability.
   "src/lib/compliance/derivation/",
+  // Notifications module owns the Notification + NotificationPreference
+  // tables end-to-end (digest writer, per-event firer, preference
+  // updates). They're "projection-shaped" rows but conceptually a
+  // separate concern from the event-sourced compliance projections —
+  // notifications are derived signals, not the system of record.
+  "src/lib/notifications/",
   "tests/",
   // Co-located test directories (e.g. src/lib/ai/__tests__/...).
   "__tests__/",

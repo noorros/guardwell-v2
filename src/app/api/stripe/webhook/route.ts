@@ -22,6 +22,7 @@ import {
   projectSubscriptionStatusChanged,
   projectPromoApplied,
 } from "@/lib/events/projections/subscriptionStatus";
+import { firePerEventNotification } from "@/lib/notifications/firePerEvent";
 
 // Stripe webhook payloads must be received as the raw body for signature
 // verification. Next.js 16 app router gives us req.text() for that.
@@ -66,6 +67,23 @@ async function findPracticeIdForSubscription(
     select: { id: true },
   });
   return p?.id ?? null;
+}
+
+/** Resolve OWNER + ADMIN user ids for a practice. Mirrors the
+ *  ownerAdminUserIds helper in src/lib/notifications/generators.ts but
+ *  takes the default db client instead of a transaction — webhook
+ *  handlers don't need to compose this read into the surrounding
+ *  appendEventAndApply transaction. */
+async function ownerAdminUserIdsFor(practiceId: string): Promise<string[]> {
+  const rows = await db.practiceUser.findMany({
+    where: {
+      practiceId,
+      removedAt: null,
+      role: { in: ["OWNER", "ADMIN"] },
+    },
+    select: { userId: true },
+  });
+  return rows.map((r) => r.userId);
 }
 
 export async function POST(req: NextRequest) {
@@ -337,6 +355,34 @@ async function handleSubscriptionDelta(event: Stripe.Event) {
         },
       }),
   );
+
+  // Phase 7 PR 5: customer.subscription.deleted → fire
+  // SUBSCRIPTION_CANCELED notifications for OWNER + ADMIN. The deleted
+  // event is the only delta variant that warrants an immediate nudge —
+  // other status changes (status updates, period changes) already flow
+  // through the in-app subscription banner without a per-recipient
+  // notification.
+  if (event.type === "customer.subscription.deleted") {
+    const adminIds = await ownerAdminUserIdsFor(practiceId);
+    const periodEndLabel = periodEnd
+      ? `Service continues through ${new Date(periodEnd).toUTCString()}.`
+      : "Service has ended.";
+    await Promise.all(
+      adminIds.map((userId) =>
+        firePerEventNotification({
+          practiceId,
+          userId,
+          type: "SUBSCRIPTION_CANCELED",
+          severity: "WARNING",
+          title: "Your GuardWell subscription was canceled",
+          body: `${periodEndLabel} To restore access, re-subscribe at /settings/subscription.`,
+          href: "/settings/subscription",
+          entityKey: `subscription-canceled:${subscription.id}`,
+          sendImmediately: true,
+        }),
+      ),
+    );
+  }
 }
 
 async function handleInvoicePaymentSucceeded(event: Stripe.Event) {
@@ -436,4 +482,57 @@ async function handleInvoicePaymentFailed(event: Stripe.Event) {
         },
       }),
   );
+
+  // Phase 7 PR 5: every payment failure fires SUBSCRIPTION_PAST_DUE for
+  // OWNER + ADMIN. On the SECOND consecutive failure (attempt_count >= 2)
+  // we additionally fire SUBSCRIPTION_BILLING_ISSUE — the second failure
+  // is the strongest "you are about to be canceled" signal we have.
+  // entityKey is keyed on invoice.id so each new dunning attempt fires a
+  // fresh notification (Stripe issues a new invoice when retrying).
+  const adminIds = await ownerAdminUserIdsFor(practiceId);
+  if (adminIds.length === 0) return;
+
+  const attempts = invoice.attempt_count ?? 1;
+  const failureWord = attempts === 1 ? "failure" : "failures";
+  const pastDueBody =
+    `Your most recent invoice was declined. To keep GuardWell active, ` +
+    `update your payment method at /settings/subscription. After ${attempts} ${failureWord}, ` +
+    `your subscription may be canceled if not resolved.`;
+
+  await Promise.all(
+    adminIds.map((userId) =>
+      firePerEventNotification({
+        practiceId,
+        userId,
+        type: "SUBSCRIPTION_PAST_DUE",
+        severity: "CRITICAL",
+        title: "Card declined — your GuardWell subscription is past due",
+        body: pastDueBody,
+        href: "/settings/subscription",
+        entityKey: `subscription-past-due:${invoice.id}`,
+        sendImmediately: true,
+      }),
+    ),
+  );
+
+  if (attempts >= 2) {
+    const billingBody =
+      `Multiple invoice payment attempts have failed. Update your payment ` +
+      `method at /settings/subscription before the subscription is canceled.`;
+    await Promise.all(
+      adminIds.map((userId) =>
+        firePerEventNotification({
+          practiceId,
+          userId,
+          type: "SUBSCRIPTION_BILLING_ISSUE",
+          severity: "WARNING",
+          title: "Repeated billing failures on your GuardWell account",
+          body: billingBody,
+          href: "/settings/subscription",
+          entityKey: `subscription-billing-issue:${invoice.id}`,
+          sendImmediately: true,
+        }),
+      ),
+    );
+  }
 }

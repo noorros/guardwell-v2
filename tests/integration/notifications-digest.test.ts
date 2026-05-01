@@ -79,7 +79,13 @@ describe("Notification digest", () => {
     });
     const summary = await runNotificationDigest();
     expect(summary.errors).toEqual([]);
-    expect(await ownerNotifications(user.id)).toHaveLength(0);
+    // Phase 7 PR 5: a freshly-seeded practice has a freshly-joined OWNER
+    // (joinedAt = now), so the WELCOME generator fires once. Filter it
+    // out — the assertion is "no compliance gaps", not "literally zero
+    // rows of any type".
+    const notes = await ownerNotifications(user.id);
+    const nonWelcome = notes.filter((n) => n.type !== "WELCOME");
+    expect(nonWelcome).toHaveLength(0);
   });
 
   it("Generates an SRA_DUE notification when there's no SRA on file", async () => {
