@@ -44,6 +44,13 @@ export const EVENT_TYPES = [
   "INVITATION_RESENT",
   "MEMBER_REMOVED",
   "PRACTICE_PROFILE_UPDATED",
+  // Phase 7 PR 8 — per-practice reminder lead-time overrides edited at
+  // /settings/reminders. Practice.reminderSettings is a Json column on
+  // the Practice root entity; the projection writes the new JSON value
+  // and the EventLog row IS the audit trail (changedCategories +
+  // before/after JSON snapshots). Distinct from
+  // CREDENTIAL_REMINDER_CONFIG_UPDATED which is per-credential.
+  "PRACTICE_REMINDER_SETTINGS_UPDATED",
   "TRACK_GENERATED",
   "TRACK_TASK_COMPLETED",
   "TRACK_TASK_REOPENED",
@@ -620,6 +627,19 @@ export const EVENT_SCHEMAS = {
     }),
     2: z.object({
       changedFields: z.array(z.string()),
+    }),
+  },
+  // Phase 7 PR 8 — /settings/reminders edits to Practice.reminderSettings.
+  // The EventLog row IS the audit trail (before/after JSON snapshots) so
+  // reviewers can reconstruct what each setting was at any point in time.
+  // changedCategories is denormalized so the activity feed can render
+  // "Updated reminders for credentials, training" without rehydrating both
+  // JSON blobs.
+  PRACTICE_REMINDER_SETTINGS_UPDATED: {
+    1: z.object({
+      changedCategories: z.array(z.string()).max(20),
+      beforeJson: z.unknown().nullable(),
+      afterJson: z.unknown().nullable(),
     }),
   },
   // Compliance Track auto-generation. Fired by generateTrackIfMissing
