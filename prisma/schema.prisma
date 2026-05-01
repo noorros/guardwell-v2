@@ -465,6 +465,20 @@ model NotificationPreference {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+// Phase 7 PR 9 — Resend bounce + complaint suppression list. The
+// webhook at /api/webhooks/resend writes here on bounce / complaint
+// events; sendEmail() reads here before each Resend call to avoid
+// repeatedly sending to known-bad addresses.
+model EmailSuppression {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  reason       String   // BOUNCE | COMPLAINT | UNSUBSCRIBE | MANUAL
+  resendId     String?  // Svix message id for audit trail
+  suppressedAt DateTime @default(now())
+
+  @@index([reason, suppressedAt])
+}
+
 // Team invitations. An OWNER/ADMIN invites an email with a role; the
 // invitation persists until accepted, revoked, or expired. Accept flow
 // creates a PracticeUser for the invitee on first sign-in.

@@ -5,8 +5,16 @@
 // credentials, emails land in the console and the send resolves as a
 // no-op success. Production sends require both RESEND_API_KEY and
 // EMAIL_FROM to be set in the runtime env.
+//
+// Phase 7 PR 9: every send is gated on a pre-flight EmailSuppression
+// check. The Resend webhook at /api/webhooks/resend writes rows on
+// bounce / complaint events; once an address is suppressed we skip
+// the API call entirely, returning the same delivered=false shape any
+// other failure uses. This avoids burning Resend reputation by
+// repeatedly mailing addresses that already hard-bounced.
 
 import { Resend } from "resend";
+import { isSuppressed } from "./suppression";
 
 interface SendInput {
   to: string;
@@ -37,6 +45,22 @@ function getClient(): Resend | null {
 
 export async function sendEmail(input: SendInput): Promise<SendResult> {
   const from = process.env.EMAIL_FROM ?? "GuardWell <no-reply@gwcomp.com>";
+
+  // Pre-send suppression gate. Cheap single-key SELECT; if an address
+  // is on the denylist we skip the Resend API call entirely. This is
+  // the entire point of the bounce webhook — repeatedly mailing a
+  // hard-bounced address tanks our sender reputation.
+  if (await isSuppressed(input.to)) {
+    console.log(
+      `[email:suppressed] to=${input.to} subject="${input.subject}"`,
+    );
+    return {
+      delivered: false,
+      providerId: null,
+      reason: "recipient suppressed",
+    };
+  }
+
   const client = getClient();
 
   if (!client) {
