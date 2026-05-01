@@ -31,6 +31,11 @@ import {
   conciergeChatInputSchema,
   conciergeChatOutputSchema,
 } from "./prompts/concierge-chat";
+import {
+  NOTIFICATION_WEEKLY_DIGEST_SYSTEM,
+  notificationWeeklyDigestInputSchema,
+  notificationWeeklyDigestOutputSchema,
+} from "./prompts/notificationWeeklyDigest";
 
 export interface PromptDef<
   TIn extends z.ZodTypeAny = z.ZodTypeAny,
@@ -97,6 +102,18 @@ export const PROMPTS = {
     toolName: "concierge_chat_v1", // unused by streaming runtime but required by the PromptDef type
     toolDescription: "Concierge final-output tool (eval-only path).",
     maxTokens: 4096,
+  },
+  "notification.weekly-digest.v1": {
+    id: "notification.weekly-digest.v1",
+    version: 1,
+    model: "claude-sonnet-4-6",
+    system: NOTIFICATION_WEEKLY_DIGEST_SYSTEM,
+    inputSchema: notificationWeeklyDigestInputSchema,
+    outputSchema: notificationWeeklyDigestOutputSchema,
+    toolName: "notification_weekly_digest_v1",
+    toolDescription:
+      "Return the weekly notification digest summary paragraph plus an optional top-action call-out.",
+    maxTokens: 768,
   },
 } as const satisfies Record<string, PromptDef>;
 
