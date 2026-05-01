@@ -1,13 +1,25 @@
 // src/lib/events/projections/techAssessmentSubmitted.ts
 //
 // Phase 5 PR 4 — flips the Tech Assessment draft to completed and
-// stamps the score. PR 5 will extend this projection to also auto-
-// create RiskItem rows for every NO/PARTIAL answer; for now we just
-// promote the draft.
+// stamps the score.
+//
+// Phase 5 PR 5 — also auto-creates RiskItem rows from every NO/PARTIAL
+// answer in the completed assessment. Unlike SRA, there is no legacy
+// projection for Tech Assessment, so this projection owns BOTH the
+// draft promotion AND the risk register feed.
+//
+// skipDuplicates handles replay: the @@unique([practiceId, source,
+// sourceCode, sourceRefId]) constraint on RiskItem dedupes on
+// (TECHNICAL_ASSESSMENT, questionCode, assessmentId).
 
 import type { Prisma } from "@prisma/client";
 import type { PayloadFor } from "../registry";
 import { assertProjectionPracticeOwned } from "./guards";
+import {
+  generateRiskItemsFromAnswers,
+  type AnswerWithMeta,
+} from "@/lib/risk/autoGenerate";
+import type { RiskWeight } from "@/lib/risk/types";
 
 type Payload = PayloadFor<"TECH_ASSESSMENT_SUBMITTED", 1>;
 
@@ -47,5 +59,55 @@ export async function projectTechAssessmentSubmitted(
       addressedCount: payload.addressedCount,
       totalCount: payload.totalCount,
     },
+  });
+
+  // Phase 5 PR 5 — feed the risk register. Pull saved answers with
+  // question metadata, map to AnswerWithMeta, generate proposals,
+  // createMany with skipDuplicates so replays don't duplicate.
+  const answerRows = await tx.techAssessmentAnswer.findMany({
+    where: { assessmentId: payload.assessmentId },
+    include: {
+      question: {
+        select: {
+          code: true,
+          title: true,
+          description: true,
+          category: true,
+          riskWeight: true,
+        },
+      },
+    },
+  });
+
+  const answers: AnswerWithMeta[] = answerRows.map((r) => ({
+    questionCode: r.question.code,
+    answer: r.answer,
+    riskWeight: r.question.riskWeight as RiskWeight,
+    title: r.question.title,
+    description: r.question.description,
+    category: r.question.category,
+  }));
+
+  const proposals = generateRiskItemsFromAnswers(
+    practiceId,
+    payload.assessmentId,
+    answers,
+    "TECHNICAL_ASSESSMENT",
+  );
+
+  if (proposals.length === 0) return;
+
+  await tx.riskItem.createMany({
+    data: proposals.map((p) => ({
+      practiceId: p.practiceId,
+      source: p.source,
+      sourceCode: p.sourceCode,
+      sourceRefId: p.sourceRefId,
+      category: p.category,
+      severity: p.severity,
+      title: p.title,
+      description: p.description,
+    })),
+    skipDuplicates: true,
   });
 }

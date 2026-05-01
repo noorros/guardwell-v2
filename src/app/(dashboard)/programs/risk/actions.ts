@@ -99,11 +99,11 @@ export async function completeSraAction(
     async (tx) => projectSraCompleted(tx, { practiceId: pu.practiceId, payload }),
   );
 
-  // Phase 5 — also emit SRA_SUBMITTED with the same totals so new
-  // projections (auto-RiskItem creation in PR 5) can listen to one
-  // event without re-processing the legacy SRA_COMPLETED schema. The
-  // SRA_SUBMITTED projection is currently a no-op; SRA_COMPLETED is
-  // still the source of truth for flipping isDraft + rederiving HIPAA_SRA.
+  // Phase 5 — emit SRA_SUBMITTED alongside SRA_COMPLETED. The pair
+  // splits the submit-time work: SRA_COMPLETED stays the source of
+  // truth for flipping isDraft + rederiving HIPAA_SRA (legacy 20q
+  // compat). SRA_SUBMITTED owns the auto-RiskItem fan-out (PR 5)
+  // without re-processing the legacy SRA_COMPLETED projection.
   const submittedPayload = {
     assessmentId,
     overallScore,
