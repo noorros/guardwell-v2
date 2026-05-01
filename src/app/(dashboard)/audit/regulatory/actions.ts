@@ -36,7 +36,7 @@ const toggleSourceSchema = z.object({
 
 export type RegulatoryActionResult = { ok: true } | { ok: false; error: string };
 export type AddAlertToCapResult =
-  | { ok: true; actionId: string }
+  | { ok: true; actionId: string; capId: string }
   | { ok: false; error: string };
 
 export async function acknowledgeAlertAction(
@@ -96,7 +96,10 @@ export async function addAlertToCapAction(
       { ownerUserId: pu.userId, dueDate },
     );
     revalidatePath(`/audit/regulatory/${parsed.alertId}`);
-    return { ok: true, actionId: result.id };
+    // Phase 5 PR 6 — fan-out also created a CorrectiveAction; refresh
+    // the risk dashboard so the new CAP shows in the CAP timeline.
+    revalidatePath("/programs/risk");
+    return { ok: true, actionId: result.id, capId: result.capId };
   } catch (err) {
     return {
       ok: false,

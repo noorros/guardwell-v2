@@ -87,17 +87,18 @@ export default async function RiskPage({
       where: { practiceId: pu.practiceId, isDraft: true },
       orderBy: { updatedAt: "desc" },
     }),
+    // Phase 5 PR 6 — CAP tab now renders the full timeline (including
+    // COMPLETED rows). Sort moves to the client (CapTab does its own
+    // OVERDUE-first/dueDate-asc/createdAt-desc grouping).
     db.correctiveAction.findMany({
-      where: {
-        practiceId: pu.practiceId,
-        status: { not: "COMPLETED" },
-      },
-      orderBy: { dueDate: "asc" },
-      take: 100,
+      where: { practiceId: pu.practiceId },
+      orderBy: { createdAt: "desc" },
+      take: 200,
     }),
   ]);
 
   const openRiskCount = riskItems.filter((r) => r.status === "OPEN").length;
+  const openCapCount = caps.filter((c) => c.status !== "COMPLETED").length;
 
   // Hydrate the register view-model. Dates -> ISO strings so the client
   // component can render without re-receiving Date objects (which Next
@@ -139,7 +140,7 @@ export default async function RiskPage({
           </TabsTrigger>
           <TabsTrigger value="sra">SRA</TabsTrigger>
           <TabsTrigger value="tech">Tech Assessment</TabsTrigger>
-          <TabsTrigger value="cap">CAP ({caps.length})</TabsTrigger>
+          <TabsTrigger value="cap">CAP ({openCapCount})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="register">
@@ -177,7 +178,18 @@ export default async function RiskPage({
         </TabsContent>
 
         <TabsContent value="cap">
-          <CapTab caps={caps.map((c) => ({ id: c.id, status: c.status }))} />
+          <CapTab
+            caps={caps.map((c) => ({
+              id: c.id,
+              description: c.description,
+              status: c.status,
+              dueDate: c.dueDate,
+              createdAt: c.createdAt,
+              ownerUserId: c.ownerUserId,
+              riskItemId: c.riskItemId,
+              sourceAlertId: c.sourceAlertId,
+            }))}
+          />
         </TabsContent>
       </Tabs>
     </main>
