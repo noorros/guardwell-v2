@@ -2255,6 +2255,80 @@ export async function generateDocumentDestructionOverdueNotifications(
   return proposals;
 }
 
+// ---------------------------------------------------------------------------
+// Phase 7 PR 5: welcome + system-broadcast generators
+// ---------------------------------------------------------------------------
+//
+// generateWelcomeNotifications fires once per newly-added PracticeUser
+// (joinedAt within the past day). entityKey scopes to PracticeUser.id so
+// re-adding a user (new PracticeUser row, even if same userId) re-fires.
+//
+// generateSystemNotifications is a no-op stub for now. The
+// SYSTEM_NOTIFICATION enum value is reserved for an admin-broadcast UI
+// that lands in a future phase — wiring it into the fan-in here keeps
+// the surface in lock-step with the enum definition.
+
+/**
+ * Welcome new PracticeUsers added in the last 24h. Single INFO-severity
+ * row per user. The 1-day window is intentional — if the digest cron is
+ * broken for >1d, missed welcome notifications stay missed (we'd rather
+ * skip them than spam a now-week-old new hire). entityKey is keyed on
+ * the PracticeUser.id (not userId) so a user who leaves and rejoins
+ * gets a fresh welcome.
+ */
+export async function generateWelcomeNotifications(
+  tx: Prisma.TransactionClient,
+  practiceId: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _userIds: string[],
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _practiceTimezone: string,
+): Promise<NotificationProposal[]> {
+  const cutoff = new Date(Date.now() - DAY_MS);
+  const newMembers = await tx.practiceUser.findMany({
+    where: {
+      practiceId,
+      joinedAt: { gte: cutoff },
+      removedAt: null,
+    },
+    select: { id: true, userId: true },
+  });
+  if (newMembers.length === 0) return [];
+
+  return newMembers.map((m) => ({
+    userId: m.userId,
+    practiceId,
+    type: "WELCOME" as NotificationType,
+    severity: "INFO" as NotificationSeverity,
+    title: "Welcome to GuardWell!",
+    body: "We're glad to have you on the team. Visit your dashboard to see what compliance tasks are assigned to you.",
+    href: "/dashboard",
+    entityKey: `welcome:${m.id}`,
+  }));
+}
+
+/**
+ * SYSTEM_NOTIFICATION skeleton. No production firing path yet — the
+ * admin-broadcast UI lands in a future phase. Wired into the fan-in so
+ * the enum surface and generator surface stay aligned; returns an empty
+ * array unconditionally for now.
+ */
+export async function generateSystemNotifications(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _tx: Prisma.TransactionClient,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _practiceId: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _userIds: string[],
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _practiceTimezone: string,
+): Promise<NotificationProposal[]> {
+  // TODO(future-phase): admin broadcast UI lands later. For now, this is
+  // a no-op stub so the SYSTEM_NOTIFICATION enum value is wired into the
+  // fan-in without any production firing path.
+  return [];
+}
+
 /**
  * Aggregate all generators for a practice. Order doesn't affect
  * uniqueness (dedup runs on insert), but sorting keeps the digest email
@@ -2294,6 +2368,8 @@ export async function generateAllNotifications(
     phishingDrill,
     backupVerification,
     documentDestruction,
+    welcome,
+    system,
   ] = await Promise.all([
     generateSraNotifications(tx, practiceId, userIds, practiceTimezone),
     generateCredentialNotifications(tx, practiceId, userIds, practiceTimezone),
@@ -2320,6 +2396,8 @@ export async function generateAllNotifications(
     generatePhishingDrillDueNotifications(tx, practiceId, userIds, practiceTimezone),
     generateBackupVerificationOverdueNotifications(tx, practiceId, userIds, practiceTimezone),
     generateDocumentDestructionOverdueNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateWelcomeNotifications(tx, practiceId, userIds, practiceTimezone),
+    generateSystemNotifications(tx, practiceId, userIds, practiceTimezone),
   ]);
   return [
     ...sra,
@@ -2347,5 +2425,7 @@ export async function generateAllNotifications(
     ...phishingDrill,
     ...backupVerification,
     ...documentDestruction,
+    ...welcome,
+    ...system,
   ];
 }
