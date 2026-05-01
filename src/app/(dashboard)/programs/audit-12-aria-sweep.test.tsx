@@ -25,6 +25,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/app/(dashboard)/programs/risk/actions", () => ({
   saveSraDraftAction: vi.fn(),
   completeSraAction: vi.fn(),
+  answerSraQuestionAction: vi.fn(),
 }));
 
 vi.mock("@/app/(dashboard)/programs/incidents/actions", () => ({
@@ -81,22 +82,32 @@ const AXE_OPTS = {
 
 const SRA_QUESTIONS: SraWizardQuestion[] = [
   {
+    id: "q1",
     code: "ADMIN_001",
     category: "ADMINISTRATIVE",
     subcategory: "Risk Management",
+    sortOrder: 10,
+    riskWeight: "HIGH",
     title: "Risk analysis",
     description: "Have you conducted an annual risk analysis?",
     guidance: null,
     lookFor: ["Documented analysis", "Updated within last 12 months"],
+    citation: "§164.308(a)(1)(ii)(A)",
+    cites2026: false,
   },
   {
+    id: "q2",
     code: "ADMIN_002",
     category: "ADMINISTRATIVE",
     subcategory: "Workforce Security",
+    sortOrder: 20,
+    riskWeight: "MEDIUM",
     title: "Workforce sanctions policy",
     description: "Sanction policy for workforce members who violate HIPAA?",
     guidance: null,
     lookFor: [],
+    citation: null,
+    cites2026: false,
   },
 ];
 
@@ -114,9 +125,12 @@ describe("Audit #12 ARIA / form labelling sweep", () => {
           questions={SRA_QUESTIONS}
           initialState={{
             assessmentId: "asmt-1",
-            currentStep: 0,
-            answers: { ADMIN_001: "YES" },
-            notes: { ADMIN_001: "Documented in /docs/sra.pdf" },
+            answers: {
+              ADMIN_001: {
+                answer: "YES",
+                notes: "Documented in /docs/sra.pdf",
+              },
+            },
           }}
         />,
       );

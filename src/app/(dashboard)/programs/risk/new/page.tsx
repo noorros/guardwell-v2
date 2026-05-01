@@ -25,13 +25,18 @@ export default async function NewSraPage({
     db.sraQuestion.findMany({
       orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
       select: {
+        id: true,
         code: true,
         category: true,
         subcategory: true,
+        sortOrder: true,
+        riskWeight: true,
         title: true,
         description: true,
         guidance: true,
         lookFor: true,
+        citation: true,
+        cites2026: true,
       },
     }),
     sp.draftId
@@ -48,17 +53,16 @@ export default async function NewSraPage({
 
   let initialState: SraWizardInitialState | undefined;
   if (draft) {
-    const answerMap: Record<string, Answer> = {};
-    const noteMap: Record<string, string> = {};
+    const answerMap: Record<string, { answer: Answer; notes: string | null }> = {};
     for (const a of draft.answers) {
-      answerMap[a.question.code] = a.answer as Answer;
-      if (a.notes) noteMap[a.question.code] = a.notes;
+      answerMap[a.question.code] = {
+        answer: a.answer as Answer,
+        notes: a.notes ?? null,
+      };
     }
     initialState = {
       assessmentId: draft.id,
-      currentStep: draft.currentStep,
       answers: answerMap,
-      notes: noteMap,
     };
   }
 
@@ -95,13 +99,18 @@ export default async function NewSraPage({
 
       <SraWizard
         questions={questions.map((q) => ({
+          id: q.id,
           code: q.code,
           category: q.category,
           subcategory: q.subcategory,
+          sortOrder: q.sortOrder,
+          riskWeight: q.riskWeight as "LOW" | "MEDIUM" | "HIGH",
           title: q.title,
           description: q.description,
           guidance: q.guidance,
           lookFor: q.lookFor,
+          citation: q.citation,
+          cites2026: q.cites2026,
         }))}
         initialState={initialState}
       />
