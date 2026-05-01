@@ -46,6 +46,24 @@ export default async function NotificationSettingsPage() {
               digestEnabled: prefs?.digestEnabled ?? true,
               criticalAlertsEnabled: prefs?.criticalAlertsEnabled ?? true,
               emailEnabled: prefs?.emailEnabled ?? true,
+              cadence:
+                (prefs?.cadence as
+                  | "INSTANT"
+                  | "DAILY"
+                  | "WEEKLY"
+                  | "NONE"
+                  | undefined) ?? "DAILY",
+              digestDay:
+                (prefs?.digestDay as
+                  | "MON"
+                  | "TUE"
+                  | "WED"
+                  | "THU"
+                  | "FRI"
+                  | "SAT"
+                  | "SUN"
+                  | undefined) ?? "MON",
+              digestTime: prefs?.digestTime ?? "08:00",
             }}
           />
         </CardContent>

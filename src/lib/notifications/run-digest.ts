@@ -23,6 +23,7 @@ import {
   type NotificationProposal,
 } from "./generators";
 import { composeDigestEmail } from "./compose-digest";
+import { getEffectivePreferences } from "./preferences";
 
 export interface DigestRunSummary {
   practicesScanned: number;
@@ -66,7 +67,30 @@ export async function runNotificationDigest(): Promise<DigestRunSummary> {
         },
       });
       if (members.length === 0) continue;
-      const userIds = members.map((m) => m.userId);
+
+      // Phase 7 PR 7 — cadence routing. Look up each member's effective
+      // preference once and keep only DAILY-cadence members for this run:
+      //   * WEEKLY users are served by runWeeklyNotificationDigest.
+      //   * INSTANT users get critical events real-time via
+      //     firePerEventNotification — no daily inbox accumulation.
+      //   * NONE users opted out entirely.
+      // Filtering at the generator step (not just the email loop) keeps
+      // the inbox aligned with the user's chosen cadence.
+      const memberPrefs = new Map<
+        string,
+        ReturnType<typeof getEffectivePreferences>
+      >();
+      for (const m of members) {
+        const pref = await db.notificationPreference.findUnique({
+          where: { userId: m.userId },
+        });
+        memberPrefs.set(m.userId, getEffectivePreferences(pref));
+      }
+      const dailyMembers = members.filter(
+        (m) => memberPrefs.get(m.userId)?.cadence === "DAILY",
+      );
+      if (dailyMembers.length === 0) continue;
+      const userIds = dailyMembers.map((m) => m.userId);
 
       // Generators run in a read-only pass through the transaction.
       // We don't need a transaction here — just a shared client — but
@@ -104,13 +128,12 @@ export async function runNotificationDigest(): Promise<DigestRunSummary> {
 
       // Send digest per user. Skip users with digest disabled or email
       // disabled. Skip users with zero unread notifications — no point
-      // mailing an empty digest.
-      for (const m of members) {
-        const prefs = await db.notificationPreference.findUnique({
-          where: { userId: m.userId },
-        });
-        const digestEnabled = prefs?.digestEnabled ?? true;
-        const emailEnabled = prefs?.emailEnabled ?? true;
+      // mailing an empty digest. Cadence was already filtered above; we
+      // only loop dailyMembers here.
+      for (const m of dailyMembers) {
+        const effective = memberPrefs.get(m.userId);
+        const digestEnabled = effective?.digestEnabled ?? true;
+        const emailEnabled = effective?.emailEnabled ?? true;
         if (!digestEnabled || !emailEnabled) continue;
 
         const unread = await db.notification.findMany({

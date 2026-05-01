@@ -1,0 +1,10 @@
+{
+  "input": {
+    "practiceName": "Test Practice",
+    "userRole": "OWNER",
+    "notifications": [],
+    "scoreChange": null
+  },
+  "expectedSubstrings": ["Test Practice"],
+  "forbiddenSubstrings": []
+}

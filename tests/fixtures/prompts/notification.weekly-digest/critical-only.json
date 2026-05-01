@@ -1,0 +1,12 @@
+{
+  "input": {
+    "practiceName": "Critical Practice",
+    "userRole": "OWNER",
+    "notifications": [
+      { "title": "Card declined", "severity": "CRITICAL", "type": "SUBSCRIPTION_PAST_DUE", "body": "Your card was declined - update payment method to avoid service interruption" }
+    ],
+    "scoreChange": null
+  },
+  "expectedSubstrings": ["Critical Practice", "card"],
+  "forbiddenSubstrings": []
+}
