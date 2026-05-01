@@ -367,19 +367,21 @@ async function handleSubscriptionDelta(event: Stripe.Event) {
     const periodEndLabel = periodEnd
       ? `Service continues through ${new Date(periodEnd).toUTCString()}.`
       : "Service has ended.";
-    for (const userId of adminIds) {
-      await firePerEventNotification({
-        practiceId,
-        userId,
-        type: "SUBSCRIPTION_CANCELED",
-        severity: "WARNING",
-        title: "Your GuardWell subscription was canceled",
-        body: `${periodEndLabel} To restore access, re-subscribe at /settings/subscription.`,
-        href: "/settings/subscription",
-        entityKey: `subscription-canceled:${subscription.id}`,
-        sendImmediately: true,
-      });
-    }
+    await Promise.all(
+      adminIds.map((userId) =>
+        firePerEventNotification({
+          practiceId,
+          userId,
+          type: "SUBSCRIPTION_CANCELED",
+          severity: "WARNING",
+          title: "Your GuardWell subscription was canceled",
+          body: `${periodEndLabel} To restore access, re-subscribe at /settings/subscription.`,
+          href: "/settings/subscription",
+          entityKey: `subscription-canceled:${subscription.id}`,
+          sendImmediately: true,
+        }),
+      ),
+    );
   }
 }
 
@@ -497,36 +499,40 @@ async function handleInvoicePaymentFailed(event: Stripe.Event) {
     `update your payment method at /settings/subscription. After ${attempts} ${failureWord}, ` +
     `your subscription may be canceled if not resolved.`;
 
-  for (const userId of adminIds) {
-    await firePerEventNotification({
-      practiceId,
-      userId,
-      type: "SUBSCRIPTION_PAST_DUE",
-      severity: "CRITICAL",
-      title: "Card declined — your GuardWell subscription is past due",
-      body: pastDueBody,
-      href: "/settings/subscription",
-      entityKey: `subscription-past-due:${invoice.id}`,
-      sendImmediately: true,
-    });
-  }
+  await Promise.all(
+    adminIds.map((userId) =>
+      firePerEventNotification({
+        practiceId,
+        userId,
+        type: "SUBSCRIPTION_PAST_DUE",
+        severity: "CRITICAL",
+        title: "Card declined — your GuardWell subscription is past due",
+        body: pastDueBody,
+        href: "/settings/subscription",
+        entityKey: `subscription-past-due:${invoice.id}`,
+        sendImmediately: true,
+      }),
+    ),
+  );
 
   if (attempts >= 2) {
     const billingBody =
       `Multiple invoice payment attempts have failed. Update your payment ` +
       `method at /settings/subscription before the subscription is canceled.`;
-    for (const userId of adminIds) {
-      await firePerEventNotification({
-        practiceId,
-        userId,
-        type: "SUBSCRIPTION_BILLING_ISSUE",
-        severity: "WARNING",
-        title: "Repeated billing failures on your GuardWell account",
-        body: billingBody,
-        href: "/settings/subscription",
-        entityKey: `subscription-billing-issue:${invoice.id}`,
-        sendImmediately: true,
-      });
-    }
+    await Promise.all(
+      adminIds.map((userId) =>
+        firePerEventNotification({
+          practiceId,
+          userId,
+          type: "SUBSCRIPTION_BILLING_ISSUE",
+          severity: "WARNING",
+          title: "Repeated billing failures on your GuardWell account",
+          body: billingBody,
+          href: "/settings/subscription",
+          entityKey: `subscription-billing-issue:${invoice.id}`,
+          sendImmediately: true,
+        }),
+      ),
+    );
   }
 }

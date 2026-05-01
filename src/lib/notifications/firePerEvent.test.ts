@@ -109,13 +109,8 @@ describe("firePerEventNotification", () => {
     const first = await firePerEventNotification(args);
     expect(first.notificationId).not.toBeNull();
 
-    // Force the createdAt back > 5 seconds so the helper's
-    // "isNew" detection treats the second call as a replay.
-    await db.notification.update({
-      where: { id: first.notificationId! },
-      data: { createdAt: new Date(Date.now() - 60_000) },
-    });
-
+    // Second call hits the unique-constraint catch path (P2002) — no
+    // test-side scaffolding required, the DB enforces dedup directly.
     const second = await firePerEventNotification(args);
     expect(second.notificationId).toBeNull();
     expect(second.emailAttempted).toBe(false);

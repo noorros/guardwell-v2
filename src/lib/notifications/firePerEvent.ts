@@ -8,15 +8,26 @@
 // on (userId, type, entityKey)) and best-effort sends an email
 // immediately when `sendImmediately: true`.
 //
-// Replay safety: when a Stripe webhook is delivered twice, the upsert's
-// (userId, type, entityKey) unique constraint dedups the row. We treat
-// "row already existed" as "already nudged this user" and skip the email
-// send. This stacks on top of appendEventAndApply's idempotencyKey
-// guarantee (Stripe event id-keyed) for two-layer protection.
+// Replay safety: when a Stripe webhook is delivered twice, we attempt a
+// plain `create` and catch Prisma's P2002 (unique constraint) on
+// (userId, type, entityKey). A caught P2002 means "row already existed"
+// — we treat that as "already nudged this user" and skip the email send.
+// This stacks on top of appendEventAndApply's idempotencyKey guarantee
+// (Stripe event id-keyed) for two-layer protection.
+//
+// Why try-create / catch-P2002 instead of upsert? An upsert always
+// returns the row but provides no signal about whether it was newly
+// inserted. We previously inferred "newly inserted" from a 5-second
+// createdAt delta, which is fragile under DB latency. The try-create
+// pattern is exact: a successful create means new, a P2002 means dedup.
 
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email/send";
-import type { NotificationType, NotificationSeverity } from "@prisma/client";
+import type {
+  NotificationType,
+  NotificationSeverity,
+  Prisma,
+} from "@prisma/client";
 
 export interface FireArgs {
   practiceId: string;
@@ -33,8 +44,8 @@ export interface FireArgs {
 }
 
 export interface FireResult {
-  /** The new Notification row id, or null when the upsert hit an
-   *  existing row (replay / second fire for the same entityKey). */
+  /** The new Notification row id, or null when the create raised P2002
+   *  (replay / second fire for the same entityKey). */
   notificationId: string | null;
   emailAttempted: boolean;
   emailDelivered: boolean;
@@ -50,36 +61,41 @@ export async function firePerEventNotification(
   };
 
   // Idempotent insert via the (userId, type, entityKey) unique constraint.
-  // Prisma generates the compound key name from the columns:
-  // userId_type_entityKey. The entityKey column is nullable, but the
-  // upsert's where clause cannot use null directly — we coerce null to
-  // empty string (consistent with run-digest.ts's existing dedup keying).
-  const created = await db.notification.upsert({
-    where: {
-      userId_type_entityKey: {
+  // We attempt a plain `create` and let the DB enforce dedup; a P2002
+  // error means the (userId, type, entityKey) tuple already exists and
+  // we treat the call as a replay.
+  let notification: { id: string } | null = null;
+  let isNew = false;
+  try {
+    notification = await db.notification.create({
+      data: {
+        practiceId: args.practiceId,
         userId: args.userId,
         type: args.type,
-        entityKey: args.entityKey ?? "",
+        severity: args.severity,
+        title: args.title,
+        body: args.body,
+        href: args.href,
+        entityKey: args.entityKey,
       },
-    },
-    update: {}, // no-op on conflict — existing row stays as-is
-    create: {
-      practiceId: args.practiceId,
-      userId: args.userId,
-      type: args.type,
-      severity: args.severity,
-      title: args.title,
-      body: args.body,
-      href: args.href,
-      entityKey: args.entityKey,
-    },
-  });
+      select: { id: true },
+    });
+    isNew = true;
+  } catch (err) {
+    // P2002 = unique constraint violation. (userId, type, entityKey) row
+    // already exists — treat as a replay/dedup and fall through.
+    if (
+      err instanceof Error &&
+      "code" in err &&
+      (err as Prisma.PrismaClientKnownRequestError).code === "P2002"
+    ) {
+      isNew = false;
+    } else {
+      throw err;
+    }
+  }
 
-  // upsert always returns the row. To detect "newly inserted vs existing"
-  // (so we don't double-email on replay), check createdAt: a fresh row
-  // was created in this call if it's within the last 5 seconds.
-  const isNew = Date.now() - created.createdAt.getTime() < 5_000;
-  result.notificationId = isNew ? created.id : null;
+  result.notificationId = isNew && notification ? notification.id : null;
 
   if (!isNew || !args.sendImmediately) return result;
 
@@ -100,8 +116,10 @@ export async function firePerEventNotification(
     });
     result.emailDelivered = emailResult.delivered;
     if (emailResult.delivered) {
+      // isNew = true implies notification !== null (the create succeeded
+      // before isNew was set). Non-null assertion is safe here.
       await db.notification.update({
-        where: { id: created.id },
+        where: { id: notification!.id },
         data: { sentViaEmailAt: new Date() },
       });
     }
