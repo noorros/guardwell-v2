@@ -13,6 +13,10 @@ import { Breadcrumb } from "@/components/gw/Breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPracticeDate } from "@/lib/audit/format";
+import {
+  regulatorySeverityBadgeVariant,
+  regulatorySeverityLabel,
+} from "@/lib/regulatory/types";
 import { AlertActions } from "../AlertActions";
 
 export const metadata = { title: "Regulatory alert · Audit" };
@@ -20,18 +24,6 @@ export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: Promise<{ alertId: string }>;
-}
-
-function severityVariant(
-  severity: string,
-): "default" | "destructive" | "secondary" {
-  if (severity === "URGENT") return "destructive";
-  if (severity === "ADVISORY") return "default";
-  return "secondary";
-}
-
-function severityLabel(severity: string): string {
-  return severity.charAt(0) + severity.slice(1).toLowerCase();
 }
 
 export default async function RegulatoryAlertDetailPage({ params }: PageProps) {
@@ -79,10 +71,10 @@ export default async function RegulatoryAlertDetailPage({ params }: PageProps) {
           </h1>
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <Badge
-              variant={severityVariant(alert.severity)}
+              variant={regulatorySeverityBadgeVariant(alert.severity)}
               className="text-[10px]"
             >
-              {severityLabel(alert.severity)}
+              {regulatorySeverityLabel(alert.severity)}
             </Badge>
             {alert.matchedFrameworks.map((fw) => (
               <Badge key={fw} variant="outline" className="text-[10px]">

@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   ALL_FRAMEWORK_CODES,
+  regulatorySeverityBadgeVariant,
+  regulatorySeverityLabel,
   type FrameworkCode,
   type Severity,
 } from "@/lib/regulatory/types";
@@ -33,19 +35,6 @@ const KNOWN_FRAMEWORKS = new Set<string>(ALL_FRAMEWORK_CODES);
 
 type StatusFilter = "active" | "dismissed" | "all";
 const KNOWN_STATUSES = new Set<StatusFilter>(["active", "dismissed", "all"]);
-
-function severityVariant(severity: string): "default" | "destructive" | "secondary" {
-  // URGENT = destructive (red), ADVISORY = default (primary), INFO = secondary.
-  // Mirrors the visual weight implied by REGULATORY_TO_NOTIFICATION_SEVERITY
-  // (URGENT → CRITICAL, ADVISORY → WARNING, INFO → INFO).
-  if (severity === "URGENT") return "destructive";
-  if (severity === "ADVISORY") return "default";
-  return "secondary";
-}
-
-function severityLabel(severity: string): string {
-  return severity.charAt(0) + severity.slice(1).toLowerCase();
-}
 
 interface SearchParams {
   severity?: string;
@@ -196,7 +185,7 @@ export default async function RegulatoryAlertsPage({
                       page: 1,
                     })}
                   >
-                    {severityLabel(sev)}
+                    {regulatorySeverityLabel(sev)}
                   </Link>
                 </Button>
               );
@@ -298,10 +287,10 @@ export default async function RegulatoryAlertsPage({
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge
-                        variant={severityVariant(a.severity)}
+                        variant={regulatorySeverityBadgeVariant(a.severity)}
                         className="text-[10px]"
                       >
-                        {severityLabel(a.severity)}
+                        {regulatorySeverityLabel(a.severity)}
                       </Badge>
                       {a.matchedFrameworks.map((fw) => (
                         <Badge

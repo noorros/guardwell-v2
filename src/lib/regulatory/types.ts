@@ -40,6 +40,25 @@ export const REGULATORY_TO_NOTIFICATION_SEVERITY: Record<
   URGENT: "CRITICAL",
 };
 
+// Shadcn <Badge> variant + display label for a RegulatoryAlert.severity
+// value. Lives here (not duplicated across list + detail pages) so the
+// visual weight stays consistent and a future severity tier change
+// (e.g. introducing CRITICAL distinct from URGENT) is a one-file edit.
+export function regulatorySeverityBadgeVariant(
+  severity: string,
+): "default" | "destructive" | "secondary" {
+  // URGENT = destructive (red), ADVISORY = default (primary), INFO = secondary.
+  // Visual weight matches REGULATORY_TO_NOTIFICATION_SEVERITY (URGENT →
+  // CRITICAL, ADVISORY → WARNING, INFO → INFO).
+  if (severity === "URGENT") return "destructive";
+  if (severity === "ADVISORY") return "default";
+  return "secondary";
+}
+
+export function regulatorySeverityLabel(severity: string): string {
+  return severity.charAt(0) + severity.slice(1).toLowerCase();
+}
+
 export type FeedType = "RSS" | "ATOM" | "SCRAPE";
 
 export interface ParsedArticle {

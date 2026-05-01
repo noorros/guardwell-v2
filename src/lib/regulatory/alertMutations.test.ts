@@ -115,9 +115,42 @@ describe("dismissAlert", () => {
     expect(after?.acknowledgedAt).toBeNull();
     expect(after?.acknowledgedByUserId).toBeNull();
   });
+
+  it("throws 'Cross-tenant access denied' when practiceId mismatches the alert", async () => {
+    const a = await seedAlert("dismiss-cross-a");
+    const b = await seedAlert("dismiss-cross-b");
+
+    await expect(
+      dismissAlert(b.alert.id, a.practice.id, a.user.id),
+    ).rejects.toThrow(/Cross-tenant access denied/);
+
+    const after = await db.regulatoryAlert.findUnique({
+      where: { id: b.alert.id },
+    });
+    expect(after?.dismissedAt).toBeNull();
+    expect(after?.dismissedByUserId).toBeNull();
+  });
 });
 
 describe("addAlertActionToAlert", () => {
+  it("throws 'Cross-tenant access denied' when practiceId mismatches the alert", async () => {
+    const a = await seedAlert("action-cross-a");
+    const b = await seedAlert("action-cross-b");
+
+    await expect(
+      addAlertActionToAlert(
+        b.alert.id,
+        a.practice.id,
+        "Should not persist",
+      ),
+    ).rejects.toThrow(/Cross-tenant access denied/);
+
+    const rows = await db.alertAction.findMany({
+      where: { alertId: b.alert.id },
+    });
+    expect(rows).toHaveLength(0);
+  });
+
   it("creates an AlertAction row and returns its id", async () => {
     const { user, practice, alert } = await seedAlert("action-create");
 

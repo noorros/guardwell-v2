@@ -81,6 +81,11 @@ export async function addAlertToCapAction(
   try {
     const pu = await requireRole("ADMIN");
     const parsed = addToCapSchema.parse(input);
+    // Anchor YYYY-MM-DD inputs at noon UTC so they round-trip as the
+    // same calendar day across all U.S. timezones (UTC-12 to UTC-4).
+    // Caveat: practices in zones >= +12 (Auckland, Fiji, Kiribati) will
+    // see the date shift forward by one day. v2 user base is U.S.-only
+    // at launch; revisit if international expansion lands.
     const dueDate = parsed.dueDate
       ? new Date(`${parsed.dueDate}T12:00:00.000Z`)
       : null;
