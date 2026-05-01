@@ -6,7 +6,9 @@
 // enabled.
 
 import { db } from "@/lib/db";
-import type { FrameworkCode } from "./types";
+import { ALL_FRAMEWORK_CODES, type FrameworkCode } from "./types";
+
+const KNOWN_CODES = new Set<string>(ALL_FRAMEWORK_CODES);
 
 export async function getActiveFrameworksForPractice(
   practiceId: string,
@@ -16,18 +18,6 @@ export async function getActiveFrameworksForPractice(
     select: { framework: { select: { code: true } } },
   });
   return rows
-    .map((r) => r.framework.code as FrameworkCode)
-    .filter((c) =>
-      [
-        "HIPAA",
-        "OSHA",
-        "OIG",
-        "DEA",
-        "CMS",
-        "CLIA",
-        "MACRA",
-        "TCPA",
-        "ALLERGY",
-      ].includes(c),
-    );
+    .map((r) => r.framework.code)
+    .filter((c): c is FrameworkCode => KNOWN_CODES.has(c));
 }

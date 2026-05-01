@@ -13,9 +13,17 @@ export type FrameworkCode =
   | "TCPA"
   | "ALLERGY";
 
-export const ALL_FRAMEWORK_CODES: FrameworkCode[] = [
-  "HIPAA", "OSHA", "OIG", "DEA", "CMS", "CLIA", "MACRA", "TCPA", "ALLERGY",
-];
+export const ALL_FRAMEWORK_CODES = [
+  "HIPAA",
+  "OSHA",
+  "OIG",
+  "DEA",
+  "CMS",
+  "CLIA",
+  "MACRA",
+  "TCPA",
+  "ALLERGY",
+] as const satisfies readonly FrameworkCode[];
 
 export type Severity = "INFO" | "ADVISORY" | "URGENT";
 
