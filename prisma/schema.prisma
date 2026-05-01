@@ -321,6 +321,10 @@ enum SraCategory {
   TECHNICAL
 }
 
+// Used by both PracticeSraAnswer (HIPAA SRA) and (Phase 5)
+// TechAssessmentAnswer. If a future answer literal is SRA-only,
+// branch this into a separate TechAnswer enum first — the schema
+// silently accepts new values across both consumers today.
 enum SraAnswer {
   YES
   NO
@@ -899,6 +903,13 @@ model RiskItem {
   practice            Practice            @relation(fields: [practiceId], references: [id], onDelete: Cascade)
   correctiveActions   CorrectiveAction[]
 
+  // CAVEAT: Postgres treats NULL as distinct in unique indexes, so this
+  // does NOT prevent two MANUAL rows where both sourceCode and
+  // sourceRefId are null. PR 5's createManualRiskItem enforces the
+  // synthetic-sourceCode policy ("MANUAL_<ts>_<rand>") to keep MANUAL
+  // rows distinct. Schema-level CHECK (source <> 'MANUAL' OR sourceCode
+  // IS NOT NULL) is a follow-up via cloudbuild script-runner since
+  // db push doesn't model raw CHECK constraints.
   @@unique([practiceId, source, sourceCode, sourceRefId])
   @@index([practiceId, status, createdAt])
   @@index([practiceId, source, createdAt])
@@ -960,7 +971,7 @@ model TechAssessmentQuestion {
   guidance        String?                 @db.Text
   // Optional FK to an SRA question whose evidence chain this answer feeds.
   sraQuestionCode String?
-  riskWeight      String                  @default("MEDIUM")
+  riskWeight      String                  @default("MEDIUM") // LOW | MEDIUM | HIGH
   sortOrder       Int                     @default(0)
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
@@ -986,7 +997,7 @@ model TechAssessment {
   shareToken          String?                 @unique
   shareTokenExpiresAt DateTime?
   createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @default(now()) @updatedAt
+  updatedAt           DateTime                @updatedAt
 
   practice            Practice                @relation(fields: [practiceId], references: [id], onDelete: Cascade)
   answers             TechAssessmentAnswer[]
