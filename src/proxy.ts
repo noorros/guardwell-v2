@@ -26,6 +26,14 @@ const PUBLIC_ROUTES = [
   // check, which is the actual auth gate.
   "/api/cron",
   "/api/notifications/digest/run",
+  // Phase 7 PR 7 (added retroactively in PR 9 — the route was created
+  // but its proxy entry was missed; without it the cron-secret check
+  // inside the handler is unreachable because the auth-cookie middleware
+  // 401s first).
+  "/api/notifications/digest-weekly/run",
+  // Phase 7 PR 9 — Resend bounce/complaint webhook. PUBLIC by design;
+  // security relies on the Svix signature check inside the handler.
+  "/api/webhooks/resend",
 ];
 
 const TOKEN_COOKIE = "fb-token";
