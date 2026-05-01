@@ -48,6 +48,15 @@ const PROJECTION_TABLES = new Set([
   // writes outside the events module would let a runaway path drop
   // existing progress on the floor.
   "videoProgress",
+  // Phase 8 (Regulatory intel): the 4 regulatory engine tables.
+  // RegulatorySource is reference-data (seeded), but the ingest cron
+  // updates lastIngestedAt on each run; that mutation belongs in
+  // src/lib/regulatory/ which is in ALLOWED_PATHS. RegulatoryArticle,
+  // RegulatoryAlert, and AlertAction are all projection-shaped writes.
+  "regulatorySource",
+  "regulatoryArticle",
+  "regulatoryAlert",
+  "alertAction",
 ]);
 
 const MUTATING_METHODS = new Set([
@@ -72,6 +81,10 @@ const ALLOWED_PATHS = [
   // separate concern from the event-sourced compliance projections —
   // notifications are derived signals, not the system of record.
   "src/lib/notifications/",
+  // Phase 8: regulatory intelligence module owns RegulatorySource +
+  // RegulatoryArticle + RegulatoryAlert + AlertAction end-to-end (ingest
+  // cron, analyze cron, notify cron). Same precedent as notifications.
+  "src/lib/regulatory/",
   "tests/",
   // Co-located test directories (e.g. src/lib/ai/__tests__/...).
   "__tests__/",

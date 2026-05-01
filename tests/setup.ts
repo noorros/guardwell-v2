@@ -86,6 +86,15 @@ afterEach(async () => {
   await db.practiceUser.deleteMany();
   await db.complianceItem.deleteMany();
   await db.practiceFramework.deleteMany();
+  // Phase 8 (Regulatory intel): the 4 regulatory engine tables. Order
+  // matters — alertAction → regulatoryAlert → regulatoryArticle →
+  // regulatorySource (FK dependency chain). regulatoryAlert.practiceId
+  // cascades on practice delete, but explicit deletes keep test setup
+  // deterministic (parallels other Phase 4/7 projections above).
+  await db.alertAction.deleteMany();
+  await db.regulatoryAlert.deleteMany();
+  await db.regulatoryArticle.deleteMany();
+  await db.regulatorySource.deleteMany();
   await db.practice.deleteMany();
   await db.user.deleteMany();
   // Phase 7 PR 9: EmailSuppression has no FK relations, so it can be

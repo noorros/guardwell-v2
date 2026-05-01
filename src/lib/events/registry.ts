@@ -213,6 +213,12 @@ export const EVENT_TYPES = [
   // (~360 events per user per 1-hour video at the 10s cadence) — could
   // be batched to 60s if EventLog growth becomes an issue.
   "TRAINING_VIDEO_WATCHED",
+  // Phase 8 PR 1 — Regulatory intelligence engine. Emitted when the
+  // analyzer cron creates a RegulatoryAlert row for a (practice, article)
+  // pair. Audit-trail event; the projection is a no-op since the alert
+  // row is created by runRegulatoryAnalyze() directly inside the
+  // src/lib/regulatory/ ALLOWED_PATH.
+  "REGULATORY_ALERT_GENERATED",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -1701,6 +1707,14 @@ export const EVENT_SCHEMAS = {
       courseId: z.string().min(1),
       userId: z.string().min(1),
       watchedSeconds: z.number().int().min(0).max(36_000),
+    }),
+  },
+  REGULATORY_ALERT_GENERATED: {
+    1: z.object({
+      alertId: z.string().min(1),
+      articleId: z.string().min(1),
+      severity: z.enum(["INFO", "ADVISORY", "URGENT"]),
+      matchedFrameworks: z.array(z.string()).max(20),
     }),
   },
 } as const;
