@@ -1,39 +1,61 @@
 import Link from "next/link";
 import type { Route } from "next";
-import { Settings, Bell, CreditCard } from "lucide-react";
+import { Settings, Bell, CreditCard, Clock } from "lucide-react";
+import { getPracticeUser } from "@/lib/rbac";
 
 export const metadata = { title: "Settings · GuardWell" };
+export const dynamic = "force-dynamic";
 
-const SECTIONS = [
+interface Section {
+  href: Route;
+  icon: typeof Settings;
+  title: string;
+  description: string;
+  /** When true, only OWNER + ADMIN see this tile. Default = visible to all. */
+  adminOnly?: boolean;
+}
+
+const SECTIONS: Section[] = [
   {
-    href: "/settings/practice",
+    href: "/settings/practice" as Route,
     icon: Settings,
     title: "Practice profile",
     description: "Identity, location, NPI, specialty, and EHR.",
   },
   {
-    href: "/settings/notifications",
+    href: "/settings/notifications" as Route,
     icon: Bell,
     title: "Notifications",
     description: "Daily and weekly digest preferences.",
   },
   {
-    href: "/settings/subscription",
+    href: "/settings/reminders" as Route,
+    icon: Clock,
+    title: "Reminders",
+    description: "When GuardWell starts nudging before deadlines.",
+    adminOnly: true,
+  },
+  {
+    href: "/settings/subscription" as Route,
     icon: CreditCard,
     title: "Subscription",
     description: "Plan, billing, and payment method.",
   },
-] as const;
+];
 
-export default function SettingsIndexPage() {
+export default async function SettingsIndexPage() {
+  const pu = await getPracticeUser();
+  const isAdmin =
+    pu !== null && (pu.role === "OWNER" || pu.role === "ADMIN");
+  const visible = SECTIONS.filter((s) => !s.adminOnly || isAdmin);
   return (
     <main className="mx-auto max-w-3xl space-y-6 p-6">
       <h1 className="text-2xl font-semibold">Settings</h1>
       <ul className="grid gap-3 sm:grid-cols-2">
-        {SECTIONS.map(({ href, icon: Icon, title, description }) => (
+        {visible.map(({ href, icon: Icon, title, description }) => (
           <li key={href}>
             <Link
-              href={href as Route}
+              href={href}
               className="block rounded-lg border bg-card p-4 transition-colors hover:bg-accent"
             >
               <div className="flex items-start gap-3">
