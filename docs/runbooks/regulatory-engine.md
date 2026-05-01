@@ -40,7 +40,7 @@ gcloud scheduler jobs create http guardwell-v2-regulatory-ingest \
   --uri="https://v2.app.gwcomp.com/api/cron/regulatory/ingest" \
   --http-method=POST \
   --message-body='{}' \
-  --update-headers="content-type=application/json,x-cron-secret=$(gcloud secrets versions access latest --secret=CRON_SECRET)" \
+  --headers="content-type=application/json,x-cron-secret=$(gcloud secrets versions access latest --secret=CRON_SECRET)" \
   --location=us-central1
 
 # Analyze (7 AM ET / 12 UTC)
@@ -49,7 +49,7 @@ gcloud scheduler jobs create http guardwell-v2-regulatory-analyze \
   --uri="https://v2.app.gwcomp.com/api/cron/regulatory/analyze" \
   --http-method=POST \
   --message-body='{}' \
-  --update-headers="content-type=application/json,x-cron-secret=$(gcloud secrets versions access latest --secret=CRON_SECRET)" \
+  --headers="content-type=application/json,x-cron-secret=$(gcloud secrets versions access latest --secret=CRON_SECRET)" \
   --location=us-central1
 
 # Notify (8 AM ET / 13 UTC)
@@ -58,11 +58,11 @@ gcloud scheduler jobs create http guardwell-v2-regulatory-notify \
   --uri="https://v2.app.gwcomp.com/api/cron/regulatory/notify" \
   --http-method=POST \
   --message-body='{}' \
-  --update-headers="content-type=application/json,x-cron-secret=$(gcloud secrets versions access latest --secret=CRON_SECRET)" \
+  --headers="content-type=application/json,x-cron-secret=$(gcloud secrets versions access latest --secret=CRON_SECRET)" \
   --location=us-central1
 ```
 
-(See `cron-gotchas.md` for the GCLB `Content-Length` requirement and the `--update-headers` replace-vs-merge trap.)
+(See `cron-gotchas.md` for the GCLB `Content-Length` requirement and the `--update-headers` replace-vs-merge trap on the `update http` command. **Note:** `gcloud scheduler jobs create http` uses `--headers` (above), NOT `--update-headers` — the `update` command's flag name is misleading.)
 
 ### 3. Verify each job end-to-end
 
